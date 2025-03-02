@@ -210,7 +210,7 @@ export default function DetailedFeatures() {
           <div className="max-w-7xl mx-auto px-8">
             <div className="bg-white rounded-lg border shadow-lg">
               <div className="grid grid-cols-4 gap-4 p-7 border-b">
-                <h2 className="fontFamily: 'Montserrat' text-xl font-600">What's included</h2>
+                <h2 className="fontFamily: 'Montserrat' text-xl font-600">What&apos;s included</h2>
                 <div className="fontFamily: 'Montserrat'text-center font-medium">Basic</div>
                 <div className="fontFamily: 'Montserrat' text-center font-medium">Pro</div>
                 <div className="fontFamily: 'Montserrat' text-center font-medium flex items-center justify-center gap-2">

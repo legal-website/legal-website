@@ -305,7 +305,7 @@ export default function Navbar() {
                   Sign In
                 </Button>
                 <div className="text-center mt-4 text-sm">
-                  Don't have an account?{" "}
+                  Don&apos;t have an account?{" "}
                   <a href="/sign-up" className="text-[#22c984]  underline">
                     Sign up instead
                   </a>

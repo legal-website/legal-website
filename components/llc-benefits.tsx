@@ -1,4 +1,4 @@
-import { ShieldCheck, Handshake, DollarSign, Users, Building2, Landmark, BarChart4, Pencil, FileText, Scale, TrendingUp } from "lucide-react";
+import { ShieldCheck, Handshake, DollarSign, Users, Building2, Landmark, BarChart4, FileText,  TrendingUp } from "lucide-react";
 import { ScrollAnimation } from "./GlobalScrollAnimation";
 
 export default function LLCBenefits() {
@@ -47,7 +47,7 @@ export default function LLCBenefits() {
           <h2 style={{ fontFamily: "'Montserrat', Nethead" }} className="text-4xl font-medium text-center mb-4">
             LLC vs. corporation:
             <br />
-            What's the difference?
+            What&apos;s the difference?
           </h2>
           <p style={{ fontFamily: "'Nethead', sans-serif" }} className="text-center text-gray-600 mb-12">
             There are several important differences between an LLC and a corporation:

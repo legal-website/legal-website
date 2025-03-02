@@ -18,7 +18,7 @@ export default function Hero() {
               with <span className="italic font-bold">confidence</span>
             </h1>
             <p className="text-gray-700 text-lg mb-5 leading-relaxed">
-              Whether you're ready to form an LLC on your own—or want advice every step of the way—we've got your back.
+              Whether you're ready to form an LLC on your own or want advice every step of the way we&apos;ve got your back.
             </p>
 
             {/* Contact Info */}
@@ -54,8 +54,8 @@ Have questions? Call <span className="font-bold ml-1">(833) 799-4891 </span> to 
             {/* Testimonial Card */}
             <div className="bg-white p-6 rounded-2xl shadow-lg absolute right-6 bottom-6 max-w-sm">
               <p className="text-gray-800 text-lg italic leading-relaxed">
-                "Orizen was an incredible partner. My business feels so sound that I can't wait to hire more people...
-                and have Orizen there with me as I grow."
+                Orizen was an incredible partner. My business feels so sound that I can&apos;t wait to hire more people...
+                and have Orizen there with me as I grow.
               </p>
               <div className="mt-4">
                 <p className="font-semibold text-gray-900">Shannon Greevy</p>

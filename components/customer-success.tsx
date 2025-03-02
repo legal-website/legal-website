@@ -60,7 +60,7 @@ export default function CustomerSuccess() {
     <div className="bg-white py-20 px-[10%]">
       <div className="container mx-auto">
         <h2 style={{ fontFamily: 'Montserrat', fontSize: '40px', fontWeight: '500' }} className="text-center mb-16 text-gray-900">
-          How we've helped our customers
+          How we&apos;ve helped our customers
         </h2>
 
         {/* Top Section - 2 columns */}
@@ -83,7 +83,7 @@ export default function CustomerSuccess() {
               {testimonials.map((testimonial, index) => (
                 <SwiperSlide key={index}>
                   <div className="text-6xl mb-6" style={{ fontFamily: 'Montserrat' }}>
-                    "
+                  &apos;&apos;
                   </div>
                   <p style={{ fontFamily: 'Nethead', fontSize: '16px' }} className="mb-4">{testimonial.text}</p>
                   <div className="flex justify-between items-center">
@@ -126,10 +126,10 @@ export default function CustomerSuccess() {
           {/* Middle Column */}
           <div className="col-span-6 bg-gray-100 rounded-2xl p-8">
             <div className="text-6xl mb-6" style={{ fontFamily: 'Montserrat' }}>
-              "
+            &apos;&apos;
             </div>
             <p style={{ fontFamily: 'Work Sans', fontSize: '16px' }} className="mb-4">
-              I am a repeat customer and wouldn't trust anyone else with my business details.
+              I am a repeat customer and wouldn &apos;t trust anyone else with my business details.
             </p>
             <div className="flex justify-between items-center mb-8">
               <div>
