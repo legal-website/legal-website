@@ -23,13 +23,13 @@ export default function LLCBenefits() {
               icon: <Handshake className="w-8 h-8 text-[#1eac73]" />, 
               title: "Make things easier",
               description:
-                "It's typically easier to form an LLC than a corporation, and there are simpler rules for things like record-keeping.",
+                "It&apos;s typically easier to form an LLC than a corporation, and there are simpler rules for things like record-keeping.",
             },
             {
               icon: <DollarSign className="w-8 h-8 text-[#0f4e35]" />, 
               title: "Get tax flexibility",
               description:
-                "You get to decide how you're taxed—as an LLC or a corporation—to maximize your ability to save money and minimize tax liability.",
+                "You get to decide how you&apos;re taxed—as an LLC or a corporation—to maximize your ability to save money and minimize tax liability.",
             },
           ].map((item, index) => (
             <div key={index} className="bg-white border rounded-lg p-6 shadow-md transition-transform transform hover:scale-105 hover:shadow-lg">

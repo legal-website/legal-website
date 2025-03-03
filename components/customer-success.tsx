@@ -83,7 +83,7 @@ export default function CustomerSuccess() {
               {testimonials.map((testimonial, index) => (
                 <SwiperSlide key={index}>
                   <div className="text-6xl mb-6" style={{ fontFamily: 'Montserrat' }}>
-                  &apos;&apos;
+                  &quot;
                   </div>
                   <p style={{ fontFamily: 'Nethead', fontSize: '16px' }} className="mb-4">{testimonial.text}</p>
                   <div className="flex justify-between items-center">
@@ -126,10 +126,10 @@ export default function CustomerSuccess() {
           {/* Middle Column */}
           <div className="col-span-6 bg-gray-100 rounded-2xl p-8">
             <div className="text-6xl mb-6" style={{ fontFamily: 'Montserrat' }}>
-            &apos;&apos;
+            &quot;
             </div>
             <p style={{ fontFamily: 'Work Sans', fontSize: '16px' }} className="mb-4">
-              I am a repeat customer and wouldn &apos;t trust anyone else with my business details.
+              I am a repeat customer and wouldn&apos;t trust anyone else with my business details.
             </p>
             <div className="flex justify-between items-center mb-8">
               <div>

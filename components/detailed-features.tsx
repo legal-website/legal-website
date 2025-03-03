@@ -59,7 +59,7 @@ const features: FeatureCategory[] = [
     items: [
       {
         name: "Operating agreement",
-        tooltip: "Orizen document outlining your LLC's ownership and operating procedures",
+        tooltip: "Orizen document outlining your LLC&apos;s ownership and operating procedures",
         basic: false,
         pro: true,
         premium: true,

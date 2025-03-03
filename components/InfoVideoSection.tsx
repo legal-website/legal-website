@@ -62,14 +62,14 @@ export default function InfoVideoSection() {
               variants={slideFromLeft}
             >
               <p className="text-gray-700 text-[17px] font-['Nethead'] mb-4">
-                To form an LLC you &apos;ll need to file articles of organization with the state.
+                To form an LLC you&apos;ll need to file articles of organization with the state.
                 <span className="underline decoration-[#22c984]">
                   Each state has its own rules, but our experience across all states helps us keep things moving
                 </span>
                 when we file on your behalf.
               </p>
               <p className="text-gray-600">
-                Here are a few things you &apos;ll need to keep in mind to get your LLC up and running.
+                Here are a few things you&apos;ll need to keep in mind to get your LLC up and running.
               </p>
             </motion.div>
             <motion.div

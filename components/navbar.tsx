@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
 import { Search, ChevronDown, Phone, X, Eye, EyeOff } from "lucide-react"
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 
 export default function Navbar() {
@@ -16,7 +16,7 @@ export default function Navbar() {
   const [showPassword, setShowPassword] = useState(false)
   const [privacyChecked, setPrivacyChecked] = useState(false)
   const modalRef = useRef<HTMLDivElement | null>(null)
-  const router = useRouter();
+  const router = useRouter()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -106,49 +106,39 @@ export default function Navbar() {
       <div className="container mx-auto px-20">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
-          <Link href="/" className="flex items-center">
-  <Image 
-    src="/logo.png" 
-    alt="Orizen Inc Logo" 
-    height={100} 
-    width={200} 
-    priority 
-    quality={100} // Ensures high-quality rendering
-  />
-</Link>
+            <Link href="/" className="flex items-center">
+              <Image src="/logo.png" alt="Orizen Inc Logo" height={100} width={200} priority quality={100} />
+            </Link>
 
-<div className="hidden md:flex ml-20 space-x-12">
-      {[
-        { title: "Pricing", id: "pricing-section" },
-        { title: "Why Choose Us", id: "whyuse" },
-        { title: "How To Start", id: "how" },
-        { title: "FAQs", id: "faqs" },
-        { title: "States", id: "states" },
-      ].map((item) => (
-        <button
-          key={item.id}
-          onClick={() => scrollToSection(item.id)}
-          className="flex items-center space-x-2 text-black hover:text-[#22c984] 
-          focus:text-[#22c984] transition duration-500 ease-in-out transform hover:scale-105 
-          font-[Montserrat] text-[16px] font-[400]"
-        >
-          <span>{item.title}</span>
-          <ChevronDown className="h-4 w-4" />
-        </button>
-      ))}
-{
-  
-  <button
-    onClick={() => router.push('/contact')}
-    className="flex items-center space-x-2 text-black hover:text-[#22c984] 
-    focus:text-[#22c984] transition duration-500 ease-in-out transform hover:scale-105 
-    font-[Montserrat] text-[16px] font-[400]"
-  >
-    <span>Data</span>
-  </button>
-}
-    </div>
-</div>
+            <div className="hidden md:flex ml-20 space-x-12">
+              {[
+                { title: "Pricing", id: "pricing-section" },
+                { title: "Why Choose Us", id: "whyuse" },
+                { title: "How To Start", id: "how" },
+                { title: "FAQs", id: "faqs" },
+                { title: "States", id: "states" },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => scrollToSection(item.id)}
+                  className="flex items-center space-x-2 text-black hover:text-[#22c984] 
+                  focus:text-[#22c984] transition duration-500 ease-in-out transform hover:scale-105 
+                  font-[Montserrat] text-[16px] font-[400]"
+                >
+                  <span>{item.title}</span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              ))}
+              <button
+                onClick={() => router.push("/contact")}
+                className="flex items-center space-x-2 text-black hover:text-[#22c984] 
+                focus:text-[#22c984] transition duration-500 ease-in-out transform hover:scale-105 
+                font-[Montserrat] text-[16px] font-[400]"
+              >
+                <span>Data</span>
+              </button>
+            </div>
+          </div>
           <div className="flex items-center space-x-10">
             <div className="hidden md:flex items-center">
               <Phone

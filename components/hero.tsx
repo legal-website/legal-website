@@ -18,7 +18,7 @@ export default function Hero() {
               with <span className="italic font-bold">confidence</span>
             </h1>
             <p className="text-gray-700 text-lg mb-5 leading-relaxed">
-              Whether you're ready to form an LLC on your own or want advice every step of the way we&apos;ve got your back.
+              Whether you&apos;re ready to form an LLC on your own or want advice every step of the way we&apos;ve got your back.
             </p>
 
             {/* Contact Info */}
