@@ -1,9 +1,9 @@
 "use client"
-
+import Link from "next/link"
 import { useState } from "react"
 import VideoModal from "@/components/video-modal"
 import { useRouter } from "next/navigation"
-
+import Image from "next/image";
 export default function AboutUs() {
   const router = useRouter()
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)
@@ -17,9 +17,9 @@ export default function AboutUs() {
           <div className="max-w-3xl">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">About Us</h1>
             <div className="inline-flex items-center bg-black/20 px-4 py-2 rounded-md">
-              <a href="/" className="text-white hover:text-blue-200 transition">
-                Home
-              </a>
+            <Link href="/" className="text-white hover:text-blue-200 transition">
+  Home
+</Link>
               <span className="mx-2 text-white">&gt;</span>
               <span className="text-white">About</span>
             </div>
@@ -49,13 +49,13 @@ export default function AboutUs() {
           <div className="grid md:grid-cols-2 gap-12 items-center">
             {/* Left Column - Image and Video */}
               <div className="relative ml-4">
-                <img
+              <Image
                   src="/abouts.png"
                   alt="Business professionals working together"
                   className="w-[515px] h-[500px] object-contain"
                 />
                 <div
-                  className="absolute bottom-10  right-14 w-[250px] h-40 rounded-md bg-[#22c984] flex items-center justify-center cursor-pointer hover:bg-[#166948] transition"
+                  className="absolute bottom-10  right-6 w-[250px] h-40 rounded-md bg-[#22c984] flex items-center justify-center cursor-pointer hover:bg-[#166948] transition"
                   onClick={() => setIsVideoModalOpen(true)}
                 >
                   <div className="w-16 h-16 flex items-center justify-center bg-white rounded-full">

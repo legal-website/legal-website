@@ -1,14 +1,12 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button";
 import ScrollToTopButton from "@/components/ScrollToTopButton";
 import { Send, Phone, Mail, Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
 import { ScrollAnimation } from "./GlobalScrollAnimation";
 
 export default function Footer() {
-  const router = useRouter()
   return (
     <ScrollAnimation>
     <footer className="bg-[#1a1a1a] text-white">

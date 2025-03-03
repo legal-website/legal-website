@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { Phone } from "lucide-react"
-
+import Image from "next/image";
 export default function NeedProjectSection() {
   const personImageRef = useRef<HTMLImageElement>(null)
   const needProjectRef = useRef<HTMLImageElement>(null)
@@ -97,7 +97,7 @@ export default function NeedProjectSection() {
                   </div>
                   </div>
                   {/* Person Image */}
-                  <img
+                  <Image
                     ref={personImageRef}
                     src="/contact-thumb.png"
                     alt="Contact support"
@@ -105,7 +105,7 @@ export default function NeedProjectSection() {
                   />
 
                   {/* Need Project Bubble */}
-                  <img
+                  <Image
                     ref={needProjectRef}
                     src="/need.png"
                     alt="Need Project?"
