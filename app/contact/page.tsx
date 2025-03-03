@@ -9,19 +9,21 @@ import { Phone, Mail, MapPin } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
-export default function ContactPage() {
-  const [formStatus, setFormStatus] = useState<{ message: string; isError: boolean } | null>(null)
+export default function ContactPage() {const [formStatus, setFormStatus] = useState<{ message: string; isError: boolean } | null>(null)
+const [isSubmitting, setIsSubmitting] = useState(false)
 
-  async function handleSubmit(formData: FormData) {
-    setFormStatus(null) // Reset status before sending
+async function handleSubmit(formData: FormData) {
+  setFormStatus(null)
+  setIsSubmitting(true)
+  try {
     const result = await sendEmail(formData)
-    if (result.success) {
-      setFormStatus({ message: result.message, isError: false })
-    } else {
-      setFormStatus({ message: result.message, isError: true })
-    }
+    setFormStatus({ message: result.message, isError: !result.success })
+  } catch (error) {
+    setFormStatus({ message: "An unexpected error occurred. Please try again.", isError: true })
+  } finally {
+    setIsSubmitting(false)
   }
-
+}
   return (
     <main className="min-h-screen bg-gray-100">
       {/* Hero Section */}

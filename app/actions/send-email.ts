@@ -8,6 +8,11 @@ export async function sendEmail(formData: FormData) {
   const subject = formData.get("subject") as string
   const message = formData.get("message") as string
 
+  // Validate input
+  if (!name || !email || !subject || !message) {
+    return { success: false, message: "All fields are required." }
+  }
+
   // Create a transporter using SMTP
   const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -38,12 +43,33 @@ export async function sendEmail(formData: FormData) {
   }
 
   try {
+    // Check if environment variables are set
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      throw new Error("Email configuration is missing.")
+    }
+
     // Send email
     await transporter.sendMail(mailOptions)
     return { success: true, message: "Message sent successfully!" }
   } catch (error) {
     console.error("Error sending email:", error)
-    return { success: false, message: "Failed to send message. Please try again." }
+
+    // Provide more detailed error messages
+    if (error instanceof Error) {
+      if (error.message.includes("Invalid login")) {
+        return {
+          success: false,
+          message: "Failed to authenticate with the email server. Please check your email credentials.",
+        }
+      } else if (error.message.includes("configuration is missing")) {
+        return {
+          success: false,
+          message: "Email service is not configured properly. Please contact the administrator.",
+        }
+      }
+    }
+
+    return { success: false, message: "Failed to send message. Please try again later or contact us directly." }
   }
 }
 
