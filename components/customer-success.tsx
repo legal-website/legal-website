@@ -1,5 +1,4 @@
 "use client"
-
 import Image from "next/image"
 import { useEffect, useState } from "react"
 import { Star, Check } from "lucide-react"
@@ -10,7 +9,6 @@ import "swiper/css"
 
 export default function CustomerSuccess() {
   const [count, setCount] = useState(10)
-  const [businesses, setBusinesses] = useState(1)
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -24,19 +22,6 @@ export default function CustomerSuccess() {
     }, 100)
 
     return () => clearInterval(timer)
-  }, [])
-  useEffect(() => {
-    const businessesTimer = setInterval(() => {
-      setBusinesses((prev) => {
-        if (prev >= 4) {
-          clearInterval(businessesTimer)
-          return 4
-        }
-        return prev + 1
-      })
-    }, 500)
-
-    return () => clearInterval(businessesTimer)
   }, [])
   const testimonials = [
     {
