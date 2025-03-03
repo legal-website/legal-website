@@ -1,28 +1,43 @@
-import { Mail, MapPin } from "lucide-react";
+"use client";
+import { Mail, MapPin, Phone } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 export default function TopBar() {
+  const [isClicked, setIsClicked] = useState(false);
   return (
     <div className="bg-gradient-to-r from-[#22c984] to-[#0B0E19] text-white py-2">
       <div className="container mx-auto px-6">
         <div className="flex justify-between items-center">
-          
-          {/* Left Section - Address with Google Maps Link */}
-          <Link 
-            href="https://www.google.com/maps?q=7901,+N+STE+15322,+St.+Petersburg,+FL" 
-            target="_blank"
-            className="flex items-center text-xs font-medium group hover:text-black transition-colors"
-          >
-            <MapPin className="h-4 w-4 mr-1.5 text-white group-hover:text-black transition-colors" />
-            <span>7901, N STE 15322, St. Petersburg, FL.</span>
-          </Link>
+          {/* Left Section - Address and Phone Number */}
+          <div className="flex items-center space-x-[30px]">
+            {/* Address with Google Maps Link */}
+            <Link 
+              href="https://www.google.com/maps?q=7901,+N+STE+15322,+St.+Petersburg,+FL" 
+              target="_blank"
+              className="flex items-center text-[14px] font-medium group hover:text-black transition-colors"
+            >
+              <MapPin className="h-5 w-5 mr-1.5 text-white group-hover:text-black transition-colors" />
+              <span>7901, N STE 15322, St. Petersburg, FL.</span>
+            </Link>
+            {/* Phone Number with Icon */}
+            <div className="flex items-center">
+              <Phone className="h-5 w-5 mr-1.5 text-white group-hover:text-black transition-colors" />
+              <a
+                href="tel:+1 123 456 789"
+                className="text-[14px] font-medium hover:text-black transition-colors"
+              >
+               +1 123 456 789
+              </a>
+            </div>
+          </div>
 
-          {/* Right Section - Contact & Socials */}
-          <div className="flex items-center space-x-6">
+         {/* Right Section - Contact & Socials */}
+         <div className="flex items-center space-x-6">
             {/* Email */}
             <Link 
               href="mailto:info@orizen.com" 
-              className="flex items-center text-xs font-medium hover:text-gray-300"
+              className="flex items-center text-[14px] font-medium hover:text-gray-300"
             >
               <Mail className="h-5 w-5 mr-1.5 text-[#22c984]" />
               info@orizen.com

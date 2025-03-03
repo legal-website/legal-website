@@ -1,15 +1,31 @@
 "use client"
-
 import Image from "next/image"
 import Link from "next/link"
-import { Phone, Mail, MapPin } from "lucide-react"
 import { ScrollAnimation } from "@/components/GlobalScrollAnimation"
+import { sendEmail } from "@/app/actions/send-email"
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Phone, Mail, MapPin } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 export default function ContactPage() {
+  const [formStatus, setFormStatus] = useState<{ message: string; isError: boolean } | null>(null)
+
+  async function handleSubmit(formData: FormData) {
+    setFormStatus(null) // Reset status before sending
+    const result = await sendEmail(formData)
+    if (result.success) {
+      setFormStatus({ message: result.message, isError: false })
+    } else {
+      setFormStatus({ message: result.message, isError: true })
+    }
+  }
+
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen bg-gray-100">
       {/* Hero Section */}
-      <div className="relative h-[450px] overflow-hidden">
+      <div className="relative h-[500px] overflow-hidden">
         <Image src="/contact.webp" alt="Contact Us" fill className="object-cover object-center" priority />
         <div className="absolute inset-0 bg-gradient-to-r from-blue-900/80 to-[#22c984]/80">
           <div
@@ -36,12 +52,11 @@ export default function ContactPage() {
                   <li>Contact Us</li>
                 </ol>
               </nav>
-              <h1 className="text-5xl font-normal drop-shadow-lg font-[Montserrat]  ">Contact Us</h1>
+              <h1 className="text-5xl font-normal drop-shadow-lg font-[Montserrat]">Contact Us</h1>
             </div>
           </ScrollAnimation>
         </div>
       </div>
-
       {/* Contact Information Section */}
       <div className="container mx-auto px-[10%] py-20">
         <div className="grid md:grid-cols-3 gap-12">
@@ -69,6 +84,100 @@ export default function ContactPage() {
           ))}
         </div>
       </div>
+
+      {/* Form Section */}
+      <ScrollAnimation direction="up">
+        <div className="container mx-auto px-4 py-16">
+          <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-lg p-8">
+            <div className="text-center mb-8">
+              <span className="text-[#22c984] text-sm font-medium mb-2 block" style={{ fontFamily: "Nethead" }}>
+                REQUEST A QUOTE
+              </span>
+              <h2 className="text-3xl font-semibold text-gray-900" style={{ fontFamily: "Montserrat" }}>
+                How May We Help You!
+              </h2>
+            </div>
+
+            <form action={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Input
+                    type="text"
+                    name="name"
+                    placeholder="Name *"
+                    required
+                    className="w-full p-3 border rounded-md"
+                    style={{ fontFamily: "Nethead" }}
+                  />
+                </div>
+                <div>
+                  <Input
+                    type="email"
+                    name="email"
+                    placeholder="Email *"
+                    required
+                    className="w-full p-3 border rounded-md"
+                    style={{ fontFamily: "Nethead" }}
+                  />
+                </div>
+              </div>
+              <div>
+                <Input
+                  type="text"
+                  name="subject"
+                  placeholder="Subject *"
+                  required
+                  className="w-full p-3 border rounded-md"
+                  style={{ fontFamily: "Nethead" }}
+                />
+              </div>
+              <div>
+                <Textarea
+                  name="message"
+                  placeholder="Write A Message"
+                  rows={6}
+                  className="w-full p-3 border rounded-md"
+                  style={{ fontFamily: "Nethead" }}
+                />
+              </div>
+              <div className="text-center">
+                <Button
+                  type="submit"
+                  className="w-full md:w-auto px-8 py-3 bg-[#22c984] text-white rounded-md hover:bg-[#176b48] transition-colors"
+                  style={{ fontFamily: "Nethead" }}
+                >
+                  Send Message
+                </Button>
+              </div>
+              {formStatus && (
+                <p
+                  className={`text-center ${formStatus.isError ? "text-red-600" : "text-green-600"}`}
+                  style={{ fontFamily: "Nethead" }}
+                >
+                  {formStatus.message}
+                </p>
+              )}
+            </form>
+          </div>
+        </div>
+      </ScrollAnimation>
+
+      {/* Map Section */}
+      <ScrollAnimation direction="up">
+        <div className="w-full h-[500px] relative">
+          <iframe
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d193595.25280949928!2d-74.11976404942244!3d40.697403441901946!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c24fa5d33f083b%3A0xc80b8f06e177fe62!2sNew%20York%2C%20NY%2C%20USA!5e0!3m2!1sen!2s!4v1708644774680!5m2!1sen!2s"
+            width="100%"
+            height="500"
+            style={{ border: 0 }}
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            className="absolute inset-0"
+          />
+        </div>
+      </ScrollAnimation>
     </main>
   )
 }
+

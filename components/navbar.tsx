@@ -4,12 +4,11 @@ import Link from "next/link"
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, ChevronDown, Phone, X, Eye, EyeOff } from "lucide-react"
+import { Search, ChevronDown, X, Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 
 export default function Navbar() {
-  const [isClicked, setIsClicked] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [signInOpen, setSignInOpen] = useState(false)
   const [hasScrolled, setHasScrolled] = useState(false)
@@ -133,25 +132,14 @@ export default function Navbar() {
                 onClick={() => router.push("/contact")}
                 className="flex items-center space-x-2 text-black hover:text-[#22c984] 
                 focus:text-[#22c984] transition duration-500 ease-in-out transform hover:scale-105 
-                font-[Montserrat] text-[16px] font-[400]"
+                font-[Montserrat] text-[15px] font-[400]"
               >
-                <span>Data</span>
+                <span>Contact Us</span>
               </button>
             </div>
           </div>
           <div className="flex items-center space-x-10">
-            <div className="hidden md:flex items-center">
-              <Phone
-                className={`h-4 w-4 mr-2 transition-colors duration-300 ${isClicked ? "text-black" : "text-gray-500"}`}
-              />
-              <a
-                href="tel:8557871221"
-                className={`font-medium transition-colors duration-300 ${isClicked ? "text-[#22c984]" : "text-black"}`}
-                onClick={() => setIsClicked(true)}
-              >
-                (855) 787-1221
-              </a>
-            </div>
+            
 
             <Button
               variant="ghost"
