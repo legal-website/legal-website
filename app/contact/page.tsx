@@ -9,7 +9,8 @@ import { Phone, Mail, MapPin } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
-export default function ContactPage() {const [formStatus, setFormStatus] = useState<{ message: string; isError: boolean } | null>(null)
+export default function ContactPage() {
+  const [formStatus, setFormStatus] = useState<{ message: string; isError: boolean } | null>(null)
 const [isSubmitting, setIsSubmitting] = useState(false)
 
 async function handleSubmit(formData: FormData) {
@@ -92,7 +93,7 @@ async function handleSubmit(formData: FormData) {
         <div className="container mx-auto px-4 py-16">
           <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-lg p-8">
             <div className="text-center mb-8">
-              <span className="text-[#22c984] text-sm font-medium mb-2 block" style={{ fontFamily: "Nethead" }}>
+              <span className="text-blue-600 text-sm font-medium mb-2 block" style={{ fontFamily: "Nethead" }}>
                 REQUEST A QUOTE
               </span>
               <h2 className="text-3xl font-semibold text-gray-900" style={{ fontFamily: "Montserrat" }}>
@@ -140,15 +141,17 @@ async function handleSubmit(formData: FormData) {
                   rows={6}
                   className="w-full p-3 border rounded-md"
                   style={{ fontFamily: "Nethead" }}
+                  required
                 />
               </div>
               <div className="text-center">
                 <Button
                   type="submit"
-                  className="w-full md:w-auto px-8 py-3 bg-[#22c984] text-white rounded-md hover:bg-[#176b48] transition-colors"
+                  className="w-full md:w-auto px-8 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                   style={{ fontFamily: "Nethead" }}
+                  disabled={isSubmitting}
                 >
-                  Send Message
+                  {isSubmitting ? "Sending..." : "Send Message"}
                 </Button>
               </div>
               {formStatus && (
