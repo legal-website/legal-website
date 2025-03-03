@@ -5,7 +5,7 @@ export default function ContactSection() {
     <div className="bg-white">
       <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-lg mx-auto md:max-w-none md:grid md:grid-cols-2 md:gap-[30px]">
-          <div className="bg-gray-50 p-8 rounded-2xl shadow-[0_4px_10px_rgba(34,197,94,0.1)] transition-shadow hover:shadow-[0_8px_20px_rgba(34,197,94,0.3)] hover:bg-green-50">
+          <div className="bg-gray-50 p-8 rounded-2xl shadow-[0_4px_10px_rgba(34,197,94,0.1)] hover:bg-green-50 items-start transition-transform transform hover:scale-105 hover:shadow-xl duration-300">
             <h2 className="text-2xl font-extrabold text-gray-900 sm:text-3xl">Contact Support</h2>
             <div className="mt-3">
               <p className="text-lg text-gray-500">
@@ -32,7 +32,7 @@ export default function ContactSection() {
               </div>
             </div>
           </div>
-          <div className="bg-gray-50 p-8 rounded-2xl shadow-[0_4px_10px_rgba(34,197,94,0.1)] transition-shadow hover:shadow-[0_8px_20px_rgba(34,197,94,0.3)] hover:bg-green-50 mt-12 sm:mt-16 md:mt-0">
+          <div className="bg-gray-50 p-8 rounded-2xl shadow-[0_4px_10px_rgba(34,197,94,0.1)] transition-shadow hover:bg-green-50 mt-12 sm:mt-16 md:mt-0 items-start  transform hover:scale-105 hover:shadow-xl duration-300">
             <h2 className="text-2xl font-extrabold text-gray-900 sm:text-3xl">Legal Inquiries</h2>
             <div className="mt-3">
               <p className="text-lg text-gray-500">
