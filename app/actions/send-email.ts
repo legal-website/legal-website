@@ -8,12 +8,19 @@ export async function sendEmail(formData: FormData) {
   const subject = formData.get("subject") as string
   const message = formData.get("message") as string
 
-  // Validate input
-  if (!name || !email || !subject || !message) {
-    return { success: false, message: "All fields are required." }
+  console.log("Attempting to send email with the following details:")
+  console.log(`Name: ${name}`)
+  console.log(`Email: ${email}`)
+  console.log(`Subject: ${subject}`)
+  console.log(`Message: ${message.substring(0, 50)}...`) // Log first 50 characters of the message
+
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error("EMAIL_USER or EMAIL_PASS environment variables are not set")
+    return { success: false, message: "Email configuration is missing. Please contact the administrator." }
   }
 
-  // Create a transporter using SMTP
+  console.log(`Using email: ${process.env.EMAIL_USER}`)
+
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -22,10 +29,9 @@ export async function sendEmail(formData: FormData) {
     },
   })
 
-  // Email options
   const mailOptions = {
     from: process.env.EMAIL_USER,
-    to: "ary5054@gmail.com", // Your email address
+    to: "ary5054@gmail.com",
     subject: `New Contact Form Submission: ${subject}`,
     text: `
       Name: ${name}
@@ -43,33 +49,19 @@ export async function sendEmail(formData: FormData) {
   }
 
   try {
-    // Check if environment variables are set
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      throw new Error("Email configuration is missing.")
-    }
-
-    // Send email
-    await transporter.sendMail(mailOptions)
+    console.log("Attempting to send email...")
+    const info = await transporter.sendMail(mailOptions)
+    console.log("Email sent successfully:", info.response)
     return { success: true, message: "Message sent successfully!" }
   } catch (error) {
     console.error("Error sending email:", error)
-
-    // Provide more detailed error messages
     if (error instanceof Error) {
-      if (error.message.includes("Invalid login")) {
-        return {
-          success: false,
-          message: "Failed to authenticate with the email server. Please check your email credentials.",
-        }
-      } else if (error.message.includes("configuration is missing")) {
-        return {
-          success: false,
-          message: "Email service is not configured properly. Please contact the administrator.",
-        }
+      return {
+        success: false,
+        message: `Failed to send email: ${error.message}. Please try again later or contact us directly.`,
       }
     }
-
-    return { success: false, message: "Failed to send message. Please try again later or contact us directly." }
+    return { success: false, message: "An unknown error occurred. Please try again later or contact us directly." }
   }
 }
 

@@ -91,8 +91,17 @@ export default function ContactPage() {
 
       {/* Form Section */}
       <ScrollAnimation direction="up">
-        <div className="container mx-auto px-4 py-16">
+        
+      <div className="container mx-auto px-4 py-16">
           <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-lg p-8">
+            <div className="text-center mb-8">
+              <span className="text-blue-600 text-sm font-medium mb-2 block" style={{ fontFamily: "Nethead" }}>
+                REQUEST A QUOTE
+              </span>
+              <h2 className="text-3xl font-semibold text-gray-900" style={{ fontFamily: "Montserrat" }}>
+                How May We Help You!
+              </h2>
+            </div>
             <form action={handleSubmit} className="space-y-6">
               <Input type="text" name="name" placeholder="Name *" required />
               <Input type="email" name="email" placeholder="Email *" required />
@@ -104,6 +113,21 @@ export default function ContactPage() {
               {formStatus && <p className={formStatus.isError ? "text-red-600" : "text-green-600"}>{formStatus.message}</p>}
             </form>
           </div>
+        </div>
+      </ScrollAnimation>
+      {/* Map Section */}
+      <ScrollAnimation direction="up">
+        <div className="w-full h-[500px] relative">
+          <iframe
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d193595.25280949928!2d-74.11976404942244!3d40.697403441901946!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c24fa5d33f083b%3A0xc80b8f06e177fe62!2sNew%20York%2C%20NY%2C%20USA!5e0!3m2!1sen!2s!4v1708644774680!5m2!1sen!2s"
+            width="100%"
+            height="500"
+            style={{ border: 0 }}
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            className="absolute inset-0"
+          />
         </div>
       </ScrollAnimation>
     </main>
