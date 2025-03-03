@@ -1,10 +1,8 @@
 "use client";
 import { Mail, MapPin, Phone } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 
-export default function TopBar() {
-  const [isClicked, setIsClicked] = useState(false);
+export default function TopBar() { 
   return (
     <div className="bg-gradient-to-r from-[#22c984] to-[#0B0E19] text-white py-2">
       <div className="container mx-auto px-6">
