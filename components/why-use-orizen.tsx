@@ -57,7 +57,7 @@ export default function WhyUseOrizen() {
               title2: "Do I need an LLC?",
               text2:
                 "An LLC isn't always required, but many small business owners choose to form an LLC for personal liability protection. Having an LLC can also help you open bank accounts, enter into contracts, hire employees, and get necessary business licenses and permits.",
-              img: "/hero.webp",
+              img: "/slide.webp",
             },
             {
               title1: "What does LLC formation mean?",
@@ -66,7 +66,7 @@ export default function WhyUseOrizen() {
               title2: "How easy is it to form an LLC?",
               text2:
                 "You may be a little intimidated by the idea of forming a Orizen entity like an LLC, especially if it's your first time. All you need is an understanding of what your business will do, how you plan to run it, and your state's LLC filing fees. Even if your business requires a retail location, you don't need a physical address lined up to begin your LLC formation.",
-              img: "/hero.webp",
+              img: "/slid.webp",
             },
           ].map((item, index) => (
             <div
@@ -87,8 +87,8 @@ export default function WhyUseOrizen() {
                 <Image
                   src={item.img || "/placeholder.svg"}
                   alt="Business owners"
-                  width={500}
-                  height={300}
+                  width={800}
+                  height={200}
                   className="rounded-xl object-cover"
                 />
               </div>

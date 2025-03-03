@@ -31,7 +31,7 @@ export async function sendEmail(formData: FormData) {
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
-    to: "ary5054@gmail.com",
+    to: "t4tech2011@gmail.com",
     subject: `New Contact Form Submission: ${subject}`,
     text: `
       Name: ${name}
@@ -40,7 +40,7 @@ export async function sendEmail(formData: FormData) {
       Message: ${message}
     `,
     html: `
-      <h3>New Contact Form Submission</h3>
+      <h3>New Contact Form Submission from contact us Page</h3>
       <p><strong>Name:</strong> ${name}</p>
       <p><strong>Email:</strong> ${email}</p>
       <p><strong>Subject:</strong> ${subject}</p>

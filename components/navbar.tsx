@@ -109,7 +109,7 @@ export default function Navbar() {
               <Image src="/logo.png" alt="Orizen Inc Logo" height={100} width={200} priority quality={100} />
             </Link>
 
-            <div className="hidden md:flex ml-20 space-x-12">
+            <div className="hidden md:flex ml-12 space-x-10">
               {[
                 { title: "Pricing", id: "pricing-section" },
                 { title: "Why Choose Us", id: "whyuse" },
@@ -135,6 +135,14 @@ export default function Navbar() {
                 font-[Montserrat] text-[15px] font-[400]"
               >
                 <span>Contact Us</span>
+              </button>
+              <button
+                onClick={() => router.push("/about")}
+                className="flex items-center space-x-2 text-black hover:text-[#22c984] 
+                focus:text-[#22c984] transition duration-500 ease-in-out transform hover:scale-105 
+                font-[Montserrat] text-[15px] font-[400]"
+              >
+                <span>About Us</span>
               </button>
             </div>
           </div>

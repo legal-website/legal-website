@@ -73,6 +73,12 @@
   * {
     @apply border-border;
   }
+  @font-face {
+    font-family: "Neathead";
+    src: url("/fonts/Neathead-Regular.woff2") format("woff2"), url("/fonts/Neathead-Regular.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+  }
   body {
     @apply bg-background text-foreground;
     font-family: "Nethead", sans-serif;
@@ -90,5 +96,17 @@
 
 .text-brand {
   color: #22c984;
+}
+@keyframes rotate-360 {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-rotate-slow {
+  animation: rotate-360 10s linear infinite;
 }
 

@@ -40,7 +40,7 @@ export default function ReadySection() {
 
       {/* Questions Section */}
       <ScrollAnimation>
-        <div className="bg-[#f6f4f2] py-16 rounded-2xl mt-10 px-[10%] mb-[180px]">
+        <div className="bg-[#f6f4f2] pt-16 pb-52 rounded-2xl mt-10 px-[10%]">
           <div className="container mx-auto">
             <h2
               className="text-[40px] font-[500] text-gray-900 mb-10 text-left"

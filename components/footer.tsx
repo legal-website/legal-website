@@ -1,18 +1,21 @@
+"use client";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button";
 import ScrollToTopButton from "@/components/ScrollToTopButton";
 import { Send, Phone, Mail, Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
 import { ScrollAnimation } from "./GlobalScrollAnimation";
 
 export default function Footer() {
+  const router = useRouter()
   return (
     <ScrollAnimation>
     <footer className="bg-[#1a1a1a] text-white">
      {/* Newsletter Section */}
 <div className="container mx-auto px-6 md:px-12 lg:px-20 pt-[85px] pb-[0px] flex justify-center">
   <div 
-    className="max-w-[900px] w-full bg-gradient-to-r from-[#22c984] to-[#1eac73] rounded-xl pt-12 pb-0 px-8" 
+    className="max-w-[900px] w-full bg-gradient-to-r from-[#22c984] to-[#1eac73] rounded-xl pt-12 pb-0 px-8 relative z-10" 
     style={{ marginTop: "-170px" }} 
   >
     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -65,17 +68,22 @@ export default function Footer() {
 <div className="ml-[65px]">
   <h3 className="font-semibold text-lg mb-6">Our Links</h3>
   <div className="space-y-3">
-    {["Home", "Locations", "Contact"].map((item) => (
-      <Link key={item} href="#" className="block text-gray-300 hover:text-[#22c984] transition-colors">{item}</Link>
+    {[
+      { name: "Home", href: "/" },
+      { name: "About Us", href: "/about" },
+      { name: "Contact", href: "/contact" }
+    ].map((item) => (
+      <Link key={item.name} href={item.href} className="block text-gray-300 hover:text-[#22c984] transition-colors">{item.name}</Link>
     ))}
   </div>
 </div>
 
+
 {/* Exhibitor Tools */}
 <div className="ml-[35px]">
-  <h3 className="font-semibold text-lg mb-6">Exhibitor Tools</h3>
+  <h3 className="font-semibold text-lg mb-6">Orizen Inc Tools</h3>
   <div className="space-y-3">
-    {["Exhibitor Login", "Track Your Package", "Insights", "Careers"].map((item) => (
+    {["Orizen Login", "Track Your Package", "Insights", "Careers"].map((item) => (
       <Link key={item} href="#" className="block text-gray-300 hover:text-[#22c984] transition-colors">{item}</Link>
     ))}
   </div>
@@ -98,14 +106,14 @@ export default function Footer() {
     <div className="flex flex-col md:flex-row justify-between items-center gap-4">
       
       {/* Navigation Links */}
-      <div className="flex flex-wrap gap-4 text-sm text-gray-400">
-        <Link href="#" className="hover:text-[#22c984]" target="_blank" rel="noopener noreferrer">
-          Privacy Policy
-        </Link>
-        <Link href="#" className="hover:text-[#22c984]" target="_blank" rel="noopener noreferrer">
-          Terms & Conditions
-        </Link>
-      </div>
+<div className="flex flex-wrap gap-4 text-sm text-gray-400">
+  <Link href="/privacy-policy" className="hover:text-[#22c984]" target="_blank" rel="noopener noreferrer">
+    Privacy Policy
+  </Link>
+  <Link href="/terms-and-conditions" className="hover:text-[#22c984]" target="_blank" rel="noopener noreferrer">
+    Terms & Conditions
+  </Link>
+</div>
 
       {/* Social Media Section */}
       <div className="flex items-center gap-4">

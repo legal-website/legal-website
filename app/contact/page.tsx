@@ -68,7 +68,7 @@ export default function ContactPage() {
           {[{
             icon: <Phone className="h-8 w-8 text-[#22c984] group-hover:text-black transition-colors" />, title: "Give us a call", content: ["(+1) 400-630 123", "(+2) 500-950 456"]
           }, {
-            icon: <Mail className="h-8 w-8 text-[#22c984] group-hover:text-black transition-colors" />, title: "Drop us a line", content: ["info@techwix-theme.com", "mail@techwix-tech.com"]
+            icon: <Mail className="h-8 w-8 text-[#22c984] group-hover:text-black transition-colors" />, title: "Drop us a line", content: ["info@Orizen.com", "mail@Orizen.com"]
           }, {
             icon: <MapPin className="h-8 w-8 text-[#22c984] group-hover:text-black transition-colors" />, title: "Visit our office", content: ["New York, 112 W 34th St", "caroline, USA"]
           }].map((item, index) => (
@@ -90,31 +90,70 @@ export default function ContactPage() {
       </div>
 
       {/* Form Section */}
-      <ScrollAnimation direction="up">
-        
-      <div className="container mx-auto px-4 py-16">
-          <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-lg p-8">
-            <div className="text-center mb-8">
-              <span className="text-blue-600 text-sm font-medium mb-2 block" style={{ fontFamily: "Nethead" }}>
-                REQUEST A QUOTE
-              </span>
-              <h2 className="text-3xl font-semibold text-gray-900" style={{ fontFamily: "Montserrat" }}>
-                How May We Help You!
-              </h2>
-            </div>
-            <form action={handleSubmit} className="space-y-6">
-              <Input type="text" name="name" placeholder="Name *" required />
-              <Input type="email" name="email" placeholder="Email *" required />
-              <Input type="text" name="subject" placeholder="Subject *" required />
-              <Textarea name="message" placeholder="Write A Message" rows={6} required />
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Sending..." : "Send Message"}
-              </Button>
-              {formStatus && <p className={formStatus.isError ? "text-red-600" : "text-green-600"}>{formStatus.message}</p>}
-            </form>
-          </div>
+      <ScrollAnimation direction="up">  
+  <div className="container mx-auto px-4 pb-16">
+    <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-lg p-8 transition-shadow duration-300 hover:shadow-xl">
+      <div className="text-center mb-8">
+        <span
+          className="text-[#22c984] text-sm font-medium mb-2 block"
+          style={{ fontFamily: "Nethead" }}
+        >
+          REQUEST A QUOTE
+        </span>
+        <h2
+          className="text-3xl font-semibold text-gray-900"
+          style={{ fontFamily: "Montserrat" }}
+        >
+          How May We Help You!
+        </h2>
+      </div>
+      <form action={handleSubmit} className="space-y-6">
+        <Input
+          type="text"
+          name="name"
+          placeholder="Name *"
+          required
+          className="transition-colors duration-300"
+        />
+        <Input
+          type="email"
+          name="email"
+          placeholder="Email *"
+          required
+          className=" transition-colors duration-300"
+        />
+        <Input
+          type="text"
+          name="subject"
+          placeholder="Subject *"
+          required
+          className="transition-colors duration-300"
+        />
+        <Textarea
+          name="message"
+          placeholder="Write A Message"
+          rows={6}
+          required
+          className="transition-colors duration-300"
+        />
+        <div className="flex justify-center">
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="bg-[#22c984] hover:bg-[#1e9e6f] text-white py-2 px-4 rounded transition-colors duration-300"
+          >
+            {isSubmitting ? "Sending..." : "Send Message"}
+          </Button>
         </div>
-      </ScrollAnimation>
+        {formStatus && (
+          <p className={formStatus.isError ? "text-red-600" : "text-green-600"}>
+            {formStatus.message}
+          </p>
+        )}
+      </form>
+    </div>
+  </div>
+</ScrollAnimation>
       {/* Map Section */}
       <ScrollAnimation direction="up">
         <div className="w-full h-[500px] relative">

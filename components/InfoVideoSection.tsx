@@ -82,7 +82,7 @@ export default function InfoVideoSection() {
                 className="aspect-[16/9] relative rounded-md overflow-hidden cursor-pointer w-3/4 mx-auto"
                 onClick={() => setIsOpen(true)}
               >
-                <Image src="/hero.webp" alt="Video thumbnail" fill className="object-cover" />
+                <Image src="/video.webp" alt="Video thumbnail" fill className="object-cover" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-16 h-16 bg-black bg-opacity-75 rounded-full flex items-center justify-center">
                     <Play className="w-8 h-8 text-white" />
