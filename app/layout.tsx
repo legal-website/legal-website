@@ -5,6 +5,7 @@ import Navbar from '@/components/navbar';
 import TopBar from '@/components/top-bar';
 import Footer from '@/components/footer';
 import { Toaster } from "@/components/ui/toaster"
+import Preloader from '@/components/preloader';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body className={inter.className}>
       <Toaster />
         <TopBar />          {/* Topbar at the top */}
+        <Preloader/>
         <Navbar />          {/* Navbar below the Topbar */}
         <main>{children}</main>  {/* Main content */}
         <Footer />          {/* Footer at the bottom */}
