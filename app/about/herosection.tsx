@@ -26,7 +26,12 @@ export default function AboutUs() {
           </div>
         </div>
         <div className="absolute inset-0 opacity-30">
-          <img src="/expo.webp" alt="Technology background" className="object-cover w-full h-full" />
+        <Image  
+  src="/expo.webp"  
+  alt="Technology background"  
+  className="object-cover w-full h-full"  
+/>  
+
         </div>
       </section>
 
