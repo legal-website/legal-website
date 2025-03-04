@@ -98,19 +98,26 @@ export default function NeedProjectSection() {
                   </div>
                   {/* Person Image */}
                   <Image
-                    ref={personImageRef}
-                    src="/contact-thumb.png"
-                    alt="Contact support"
-                    className="absolute right-0 top-1 max-w-[400px] transition-transform duration-300"
-                  />
+  ref={personImageRef}
+  src="/contact-thumb.png"
+  alt="Contact support"
+  width={400} // Set the actual width
+  height={300} // Adjust height as needed
+  className="absolute right-0 top-1 max-w-[400px] transition-transform duration-300"
+/>
+
 
                   {/* Need Project Bubble */}
                   <Image
-                    ref={needProjectRef}
-                    src="/need.png"
-                    alt="Need Project?"
-className="absolute right-[350px] top-[20px] w-52 animate-pulse"
-  style={{ animationDuration: "0.8s" }}                  />
+  ref={needProjectRef}
+  src="/need.png"
+  alt="Need Project?"
+  width={200} // This should be a prop, not inside className
+  height={210} // Add height if needed
+  className="absolute right-[350px] top-[20px] animate-pulse"
+  style={{ animationDuration: "0.8s" }}
+/>
+
                 </div>
               </div>
             </div>

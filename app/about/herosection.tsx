@@ -49,11 +49,14 @@ export default function AboutUs() {
           <div className="grid md:grid-cols-2 gap-12 items-center">
             {/* Left Column - Image and Video */}
               <div className="relative ml-4">
-              <Image
-                  src="/abouts.png"
-                  alt="Business professionals working together"
-                  className="w-[515px] h-[500px] object-contain"
-                />
+<Image 
+  src="/abouts.png"
+  alt="Business professionals working together"
+  width={515}
+  height={500}
+  className="object-contain"
+/>
+
                 <div
                   className="absolute bottom-10  right-6 w-[250px] h-40 rounded-md bg-[#22c984] flex items-center justify-center cursor-pointer hover:bg-[#166948] transition"
                   onClick={() => setIsVideoModalOpen(true)}
