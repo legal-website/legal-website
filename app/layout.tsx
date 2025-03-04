@@ -4,6 +4,7 @@ import ScrollToTopButton from '@/components/ScrollToTopButton';  // Import here
 import Navbar from '@/components/navbar';
 import TopBar from '@/components/top-bar';
 import Footer from '@/components/footer';
+import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -16,12 +17,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>)  {
   return (
     <html lang="en">
       <body className={inter.className}>
+      <Toaster />
         <TopBar />          {/* Topbar at the top */}
         <Navbar />          {/* Navbar below the Topbar */}
         <main>{children}</main>  {/* Main content */}
