@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export default function TopBar() { 
   return (
-    <div className="bg-gradient-to-r from-[#22c984] to-[#0B0E19] text-white py-2">
+    <div className="bg-gradient-to-r from-[#22c984] to-[#0B0E19] text-white py-2 px-6">
       <div className="container mx-auto px-6">
         <div className="flex justify-between items-center">
           {/* Left Section - Address and Phone Number */}

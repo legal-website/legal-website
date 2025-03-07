@@ -3,25 +3,35 @@ import Link from "next/link"
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, ChevronDown, X, Eye, EyeOff } from "lucide-react"
+import { Search, ChevronDown, X, Eye, EyeOff, ShoppingCart } from "lucide-react"
 import { useRouter } from "next/navigation"
+import CartDropdown from "./cart-dropdown"
 import Image from "next/image"
+import { useCart } from "@/context/cart-context"
 
 export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [signInOpen, setSignInOpen] = useState(false)
   const [hasScrolled, setHasScrolled] = useState(false)
+  const { itemCount } = useCart()
+  const [cartOpen, setCartOpen] = useState(false)
+  const cartRef = useRef<HTMLDivElement>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [privacyChecked, setPrivacyChecked] = useState(false)
   const modalRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
 
   useEffect(() => {
-    const handleScroll = () => {
-      setHasScrolled(window.scrollY > 10)
+    function handleClickOutside(event: MouseEvent) {
+      if (cartRef.current && !cartRef.current.contains(event.target as Node)) {
+        setCartOpen(false)
+      }
     }
-    window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
   }, [])
 
   const smoothScroll = (targetPosition: number, duration: number) => {
@@ -99,54 +109,61 @@ export default function Navbar() {
 
   return (
     <nav
-      className={`bg-[#f9f6f2] border-b sticky top-0 z-50 transition-shadow duration-300 ${hasScrolled ? "shadow-md" : "shadow-none"}`}
+      className={`bg-[#f9f6f2] px-6 border-b sticky top-0 z-50 transition-shadow duration-300 ${hasScrolled ? "shadow-md" : "shadow-none"}`}
     >
-      <div className="container mx-auto px-20">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center">
-              <Image src="/logo.png" alt="Orizen Inc Logo" height={100} width={200} priority quality={100} />
-            </Link>
-
-            <div className="hidden md:flex ml-12 space-x-10">
-              {[
-                { title: "Pricing", id: "pricing-section" },
-                { title: "Why Choose Us", id: "whyuse" },
-                { title: "How To Start", id: "how" },
-                { title: "FAQs", id: "faqs" },
-                { title: "States", id: "states" },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => scrollToSection(item.id)}
-                  className="flex items-center space-x-2 text-black hover:text-[#22c984] 
-                  focus:text-[#22c984] transition duration-500 ease-in-out transform hover:scale-105 
-                  font-[Montserrat] text-[16px] font-[400]"
-                >
-                  <span>{item.title}</span>
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              ))}
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-20">
+          <Link href="/" className="flex-shrink-0">
+            <Image src="/logo.png" alt="Orizen Inc Logo" height={70} width={230} priority quality={100} />
+          </Link>
+          <div className="hidden md:flex space-x-8 flex-1 justify-center">
+            {[
+              { title: "Pricing", id: "pricing-section" },
+              { title: "Why Choose Us", id: "whyuse" },
+              { title: "How To Start", id: "how" },
+              { title: "FAQs", id: "faqs" },
+              { title: "States", id: "states" },
+            ].map((item) => (
               <button
-                onClick={() => router.push("/contact")}
-                className="flex items-center space-x-2 text-black hover:text-[#22c984] 
+                key={item.id}
+                onClick={() => scrollToSection(item.id)}
+                className="flex items-center space-x-1 text-black hover:text-[#22c984] 
                 focus:text-[#22c984] transition duration-500 ease-in-out transform hover:scale-105 
                 font-[Montserrat] text-[15px] font-[400]"
               >
-                <span>Contact Us</span>
+                <span>{item.title}</span>
+                <ChevronDown className="h-4 w-4" />
               </button>
-              <button
-                onClick={() => router.push("/about")}
-                className="flex items-center space-x-2 text-black hover:text-[#22c984] 
-                focus:text-[#22c984] transition duration-500 ease-in-out transform hover:scale-105 
-                font-[Montserrat] text-[15px] font-[400]"
-              >
-                <span>About Us</span>
-              </button>
+            ))}
+            <button
+              onClick={() => router.push("/contact")}
+              className="text-black hover:text-[#22c984] focus:text-[#22c984] 
+              transition duration-500 ease-in-out transform hover:scale-105 
+              font-[Montserrat] text-[15px] font-[400]"
+            >
+              Contact Us
+            </button>
+            <button
+              onClick={() => router.push("/about")}
+              className="text-black hover:text-[#22c984] focus:text-[#22c984] 
+              transition duration-500 ease-in-out transform hover:scale-105 
+              font-[Montserrat] text-[15px] font-[400]"
+            >
+              About Us
+            </button>
             </div>
-          </div>
           <div className="flex items-center space-x-10">
-            
+          <div className="relative" ref={cartRef}>
+            <button
+              className="relative p-2 text-gray-600 hover:text-[#22c984] transition-colors"
+              onClick={() => setCartOpen(!cartOpen)}
+              onMouseEnter={() => setCartOpen(true)}
+            >
+              <ShoppingCart className="h-5 w-5" />
+                {itemCount > 0 && <span className="absolute -top-1 -right-1 bg-[#22c984] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{itemCount}</span>}
+              </button>
+            {cartOpen && <CartDropdown />}
+          </div>
 
             <Button
               variant="ghost"
@@ -303,4 +320,5 @@ export default function Navbar() {
     </nav>
   )
 }
+
 
