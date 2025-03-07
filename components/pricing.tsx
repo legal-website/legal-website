@@ -238,10 +238,19 @@ export default function PricingCards() {
     }
 
     // Otherwise add to cart
-    const newItem = {
+    interface CartItem {
+      tier: string
+      price: number
+      state?: keyof typeof stateFilingFees
+      stateFee?: number
+      discount?: number
+    }
+    
+    const newItem: CartItem = {
       tier: tier.name,
       price: tier.price,
-    } as any
+    }
+    
 
     if (selectedState) {
       newItem.state = selectedState

@@ -252,7 +252,7 @@ export default function CheckoutPage() {
                 By completing your purchase, you agree to our Terms of Service and Privacy Policy.
               </p>
               <div className="flex items-center justify-center space-x-4">
-              import Image from 'next/image';
+
 <Image src="/Visa.svg" alt="Visa" className="h-20" width={80} height={80} />
 <Image src="/mastercard.svg" alt="Mastercard" className="h-20" width={80} height={80} />
 <Image src="/amex.svg" alt="Amex" className="h-20" width={80} height={80} />

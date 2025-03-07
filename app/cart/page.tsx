@@ -102,8 +102,6 @@ export default function CartPage() {
             <div className="mt-6 text-sm text-gray-500">
               <p className="mb-2">We accept:</p>
               <div className="flex space-x-2">
-              import Image from 'next/image';
-
 <Image src="/Visa.svg" alt="Visa" className="h-20" width={80} height={80} />
 <Image src="/mastercard.svg" alt="Mastercard" className="h-20" width={80} height={80} />
 <Image src="/amex.svg" alt="Amex" className="h-20" width={80} height={80} />
