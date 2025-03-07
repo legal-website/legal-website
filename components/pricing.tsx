@@ -208,10 +208,6 @@ export default function PricingCards() {
   const [selectedState, setSelectedState] = useState<keyof typeof stateFilingFees | "">("")
   const { addItem, isInCart } = useCart()
 
-  const handleButtonClick = () => {
-    router.push("/states")
-  }
-
   const resetState = () => {
     setSelectedState("")
   }
