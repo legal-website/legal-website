@@ -418,15 +418,6 @@ export default function PricingCards() {
           ))}
         </div>
 
-        {/* Bottom Button */}
-        <div className="mt-8 flex justify-center">
-          <Button
-            onClick={handleButtonClick}
-            className="bg-[#22c984] text-white text-[16px] hover:bg-[#1eac73] hover:text-black px-8"
-          >
-            Explore State-Wise Pricing & Features – Find the Best Plans Tailored for You!
-          </Button>
-        </div>
       </div>
     </ScrollAnimation>
   )
