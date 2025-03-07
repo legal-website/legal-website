@@ -1,7 +1,6 @@
 "use client"
-
+import Image from "next/image"
 import type React from "react"
-
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -253,10 +252,11 @@ export default function CheckoutPage() {
                 By completing your purchase, you agree to our Terms of Service and Privacy Policy.
               </p>
               <div className="flex items-center justify-center space-x-4">
-                <img src="/Visa.svg" alt="Visa" className="h-20" />
-                <img src="/mastercard.svg" alt="Mastercard" className="h-20" />
-                <img src="/amex.svg" alt="Amex" className="h-20" />
-                <img src="/stripe.svg" alt="Stripe" className="h-20" />
+              import Image from 'next/image';
+<Image src="/Visa.svg" alt="Visa" className="h-20" width={80} height={80} />
+<Image src="/mastercard.svg" alt="Mastercard" className="h-20" width={80} height={80} />
+<Image src="/amex.svg" alt="Amex" className="h-20" width={80} height={80} />
+<Image src="/stripe.svg" alt="Stripe" className="h-20" width={80} height={80} />
               </div>
             </CardFooter>
           </Card>

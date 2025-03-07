@@ -15,7 +15,7 @@ export default function ThankYouPage() {
         <h1 className="text-3xl font-bold mb-4">Thank You!</h1>
 
         <p className="text-gray-600 mb-8">
-          Your LLC formation order has been successfully placed. We'll begin processing your order right away.
+          Your LLC formation order has been successfully placed. We&apos;ll begin processing your order right away.
         </p>
 
         <div className="bg-gray-50 p-4 rounded-lg mb-8">
@@ -23,7 +23,7 @@ export default function ThankYouPage() {
           <ul className="text-left text-sm space-y-2">
             <li className="flex items-start">
               <span className="text-[#22c984] mr-2">1.</span>
-              <span>You'll receive a confirmation email with your order details.</span>
+              <span>You&apos;ll receive a confirmation email with your order details.</span>
             </li>
             <li className="flex items-start">
               <span className="text-[#22c984] mr-2">2.</span>
@@ -31,11 +31,11 @@ export default function ThankYouPage() {
             </li>
             <li className="flex items-start">
               <span className="text-[#22c984] mr-2">3.</span>
-              <span>You'll receive updates on your order status via email.</span>
+              <span>You&apos;ll receive updates on your order status via email.</span>
             </li>
             <li className="flex items-start">
               <span className="text-[#22c984] mr-2">4.</span>
-              <span>Once approved, you'll receive your LLC formation documents.</span>
+              <span>Once approved, you&apos;ll receive your LLC formation documents.</span>
             </li>
           </ul>
         </div>

@@ -2,13 +2,13 @@
 
 import type * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker, type DayPickerProps } from "react-day-picker";
+import { DayPicker, type DayPickerProps, type NavProps } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
-// Define a custom navigation component
-const CustomNav = ({ onPreviousClick, onNextClick }: any) => (
+// Define a custom navigation component with proper typing
+const CustomNav = ({ onPreviousClick, onNextClick }: NavProps) => (
   <div className="space-x-1 flex items-center">
     <button
       type="button"
@@ -53,7 +53,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         nav_button_previous: "absolute left-1",
         nav_button_next: "absolute right-1",
         // Fixed table and cell styles for proper alignment
-        table: "w-full border-collapse",
+        table: "w-full border-collapse text-center", // Ensure proper alignment
         head_row: "",
         head_cell: "text-muted-foreground rounded-md text-center w-9 font-normal text-[0.8rem]",
         row: "",
@@ -77,6 +77,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         // Use the custom navigation component here
         Nav: CustomNav,
       }}
+      weekStartsOn={0} // Ensure the week starts on Sunday
       {...props}
     />
   );

@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Check, ShieldCheck, Info, X } from "lucide-react"
+import { Check, ShieldCheck, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { ScrollAnimation } from "./GlobalScrollAnimation"
 import { useState } from "react"
@@ -141,13 +141,6 @@ interface PricingTier {
   hasAssistBadge?: boolean
 }
 
-interface CartItem {
-  tier: string
-  price: number
-  state?: string
-  stateFee?: number
-  discount?: number
-}
 
 const pricingTiers: PricingTier[] = [
   {

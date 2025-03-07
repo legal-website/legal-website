@@ -1,5 +1,5 @@
 "use client"
-
+import Image from "next/image"
 import { useCart } from "@/context/cart-context"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
@@ -16,7 +16,7 @@ export default function CartPage() {
         <div className="max-w-md mx-auto text-center">
           <ShoppingCart className="mx-auto h-16 w-16 text-gray-300 mb-6" />
           <h1 className="text-2xl font-bold mb-4">Your cart is empty</h1>
-          <p className="text-gray-600 mb-8">Looks like you haven't added any LLC packages to your cart yet.</p>
+          <p className="text-gray-600 mb-8">Looks like you haven&apos;t added any LLC packages to your cart yet.</p>
           <Link href="/">
             <Button className="bg-[#22c984] hover:bg-[#1eac73] text-white">Browse Packages</Button>
           </Link>
@@ -102,10 +102,13 @@ export default function CartPage() {
             <div className="mt-6 text-sm text-gray-500">
               <p className="mb-2">We accept:</p>
               <div className="flex space-x-2">
-                <img src="/Visa.svg" alt="Visa" className="h-20" />
-                <img src="/mastercard.svg" alt="Mastercard" className="h-20" />
-                <img src="/amex.svg" alt="Amex" className="h-20" />
-                <img src="/stripe.svg" alt="Stripe" className="h-20" />
+              import Image from 'next/image';
+
+<Image src="/Visa.svg" alt="Visa" className="h-20" width={80} height={80} />
+<Image src="/mastercard.svg" alt="Mastercard" className="h-20" width={80} height={80} />
+<Image src="/amex.svg" alt="Amex" className="h-20" width={80} height={80} />
+<Image src="/stripe.svg" alt="Stripe" className="h-20" width={80} height={80} />
+
               </div>
             </div>
           </div>

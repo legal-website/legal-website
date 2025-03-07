@@ -77,7 +77,7 @@ export default function BeneficialOwnershipPage() {
           </div>
           <div>
             <h3 className="text-xl font-semibold mb-1">Beneficial Ownership Information</h3>
-            <p className="text-gray-600">Manage your company's beneficial owners as required by FinCEN regulations</p>
+            <p className="text-gray-600">Manage your company&apos;s beneficial owners as required by FinCEN regulations</p>
           </div>
         </div>
 

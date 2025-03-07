@@ -12,7 +12,7 @@ import { useCart } from "@/context/cart-context"
 export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [signInOpen, setSignInOpen] = useState(false)
-  const [hasScrolled, setHasScrolled] = useState(false)
+  const [hasScrolled] = useState(false)
   const { itemCount } = useCart()
   const [cartOpen, setCartOpen] = useState(false)
   const cartRef = useRef<HTMLDivElement>(null)
