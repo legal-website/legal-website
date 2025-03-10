@@ -29,12 +29,25 @@ import {
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 
+// Define the SubscriptionPlan type at the top level
+interface SubscriptionPlan {
+  id: number
+  name: string
+  price: string
+  billingCycle: "monthly" | "annual"
+  features: string[]
+  activeSubscribers: number
+  growth: string
+  trend: "up" | "down"
+  revenue: string
+}
+
 export default function SubscriptionsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const [showPlanDialog, setShowPlanDialog] = useState(false)
 
-  const subscriptionPlans = [
+  const subscriptionPlans: SubscriptionPlan[] = [
     {
       id: 1,
       name: "Basic",
@@ -234,7 +247,7 @@ export default function SubscriptionsPage() {
     return matchesSearch && matchesTab
   })
 
-  const handleEditPlan = (plan: (typeof subscriptionPlans)[0]) => {
+  const handleEditPlan = (plan: SubscriptionPlan) => {
     // Find the complete plan data from pricingData using the ID
     const planToEdit = subscriptionPlans.find((p) => p.id === plan.id)
 
@@ -280,7 +293,7 @@ export default function SubscriptionsPage() {
       <h2 className="text-xl font-semibold mb-4">Subscription Plans</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {subscriptionPlans.map((plan) => (
-          <SubscriptionPlanCard key={plan.id} plan={plan} />
+          <SubscriptionPlanCard key={plan.id} plan={plan} onEdit={handleEditPlan} onDelete={handleDeletePlan} />
         ))}
       </div>
 
@@ -472,7 +485,15 @@ export default function SubscriptionsPage() {
   )
 }
 
-function SubscriptionPlanCard({ plan }: { plan: (typeof SubscriptionPlanCard)[number] }) {
+function SubscriptionPlanCard({
+  plan,
+  onEdit,
+  onDelete,
+}: {
+  plan: SubscriptionPlan
+  onEdit: (plan: SubscriptionPlan) => void
+  onDelete: (id: number) => void
+}) {
   return (
     <Card className="overflow-hidden">
       <div className="p-6 border-b">
@@ -487,8 +508,11 @@ function SubscriptionPlanCard({ plan }: { plan: (typeof SubscriptionPlanCard)[nu
             </p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={() => onEdit(plan)}>
               <Edit className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => onDelete(plan.id)}>
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </div>
