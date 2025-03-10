@@ -4,10 +4,23 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image";
 import { usePathname } from "next/navigation"
-import { Home, FileText, MessageSquare, Building, Users, Settings, LogOut, ChevronDown } from "lucide-react"
+import {
+  Home,
+  FileText,
+  MessageSquare,
+  Building,
+  Users,
+  Settings,
+  LogOut,
+  ChevronDown,
+  File,
+  Upload,
+  MessageCircle,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
-import Image from "next/image"
+import { useTheme } from "@/context/theme-context"
 
 interface MenuItem {
   icon: React.ElementType
@@ -42,10 +55,20 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    icon: MessageSquare,
-    label: "Communication",
-    href: "/dashboard/communication",
+    icon: File,
+    label: "Documents",
+    href: "/dashboard/documents",
+    subItems: [
+      { label: "Business Documents", href: "/dashboard/documents/business" },
+      { label: "Document Templates", href: "/dashboard/documents/templates" },
+    ],
   },
+  {
+    icon: MessageCircle,
+    label: "Community",
+    href: "/dashboard/community",
+  },
+  
   {
     icon: Users,
     label: "Affiliate Program",
@@ -61,6 +84,10 @@ const menuItems: MenuItem[] = [
 export default function DashboardSidebar() {
   const pathname = usePathname()
   const [expandedItems, setExpandedItems] = useState<string[]>([])
+  const [businessName, setBusinessName] = useState("Rapid Ventures LLC")
+  const [profileImage, setProfileImage] = useState<string | null>(null)
+  const [showUploadOption, setShowUploadOption] = useState(false)
+  const { theme } = useTheme()
 
   const toggleExpand = (label: string) => {
     setExpandedItems((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]))
@@ -68,25 +95,77 @@ export default function DashboardSidebar() {
 
   const isActive = (href: string) => pathname === href
 
-  return (
-    <div className="w-64 bg-white border-r h-screen flex flex-col">
-      {/* Logo */}
-      <div className="p-6 border-b">
-        <Link href="/">
-          <div className="h-8 relative">
-            <Image src="/logo.png" alt="Orizen Logo" width={170} height={32} className="object-contain" />
-          </div>
-        </Link>
-      </div>
+  // Generate initials from business name
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase()
+  }
 
-      {/* Business Selector */}
-      <div className="p-4 border-b">
-        <div className="flex items-center justify-between bg-gray-50 rounded-md p-2">
-          <span className="text-sm font-medium">Rapid Ventures LLC</span>
-          <svg className="w-5 h-5 text-[#22c984]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+  // Handle file upload
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setProfileImage(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  return (
+    <div
+      className={`w-64 border-r h-screen flex flex-col ${theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : theme === "comfort" ? "bg-[#f8f4e3] border-[#e8e4d3] text-[#5c4f3a]" : "bg-white border-gray-200"}`}
+    >
+      {/* Profile Picture and Business Name */}
+      <div
+        className={`p-6 border-b ${theme === "dark" ? "border-gray-700" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200"} flex flex-col items-center`}
+      >
+        <div
+          className="relative mb-3"
+          onMouseEnter={() => setShowUploadOption(true)}
+          onMouseLeave={() => setShowUploadOption(false)}
+        >
+          {profileImage ? (
+            <div className="w-16 h-16 rounded-full overflow-hidden relative">
+
+<Image
+  src={profileImage || "/placeholder.svg"}
+  alt="Business Logo"
+  className="w-full h-full object-cover"
+  width={80} // Replace with your desired width
+  height={80} // Replace with your desired height
+  priority // Optional: Use if the image is above the fold
+/>
+
+              {showUploadOption && (
+                <label className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center cursor-pointer rounded-full">
+                  <Upload className="w-5 h-5 text-white" />
+                  <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
+                </label>
+              )}
+            </div>
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-[#22c984] flex items-center justify-center text-white font-bold relative">
+              {getInitials(businessName)}
+              {showUploadOption && (
+                <label className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center cursor-pointer rounded-full">
+                  <Upload className="w-5 h-5 text-white" />
+                  <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
+                </label>
+              )}
+            </div>
+          )}
         </div>
+        <h2
+          className={`text-sm font-medium ${theme === "dark" ? "text-white" : theme === "comfort" ? "text-[#5c4f3a]" : "text-gray-800"}`}
+        >
+          {businessName}
+        </h2>
       </div>
 
       {/* Navigation */}
@@ -99,8 +178,14 @@ export default function DashboardSidebar() {
                   <button
                     onClick={() => toggleExpand(item.label)}
                     className={cn(
-                      "flex items-center w-full p-3 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors",
-                      expandedItems.includes(item.label) && "bg-gray-100",
+                      "flex items-center w-full p-3 rounded-lg transition-colors",
+                      theme === "dark"
+                        ? "text-gray-300 hover:bg-gray-800"
+                        : theme === "comfort"
+                          ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
+                          : "text-gray-600 hover:bg-gray-100",
+                      (expandedItems.includes(item.label) || pathname.startsWith(item.href)) &&
+                        (theme === "dark" ? "bg-gray-800" : theme === "comfort" ? "bg-[#efe9d8]" : "bg-gray-100"),
                     )}
                   >
                     <item.icon className="w-5 h-5 mr-3" />
@@ -108,19 +193,30 @@ export default function DashboardSidebar() {
                     <ChevronDown
                       className={cn(
                         "w-4 h-4 transition-transform",
-                        expandedItems.includes(item.label) && "transform rotate-180",
+                        (expandedItems.includes(item.label) || pathname.startsWith(item.href)) &&
+                          "transform rotate-180",
                       )}
                     />
                   </button>
-                  {expandedItems.includes(item.label) && (
+                  {(expandedItems.includes(item.label) || pathname.startsWith(item.href)) && (
                     <ul className="mt-2 ml-8 space-y-2">
                       {item.subItems.map((subItem) => (
                         <li key={subItem.href}>
                           <Link
                             href={subItem.href}
                             className={cn(
-                              "block p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors",
-                              isActive(subItem.href) && "bg-gray-100 text-[#22c984] font-medium",
+                              "block p-2 rounded-lg transition-colors",
+                              theme === "dark"
+                                ? "text-gray-300 hover:bg-gray-800"
+                                : theme === "comfort"
+                                  ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
+                                  : "text-gray-600 hover:bg-gray-100",
+                              isActive(subItem.href) &&
+                                (theme === "dark"
+                                  ? "bg-gray-800 text-[#22c984]"
+                                  : theme === "comfort"
+                                    ? "bg-[#efe9d8] text-[#22c984]"
+                                    : "bg-gray-100 text-[#22c984]"),
                             )}
                           >
                             {subItem.label}
@@ -134,8 +230,18 @@ export default function DashboardSidebar() {
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex items-center p-3 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors",
-                    isActive(item.href) && "bg-gray-100 text-[#22c984] font-medium",
+                    "flex items-center p-3 rounded-lg transition-colors",
+                    theme === "dark"
+                      ? "text-gray-300 hover:bg-gray-800"
+                      : theme === "comfort"
+                        ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
+                        : "text-gray-600 hover:bg-gray-100",
+                    isActive(item.href) &&
+                      (theme === "dark"
+                        ? "bg-gray-800 text-[#22c984]"
+                        : theme === "comfort"
+                          ? "bg-[#efe9d8] text-[#22c984]"
+                          : "bg-gray-100 text-[#22c984]"),
                   )}
                 >
                   <item.icon className="w-5 h-5 mr-3" />
@@ -148,8 +254,19 @@ export default function DashboardSidebar() {
       </nav>
 
       {/* Logout Button */}
-      <div className="p-4 border-t">
-        <button className="flex items-center w-full p-3 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
+      <div
+        className={`p-4 border-t ${theme === "dark" ? "border-gray-700" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200"}`}
+      >
+        <button
+          className={cn(
+            "flex items-center w-full p-3 rounded-lg transition-colors",
+            theme === "dark"
+              ? "text-gray-300 hover:bg-gray-800"
+              : theme === "comfort"
+                ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
+                : "text-gray-600 hover:bg-gray-100",
+          )}
+        >
           <LogOut className="w-5 h-5 mr-3" />
           <span>Log Out</span>
         </button>

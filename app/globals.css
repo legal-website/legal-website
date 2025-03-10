@@ -136,3 +136,122 @@
   animation: rotate-360 10s linear infinite;
 }
 
+/* Theme Transition */
+.theme-transition {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Light Theme (Default) */
+.theme-light {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 142.1 76.2% 36.3%;
+  --primary-foreground: 355.7 100% 97.3%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 142.1 76.2% 36.3%;
+  --radius: 0.5rem;
+
+  /* Dashboard specific */
+  --dashboard-bg: 0 0% 98%;
+  --dashboard-text: 222.2 84% 4.9%;
+  --dashboard-card-bg: 0 0% 100%;
+  --dashboard-card-border: 214.3 31.8% 91.4%;
+  --dashboard-sidebar-bg: 0 0% 100%;
+  --dashboard-sidebar-text: 215 14% 34%;
+  --dashboard-sidebar-hover: 210 40% 96.1%;
+  --dashboard-sidebar-active: 142.1 76.2% 36.3%;
+}
+
+/* Dark Theme */
+.theme-dark {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 142.1 76.2% 36.3%;
+  --primary-foreground: 355.7 100% 97.3%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 142.1 76.2% 36.3%;
+
+  /* Dashboard specific */
+  --dashboard-bg: 222.2 47.4% 11.2%;
+  --dashboard-text: 210 40% 98%;
+  --dashboard-card-bg: 222.2 84% 4.9%;
+  --dashboard-card-border: 217.2 32.6% 17.5%;
+  --dashboard-sidebar-bg: 222.2 84% 4.9%;
+  --dashboard-sidebar-text: 210 40% 90%;
+  --dashboard-sidebar-hover: 217.2 32.6% 17.5%;
+  --dashboard-sidebar-active: 142.1 76.2% 36.3%;
+}
+
+/* Eye Comfort Theme */
+.theme-comfort {
+  --background: 39 30% 95%;
+  --foreground: 36 25% 30%;
+  --card: 39 30% 97%;
+  --card-foreground: 36 25% 30%;
+  --popover: 39 30% 97%;
+  --popover-foreground: 36 25% 30%;
+  --primary: 142.1 76.2% 36.3%;
+  --primary-foreground: 355.7 100% 97.3%;
+  --secondary: 39 30% 90%;
+  --secondary-foreground: 36 25% 30%;
+  --muted: 39 30% 90%;
+  --muted-foreground: 36 25% 50%;
+  --accent: 39 30% 90%;
+  --accent-foreground: 36 25% 30%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 39 30% 85%;
+  --input: 39 30% 85%;
+  --ring: 142.1 76.2% 36.3%;
+
+  /* Dashboard specific */
+  --dashboard-bg: 39 30% 95%;
+  --dashboard-text: 36 25% 30%;
+  --dashboard-card-bg: 39 30% 97%;
+  --dashboard-card-border: 39 30% 85%;
+  --dashboard-sidebar-bg: 39 30% 97%;
+  --dashboard-sidebar-text: 36 25% 30%;
+  --dashboard-sidebar-hover: 39 30% 90%;
+  --dashboard-sidebar-active: 142.1 76.2% 36.3%;
+}
+
+/* Apply theme variables to dashboard elements */
+.theme-light main,
+.theme-dark main,
+.theme-comfort main {
+  background-color: hsl(var(--dashboard-bg));
+  color: hsl(var(--dashboard-text));
+}
+
+.theme-light .dashboard-card,
+.theme-dark .dashboard-card,
+.theme-comfort .dashboard-card {
+  background-color: hsl(var(--dashboard-card-bg));
+  border-color: hsl(var(--dashboard-card-border));
+}
