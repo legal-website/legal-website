@@ -365,6 +365,7 @@ export default function SettingsPage() {
                         id="account-email"
                         defaultValue="john@rapidventures.com"
                         className={getThemeClasses("", "bg-gray-700 border-gray-600", "bg-[#f8f4e3] border-[#e8e4d3]")}
+                        disabled
                       />
                     </div>
 
