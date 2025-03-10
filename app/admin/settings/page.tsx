@@ -129,7 +129,7 @@ export default function SystemSettingsPage() {
   const [backupLocation, setBackupLocation] = useState("cloud")
 
   // These variables are used in the User Permissions tab
-  const [roles, setRoles] = useState<Role[]>([
+  const [roles] = useState<Role[]>([
     { id: 1, name: "Administrator", permissions: ["all"] },
     { id: 2, name: "Manager", permissions: ["view_all", "edit_documents", "manage_users", "view_reports"] },
     { id: 3, name: "Support", permissions: ["view_documents", "view_users", "respond_tickets"] },
@@ -143,9 +143,6 @@ export default function SystemSettingsPage() {
   const [customCss, setCustomCss] = useState("")
 
   // Advanced settings state
-  const [debugMode, setDebugMode] = useState(false)
-  const [apiRateLimit, setApiRateLimit] = useState(100)
-  const [cacheLifetime, setCacheLifetime] = useState(60)
   const [maintenanceMode, setMaintenanceMode] = useState(false)
 
   // Handle save settings
@@ -1122,7 +1119,32 @@ export default function SystemSettingsPage() {
                 </CardContent>
               </TabsContent>
 
-              {/* Rest of the tabs content would continue here... */}
+              {/* Advanced Tab */}
+              <TabsContent value="advanced" className="m-0">
+                <CardHeader>
+                  <CardTitle>Advanced Settings</CardTitle>
+                  <CardDescription>Configure advanced system settings</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">System Configuration</h3>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label htmlFor="maintenanceMode" className="text-base font-medium">
+                            Maintenance Mode
+                          </Label>
+                          <p className="text-sm text-gray-500">
+                            When enabled, the system will be inaccessible to regular users
+                          </p>
+                        </div>
+                        <Switch id="maintenanceMode" checked={maintenanceMode} onCheckedChange={setMaintenanceMode} />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </TabsContent>
             </Card>
           </div>
         </div>
@@ -1149,48 +1171,6 @@ function Smartphone({ className, ...props }: React.SVGProps<SVGSVGElement>) {
     >
       <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
       <path d="M12 18h.01" />
-    </svg>
-  )
-}
-
-function X({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      {...props}
-    >
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
-  )
-}
-
-function Edit({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      {...props}
-    >
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
     </svg>
   )
 }
