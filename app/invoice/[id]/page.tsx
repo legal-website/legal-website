@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { FileUp, CheckCircle, Clock, AlertCircle } from "lucide-react"
 
@@ -37,6 +36,7 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
     const file = event.target.files?.[0]
     if (file) {
       setReceiptFile(file)
+      console.log("File selected:", file.name) // Add logging
     }
   }
 
@@ -50,11 +50,15 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
       return
     }
 
+    console.log("Starting receipt upload...") // Add logging
     setUploadingReceipt(true)
+
     try {
       const formData = new FormData()
       formData.append("receipt", receiptFile)
       formData.append("invoiceId", params.id)
+
+      console.log("Sending upload request for invoice:", params.id) // Add logging
 
       const response = await fetch("/api/upload-receipt", {
         method: "POST",
@@ -62,6 +66,7 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
       })
 
       const data = await response.json()
+      console.log("Upload response:", data) // Add logging
 
       if (!response.ok) {
         throw new Error(data.error || "Failed to upload receipt")
@@ -202,18 +207,20 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
 
           {/* Upload Receipt */}
           {invoice.status === "pending" && !invoice.paymentReceipt && (
-            <div className="mb-8">
+            <div className="mb-8" id="receipt-upload-section">
               <h3 className="font-semibold mb-4">Upload Payment Receipt</h3>
               <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 text-center">
                 <FileUp className="h-10 w-10 mx-auto mb-4 text-gray-400" />
                 <p className="mb-4">Upload your payment receipt to confirm your payment</p>
 
                 <div className="flex flex-col items-center space-y-4">
-                  <Label htmlFor="receipt-upload" className="w-full">
-                    <div className="flex items-center justify-center w-full">
-                      <Button variant="outline" className="mr-2">
-                        Choose File
-                      </Button>
+                  <div className="w-full">
+                    <div className="flex items-center justify-center w-full mb-2">
+                      <label htmlFor="receipt-upload" className="cursor-pointer">
+                        <Button variant="outline" type="button" className="mr-2">
+                          Choose File
+                        </Button>
+                      </label>
                       <span className="text-sm text-gray-500">{receiptFile ? receiptFile.name : "No file chosen"}</span>
                     </div>
                     <Input
@@ -223,7 +230,7 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
                       onChange={handleFileChange}
                       className="hidden"
                     />
-                  </Label>
+                  </div>
 
                   <Button
                     onClick={uploadReceipt}
@@ -269,7 +276,7 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
             <Button
               className="bg-[#22c984] hover:bg-[#1eac73] text-white"
               onClick={() => {
-                const receiptUploadElement = document.getElementById("receipt-upload")
+                const receiptUploadElement = document.getElementById("receipt-upload-section")
                 if (receiptUploadElement) {
                   receiptUploadElement.scrollIntoView({ behavior: "smooth" })
                 }

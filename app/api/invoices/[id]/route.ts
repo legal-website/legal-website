@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma"
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log("Fetching invoice with ID:", params.id) // Add logging
+    console.log("API: Fetching invoice with ID:", params.id)
 
     // Use select to only fetch the fields we need
     const invoice = await prisma.invoice.findUnique({
@@ -22,14 +22,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     })
 
     if (!invoice) {
-      console.log("Invoice not found") // Add logging
+      console.log("API: Invoice not found")
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
     }
 
-    console.log("Invoice found:", invoice) // Add logging
+    console.log("API: Invoice found")
     return NextResponse.json({ invoice })
   } catch (error: any) {
-    console.error("Error fetching invoice:", error)
+    console.error("API: Error fetching invoice:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

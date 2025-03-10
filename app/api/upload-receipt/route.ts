@@ -1,17 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server"
 import prisma from "@/lib/prisma"
 import { writeFile } from "fs/promises"
-import { join } from "path"
-import { v4 as uuidv4 } from "uuid"
+import path from "path"
+import { mkdir } from "fs/promises"
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
-    const invoiceId = formData.get("invoiceId") as string
     const receipt = formData.get("receipt") as File
+    const invoiceId = formData.get("invoiceId") as string
 
-    if (!invoiceId || !receipt) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    if (!receipt || !invoiceId) {
+      return NextResponse.json({ error: "Receipt file and invoice ID are required" }, { status: 400 })
     }
 
     // Check if invoice exists
@@ -23,43 +23,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
     }
 
-    // Create unique filename
-    const fileExtension = receipt.name.split(".").pop()
-    const fileName = `${uuidv4()}.${fileExtension}`
-
     // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), "public/uploads")
+    const uploadsDir = path.join(process.cwd(), "public/uploads")
+    try {
+      await mkdir(uploadsDir, { recursive: true })
+    } catch (error) {
+      console.error("Error creating uploads directory:", error)
+    }
 
-    // Convert file to buffer
+    // Generate a unique filename
+    const timestamp = Date.now()
+    const filename = `receipt-${invoiceId}-${timestamp}${path.extname(receipt.name)}`
+    const filepath = path.join(uploadsDir, filename)
+
+    // Convert file to buffer and save it
     const bytes = await receipt.arrayBuffer()
     const buffer = Buffer.from(bytes)
-
-    // Write file to disk
-    const filePath = join(uploadsDir, fileName)
-    await writeFile(filePath, buffer)
+    await writeFile(filepath, buffer)
 
     // Update invoice with receipt URL
-    const receiptUrl = `/uploads/${fileName}`
+    const receiptUrl = `/uploads/${filename}`
     await prisma.invoice.update({
       where: { id: invoiceId },
-      data: {
-        paymentReceipt: receiptUrl,
-      },
+      data: { paymentReceipt: receiptUrl },
     })
 
     return NextResponse.json({
       success: true,
       receiptUrl,
+      message: "Receipt uploaded successfully",
     })
   } catch (error: any) {
     console.error("Error uploading receipt:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
-}
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
 }
 
