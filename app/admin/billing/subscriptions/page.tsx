@@ -256,25 +256,6 @@ export default function SubscriptionsPage() {
     console.log("Deleting plan with ID:", planId)
   }
 
-  const enhancedColumns = [
-    {
-      id: "edit",
-      cell: ({ row }: { row: { original: (typeof subscriptionPlans)[0] } }) => {
-        const plan = row.original
-        return (
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm" onClick={() => handleEditPlan(plan)}>
-              Edit
-            </Button>
-            <Button variant="destructive" size="sm" onClick={() => handleDeletePlan(plan.id)}>
-              Delete
-            </Button>
-          </div>
-        )
-      },
-    },
-  ]
-
   return (
     <div className="p-6 max-w-[1600px] mx-auto">
       {/* Page Header */}
@@ -491,7 +472,7 @@ export default function SubscriptionsPage() {
   )
 }
 
-function SubscriptionPlanCard({ plan }: { plan: any }) {
+function SubscriptionPlanCard({ plan }: { plan: (typeof SubscriptionPlanCard)[number] }) {
   return (
     <Card className="overflow-hidden">
       <div className="p-6 border-b">
