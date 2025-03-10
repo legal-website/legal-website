@@ -6,15 +6,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, CreditCard, CheckCircle } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/context/cart-context"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function CheckoutPage() {
   const router = useRouter()
   const { items, getCartTotal, clearCart } = useCart()
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const { toast } = useToast()
 
   // Form state
   const [formData, setFormData] = useState({
@@ -24,9 +25,9 @@ export default function CheckoutPage() {
     city: "",
     state: "",
     zip: "",
-    cardNumber: "",
-    expiry: "",
-    cvc: "",
+    country: "",
+    phone: "",
+    company: "",
   })
 
   useEffect(() => {
@@ -48,37 +49,64 @@ export default function CheckoutPage() {
     e.preventDefault()
     setLoading(true)
 
-    // Simulate payment processing
-    setTimeout(() => {
+    // Validate form
+    if (!formData.name || !formData.email) {
+      toast({
+        title: "Missing information",
+        description: "Please provide your name and email address.",
+        variant: "destructive",
+      })
       setLoading(false)
-      setSuccess(true)
+      return
+    }
 
-      // Clear cart
-      clearCart()
+    try {
+      // Prepare simplified items to reduce memory usage
+      const simplifiedItems = items.map((item) => ({
+        id: item.id,
+        tier: item.tier,
+        price: Number(item.price),
+        stateFee: item.stateFee ? Number(item.stateFee) : undefined,
+        state: item.state || undefined,
+        discount: item.discount ? Number(item.discount) : undefined,
+      }))
 
-      // Redirect after 2 seconds
-      setTimeout(() => {
-        router.push("/thank-you")
-      }, 2000)
-    }, 2000)
-  }
+      // Create invoice
+      const response = await fetch("/api/create-invoice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          customer: formData,
+          items: simplifiedItems,
+          total: getCartTotal(),
+        }),
+      })
 
-  if (success) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <div className="flex justify-center mb-4">
-              <CheckCircle className="h-16 w-16 text-[#22c984]" />
-            </div>
-            <CardTitle className="text-center text-2xl">Payment Successful!</CardTitle>
-            <CardDescription className="text-center">
-              Thank you for your purchase. You will be redirected shortly.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    )
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create invoice")
+      }
+
+      const data = await response.json()
+
+      if (!data.invoiceId) {
+        throw new Error("No invoice ID returned from server")
+      }
+
+      // Redirect to invoice page
+      router.push(`/invoice/${data.invoiceId}`)
+    } catch (error: any) {
+      console.error("Checkout error:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Something went wrong. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (items.length === 0) {
@@ -90,7 +118,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="container mx-auto py-12 px-36 mb-44">
+    <div className="container mx-auto py-12 px-4 md:px-36 mb-44">
       <Button variant="ghost" className="mb-8" onClick={() => router.back()}>
         <ArrowLeft className="mr-2 h-4 w-4" /> Back
       </Button>
@@ -100,110 +128,78 @@ export default function CheckoutPage() {
         <div>
           <h1 className="text-3xl font-bold mb-6">Checkout</h1>
 
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Contact Information</h2>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold">Contact Information</h2>
 
-                <div className="grid gap-4">
-                  <div>
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required />
-                  </div>
+              <div className="grid gap-4">
+                <div>
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required />
+                </div>
 
-                  <div>
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleInputChange} />
+                </div>
+
+                <div>
+                  <Label htmlFor="company">Company Name (Optional)</Label>
+                  <Input id="company" name="company" value={formData.company} onChange={handleInputChange} />
                 </div>
               </div>
-
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Billing Address</h2>
-
-                <div className="grid gap-4">
-                  <div>
-                    <Label htmlFor="address">Street Address</Label>
-                    <Input id="address" name="address" value={formData.address} onChange={handleInputChange} required />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="city">City</Label>
-                      <Input id="city" name="city" value={formData.city} onChange={handleInputChange} required />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="state">State</Label>
-                      <Input id="state" name="state" value={formData.state} onChange={handleInputChange} required />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="zip">ZIP Code</Label>
-                    <Input id="zip" name="zip" value={formData.zip} onChange={handleInputChange} required />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Payment Information</h2>
-
-                <div className="grid gap-4">
-                  <div>
-                    <Label htmlFor="cardNumber">Card Number</Label>
-                    <div className="relative">
-                      <Input
-                        id="cardNumber"
-                        name="cardNumber"
-                        placeholder="1234 5678 9012 3456"
-                        value={formData.cardNumber}
-                        onChange={handleInputChange}
-                        required
-                      />
-                      <CreditCard className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="expiry">Expiry Date</Label>
-                      <Input
-                        id="expiry"
-                        name="expiry"
-                        placeholder="MM/YY"
-                        value={formData.expiry}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="cvc">CVC</Label>
-                      <Input
-                        id="cvc"
-                        name="cvc"
-                        placeholder="123"
-                        value={formData.cvc}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full bg-[#22c984] hover:bg-[#1eac73] text-white" disabled={loading}>
-                {loading ? "Processing..." : `Pay $${getCartTotal()}`}
-              </Button>
             </div>
+
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold">Billing Address</h2>
+
+              <div className="grid gap-4">
+                <div>
+                  <Label htmlFor="address">Street Address</Label>
+                  <Input id="address" name="address" value={formData.address} onChange={handleInputChange} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="city">City</Label>
+                    <Input id="city" name="city" value={formData.city} onChange={handleInputChange} />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="state">State/Province</Label>
+                    <Input id="state" name="state" value={formData.state} onChange={handleInputChange} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="zip">ZIP/Postal Code</Label>
+                    <Input id="zip" name="zip" value={formData.zip} onChange={handleInputChange} />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="country">Country</Label>
+                    <Input id="country" name="country" value={formData.country} onChange={handleInputChange} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full bg-[#22c984] hover:bg-[#1eac73] text-white" disabled={loading}>
+              {loading ? "Processing..." : "Continue to Payment"}
+            </Button>
           </form>
         </div>
 
@@ -252,11 +248,10 @@ export default function CheckoutPage() {
                 By completing your purchase, you agree to our Terms of Service and Privacy Policy.
               </p>
               <div className="flex items-center justify-center space-x-4">
-
-<Image src="/Visa.svg" alt="Visa" className="h-20" width={80} height={80} />
-<Image src="/mastercard.svg" alt="Mastercard" className="h-20" width={80} height={80} />
-<Image src="/amex.svg" alt="Amex" className="h-20" width={80} height={80} />
-<Image src="/stripe.svg" alt="Stripe" className="h-20" width={80} height={80} />
+                <Image src="/Visa.svg" alt="Visa" className="h-20" width={80} height={80} />
+                <Image src="/mastercard.svg" alt="Mastercard" className="h-20" width={80} height={80} />
+                <Image src="/amex.svg" alt="Amex" className="h-20" width={80} height={80} />
+                <Image src="/stripe.svg" alt="Stripe" className="h-20" width={80} height={80} />
               </div>
             </CardFooter>
           </Card>

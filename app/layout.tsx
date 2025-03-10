@@ -8,6 +8,8 @@ import Footer from "@/components/footer"
 import { Toaster } from "@/components/ui/toaster"
 import Preloader from "@/components/preloader"
 import { CartProvider } from "@/context/cart-context"
+import { ThemeProvider } from "@/context/theme-context"
+import { AuthProvider } from "@/context/auth-context"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -24,17 +26,21 @@ export default function RootLayout({
   children: ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <CartProvider>
-          <Toaster />
-          <TopBar /> {/* Topbar at the top */}
-          <Preloader />
-          <Navbar /> {/* Navbar below the Topbar */}
-          <main>{children}</main> {/* Main content */}
-          <Footer /> {/* Footer at the bottom */}
-          <ScrollToTopButton /> {/* Scroll to top button */}
-        </CartProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <CartProvider>
+              <Toaster />
+              <TopBar /> {/* Topbar at the top */}
+              <Preloader />
+              <Navbar /> {/* Navbar below the Topbar */}
+              <main>{children}</main> {/* Main content */}
+              <Footer /> {/* Footer at the bottom */}
+              <ScrollToTopButton /> {/* Scroll to top button */}
+            </CartProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

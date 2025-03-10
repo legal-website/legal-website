@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  name           String?
+  password       String
+  role           Role      @default(CLIENT)
+  emailVerified  DateTime?
+  image          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  business       Business? @relation(fields: [businessId], references: [id])
+  businessId     String?
+  sessions       Session[]
+  tickets        Ticket[]  @relation("TicketCreator")
+  assignedTickets Ticket[] @relation("TicketAssignee")
+  accounts       Account[]
+  verificationTokens VerificationToken[]
+  payments       Payment[]
+  invoices        Invoice[]
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model VerificationToken {
+  id         String   @id @default(uuid())
+  token      String   @unique
+  identifier String
+  expires    DateTime
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  stripeSessionId String   @unique
+  amount          Float
+  status          String
+  customerEmail   String
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  user            User?    @relation(fields: [userId], references: [id])
+  userId          String?
+}
+
+model Business {
+  id              String    @id @default(uuid())
+  name            String
+  email           String?
+  phone           String?
+  address         String?
+  website         String?
+  industry        String?
+  formationDate   DateTime?
+  ein             String?
+  businessId      String?   @unique
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  users           User[]
+  documents       Document[]
+  subscriptions   Subscription[]
+}
+
+model Subscription {
+  id                String   @id @default(uuid())
+  planId            String
+  planName          String
+  price             Float
+  billingCycle      String   // "monthly" or "annual"
+  status            String   // "active", "past_due", "canceled"
+  startDate         DateTime
+  nextBillingDate   DateTime
+  business          Business @relation(fields: [businessId], references: [id])
+  businessId        String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Document {
+  id          String   @id @default(uuid())
+  name        String
+  type        String
+  category    String
+  fileUrl     String
+  business    Business @relation(fields: [businessId], references: [id])
+  businessId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Ticket {
+  id          String    @id @default(uuid())
+  subject     String
+  description String    @db.Text
+  status      String    // "open", "in-progress", "resolved", "closed"
+  priority    String    // "low", "medium", "high", "urgent"
+  category    String
+  creator     User      @relation("TicketCreator", fields: [creatorId], references: [id])
+  creatorId   String
+  assignee    User?     @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  assigneeId  String?
+  messages    Message[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  content     String   @db.Text
+  sender      String   // "client" or "support"
+  senderName  String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id])
+  ticketId    String
+  attachments Attachment[]
+  createdAt   DateTime @default(now())
+}
+
+model Attachment {
+  id          String   @id @default(uuid())
+  name        String
+  fileUrl     String
+  size        String
+  type        String
+  message     Message  @relation(fields: [messageId], references: [id])
+  messageId   String
+  createdAt   DateTime @default(now())
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  ADMIN
+  SUPPORT
+  CLIENT
+}
+
+model Invoice {
+  id              String    @id @default(uuid())
+  invoiceNumber   String    @unique
+  customerName    String
+  customerEmail   String
+  customerPhone   String?
+  customerCompany String?
+  customerAddress String?
+  customerCity    String?
+  customerState   String?
+  customerZip     String?
+  customerCountry String?
+  amount          Float
+  status          String    // "pending", "paid", "cancelled"
+  items           Json      // Array of items
+  paymentReceipt  String?   // URL to uploaded receipt
+  paymentDate     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User?     @relation(fields: [userId], references: [id])
+  userId          String?
+}
+
