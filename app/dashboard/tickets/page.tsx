@@ -423,7 +423,7 @@ export default function TicketsPage() {
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto">
+    <div className="p-6 max-w-[1600px] mx-auto mb-36">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
@@ -435,7 +435,7 @@ export default function TicketsPage() {
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
-          <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setIsCreateDialogOpen(true)}>
+          <Button className="bg-[#22c984] hover:bg-[#0f442e]" onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             New Ticket
           </Button>
