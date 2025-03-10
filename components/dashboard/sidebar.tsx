@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
-import Image from "next/image";
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import {
   Home,
@@ -17,6 +17,7 @@ import {
   File,
   Upload,
   MessageCircle,
+  TicketIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/context/theme-context"
@@ -63,11 +64,15 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
+    icon: TicketIcon,
+    label: "Support Tickets",
+    href: "/dashboard/tickets",
+  },
+  {
     icon: MessageCircle,
     label: "Community",
     href: "/dashboard/community",
   },
-  
   {
     icon: Users,
     label: "Affiliate Program",
@@ -131,16 +136,14 @@ export default function DashboardSidebar() {
         >
           {profileImage ? (
             <div className="w-16 h-16 rounded-full overflow-hidden relative">
-
-<Image
-  src={profileImage || "/placeholder.svg"}
-  alt="Business Logo"
-  className="w-full h-full object-cover"
-  width={80} // Replace with your desired width
-  height={80} // Replace with your desired height
-  priority // Optional: Use if the image is above the fold
-/>
-
+              <Image
+                src={profileImage || "/placeholder.svg"}
+                alt="Business Logo"
+                className="w-full h-full object-cover"
+                width={80}
+                height={80}
+                priority
+              />
               {showUploadOption && (
                 <label className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center cursor-pointer rounded-full">
                   <Upload className="w-5 h-5 text-white" />
