@@ -68,11 +68,13 @@ export default function BusinessProfilePage() {
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
                     <Label htmlFor="business-name">Business Name</Label>
-                    <Input
-                      id="business-name"
-                      value={businessInfo.name}
-                      onChange={(e) => setBusinessInfo({ ...businessInfo, name: e.target.value })}
-                    />
+                    <div className="relative">
+                      <Input id="business-name" value={businessInfo.name} disabled className="bg-gray-50" />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-gray-500">
+                        <Lock className="h-3 w-3" />
+                        <span>Not editable</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div>
