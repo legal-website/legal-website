@@ -11,8 +11,33 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Bell, Search, Filter, Plus, Mail, MessageSquare, Calendar, Settings, AlertTriangle, CheckCircle2, Clock, Edit, Trash2, MoreHorizontal, Send, Eye, Download, RefreshCw } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Bell,
+  Search,
+  Filter,
+  Plus,
+  Mail,
+  MessageSquare,
+  Calendar,
+  Settings,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Edit,
+  Trash2,
+  MoreHorizontal,
+  Send,
+  Eye,
+  RefreshCw,
+} from "lucide-react"
 
 interface NotificationTemplateProps {
   id: string
@@ -50,7 +75,7 @@ export default function NotificationsPage() {
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showPreviewDialog, setShowPreviewDialog] = useState(false)
-  
+
   // Sample notification templates
   const notificationTemplates: NotificationTemplateProps[] = [
     {
@@ -60,7 +85,7 @@ export default function NotificationsPage() {
       subject: "Welcome to Our Platform!",
       body: "Hello {{user.firstName}},\n\nWelcome to our platform! We're excited to have you on board.\n\nTo get started, please complete your profile and explore our features.\n\nBest regards,\nThe Team",
       lastEdited: "Mar 5, 2025",
-      status: "active"
+      status: "active",
     },
     {
       id: "temp-002",
@@ -69,7 +94,7 @@ export default function NotificationsPage() {
       subject: "Your Document Has Been Approved",
       body: "Hello {{user.firstName}},\n\nWe're pleased to inform you that your {{document.type}} has been approved.\n\nYou can view and download it from your dashboard.\n\nBest regards,\nThe Team",
       lastEdited: "Mar 3, 2025",
-      status: "active"
+      status: "active",
     },
     {
       id: "temp-003",
@@ -78,7 +103,7 @@ export default function NotificationsPage() {
       subject: "Payment Reminder: Invoice #{{invoice.number}}",
       body: "Hello {{user.firstName}},\n\nThis is a friendly reminder that invoice #{{invoice.number}} for {{invoice.amount}} is due on {{invoice.dueDate}}.\n\nPlease make your payment at your earliest convenience.\n\nBest regards,\nThe Team",
       lastEdited: "Feb 28, 2025",
-      status: "active"
+      status: "active",
     },
     {
       id: "temp-004",
@@ -87,7 +112,7 @@ export default function NotificationsPage() {
       subject: "Action Required: Compliance Document Due",
       body: "Hello {{user.firstName}},\n\nThis is to remind you that your {{document.type}} is due by {{document.dueDate}}.\n\nFailure to submit this document may result in compliance issues.\n\nBest regards,\nThe Team",
       lastEdited: "Mar 1, 2025",
-      status: "active"
+      status: "active",
     },
     {
       id: "temp-005",
@@ -96,7 +121,7 @@ export default function NotificationsPage() {
       subject: "New Message from Support",
       body: "You have received a new message from our support team regarding your recent inquiry.",
       lastEdited: "Mar 4, 2025",
-      status: "active"
+      status: "active",
     },
     {
       id: "temp-006",
@@ -105,7 +130,7 @@ export default function NotificationsPage() {
       subject: "Verification Code",
       body: "Your verification code is {{code}}. It will expire in 10 minutes.",
       lastEdited: "Feb 25, 2025",
-      status: "active"
+      status: "active",
     },
     {
       id: "temp-007",
@@ -114,7 +139,7 @@ export default function NotificationsPage() {
       subject: "Your Subscription Will Renew Soon",
       body: "Hello {{user.firstName}},\n\nYour subscription will automatically renew on {{subscription.renewalDate}}.\n\nIf you wish to make any changes, please visit your account settings.\n\nBest regards,\nThe Team",
       lastEdited: "Mar 2, 2025",
-      status: "draft"
+      status: "draft",
     },
     {
       id: "temp-008",
@@ -123,10 +148,10 @@ export default function NotificationsPage() {
       subject: "Document Requires Revision",
       body: "Hello {{user.firstName}},\n\nUnfortunately, your {{document.type}} requires some revisions before it can be approved.\n\nReason: {{document.rejectionReason}}\n\nPlease make the necessary changes and resubmit.\n\nBest regards,\nThe Team",
       lastEdited: "Feb 27, 2025",
-      status: "draft"
-    }
+      status: "draft",
+    },
   ]
-  
+
   // Sample notification logs
   const notificationLogs: NotificationLogProps[] = [
     {
@@ -136,7 +161,7 @@ export default function NotificationsPage() {
       subject: "Welcome to Our Platform!",
       sentAt: "Mar 7, 2025 - 10:23 AM",
       status: "delivered",
-      openRate: "Yes"
+      openRate: "Yes",
     },
     {
       id: "log-002",
@@ -145,7 +170,7 @@ export default function NotificationsPage() {
       subject: "Your Document Has Been Approved",
       sentAt: "Mar 7, 2025 - 09:15 AM",
       status: "delivered",
-      openRate: "Yes"
+      openRate: "Yes",
     },
     {
       id: "log-003",
@@ -154,7 +179,7 @@ export default function NotificationsPage() {
       subject: "Verification Code",
       sentAt: "Mar 6, 2025 - 03:45 PM",
       status: "delivered",
-      openRate: "N/A"
+      openRate: "N/A",
     },
     {
       id: "log-004",
@@ -163,7 +188,7 @@ export default function NotificationsPage() {
       subject: "Payment Reminder: Invoice #INV-2025-003",
       sentAt: "Mar 6, 2025 - 02:30 PM",
       status: "delivered",
-      openRate: "No"
+      openRate: "No",
     },
     {
       id: "log-005",
@@ -172,7 +197,7 @@ export default function NotificationsPage() {
       subject: "New Message from Support",
       sentAt: "Mar 6, 2025 - 11:20 AM",
       status: "delivered",
-      openRate: "Yes"
+      openRate: "Yes",
     },
     {
       id: "log-006",
@@ -181,7 +206,7 @@ export default function NotificationsPage() {
       subject: "Action Required: Compliance Document Due",
       sentAt: "Mar 5, 2025 - 04:10 PM",
       status: "delivered",
-      openRate: "Yes"
+      openRate: "Yes",
     },
     {
       id: "log-007",
@@ -190,7 +215,7 @@ export default function NotificationsPage() {
       subject: "Your Subscription Will Renew Soon",
       sentAt: "Mar 5, 2025 - 01:45 PM",
       status: "failed",
-      openRate: "N/A"
+      openRate: "N/A",
     },
     {
       id: "log-008",
@@ -199,7 +224,7 @@ export default function NotificationsPage() {
       subject: "Verification Code",
       sentAt: "Mar 5, 2025 - 10:30 AM",
       status: "delivered",
-      openRate: "N/A"
+      openRate: "N/A",
     },
     {
       id: "log-009",
@@ -208,7 +233,7 @@ export default function NotificationsPage() {
       subject: "Document Requires Revision",
       sentAt: "Mar 4, 2025 - 03:20 PM",
       status: "delivered",
-      openRate: "Yes"
+      openRate: "Yes",
     },
     {
       id: "log-010",
@@ -217,10 +242,10 @@ export default function NotificationsPage() {
       subject: "New Message from Support",
       sentAt: "Mar 4, 2025 - 11:15 AM",
       status: "pending",
-      openRate: "N/A"
-    }
+      openRate: "N/A",
+    },
   ]
-  
+
   // Sample notification channels
   const notificationChannels: NotificationChannelProps[] = [
     {
@@ -229,7 +254,7 @@ export default function NotificationsPage() {
       type: "email",
       status: true,
       deliveryRate: "98.5%",
-      openRate: "45.2%"
+      openRate: "45.2%",
     },
     {
       id: "channel-002",
@@ -237,7 +262,7 @@ export default function NotificationsPage() {
       type: "email",
       status: true,
       deliveryRate: "97.8%",
-      openRate: "32.1%"
+      openRate: "32.1%",
     },
     {
       id: "channel-003",
@@ -245,7 +270,7 @@ export default function NotificationsPage() {
       type: "sms",
       status: true,
       deliveryRate: "99.1%",
-      openRate: "N/A"
+      openRate: "N/A",
     },
     {
       id: "channel-004",
@@ -253,7 +278,7 @@ export default function NotificationsPage() {
       type: "push",
       status: true,
       deliveryRate: "95.3%",
-      openRate: "68.7%"
+      openRate: "68.7%",
     },
     {
       id: "channel-005",
@@ -261,10 +286,10 @@ export default function NotificationsPage() {
       type: "in-app",
       status: true,
       deliveryRate: "100%",
-      openRate: "72.4%"
-    }
+      openRate: "72.4%",
+    },
   ]
-  
+
   const filteredTemplates = notificationTemplates.filter((template) => {
     return (
       template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -272,7 +297,7 @@ export default function NotificationsPage() {
       template.subject.toLowerCase().includes(searchQuery.toLowerCase())
     )
   })
-  
+
   const filteredLogs = notificationLogs.filter((log) => {
     return (
       log.recipient.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -280,27 +305,27 @@ export default function NotificationsPage() {
       log.type.toLowerCase().includes(searchQuery.toLowerCase())
     )
   })
-  
+
   const handleEditTemplate = (template: NotificationTemplateProps) => {
     setSelectedTemplate(template)
     setShowTemplateDialog(true)
   }
-  
+
   const handleDeleteTemplate = (template: NotificationTemplateProps) => {
     setSelectedTemplate(template)
     setShowDeleteDialog(true)
   }
-  
+
   const handlePreviewTemplate = (template: NotificationTemplateProps) => {
     setSelectedTemplate(template)
     setShowPreviewDialog(true)
   }
-  
+
   const handleCreateTemplate = () => {
     setSelectedTemplate(null)
     setShowTemplateDialog(true)
   }
-  
+
   return (
     <div className="p-6 max-w-[1600px] mx-auto mb-40">
       {/* Page Header */}
@@ -322,7 +347,7 @@ export default function NotificationsPage() {
           </Button>
         </div>
       </div>
-      
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList className="grid grid-cols-1 md:grid-cols-3 w-full md:w-auto">
@@ -339,7 +364,7 @@ export default function NotificationsPage() {
             Notification Settings
           </TabsTrigger>
         </TabsList>
-        
+
         {/* Search Bar */}
         <div className="relative mt-4">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -350,7 +375,7 @@ export default function NotificationsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        
+
         {/* Templates Tab */}
         <TabsContent value="templates" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -395,7 +420,7 @@ export default function NotificationsPage() {
             ))}
           </div>
         </TabsContent>
-        
+
         {/* Logs Tab */}
         <TabsContent value="logs" className="mt-6">
           <Card>
@@ -445,7 +470,7 @@ export default function NotificationsPage() {
             </div>
           </Card>
         </TabsContent>
-        
+
         {/* Settings Tab */}
         <TabsContent value="settings" className="mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -453,9 +478,7 @@ export default function NotificationsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Notification Channels</CardTitle>
-                <CardDescription>
-                  Configure your notification delivery channels
-                </CardDescription>
+                <CardDescription>Configure your notification delivery channels</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -487,14 +510,12 @@ export default function NotificationsPage() {
                 </div>
               </CardContent>
             </Card>
-            
+
             {/* Notification Preferences */}
             <Card>
               <CardHeader>
                 <CardTitle>Default Notification Preferences</CardTitle>
-                <CardDescription>
-                  Set default notification preferences for all clients
-                </CardDescription>
+                <CardDescription>Set default notification preferences for all clients</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -524,7 +545,7 @@ export default function NotificationsPage() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-lg font-medium mb-3">Document Notifications</h3>
                     <div className="space-y-2">
@@ -558,7 +579,7 @@ export default function NotificationsPage() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-lg font-medium mb-3">Billing Notifications</h3>
                     <div className="space-y-2">
@@ -593,22 +614,18 @@ export default function NotificationsPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="mt-6 flex justify-end">
-                  <Button className="bg-purple-600 hover:bg-purple-700">
-                    Save Preferences
-                  </Button>
+                  <Button className="bg-purple-600 hover:bg-purple-700">Save Preferences</Button>
                 </div>
               </CardContent>
             </Card>
-            
+
             {/* Email Settings */}
             <Card>
               <CardHeader>
                 <CardTitle>Email Settings</CardTitle>
-                <CardDescription>
-                  Configure email sender details and SMTP settings
-                </CardDescription>
+                <CardDescription>Configure email sender details and SMTP settings</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -622,17 +639,17 @@ export default function NotificationsPage() {
                       <Input id="sender-email" defaultValue="support@company.com" />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="reply-to">Reply-To Email</Label>
                     <Input id="reply-to" defaultValue="no-reply@company.com" />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="smtp-host">SMTP Host</Label>
                     <Input id="smtp-host" defaultValue="smtp.company.com" />
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="smtp-port">SMTP Port</Label>
@@ -652,7 +669,7 @@ export default function NotificationsPage() {
                       </Select>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="smtp-username">SMTP Username</Label>
@@ -663,7 +680,7 @@ export default function NotificationsPage() {
                       <Input id="smtp-password" type="password" defaultValue="••••••••••••" />
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2 mt-4">
                     <Button variant="outline">Test Connection</Button>
                     <Button className="bg-purple-600 hover:bg-purple-700">Save Settings</Button>
@@ -671,14 +688,12 @@ export default function NotificationsPage() {
                 </div>
               </CardContent>
             </Card>
-            
+
             {/* SMS Settings */}
             <Card>
               <CardHeader>
                 <CardTitle>SMS Settings</CardTitle>
-                <CardDescription>
-                  Configure SMS provider settings
-                </CardDescription>
+                <CardDescription>Configure SMS provider settings</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -695,22 +710,24 @@ export default function NotificationsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="account-sid">Account SID</Label>
                     <Input id="account-sid" defaultValue="AC1a2b3c4d5e6f7g8h9i0j" />
                   </div>
-                  
+
+                  <div className="space-y-2">/{">"}</div>
+
                   <div className="space-y-2">
                     <Label htmlFor="auth-token">Auth Token</Label>
                     <Input id="auth-token" type="password" defaultValue="••••••••••••" />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="sender-phone">Sender Phone Number</Label>
                     <Input id="sender-phone" defaultValue="+1234567890" />
                   </div>
-                  
+
                   <div className="flex items-center space-x-2 mt-4">
                     <Button variant="outline">Test SMS</Button>
                     <Button className="bg-purple-600 hover:bg-purple-700">Save Settings</Button>
@@ -721,7 +738,7 @@ export default function NotificationsPage() {
           </div>
         </TabsContent>
       </Tabs>
-      
+
       {/* Template Dialog */}
       <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
         <DialogContent className="sm:max-w-[800px]">
@@ -731,19 +748,15 @@ export default function NotificationsPage() {
               {selectedTemplate ? "Make changes to the notification template." : "Create a new notification template."}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="template-name" className="text-right">
                 Name
               </Label>
-              <Input
-                id="template-name"
-                defaultValue={selectedTemplate?.name || ""}
-                className="col-span-3"
-              />
+              <Input id="template-name" defaultValue={selectedTemplate?.name || ""} className="col-span-3" />
             </div>
-            
+
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="template-type" className="text-right">
                 Type
@@ -760,18 +773,14 @@ export default function NotificationsPage() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="template-subject" className="text-right">
                 Subject
               </Label>
-              <Input
-                id="template-subject"
-                defaultValue={selectedTemplate?.subject || ""}
-                className="col-span-3"
-              />
+              <Input id="template-subject" defaultValue={selectedTemplate?.subject || ""} className="col-span-3" />
             </div>
-            
+
             <div className="grid grid-cols-4 items-start gap-4">
               <Label htmlFor="template-body" className="text-right pt-2">
                 Body
@@ -782,7 +791,7 @@ export default function NotificationsPage() {
                 className="col-span-3 min-h-[200px]"
               />
             </div>
-            
+
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="template-status" className="text-right">
                 Status
@@ -799,7 +808,7 @@ export default function NotificationsPage() {
               </Select>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>
               Cancel
@@ -810,41 +819,40 @@ export default function NotificationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Delete Template</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the "{selectedTemplate?.name}" template? This action cannot be undone.
+              Are you sure you want to delete the &quot;{selectedTemplate?.name}&quot; template? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
-          
+
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
               Cancel
             </Button>
-            <Button variant="destructive">
-              Delete Template
-            </Button>
+            <Button variant="destructive">Delete Template</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Preview Dialog */}
       <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Template Preview: {selectedTemplate?.name}</DialogTitle>
           </DialogHeader>
-          
+
           <div className="py-4">
             <div className="mb-4">
               <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Subject</h3>
               <p>{selectedTemplate?.subject}</p>
             </div>
-            
+
             <div>
               <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Body</h3>
               <div className="p-4 border rounded-md bg-gray-50 dark:bg-gray-800 whitespace-pre-line">
@@ -852,7 +860,7 @@ export default function NotificationsPage() {
               </div>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>
               Close
@@ -870,19 +878,19 @@ export default function NotificationsPage() {
 
 function TemplateStatusBadge({ status }: { status: string }) {
   switch (status) {
-    case 'active':
+    case "active":
       return (
         <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30">
           Active
         </Badge>
       )
-    case 'draft':
+    case "draft":
       return (
         <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30">
           Draft
         </Badge>
       )
-    case 'archived':
+    case "archived":
       return (
         <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
           Archived
@@ -895,21 +903,21 @@ function TemplateStatusBadge({ status }: { status: string }) {
 
 function NotificationTypeBadge({ type }: { type: string }) {
   switch (type) {
-    case 'email':
+    case "email":
       return (
         <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30">
           <Mail className="mr-1 h-3 w-3" />
           Email
         </Badge>
       )
-    case 'sms':
+    case "sms":
       return (
         <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30">
           <MessageSquare className="mr-1 h-3 w-3" />
           SMS
         </Badge>
       )
-    case 'push':
+    case "push":
       return (
         <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30">
           <Bell className="mr-1 h-3 w-3" />
@@ -917,31 +925,27 @@ function NotificationTypeBadge({ type }: { type: string }) {
         </Badge>
       )
     default:
-      return (
-        <Badge>
-          {type}
-        </Badge>
-      )
+      return <Badge>{type}</Badge>
   }
 }
 
 function NotificationStatusBadge({ status }: { status: string }) {
   switch (status) {
-    case 'delivered':
+    case "delivered":
       return (
         <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30">
           <CheckCircle2 className="mr-1 h-3 w-3" />
           Delivered
         </Badge>
       )
-    case 'failed':
+    case "failed":
       return (
         <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30">
           <AlertTriangle className="mr-1 h-3 w-3" />
           Failed
         </Badge>
       )
-    case 'pending':
+    case "pending":
       return (
         <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30">
           <Clock className="mr-1 h-3 w-3" />
@@ -949,10 +953,7 @@ function NotificationStatusBadge({ status }: { status: string }) {
         </Badge>
       )
     default:
-      return (
-        <Badge>
-          {status}
-        </Badge>
-      )
+      return <Badge>{status}</Badge>
   }
 }
+

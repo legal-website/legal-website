@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -34,7 +34,7 @@ interface PlanType {
 interface PlanDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  editingPlan?: any
+  editingPlan?: PlanType | null
 }
 
 export function PlanDialog({ open, onOpenChange, editingPlan }: PlanDialogProps) {
@@ -98,7 +98,7 @@ export function PlanDialog({ open, onOpenChange, editingPlan }: PlanDialogProps)
         updatedPlans = data.plans.map((p: { id: string | number | undefined }) => (p.id === plan.id ? plan : p))
       } else {
         // Generate a new ID for the plan
-        const newId = Math.max(0, ...data.plans.map((p: { id: any }) => Number(p.id))) + 1
+        const newId = Math.max(0, ...data.plans.map((p: { id: string | number }) => Number(p.id))) + 1
         updatedPlans = [...data.plans, { ...plan, id: newId }]
       }
 
@@ -323,4 +323,3 @@ export function PlanDialog({ open, onOpenChange, editingPlan }: PlanDialogProps)
     </Dialog>
   )
 }
-

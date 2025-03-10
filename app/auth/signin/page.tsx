@@ -63,7 +63,7 @@ export default function SignInPage() {
 
       // Check if user has super admin role
       if (responseData.user?.role !== "super_admin") {
-        throw new Error("You don't have permission to access the super admin dashboard")
+        throw new Error("You don&apos;t have permission to access the super admin dashboard")
       }
 
       toast({
@@ -243,7 +243,7 @@ export default function SignInPage() {
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
           <div className="text-center text-sm">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link href="/auth/signup" className="font-medium text-primary hover:underline">
               Sign up
             </Link>

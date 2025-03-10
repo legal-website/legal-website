@@ -28,12 +28,12 @@ export default function AffiliateProgramPage() {
     {
       question: "How does the affiliate program work?",
       answer:
-        "Our affiliate program allows you to earn commissions by referring new customers to our services. You'll receive a unique referral link to share, and when someone signs up using your link, you'll earn a commission on their purchases.",
+        "Our affiliate program allows you to earn commissions by referring new customers to our services. You&apos;ll receive a unique referral link to share, and when someone signs up using your link, you&apos;ll earn a commission on their purchases.",
     },
     {
       question: "How much can I earn?",
       answer:
-        "You can earn 20% commission on all purchases made by users you refer. There's no limit to how much you can earn, and commissions are paid out monthly.",
+        "You can earn 20% commission on all purchases made by users you refer. There&apos;s no limit to how much you can earn, and commissions are paid out monthly.",
     },
     {
       question: "When do I get paid?",
@@ -43,7 +43,7 @@ export default function AffiliateProgramPage() {
     {
       question: "How long do referral cookies last?",
       answer:
-        "Our referral cookies last for 30 days. This means if someone clicks your link but doesn't sign up immediately, you'll still get credit if they return and sign up within 30 days.",
+        "Our referral cookies last for 30 days. This means if someone clicks your link but doesn&apos;t sign up immediately, you&apos;ll still get credit if they return and sign up within 30 days.",
     },
   ]
 
@@ -103,7 +103,7 @@ export default function AffiliateProgramPage() {
         <div className="p-6">
           <div className="mb-6">
             <p className="text-gray-600 mb-4">
-              Share this unique link with your network. When someone signs up using your link, you'll earn 20%
+              Share this unique link with your network. When someone signs up using your link, you&apos;ll earn 20%
               commission on their purchases.
             </p>
             <div className="flex items-center gap-2">
@@ -346,7 +346,7 @@ export default function AffiliateProgramPage() {
               <div className="mb-2">
                 <Progress value={100} className="h-2" />
               </div>
-              <p className="text-xs text-gray-500">You've reached the minimum payout threshold</p>
+              <p className="text-xs text-gray-500">You&apos;ve reached the minimum payout threshold</p>
             </div>
           </div>
 

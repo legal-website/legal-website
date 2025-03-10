@@ -1,7 +1,7 @@
 "use client"
 
 import { Label } from "@/components/ui/label"
-
+import Image from 'next/image';
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -36,7 +36,7 @@ export default function CommunityPage() {
       id: "1",
       title: "How do I update my business address?",
       content:
-        "I recently moved my business to a new location and need to update my address with the state. What's the best way to do this through the platform?",
+        "I recently moved my business to a new location and need to update my address with the state. What&apos;s the best way to do this through the platform?",
       author: {
         name: "John Doe",
         avatar: "/placeholder.svg?height=40&width=40",
@@ -51,7 +51,7 @@ export default function CommunityPage() {
       id: "2",
       title: "Annual report filing deadline question",
       content:
-        "I'm confused about when my annual report is due. The dashboard shows one date but I received an email with a different date. Can someone clarify?",
+        "I&apos;m confused about when my annual report is due. The dashboard shows one date but I received an email with a different date. Can someone clarify?",
       author: {
         name: "Sarah Smith",
         avatar: "/placeholder.svg?height=40&width=40",
@@ -66,7 +66,7 @@ export default function CommunityPage() {
       id: "3",
       title: "Best practices for maintaining corporate minutes",
       content:
-        "I'm looking for advice on how other business owners maintain their corporate minutes. What tools or templates do you recommend?",
+        "I&apos;m looking for advice on how other business owners maintain their corporate minutes. What tools or templates do you recommend?",
       author: {
         name: "Mike Johnson",
         avatar: "/placeholder.svg?height=40&width=40",
@@ -81,7 +81,7 @@ export default function CommunityPage() {
       id: "4",
       title: "Tax implications of changing from LLC to S-Corp",
       content:
-        "I'm considering changing my LLC to an S-Corporation for tax purposes. Has anyone gone through this process? What were the benefits and challenges?",
+        "I&apos;m considering changing my LLC to an S-Corporation for tax purposes. Has anyone gone through this process? What were the benefits and challenges?",
       author: {
         name: "Emily Chen",
         avatar: "/placeholder.svg?height=40&width=40",
@@ -247,11 +247,15 @@ export default function CommunityPage() {
                     filteredPosts.map((post) => (
                       <div key={post.id} className="p-6">
                         <div className="flex items-start gap-3">
-                          <img
-                            src={post.author.avatar || "/placeholder.svg"}
-                            alt={post.author.name}
-                            className="w-10 h-10 rounded-full"
-                          />
+
+<Image
+  src={post.author.avatar || "/placeholder.svg"}
+  alt={post.author.name}
+  width={40}
+  height={40}
+  className="rounded-full"
+/>
+
                           <div className="flex-1">
                             <h3 className="font-medium text-lg mb-1">{post.title}</h3>
                             <p className="text-gray-600 mb-3">{post.content}</p>
@@ -352,7 +356,7 @@ export default function CommunityPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <span>Protect your privacy - don't share sensitive information</span>
+                  <span>Protect your privacy - don&apos;t share sensitive information</span>
                 </li>
               </ul>
             </div>

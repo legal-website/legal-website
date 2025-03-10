@@ -122,13 +122,13 @@ export default function SystemSettingsPage() {
     slack: { enabled: false, webhookUrl: "" },
   })
 
-  // Backup settings state
+  // These variables are used in the Backup & Restore tab
   const [autoBackup, setAutoBackup] = useState(true)
   const [backupFrequency, setBackupFrequency] = useState("daily")
   const [backupRetention, setBackupRetention] = useState(30)
   const [backupLocation, setBackupLocation] = useState("cloud")
 
-  // User permissions state
+  // These variables are used in the User Permissions tab
   const [roles, setRoles] = useState<Role[]>([
     { id: 1, name: "Administrator", permissions: ["all"] },
     { id: 2, name: "Manager", permissions: ["view_all", "edit_documents", "manage_users", "view_reports"] },
@@ -136,7 +136,7 @@ export default function SystemSettingsPage() {
     { id: 4, name: "Client", permissions: ["view_own_documents", "upload_documents", "create_tickets"] },
   ])
 
-  // Appearance settings state
+  // These variables are used in the Appearance tab
   const [primaryColor, setPrimaryColor] = useState("#6366F1")
   const [logoUrl, setLogoUrl] = useState("/logo.png")
   const [theme, setTheme] = useState("system")
@@ -189,6 +189,24 @@ export default function SystemSettingsPage() {
         [field]: value,
       },
     })
+  }
+
+  // Handle backup settings change
+  const handleBackupSettingsChange = () => {
+    console.log("Backup settings:", { autoBackup, backupFrequency, backupRetention, backupLocation })
+    // This function would normally update the backup settings via an API call
+  }
+
+  // Handle roles change
+  const handleRolesChange = () => {
+    console.log("Roles:", roles)
+    // This function would normally update the roles via an API call
+  }
+
+  // Handle appearance settings change
+  const handleAppearanceSettingsChange = () => {
+    console.log("Appearance settings:", { primaryColor, logoUrl, theme, customCss })
+    // This function would normally update the appearance settings via an API call
   }
 
   return (
@@ -919,6 +937,188 @@ export default function SystemSettingsPage() {
                     <Plus className="h-4 w-4 mr-2" />
                     Add New Integration
                   </Button>
+                </CardContent>
+              </TabsContent>
+
+              {/* Backup & Restore Tab */}
+              <TabsContent value="backup" className="m-0">
+                <CardHeader>
+                  <CardTitle>Backup & Restore</CardTitle>
+                  <CardDescription>Configure system backup settings and restore options</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Automatic Backups</h3>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="autoBackup" className="text-base font-medium">
+                          Enable Automatic Backups
+                        </Label>
+                        <p className="text-sm text-gray-500">
+                          When enabled, the system will automatically create backups on a schedule
+                        </p>
+                      </div>
+                      <Switch id="autoBackup" checked={autoBackup} onCheckedChange={setAutoBackup} />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="backupFrequency">Backup Frequency</Label>
+                        <Select value={backupFrequency} onValueChange={setBackupFrequency} disabled={!autoBackup}>
+                          <SelectTrigger id="backupFrequency">
+                            <SelectValue placeholder="Select frequency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="hourly">Hourly</SelectItem>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="backupRetention">Retention Period (Days)</Label>
+                        <Input
+                          id="backupRetention"
+                          type="number"
+                          min="1"
+                          max="365"
+                          value={backupRetention}
+                          onChange={(e) => setBackupRetention(Number.parseInt(e.target.value))}
+                          disabled={!autoBackup}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="backupLocation">Backup Storage Location</Label>
+                      <Select value={backupLocation} onValueChange={setBackupLocation} disabled={!autoBackup}>
+                        <SelectTrigger id="backupLocation">
+                          <SelectValue placeholder="Select storage location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="local">Local Storage</SelectItem>
+                          <SelectItem value="cloud">Cloud Storage</SelectItem>
+                          <SelectItem value="both">Both Local & Cloud</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <Button onClick={handleBackupSettingsChange} disabled={!autoBackup}>
+                      Save Backup Settings
+                    </Button>
+                  </div>
+                </CardContent>
+              </TabsContent>
+
+              {/* User Permissions Tab */}
+              <TabsContent value="permissions" className="m-0">
+                <CardHeader>
+                  <CardTitle>User Permissions</CardTitle>
+                  <CardDescription>Manage user roles and access controls</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">User Roles</h3>
+
+                    <div className="border rounded-md overflow-hidden">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-gray-100 dark:bg-gray-800">
+                            <th className="px-4 py-2 text-left">Role Name</th>
+                            <th className="px-4 py-2 text-left">Permissions</th>
+                            <th className="px-4 py-2 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {roles.map((role) => (
+                            <tr key={role.id} className="border-t">
+                              <td className="px-4 py-2 font-medium">{role.name}</td>
+                              <td className="px-4 py-2">
+                                {role.permissions.map((perm) => (
+                                  <Badge key={perm} className="mr-1 mb-1">
+                                    {perm}
+                                  </Badge>
+                                ))}
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                <Button variant="ghost" size="sm" onClick={handleRolesChange}>
+                                  Edit
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </CardContent>
+              </TabsContent>
+
+              {/* Appearance Tab */}
+              <TabsContent value="appearance" className="m-0">
+                <CardHeader>
+                  <CardTitle>Appearance</CardTitle>
+                  <CardDescription>Customize the look and feel of your dashboard</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Theme Settings</h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="theme">Theme Mode</Label>
+                        <Select value={theme} onValueChange={setTheme}>
+                          <SelectTrigger id="theme">
+                            <SelectValue placeholder="Select theme" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="light">Light</SelectItem>
+                            <SelectItem value="dark">Dark</SelectItem>
+                            <SelectItem value="system">System</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="primaryColor">Primary Color</Label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="color"
+                            id="primaryColor"
+                            value={primaryColor}
+                            onChange={(e) => setPrimaryColor(e.target.value)}
+                            className="w-10 h-10 rounded-md border cursor-pointer"
+                          />
+                          <Input
+                            value={primaryColor}
+                            onChange={(e) => setPrimaryColor(e.target.value)}
+                            className="font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="logoUrl">Logo URL</Label>
+                      <Input id="logoUrl" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="customCss">Custom CSS</Label>
+                      <Textarea
+                        id="customCss"
+                        value={customCss}
+                        onChange={(e) => setCustomCss(e.target.value)}
+                        className="font-mono h-32"
+                        placeholder="/* Add your custom CSS here */"
+                      />
+                    </div>
+
+                    <Button onClick={handleAppearanceSettingsChange}>Save Appearance Settings</Button>
+                  </div>
                 </CardContent>
               </TabsContent>
 

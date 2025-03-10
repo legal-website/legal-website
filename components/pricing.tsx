@@ -10,9 +10,6 @@ import { useToast } from "@/components/ui/use-toast"
 import { useCart } from "@/context/cart-context"
 
 // Define types for our data
-interface PricingFeature {
-  text: string
-}
 
 interface PricingTier {
   id: number | string

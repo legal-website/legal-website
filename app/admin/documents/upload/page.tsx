@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileUp, Upload, X, CheckCircle2, AlertCircle, FileText, Users, FolderPlus, RefreshCw, HelpCircle, Download, Plus } from 'lucide-react'
+import { FileUp, Upload, X, CheckCircle2, AlertCircle, FileText, FolderPlus, RefreshCw, HelpCircle, Download, Plus } from 'lucide-react'
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
@@ -440,7 +440,7 @@ export default function BulkUploadPage() {
                           )}
                           
                           <p className="text-sm text-gray-500 text-center">
-                            Please don't close this window while the upload is in progress.
+                            Please don&apos;t close this window while the upload is in progress.
                           </p>
                         </div>
                       )}

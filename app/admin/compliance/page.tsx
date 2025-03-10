@@ -189,7 +189,7 @@ export default function CompliancePage() {
           id: "MSG-003",
           sender: "Emily Chen",
           senderType: "client",
-          message: "We're finalizing our Q1 financial statements and will send them by next week.",
+          message: "We&apos;re finalizing our Q1 financial statements and will send them by next week.",
           timestamp: "Mar 5, 2025 - 02:45 PM",
         },
       ],
@@ -262,7 +262,7 @@ export default function CompliancePage() {
           sender: "Lisa Wong",
           senderType: "client",
           message:
-            "No changes to ownership structure since last filing. I've uploaded the declaration form confirming this.",
+            "No changes to ownership structure since last filing. I&apos;ve uploaded the declaration form confirming this.",
           timestamp: "Feb 20, 2025 - 11:45 AM",
         },
         {
@@ -270,7 +270,7 @@ export default function CompliancePage() {
           sender: "Sarah Johnson",
           senderType: "agent",
           message:
-            "Thank you for confirming. I've reviewed and approved all documents. This compliance task is now complete.",
+            "Thank you for confirming. I&apos;ve reviewed and approved all documents. This compliance task is now complete.",
           timestamp: "Feb 25, 2025 - 02:15 PM",
         },
       ],
@@ -349,7 +349,7 @@ export default function CompliancePage() {
           id: "MSG-010",
           sender: "David Lee",
           senderType: "client",
-          message: "I've uploaded the previous license. Working on getting the tax clearance certificate.",
+          message: "I&apos;ve uploaded the previous license. Working on getting the tax clearance certificate.",
           timestamp: "Feb 15, 2025 - 03:20 PM",
         },
         {
@@ -530,7 +530,7 @@ export default function CompliancePage() {
           sender: "John Smith",
           senderType: "client",
           message:
-            "I've uploaded the previous quarter statement for reference. Our accounting team is finalizing Q1 data and will provide it by April 1.",
+            "I&apos;ve uploaded the previous quarter statement for reference. Our accounting team is finalizing Q1 data and will provide it by April 1.",
           timestamp: "Mar 5, 2025 - 02:15 PM",
         },
         {
@@ -538,7 +538,7 @@ export default function CompliancePage() {
           sender: "Michael Brown",
           senderType: "agent",
           message:
-            "Thank you. I've reviewed the previous quarter statement. I'll prepare the filing structure and wait for the Q1 data.",
+            "Thank you. I&apos;ve reviewed the previous quarter statement. I&apos;ll prepare the filing structure and wait for the Q1 data.",
           timestamp: "Mar 7, 2025 - 11:45 AM",
         },
       ],
@@ -612,7 +612,7 @@ export default function CompliancePage() {
           id: "MSG-022",
           sender: "Emily Chen",
           senderType: "client",
-          message: "I've uploaded the Certificate of Good Standing from Delaware.",
+          message: "I&apos;ve uploaded the Certificate of Good Standing from Delaware.",
           timestamp: "Mar 3, 2025 - 11:15 AM",
         },
         {
@@ -620,7 +620,7 @@ export default function CompliancePage() {
           sender: "Sarah Johnson",
           senderType: "agent",
           message:
-            "Thank you. I've prepared the draft application for California foreign qualification. Please review and approve.",
+            "Thank you. I&apos;ve prepared the draft application for California foreign qualification. Please review and approve.",
           timestamp: "Mar 6, 2025 - 02:30 PM",
         },
       ],
@@ -700,14 +700,14 @@ export default function CompliancePage() {
           id: "MSG-026",
           sender: "Lisa Wong",
           senderType: "client",
-          message: "We've scheduled our annual meeting for February 25. Will upload the minutes after the meeting.",
+          message: "We&apos;ve scheduled our annual meeting for February 25. Will upload the minutes after the meeting.",
           timestamp: "Feb 10, 2025 - 01:45 PM",
         },
         {
           id: "MSG-027",
           sender: "Lisa Wong",
           senderType: "client",
-          message: "Annual meeting completed. I've uploaded the minutes and attendance record for your review.",
+          message: "Annual meeting completed. I&apos;ve uploaded the minutes and attendance record for your review.",
           timestamp: "Feb 26, 2025 - 09:30 AM",
         },
         {
@@ -715,7 +715,7 @@ export default function CompliancePage() {
           sender: "Thomas Garcia",
           senderType: "agent",
           message:
-            "Thank you. I've reviewed and approved the meeting minutes and attendance record. This compliance task is now complete.",
+            "Thank you. I&apos;ve reviewed and approved the meeting minutes and attendance record. This compliance task is now complete.",
           timestamp: "Feb 26, 2025 - 11:45 AM",
         },
       ],
@@ -786,28 +786,28 @@ export default function CompliancePage() {
           id: "MSG-030",
           sender: "Jessica Williams",
           senderType: "agent",
-          message: "I'll be handling your EIN application. I've prepared the SS-4 form for your review and signature.",
+          message: "I&apos;ll be handling your EIN application. I&apos;ve prepared the SS-4 form for your review and signature.",
           timestamp: "Feb 28, 2025 - 11:30 AM",
         },
         {
           id: "MSG-031",
           sender: "Alex Johnson",
           senderType: "client",
-          message: "I've reviewed and signed the SS-4 form. Please proceed with the application.",
+          message: "I&apos;ve reviewed and signed the SS-4 form. Please proceed with the application.",
           timestamp: "Mar 1, 2025 - 09:45 AM",
         },
         {
           id: "MSG-032",
           sender: "Jessica Williams",
           senderType: "agent",
-          message: "I've submitted your EIN application to the IRS. Will update you once we receive the confirmation.",
+          message: "I&apos;ve submitted your EIN application to the IRS. Will update you once we receive the confirmation.",
           timestamp: "Mar 1, 2025 - 02:30 PM",
         },
         {
           id: "MSG-033",
           sender: "Jessica Williams",
           senderType: "agent",
-          message: "Good news! Your EIN has been issued. I've uploaded the confirmation letter for your records.",
+          message: "Good news! Your EIN has been issued. I&apos;ve uploaded the confirmation letter for your records.",
           timestamp: "Mar 3, 2025 - 10:15 AM",
         },
         {
@@ -1628,7 +1628,7 @@ export default function CompliancePage() {
                 <CalendarIcon className="h-12 w-12 mx-auto text-gray-400" />
                 <h3 className="mt-4 text-lg font-medium">Calendar View Coming Soon</h3>
                 <p className="mt-2 text-sm text-gray-500">
-                  We're working on a comprehensive calendar view for compliance deadlines.
+                  We&apos;re working on a comprehensive calendar view for compliance deadlines.
                 </p>
               </div>
             </CardContent>

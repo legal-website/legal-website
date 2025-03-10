@@ -9,7 +9,6 @@ import { usePathname } from "next/navigation"
 import {
   Home,
   FileText,
-  MessageSquare,
   Building,
   Users,
   Settings,
@@ -84,7 +83,7 @@ const menuItems: MenuItem[] = [
 export default function DashboardSidebar() {
   const pathname = usePathname()
   const [expandedItems, setExpandedItems] = useState<string[]>([])
-  const [businessName, setBusinessName] = useState("Rapid Ventures LLC")
+  const [businessName] = useState("Rapid Ventures LLC")
   const [profileImage, setProfileImage] = useState<string | null>(null)
   const [showUploadOption, setShowUploadOption] = useState(false)
   const { theme } = useTheme()

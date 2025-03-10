@@ -48,12 +48,8 @@ export async function POST(request: Request) {
     // 3. Not return the password, even if it's hashed
 
     // Return user data (excluding password)
-    const { password: _, ...userWithoutPassword } = user
 
-    return NextResponse.json({
-      message: "Authentication successful",
-      user: userWithoutPassword,
-    })
+    
   } catch (error) {
     console.error("Authentication error:", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })

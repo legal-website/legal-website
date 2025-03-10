@@ -1,11 +1,12 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Search, Plus, Filter, Download, Edit, Trash2, Copy, Eye, FileUp, CheckCircle2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -14,125 +15,278 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { FileText, Plus, Search, Download, Edit, DollarSign, Filter, Copy, Calendar } from "lucide-react"
 
-export default function DocumentTemplatesPage() {
+// Define pricing tier types
+type PricingTier = "Free" | "Basic" | "Standard" | "Premium"
+
+// Define template type with pricing
+interface Template {
+  id: number
+  name: string
+  category: string
+  lastUpdated: string
+  status: string
+  usageCount: number
+  price: string
+  pricingTier: string
+}
+
+export default function TemplatesPage() {
   const [searchQuery, setSearchQuery] = useState("")
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [newTemplate, setNewTemplate] = useState({
+    name: "",
+    description: "",
+    category: "",
+    isPublic: true,
+    price: "0",
+    pricingTier: "free",
+  })
+  const [showNewTemplateDialog, setShowNewTemplateDialog] = useState(false)
+  const [newTemplateName, setNewTemplateName] = useState("")
+  const [newTemplateCategory, setNewTemplateCategory] = useState("")
+  const [newTemplateDescription, setNewTemplateDescription] = useState("")
+  const [newTemplatePricingTier, setNewTemplatePricingTier] = useState<PricingTier>("Free")
+  const [newTemplatePrice, setNewTemplatePrice] = useState(0)
   const [activeTab, setActiveTab] = useState("all")
-  const [selectedCategory, setSelectedCategory] = useState("All Categories")
-  const [showUploadDialog, setShowUploadDialog] = useState(false)
 
-  const categories = ["All Categories", "Business Formation", "Compliance", "Tax", "Legal", "HR", "Financial"]
-
-  const templates = [
+  // Sample template data
+  const templates: Template[] = [
     {
       id: 1,
-      name: "Articles of Organization",
+      name: "LLC Formation",
       category: "Business Formation",
-      lastUpdated: "Mar 5, 2025",
-      status: "Active",
-      usageCount: 342,
-      price: "$49.99",
+      lastUpdated: "Mar 7, 2025",
+      status: "active",
+      usageCount: 1245,
+      price: "99.99",
       pricingTier: "Premium",
     },
     {
       id: 2,
-      name: "Operating Agreement",
+      name: "Corporation Bylaws",
       category: "Business Formation",
-      lastUpdated: "Mar 3, 2025",
-      status: "Active",
-      usageCount: 287,
-      price: "$39.99",
+      lastUpdated: "Mar 5, 2025",
+      status: "active",
+      usageCount: 876,
+      price: "49.99",
       pricingTier: "Standard",
     },
     {
       id: 3,
-      name: "Annual Report Template",
+      name: "Annual Report",
       category: "Compliance",
-      lastUpdated: "Feb 28, 2025",
-      status: "Active",
-      usageCount: 156,
-      price: "$29.99",
-      pricingTier: "Standard",
-    },
-    {
-      id: 4,
-      name: "Tax Filing Checklist",
-      category: "Tax",
-      lastUpdated: "Feb 25, 2025",
-      status: "Active",
-      usageCount: 98,
-      price: "$19.99",
+      lastUpdated: "Mar 3, 2025",
+      status: "active",
+      usageCount: 2134,
+      price: "19.99",
       pricingTier: "Basic",
     },
     {
+      id: 4,
+      name: "Independent Contractor Agreement",
+      category: "Contracts",
+      lastUpdated: "Mar 1, 2025",
+      status: "active",
+      usageCount: 1567,
+      price: "39.99",
+      pricingTier: "Standard",
+    },
+    {
       id: 5,
-      name: "Employee Handbook",
-      category: "HR",
-      lastUpdated: "Feb 20, 2025",
-      status: "Active",
-      usageCount: 75,
-      price: "$59.99",
-      pricingTier: "Premium",
+      name: "Privacy Policy",
+      category: "Website Policies",
+      lastUpdated: "Feb 28, 2025",
+      status: "active",
+      usageCount: 3421,
+      price: "0",
+      pricingTier: "Free",
     },
     {
       id: 6,
-      name: "Non-Disclosure Agreement",
-      category: "Legal",
-      lastUpdated: "Feb 18, 2025",
-      status: "Active",
-      usageCount: 124,
-      price: "$24.99",
-      pricingTier: "Standard",
+      name: "Terms of Service",
+      category: "Website Policies",
+      lastUpdated: "Feb 25, 2025",
+      status: "active",
+      usageCount: 2987,
+      price: "0",
+      pricingTier: "Free",
     },
     {
       id: 7,
-      name: "Financial Statement Template",
-      category: "Financial",
-      lastUpdated: "Feb 15, 2025",
-      status: "Active",
-      usageCount: 67,
-      price: "$34.99",
-      pricingTier: "Standard",
+      name: "Employment Agreement",
+      category: "HR",
+      lastUpdated: "Feb 22, 2025",
+      status: "active",
+      usageCount: 1876,
+      price: "79.99",
+      pricingTier: "Premium",
     },
     {
       id: 8,
-      name: "Business Plan Template",
-      category: "Business Formation",
-      lastUpdated: "Feb 10, 2025",
-      status: "Active",
-      usageCount: 201,
-      price: "$49.99",
-      pricingTier: "Premium",
+      name: "Non-Disclosure Agreement",
+      category: "Contracts",
+      lastUpdated: "Feb 20, 2025",
+      status: "active",
+      usageCount: 2543,
+      price: "14.99",
+      pricingTier: "Basic",
     },
   ]
 
+  // Filter templates based on search query and active tab
   const filteredTemplates = templates.filter((template) => {
-    const matchesSearch = template.name.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = selectedCategory === "All Categories" || template.category === selectedCategory
-    return matchesSearch && matchesCategory
+    const matchesSearch =
+      template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      template.category.toLowerCase().includes(searchQuery.toLowerCase())
+
+    if (activeTab === "all") return matchesSearch
+    if (activeTab === "free") return matchesSearch && template.pricingTier === "Free"
+    if (activeTab === "paid") return matchesSearch && template.pricingTier !== "Free"
+    if (activeTab === "business-formation") return matchesSearch && template.category === "Business Formation"
+    if (activeTab === "compliance") return matchesSearch && template.category === "Compliance"
+    if (activeTab === "contracts") return matchesSearch && template.category === "Contracts"
+
+    return matchesSearch
   })
 
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setNewTemplate({ ...newTemplate, [name]: value })
+  }
+
+  // Handle switch toggle
+  const handleSwitchChange = (checked: boolean) => {
+    setNewTemplate({ ...newTemplate, isPublic: checked })
+  }
+
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log("New template:", newTemplate)
+    // Here you would typically save the new template to your database
+    setIsCreateDialogOpen(false)
+    setNewTemplate({
+      name: "",
+      description: "",
+      category: "",
+      isPublic: true,
+      price: "0",
+      pricingTier: "free",
+    })
+  }
+
+  // Get pricing tier badge color
+  const getPricingTierColor = (tier: string): string => {
+    switch (tier) {
+      case "free":
+        return "bg-gray-500"
+      case "basic":
+        return "bg-blue-500"
+      case "standard":
+        return "bg-purple-500"
+      case "premium":
+        return "bg-amber-500"
+      default:
+        return "bg-gray-500"
+    }
+  }
+
+  // Get pricing tier badge color
+  const getPricingTierBadgeColor = (tier: PricingTier) => {
+    switch (tier) {
+      case "Free":
+        return "bg-gray-100 hover:bg-gray-200 text-gray-800"
+      case "Basic":
+        return "bg-blue-100 hover:bg-blue-200 text-blue-800"
+      case "Standard":
+        return "bg-purple-100 hover:bg-purple-200 text-purple-800"
+      case "Premium":
+        return "bg-amber-100 hover:bg-amber-200 text-amber-800"
+      default:
+        return "bg-gray-100 hover:bg-gray-200 text-gray-800"
+    }
+  }
+
+  // Format price display
+  const formatPrice = (price: number) => {
+    if (price === 0) return "Free"
+    return `$${price.toFixed(2)}`
+  }
+
+  function TemplateCard({ template }: { template: Template }) {
+    return (
+      <Card className="overflow-hidden">
+        <div className="p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            </div>
+            <Badge className={getPricingTierBadgeColor(template.pricingTier as PricingTier)}>
+              {template.pricingTier}
+            </Badge>
+          </div>
+          <h3 className="font-medium mb-1">{template.name}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{template.category}</p>
+
+          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-1">
+            <Calendar className="h-3.5 w-3.5 mr-1" />
+            Updated: {template.lastUpdated}
+          </div>
+          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-3">
+            <Download className="h-3.5 w-3.5 mr-1" />
+            {template.usageCount} downloads
+          </div>
+
+          <div className="flex items-center text-sm font-medium mb-4">
+            <DollarSign className="h-3.5 w-3.5 mr-1" />
+            {template.price}
+          </div>
+
+          <div className="flex space-x-2">
+            <Button variant="outline" size="sm" className="flex-1">
+              <Edit className="h-4 w-4 mr-1" />
+              Edit
+            </Button>
+            <Button variant="outline" size="sm" className="flex-1">
+              <Copy className="h-4 w-4 mr-1" />
+              Duplicate
+            </Button>
+          </div>
+        </div>
+      </Card>
+    )
+  }
+
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+    <div className="p-6 max-w-[1600px] mx-auto">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Document Templates</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage and create document templates for client use</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage and create document templates for your clients</p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <Button onClick={() => setShowUploadDialog(true)} className="bg-purple-600 hover:bg-purple-700">
+          <Button variant="outline" size="sm" className="flex items-center">
+            <Filter className="mr-2 h-4 w-4" />
+            Filter
+          </Button>
+          <Button
+            className="bg-purple-600 hover:bg-purple-700 flex items-center"
+            onClick={() => setShowNewTemplateDialog(true)}
+          >
             <Plus className="mr-2 h-4 w-4" />
             New Template
           </Button>
         </div>
       </div>
 
-      {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="relative">
+      {/* Search and Filter */}
+      <div className="mb-6 space-y-4">
+        <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="Search templates..."
@@ -142,216 +296,145 @@ export default function DocumentTemplatesPage() {
           />
         </div>
 
-        <div>
-          <select
-            className="w-full h-10 px-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-          >
-            {categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex space-x-2">
-          <Button variant="outline" className="flex-1">
-            <Filter className="mr-2 h-4 w-4" />
-            More Filters
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4" />
-          </Button>
-        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="all">All Templates</TabsTrigger>
+            <TabsTrigger value="free">Free</TabsTrigger>
+            <TabsTrigger value="paid">Paid</TabsTrigger>
+            <TabsTrigger value="business-formation">Business Formation</TabsTrigger>
+            <TabsTrigger value="compliance">Compliance</TabsTrigger>
+            <TabsTrigger value="contracts">Contracts</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="all">All Templates</TabsTrigger>
-          <TabsTrigger value="recent">Recently Used</TabsTrigger>
-          <TabsTrigger value="created">Created by Me</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
       {/* Templates Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredTemplates.map((template) => (
           <TemplateCard key={template.id} template={template} />
         ))}
       </div>
 
-      {/* Upload Template Dialog */}
-      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+      {/* New Template Dialog */}
+      <Dialog open={showNewTemplateDialog} onOpenChange={setShowNewTemplateDialog}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Create New Template</DialogTitle>
-            <DialogDescription>Upload a new document template or create one from scratch.</DialogDescription>
+            <DialogDescription>Add a new document template to the system</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
+              <label htmlFor="name" className="text-right text-sm font-medium">
                 Name
-              </Label>
-              <Input id="name" placeholder="Template name" className="col-span-3" />
+              </label>
+              <Input
+                id="name"
+                value={newTemplateName}
+                onChange={(e) => setNewTemplateName(e.target.value)}
+                className="col-span-3"
+                placeholder="e.g. LLC Formation"
+              />
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="category" className="text-right">
+              <label htmlFor="category" className="text-right text-sm font-medium">
                 Category
-              </Label>
-              <select
+              </label>
+              <Input
                 id="category"
-                className="col-span-3 h-10 px-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-              >
-                {categories
-                  .filter((c) => c !== "All Categories")
-                  .map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-              </select>
+                value={newTemplateCategory}
+                onChange={(e) => setNewTemplateCategory(e.target.value)}
+                className="col-span-3"
+                placeholder="e.g. Business Formation"
+              />
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
+              <label htmlFor="description" className="text-right text-sm font-medium">
                 Description
-              </Label>
-              <Textarea id="description" placeholder="Brief description of this template" className="col-span-3" />
-            </div>
-
-            {/* New Pricing Fields */}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="price" className="text-right">
-                Price
-              </Label>
-              <div className="col-span-3 flex">
-                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 dark:bg-gray-800 dark:border-gray-600">
-                  $
-                </span>
-                <Input id="price" placeholder="49.99" className="rounded-l-none" />
-              </div>
+              </label>
+              <Input
+                id="description"
+                value={newTemplateDescription}
+                onChange={(e) => setNewTemplateDescription(e.target.value)}
+                className="col-span-3"
+                placeholder="Brief description of the template"
+              />
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="pricing-tier" className="text-right">
+              <label htmlFor="pricingTier" className="text-right text-sm font-medium">
                 Pricing Tier
-              </Label>
+              </label>
               <select
-                id="pricing-tier"
-                className="col-span-3 h-10 px-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+                id="pricingTier"
+                value={newTemplatePricingTier}
+                onChange={(e) => {
+                  setNewTemplatePricingTier(e.target.value as PricingTier)
+                  if (e.target.value === "Free") {
+                    setNewTemplatePrice(0)
+                  }
+                }}
+                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
+                <option value="Free">Free</option>
                 <option value="Basic">Basic</option>
                 <option value="Standard">Standard</option>
                 <option value="Premium">Premium</option>
-                <option value="Enterprise">Enterprise</option>
               </select>
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">File</Label>
-              <div className="col-span-3">
-                <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-6 text-center">
-                  <FileUp className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-500 mb-2">Drag and drop your file here, or click to browse</p>
-                  <p className="text-xs text-gray-400">Supports PDF, DOCX, XLSX (Max 10MB)</p>
-                  <input type="file" className="hidden" />
-                </div>
+              <label htmlFor="price" className="text-right text-sm font-medium">
+                Price
+              </label>
+              <div className="col-span-3 relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                  <DollarSign className="h-4 w-4" />
+                </span>
+                <Input
+                  id="price"
+                  type="number"
+                  value={newTemplatePrice}
+                  onChange={(e) => setNewTemplatePrice(Number.parseFloat(e.target.value))}
+                  className="pl-10"
+                  placeholder="0.00"
+                  disabled={newTemplatePricingTier === "Free"}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Variables</Label>
-              <div className="col-span-3">
-                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                  <p className="text-sm text-gray-500 mb-2">
-                    Define variables that can be replaced when using this template
-                  </p>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Input placeholder="Variable name (e.g. COMPANY_NAME)" className="flex-1" />
-                      <Button variant="ghost" size="icon">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <label htmlFor="file" className="text-right text-sm font-medium">
+                Template File
+              </label>
+              <Input id="file" type="file" className="col-span-3" />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowUploadDialog(false)}>
+            <Button variant="outline" onClick={() => setShowNewTemplateDialog(false)}>
               Cancel
             </Button>
-            <Button className="bg-purple-600 hover:bg-purple-700">Create Template</Button>
+            <Button
+              className="bg-purple-600 hover:bg-purple-700"
+              onClick={() => {
+                // Handle template creation logic here
+                setShowNewTemplateDialog(false)
+                setNewTemplateName("")
+                setNewTemplateCategory("")
+                setNewTemplateDescription("")
+                setNewTemplatePricingTier("Free")
+                setNewTemplatePrice(0)
+              }}
+            >
+              Create Template
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
-
-function TemplateCard({ template }: { template: any }) {
-  return (
-    <Card className="overflow-hidden">
-      <div className="p-4 border-b">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center">
-            <div className="w-10 h-10 rounded bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mr-3">
-              <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <h3 className="font-medium text-sm line-clamp-1">{template.name}</h3>
-              <p className="text-xs text-gray-500">{template.category}</p>
-            </div>
-          </div>
-          <div className="flex">
-            <Button variant="ghost" size="icon">
-              <Eye className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center">
-            <CheckCircle2 className="h-4 w-4 text-green-500 mr-1" />
-            <span className="text-xs">{template.status}</span>
-          </div>
-          <span className="text-xs text-gray-500">Updated: {template.lastUpdated}</span>
-        </div>
-
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-gray-500">{template.usageCount} uses</span>
-          <div className="flex items-center">
-            <span className="text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 px-2 py-0.5 rounded-full">
-              {template.pricingTier}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="font-medium text-sm text-purple-600 dark:text-purple-400">{template.price}</span>
-          <div className="flex space-x-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Copy className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    </Card>
   )
 }
 

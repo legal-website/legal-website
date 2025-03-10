@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Forgot password</CardTitle>
           <CardDescription className="text-center">
-            Enter your email address and we'll send you a link to reset your password
+            Enter your email address and we&apos;ll send you a link to reset your password
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -93,7 +93,7 @@ export default function ForgotPasswordPage() {
               </div>
               <h3 className="text-lg font-medium">Check your email</h3>
               <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                We've sent you a password reset link. Please check your email.
+                We&apos;ve sent you a password reset link. Please check your email.
               </p>
               <Button variant="outline" className="mt-4" onClick={() => setIsSubmitted(false)}>
                 Try another email

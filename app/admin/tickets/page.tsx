@@ -28,10 +28,49 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/use-toast"
 
+// Define types for messages and tickets
+interface TicketMessage {
+  id: number
+  sender: string
+  senderType: "customer" | "agent" | "system"
+  message: string
+  timestamp: string
+}
+
+interface Ticket {
+  id: string
+  subject: string
+  customer: string
+  company: string
+  email: string
+  status: "Open" | "In Progress" | "Resolved"
+  priority: "High" | "Medium" | "Low"
+  category: string
+  createdAt: string
+  lastUpdated: string
+  assignedTo: string
+  messages: TicketMessage[]
+}
+
+interface NewTicketForm {
+  subject: string
+  customer: string
+  company: string
+  email: string
+  priority: string
+  category: string
+  message: string
+}
+
+interface TicketsTableProps {
+  tickets: Ticket[]
+  onViewTicket: (ticket: Ticket) => void
+}
+
 export default function SupportTicketsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
-  const [selectedTicket, setSelectedTicket] = useState<any>(null)
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
   const [showTicketDialog, setShowTicketDialog] = useState(false)
   const [showCreateTicketDialog, setShowCreateTicketDialog] = useState(false)
 
@@ -41,7 +80,7 @@ export default function SupportTicketsPage() {
   const [assigneeFilter, setAssigneeFilter] = useState("anyone")
 
   // New ticket form state
-  const [newTicket, setNewTicket] = useState({
+  const [newTicket, setNewTicket] = useState<NewTicketForm>({
     subject: "",
     customer: "",
     company: "",
@@ -51,7 +90,7 @@ export default function SupportTicketsPage() {
     message: "",
   })
 
-  const tickets = [
+  const tickets: Ticket[] = [
     {
       id: "TKT-2025-001",
       subject: "Unable to upload documents",
@@ -333,7 +372,7 @@ export default function SupportTicketsPage() {
     return matchesSearch && matchesTab && matchesPriority && matchesCategory && matchesAssignee
   })
 
-  const viewTicketDetails = (ticket: any) => {
+  const viewTicketDetails = (ticket: Ticket) => {
     setSelectedTicket(ticket)
     setShowTicketDialog(true)
   }
@@ -546,7 +585,7 @@ export default function SupportTicketsPage() {
               <div className="space-y-4 mb-6">
                 <h3 className="text-lg font-medium">Conversation</h3>
 
-                {selectedTicket.messages.map((message: any) => (
+                {selectedTicket.messages.map((message) => (
                   <div
                     key={message.id}
                     className={`p-4 rounded-lg ${
@@ -733,7 +772,7 @@ export default function SupportTicketsPage() {
 }
 
 // Extracted TicketsTable component for better organization
-function TicketsTable({ tickets, onViewTicket }: { tickets: any[]; onViewTicket: (ticket: any) => void }) {
+function TicketsTable({ tickets, onViewTicket }: TicketsTableProps) {
   return (
     <Card>
       <div className="overflow-x-auto">
