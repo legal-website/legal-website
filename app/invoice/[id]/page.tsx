@@ -29,54 +29,29 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
   const { toast } = useToast()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [uploadingReceipt, setUploadingReceipt] = useState(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
 
-  useEffect(() => {
-    async function fetchInvoice() {
-      try {
-        const response = await fetch(`/api/invoices/${params.id}`)
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch invoice")
-        }
-
-        const data = await response.json()
-        setInvoice(data.invoice)
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: "Failed to load invoice. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchInvoice()
-  }, [params.id, toast])
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setReceiptFile(e.target.files[0])
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      setReceiptFile(file)
     }
   }
 
   const uploadReceipt = async () => {
     if (!receiptFile) {
       toast({
-        title: "No file selected",
-        description: "Please select a receipt file to upload.",
+        title: "Error",
+        description: "Please select a file to upload.",
         variant: "destructive",
       })
       return
     }
 
     setUploadingReceipt(true)
-
     try {
-      // Create form data
       const formData = new FormData()
       formData.append("receipt", receiptFile)
       formData.append("invoiceId", params.id)
@@ -86,26 +61,31 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
         body: formData,
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to upload receipt")
-      }
-
       const data = await response.json()
 
-      // Update the invoice with the receipt URL
-      setInvoice((prev) => (prev ? { ...prev, paymentReceipt: data.receiptUrl } : null))
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to upload receipt")
+      }
 
       toast({
-        title: "Receipt uploaded",
-        description: "Your payment receipt has been uploaded successfully.",
+        title: "Success",
+        description: "Receipt uploaded successfully. Waiting for verification.",
       })
 
-      // Redirect to registration page after successful upload
-      router.push(`/register?invoice=${params.id}`)
+      // Refresh invoice data after successful upload
+      const updatedInvoiceResponse = await fetch(`/api/invoices/${params.id}`)
+      const updatedInvoiceData = await updatedInvoiceResponse.json()
+
+      if (!updatedInvoiceResponse.ok) {
+        throw new Error(updatedInvoiceData.error || "Failed to fetch updated invoice")
+      }
+
+      setInvoice(updatedInvoiceData.invoice)
     } catch (error: any) {
+      console.error("Error uploading receipt:", error)
       toast({
-        title: "Upload failed",
-        description: "Failed to upload receipt. Please try again.",
+        title: "Error",
+        description: error.message || "Failed to upload receipt. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -113,24 +93,64 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
     }
   }
 
+  useEffect(() => {
+    async function fetchInvoice() {
+      try {
+        console.log("Fetching invoice with ID:", params.id) // Add logging
+        const response = await fetch(`/api/invoices/${params.id}`)
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to fetch invoice")
+        }
+
+        console.log("Invoice data received:", data) // Add logging
+        setInvoice(data.invoice)
+      } catch (error: any) {
+        console.error("Error fetching invoice:", error) // Add logging
+        setError(error.message)
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load invoice. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (params.id) {
+      fetchInvoice()
+    }
+  }, [params.id, toast])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p>Loading invoice...</p>
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center">Loading Invoice...</CardTitle>
+            <CardDescription className="text-center">Please wait while we fetch your invoice details.</CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     )
   }
 
-  if (!invoice) {
+  if (error || !invoice) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-center">Invoice Not Found</CardTitle>
-            <CardDescription className="text-center">The requested invoice could not be found.</CardDescription>
+            <CardDescription className="text-center">
+              {error || "The requested invoice could not be found."}
+            </CardDescription>
           </CardHeader>
           <CardFooter className="flex justify-center">
-            <Button onClick={() => router.push("/")}>Return to Home</Button>
+            <Button onClick={() => router.push("/")} className="bg-[#22c984] hover:bg-[#1eac73] text-white">
+              Return to Home
+            </Button>
           </CardFooter>
         </Card>
       </div>

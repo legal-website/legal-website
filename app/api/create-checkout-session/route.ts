@@ -69,9 +69,10 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Return the invoice page URL instead of Stripe checkout URL
+    // Return the invoice page URL
     return NextResponse.json({
       url: `${process.env.NEXT_PUBLIC_APP_URL}/invoice/${invoice.id}`,
+      invoiceId: invoice.id, // Add this line to return the invoice ID
     })
   } catch (error: any) {
     console.error("Error creating invoice:", error)
