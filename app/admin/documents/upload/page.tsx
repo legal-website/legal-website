@@ -1,25 +1,66 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileUp, Upload, X, CheckCircle2, AlertCircle, FileText, FolderPlus, RefreshCw, HelpCircle, Download, Plus } from 'lucide-react'
+import {
+  FileUp,
+  Upload,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  FileText,
+  FolderPlus,
+  RefreshCw,
+  HelpCircle,
+  Download,
+  Plus,
+} from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+
+// Define types for our data
+interface Client {
+  id: number
+  name: string
+  documents: number
+}
+
+interface RecentUpload {
+  id: number
+  name: string
+  date: string
+  files: number
+  status: string
+  clients: number
+}
+
+interface SelectedFile {
+  id: number
+  file: File
+  name: string
+  size: number
+  type: string
+  status: string
+  client: number | null
+  category: string | null
+}
 
 export default function BulkUploadPage() {
   const [activeTab, setActiveTab] = useState("upload")
   const [uploadStep, setUploadStep] = useState(1)
-  const [selectedFiles, setSelectedFiles] = useState([])
+  const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([])
   const [uploadProgress, setUploadProgress] = useState(0)
   const [processingProgress, setProcessingProgress] = useState(0)
   const [uploadStatus, setUploadStatus] = useState("idle") // idle, uploading, processing, complete, error
-  
+
   // Mock data for client selection
-  const clients = [
+  const clients: Client[] = [
     { id: 1, name: "Rapid Ventures LLC", documents: 24 },
     { id: 2, name: "Blue Ocean Inc", documents: 18 },
     { id: 3, name: "Summit Solutions", documents: 32 },
@@ -29,9 +70,9 @@ export default function BulkUploadPage() {
     { id: 7, name: "Quantum Technologies", documents: 21 },
     { id: 8, name: "Nexus Corporation", documents: 14 },
   ]
-  
+
   // Mock data for recent uploads
-  const recentUploads = [
+  const recentUploads: RecentUpload[] = [
     {
       id: 1,
       name: "March Compliance Documents",
@@ -57,32 +98,35 @@ export default function BulkUploadPage() {
       clients: 6,
     },
   ]
-  
-  const handleFileSelect = (e) => {
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return
     const files = Array.from(e.target.files)
-    setSelectedFiles(files.map((file, index) => ({
-      id: index + 1,
-      file,
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      status: "pending",
-      client: null,
-      category: null,
-    })))
+    setSelectedFiles(
+      files.map((file, index) => ({
+        id: index + 1,
+        file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        status: "pending",
+        client: null,
+        category: null,
+      })),
+    )
   }
-  
-  const removeFile = (id) => {
-    setSelectedFiles(selectedFiles.filter(file => file.id !== id))
+
+  const removeFile = (id: number) => {
+    setSelectedFiles(selectedFiles.filter((file) => file.id !== id))
   }
-  
+
   const startUpload = () => {
     setUploadStatus("uploading")
     setUploadProgress(0)
-    
+
     // Simulate upload progress
     const interval = setInterval(() => {
-      setUploadProgress(prev => {
+      setUploadProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval)
           setUploadStatus("processing")
@@ -93,13 +137,13 @@ export default function BulkUploadPage() {
       })
     }, 200)
   }
-  
+
   const startProcessing = () => {
     setProcessingProgress(0)
-    
+
     // Simulate processing progress
     const interval = setInterval(() => {
-      setProcessingProgress(prev => {
+      setProcessingProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval)
           setUploadStatus("complete")
@@ -109,7 +153,7 @@ export default function BulkUploadPage() {
       })
     }, 300)
   }
-  
+
   const resetUpload = () => {
     setSelectedFiles([])
     setUploadProgress(0)
@@ -117,15 +161,15 @@ export default function BulkUploadPage() {
     setUploadStatus("idle")
     setUploadStep(1)
   }
-  
+
   const nextStep = () => {
-    setUploadStep(prev => prev + 1)
+    setUploadStep((prev) => prev + 1)
   }
-  
+
   const prevStep = () => {
-    setUploadStep(prev => prev - 1)
+    setUploadStep((prev) => prev - 1)
   }
-  
+
   return (
     <div className="p-6 max-w-[1600px] mx-auto mb-40">
       {/* Page Header */}
@@ -147,7 +191,7 @@ export default function BulkUploadPage() {
           </Button>
         </div>
       </div>
-      
+
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList>
@@ -155,20 +199,22 @@ export default function BulkUploadPage() {
           <TabsTrigger value="history">Upload History</TabsTrigger>
           <TabsTrigger value="templates">Upload Templates</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="upload" className="space-y-6">
           <Card>
             <div className="p-6">
               {uploadStep === 1 && (
                 <div>
                   <h2 className="text-lg font-medium mb-4">Step 1: Select Documents</h2>
-                  
+
                   {selectedFiles.length === 0 ? (
                     <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-12 text-center">
                       <FileUp className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                       <h3 className="text-lg font-medium mb-2">Drag and drop files here</h3>
                       <p className="text-sm text-gray-500 mb-4">or click to browse your files</p>
-                      <p className="text-xs text-gray-400 mb-6">Supports PDF, DOCX, XLSX, JPG, PNG (Max 50MB per file)</p>
+                      <p className="text-xs text-gray-400 mb-6">
+                        Supports PDF, DOCX, XLSX, JPG, PNG (Max 50MB per file)
+                      </p>
                       <div className="flex justify-center">
                         <label className="cursor-pointer">
                           <Button>
@@ -196,7 +242,7 @@ export default function BulkUploadPage() {
                           </Button>
                         </div>
                       </div>
-                      
+
                       <div className="border rounded-lg overflow-hidden">
                         <table className="w-full">
                           <thead>
@@ -234,21 +280,19 @@ export default function BulkUploadPage() {
                           </tbody>
                         </table>
                       </div>
-                      
+
                       <div className="mt-6 flex justify-end">
-                        <Button onClick={nextStep}>
-                          Continue to Mapping
-                        </Button>
+                        <Button onClick={nextStep}>Continue to Mapping</Button>
                       </div>
                     </div>
                   )}
                 </div>
               )}
-              
+
               {uploadStep === 2 && (
                 <div>
                   <h2 className="text-lg font-medium mb-4">Step 2: Map Documents to Clients</h2>
-                  
+
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-medium">Document Mapping</h3>
@@ -261,7 +305,7 @@ export default function BulkUploadPage() {
                         </Button>
                       </div>
                     </div>
-                    
+
                     <div className="border rounded-lg overflow-hidden">
                       <table className="w-full">
                         <thead>
@@ -283,8 +327,10 @@ export default function BulkUploadPage() {
                               <td className="p-3">
                                 <select className="w-full h-9 px-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                                   <option value="">Select Client</option>
-                                  {clients.map(client => (
-                                    <option key={client.id} value={client.id}>{client.name}</option>
+                                  {clients.map((client) => (
+                                    <option key={client.id} value={client.id}>
+                                      {client.name}
+                                    </option>
                                   ))}
                                 </select>
                               </td>
@@ -304,22 +350,20 @@ export default function BulkUploadPage() {
                       </table>
                     </div>
                   </div>
-                  
+
                   <div className="mt-6 flex justify-between">
                     <Button variant="outline" onClick={prevStep}>
                       Back
                     </Button>
-                    <Button onClick={nextStep}>
-                      Continue to Review
-                    </Button>
+                    <Button onClick={nextStep}>Continue to Review</Button>
                   </div>
                 </div>
               )}
-              
+
               {uploadStep === 3 && (
                 <div>
                   <h2 className="text-lg font-medium mb-4">Step 3: Review and Upload</h2>
-                  
+
                   <div className="mb-6">
                     <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
                       <div className="flex items-start">
@@ -329,13 +373,13 @@ export default function BulkUploadPage() {
                         <div>
                           <h3 className="font-medium mb-1">Please Review Before Uploading</h3>
                           <p className="text-sm text-gray-500">
-                            Ensure all documents are correctly mapped to the appropriate clients and categories.
-                            Once uploaded, documents will be immediately available to clients.
+                            Ensure all documents are correctly mapped to the appropriate clients and categories. Once
+                            uploaded, documents will be immediately available to clients.
                           </p>
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-4">
                       <div className="border rounded-lg p-4">
                         <h3 className="font-medium mb-3">Upload Summary</h3>
@@ -346,7 +390,9 @@ export default function BulkUploadPage() {
                           </div>
                           <div>
                             <p className="text-sm text-gray-500 mb-1">Total Size</p>
-                            <p className="font-medium">{formatFileSize(selectedFiles.reduce((acc, file) => acc + file.size, 0))}</p>
+                            <p className="font-medium">
+                              {formatFileSize(selectedFiles.reduce((acc, file) => acc + file.size, 0))}
+                            </p>
                           </div>
                           <div>
                             <p className="text-sm text-gray-500 mb-1">Clients</p>
@@ -354,11 +400,11 @@ export default function BulkUploadPage() {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="border rounded-lg p-4">
                         <h3 className="font-medium mb-3">Client Distribution</h3>
                         <div className="space-y-3">
-                          {clients.slice(0, 5).map(client => (
+                          {clients.slice(0, 5).map((client) => (
                             <div key={client.id} className="flex items-center justify-between">
                               <span>{client.name}</span>
                               <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
@@ -374,38 +420,36 @@ export default function BulkUploadPage() {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="border rounded-lg p-4">
                         <h3 className="font-medium mb-3">Notification Settings</h3>
                         <div className="space-y-3">
                           <div className="flex items-center">
-                            <input type="checkbox" id="notifyClients" className="mr-2" checked />
+                            <input type="checkbox" id="notifyClients" className="mr-2" defaultChecked />
                             <label htmlFor="notifyClients">Notify clients when documents are uploaded</label>
                           </div>
                           <div className="flex items-center">
-                            <input type="checkbox" id="notifyAdmin" className="mr-2" checked />
+                            <input type="checkbox" id="notifyAdmin" className="mr-2" defaultChecked />
                             <label htmlFor="notifyAdmin">Notify me when upload is complete</label>
                           </div>
                           <div className="flex items-center">
-                            <input type="checkbox" id="generateReport" className="mr-2" checked />
+                            <input type="checkbox" id="generateReport" className="mr-2" defaultChecked />
                             <label htmlFor="generateReport">Generate upload report</label>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="mt-6 flex justify-between">
                     <Button variant="outline" onClick={prevStep}>
                       Back
                     </Button>
-                    <Button onClick={startUpload}>
-                      Start Upload
-                    </Button>
+                    <Button onClick={startUpload}>Start Upload</Button>
                   </div>
                 </div>
               )}
-              
+
               {uploadStep === 3 && uploadStatus !== "idle" && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                   <Card className="w-full max-w-md">
@@ -416,7 +460,7 @@ export default function BulkUploadPage() {
                         {uploadStatus === "complete" && "Upload Complete!"}
                         {uploadStatus === "error" && "Upload Error"}
                       </h3>
-                      
+
                       {(uploadStatus === "uploading" || uploadStatus === "processing") && (
                         <div className="space-y-6">
                           {uploadStatus === "uploading" && (
@@ -428,7 +472,7 @@ export default function BulkUploadPage() {
                               <Progress value={uploadProgress} className="h-2" />
                             </div>
                           )}
-                          
+
                           {uploadStatus === "processing" && (
                             <div className="space-y-2">
                               <div className="flex justify-between text-sm">
@@ -438,13 +482,13 @@ export default function BulkUploadPage() {
                               <Progress value={processingProgress} className="h-2" />
                             </div>
                           )}
-                          
+
                           <p className="text-sm text-gray-500 text-center">
                             Please don&apos;t close this window while the upload is in progress.
                           </p>
                         </div>
                       )}
-                      
+
                       {uploadStatus === "complete" && (
                         <div className="text-center">
                           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
@@ -472,7 +516,7 @@ export default function BulkUploadPage() {
                           </div>
                         </div>
                       )}
-                      
+
                       {uploadStatus === "error" && (
                         <div className="text-center">
                           <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
@@ -507,12 +551,12 @@ export default function BulkUploadPage() {
             </div>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="history" className="space-y-6">
           <Card>
             <div className="p-6">
               <h2 className="text-lg font-medium mb-4">Upload History</h2>
-              
+
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-medium">Recent Uploads</h3>
@@ -525,7 +569,7 @@ export default function BulkUploadPage() {
                     </Button>
                   </div>
                 </div>
-                
+
                 <div className="border rounded-lg overflow-hidden">
                   <table className="w-full">
                     <thead>
@@ -568,7 +612,7 @@ export default function BulkUploadPage() {
                   </table>
                 </div>
               </div>
-              
+
               <div>
                 <h3 className="font-medium mb-4">Upload Statistics</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -592,17 +636,18 @@ export default function BulkUploadPage() {
             </div>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="templates" className="space-y-6">
           <Card>
             <div className="p-6">
               <h2 className="text-lg font-medium mb-4">Upload Templates</h2>
-              
+
               <div className="mb-6">
                 <p className="text-gray-500 mb-4">
-                  Upload templates help you standardize the bulk upload process. Create templates for different document types or client groups.
+                  Upload templates help you standardize the bulk upload process. Create templates for different document
+                  types or client groups.
                 </p>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                   <div className="border rounded-lg p-4 hover:border-purple-200 hover:bg-purple-50 dark:hover:border-purple-800 dark:hover:bg-purple-900/10 cursor-pointer transition-colors">
                     <div className="flex items-center justify-between mb-3">
@@ -617,7 +662,7 @@ export default function BulkUploadPage() {
                       <span>8 clients</span>
                     </div>
                   </div>
-                  
+
                   <div className="border rounded-lg p-4 hover:border-purple-200 hover:bg-purple-50 dark:hover:border-purple-800 dark:hover:bg-purple-900/10 cursor-pointer transition-colors">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-medium">Tax Documents</h3>
@@ -631,7 +676,7 @@ export default function BulkUploadPage() {
                       <span>12 clients</span>
                     </div>
                   </div>
-                  
+
                   <div className="border rounded-lg p-4 hover:border-purple-200 hover:bg-purple-50 dark:hover:border-purple-800 dark:hover:bg-purple-900/10 cursor-pointer transition-colors">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-medium">New Client Onboarding</h3>
@@ -645,7 +690,7 @@ export default function BulkUploadPage() {
                       <span>5 clients</span>
                     </div>
                   </div>
-                  
+
                   <div className="border border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
                     <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full mb-3">
                       <Plus className="h-5 w-5 text-gray-500" />
@@ -654,21 +699,21 @@ export default function BulkUploadPage() {
                     <p className="text-sm text-gray-500">Set up a new upload template</p>
                   </div>
                 </div>
-                
+
                 <div className="border rounded-lg p-6">
                   <h3 className="font-medium mb-4">Create New Upload Template</h3>
-                  
+
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="template-name">Template Name</Label>
                       <Input id="template-name" placeholder="e.g. Quarterly Compliance Documents" />
                     </div>
-                    
+
                     <div>
                       <Label htmlFor="template-description">Description</Label>
                       <Textarea id="template-description" placeholder="Describe the purpose of this template" />
                     </div>
-                    
+
                     <div>
                       <Label>Client Selection</Label>
                       <div className="border rounded-lg p-4 mt-2">
@@ -677,7 +722,13 @@ export default function BulkUploadPage() {
                           <label htmlFor="all-clients">All Clients</label>
                         </div>
                         <div className="flex items-center mb-3">
-                          <input type="radio" id="client-group" name="client-selection" className="mr-2" checked />
+                          <input
+                            type="radio"
+                            id="client-group"
+                            name="client-selection"
+                            className="mr-2"
+                            defaultChecked
+                          />
                           <label htmlFor="client-group">Client Group</label>
                         </div>
                         <div className="flex items-center">
@@ -686,20 +737,20 @@ export default function BulkUploadPage() {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div>
                       <Label>Document Categories</Label>
                       <div className="border rounded-lg p-4 mt-2 grid grid-cols-2 gap-3">
                         <div className="flex items-center">
-                          <input type="checkbox" id="formation-docs" className="mr-2" checked />
+                          <input type="checkbox" id="formation-docs" className="mr-2" defaultChecked />
                           <label htmlFor="formation-docs">Formation Documents</label>
                         </div>
                         <div className="flex items-center">
-                          <input type="checkbox" id="compliance-docs" className="mr-2" checked />
+                          <input type="checkbox" id="compliance-docs" className="mr-2" defaultChecked />
                           <label htmlFor="compliance-docs">Compliance</label>
                         </div>
                         <div className="flex items-center">
-                          <input type="checkbox" id="tax-docs" className="mr-2" checked />
+                          <input type="checkbox" id="tax-docs" className="mr-2" defaultChecked />
                           <label htmlFor="tax-docs">Tax Documents</label>
                         </div>
                         <div className="flex items-center">
@@ -716,29 +767,27 @@ export default function BulkUploadPage() {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div>
                       <Label>Notification Settings</Label>
                       <div className="border rounded-lg p-4 mt-2 space-y-3">
                         <div className="flex items-center">
-                          <input type="checkbox" id="notify-clients-template" className="mr-2" checked />
+                          <input type="checkbox" id="notify-clients-template" className="mr-2" defaultChecked />
                           <label htmlFor="notify-clients-template">Notify clients when documents are uploaded</label>
                         </div>
                         <div className="flex items-center">
-                          <input type="checkbox" id="notify-admin-template" className="mr-2" checked />
+                          <input type="checkbox" id="notify-admin-template" className="mr-2" defaultChecked />
                           <label htmlFor="notify-admin-template">Notify me when upload is complete</label>
                         </div>
                         <div className="flex items-center">
-                          <input type="checkbox" id="generate-report-template" className="mr-2" checked />
+                          <input type="checkbox" id="generate-report-template" className="mr-2" defaultChecked />
                           <label htmlFor="generate-report-template">Generate upload report</label>
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex justify-end">
-                      <Button className="bg-purple-600 hover:bg-purple-700">
-                        Save Template
-                      </Button>
+                      <Button className="bg-purple-600 hover:bg-purple-700">Save Template</Button>
                     </div>
                   </div>
                 </div>
@@ -752,19 +801,20 @@ export default function BulkUploadPage() {
 }
 
 // Helper function to format file size
-function formatFileSize(bytes) {
-  if (bytes === 0) return '0 Bytes'
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return "0 Bytes"
   const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const sizes = ["Bytes", "KB", "MB", "GB"]
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
 }
 
 // Helper function to format file type
-function formatFileType(type) {
-  if (type.includes('pdf')) return 'PDF'
-  if (type.includes('word') || type.includes('docx')) return 'Word'
-  if (type.includes('excel') || type.includes('xlsx')) return 'Excel'
-  if (type.includes('image') || type.includes('jpg') || type.includes('png')) return 'Image'
-  return type.split('/')[1]?.toUpperCase() || 'Unknown'
+function formatFileType(type: string): string {
+  if (type.includes("pdf")) return "PDF"
+  if (type.includes("word") || type.includes("docx")) return "Word"
+  if (type.includes("excel") || type.includes("xlsx")) return "Excel"
+  if (type.includes("image") || type.includes("jpg") || type.includes("png")) return "Image"
+  return type.split("/")[1]?.toUpperCase() || "Unknown"
 }
+
