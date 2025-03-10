@@ -67,7 +67,6 @@ interface Attachment {
 }
 
 export default function TicketsPage() {
-  const { theme } = useTheme()
   const [activeTab, setActiveTab] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
