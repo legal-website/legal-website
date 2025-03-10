@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -35,15 +33,6 @@ interface Template {
 
 export default function TemplatesPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [newTemplate, setNewTemplate] = useState({
-    name: "",
-    description: "",
-    category: "",
-    isPublic: true,
-    price: "0",
-    pricingTier: "free",
-  })
   const [showNewTemplateDialog, setShowNewTemplateDialog] = useState(false)
   const [newTemplateName, setNewTemplateName] = useState("")
   const [newTemplateCategory, setNewTemplateCategory] = useState("")
@@ -152,49 +141,6 @@ export default function TemplatesPage() {
     return matchesSearch
   })
 
-  // Handle form input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setNewTemplate({ ...newTemplate, [name]: value })
-  }
-
-  // Handle switch toggle
-  const handleSwitchChange = (checked: boolean) => {
-    setNewTemplate({ ...newTemplate, isPublic: checked })
-  }
-
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log("New template:", newTemplate)
-    // Here you would typically save the new template to your database
-    setIsCreateDialogOpen(false)
-    setNewTemplate({
-      name: "",
-      description: "",
-      category: "",
-      isPublic: true,
-      price: "0",
-      pricingTier: "free",
-    })
-  }
-
-  // Get pricing tier badge color
-  const getPricingTierColor = (tier: string): string => {
-    switch (tier) {
-      case "free":
-        return "bg-gray-500"
-      case "basic":
-        return "bg-blue-500"
-      case "standard":
-        return "bg-purple-500"
-      case "premium":
-        return "bg-amber-500"
-      default:
-        return "bg-gray-500"
-    }
-  }
-
   // Get pricing tier badge color
   const getPricingTierBadgeColor = (tier: PricingTier) => {
     switch (tier) {
@@ -209,12 +155,6 @@ export default function TemplatesPage() {
       default:
         return "bg-gray-100 hover:bg-gray-200 text-gray-800"
     }
-  }
-
-  // Format price display
-  const formatPrice = (price: number) => {
-    if (price === 0) return "Free"
-    return `$${price.toFixed(2)}`
   }
 
   function TemplateCard({ template }: { template: Template }) {
