@@ -4,10 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "start:mem": "set NODE_OPTIONS=--max-old-space-size=8192 && next start",
-    "start:unix": "NODE_OPTIONS='--max-old-space-size=8192' next start",
     "lint": "next lint"
   },
   "dependencies": {
