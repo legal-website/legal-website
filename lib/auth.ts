@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
 import { authOptions as nextAuthOptions } from "@/app/api/auth/[...nextauth]/route"
-import * as bcrypt from "bcrypt"
+import * as bcrypt from "bcryptjs"
 
 // Export the authOptions for use in other files
 export const authOptions = nextAuthOptions
