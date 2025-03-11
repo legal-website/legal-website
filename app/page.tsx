@@ -1,4 +1,5 @@
 import Hero from '@/components/hero'
+import Pricing from '@/components/pricing'
 import DetailedFeatures from '@/components/detailed-features'
 import WhyUseOrizen from '@/components/why-use-orizen'
 import CTASection from '@/components/cta-section'
@@ -13,6 +14,7 @@ export default function Home() {
   return (
     <main>
       <Hero />
+      <Pricing />
       <DetailedFeatures />
       <WhyUseOrizen />
       <CTASection />

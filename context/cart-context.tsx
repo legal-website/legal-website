@@ -1,9 +1,9 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode, useEffect } from "react"
+import { createContext, useContext, useState, type ReactNode } from "react"
 
 interface CartItem {
-  id: string
+  id?: string
   tier: string
   price: number
   stateFee?: number
@@ -17,6 +17,7 @@ interface CartContextType {
   removeItem: (itemId: string) => void
   clearCart: () => void
   getCartTotal: () => number
+  isInCart: (tier: string, state?: string) => boolean
 }
 
 // Create context with default values
@@ -26,42 +27,20 @@ const CartContext = createContext<CartContextType>({
   removeItem: () => {},
   clearCart: () => {},
   getCartTotal: () => 0,
+  isInCart: () => false,
 })
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
-  const [isInitialized, setIsInitialized] = useState(false)
-
-  // Initialize cart from localStorage if available
-  useEffect(() => {
-    try {
-      if (typeof window !== "undefined") {
-        const savedCart = localStorage.getItem("cart")
-        if (savedCart) {
-          setItems(JSON.parse(savedCart))
-        }
-        setIsInitialized(true)
-      }
-    } catch (error) {
-      console.error("Error initializing cart from localStorage:", error)
-      setIsInitialized(true)
-    }
-  }, [])
-
-  // Save cart to localStorage when it changes
-  useEffect(() => {
-    try {
-      if (isInitialized && typeof window !== "undefined") {
-        localStorage.setItem("cart", JSON.stringify(items))
-      }
-    } catch (error) {
-      console.error("Error saving cart to localStorage:", error)
-    }
-  }, [items, isInitialized])
 
   const addItem = (item: CartItem) => {
     try {
-      setItems((prevItems) => [...prevItems, item])
+      // Generate an ID if one isn't provided
+      const newItem = {
+        ...item,
+        id: item.id || `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      }
+      setItems((prevItems) => [...prevItems, newItem])
     } catch (error) {
       console.error("Error adding item to cart:", error)
     }
@@ -101,8 +80,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Add the isInCart function
+  const isInCart = (tier: string, state?: string) => {
+    try {
+      return items.some((item) => {
+        // If state is provided, check both tier and state
+        if (state) {
+          return item.tier === tier && item.state === state
+        }
+        // Otherwise just check the tier
+        return item.tier === tier
+      })
+    } catch (error) {
+      console.error("Error checking if item is in cart:", error)
+      return false
+    }
+  }
+
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, clearCart, getCartTotal }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, clearCart, getCartTotal, isInCart }}>
       {children}
     </CartContext.Provider>
   )
