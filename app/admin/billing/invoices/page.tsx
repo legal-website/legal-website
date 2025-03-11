@@ -87,20 +87,35 @@ export default function InvoicesAdminPage() {
   const fetchInvoices = async () => {
     try {
       setLoading(true)
+      console.log("Fetching invoices...")
       const response = await fetch("/api/admin/invoices")
 
+      console.log("Response status:", response.status)
+
       if (!response.ok) {
-        throw new Error("Failed to fetch invoices")
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Error response:", errorData)
+        throw new Error(errorData.error || `Failed to fetch invoices: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log(`Received ${data.invoices?.length || 0} invoices`)
+
+      if (!data.invoices) {
+        console.error("No invoices array in response:", data)
+        throw new Error("Invalid response format")
+      }
+
       setInvoices(data.invoices)
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Error in fetchInvoices:", error)
       toast({
         title: "Error",
-        description: "Failed to load invoices. Please try again.",
+        description: `Failed to load invoices: ${error.message || "Unknown error"}`,
         variant: "destructive",
       })
+      // Initialize with empty array to prevent further errors
+      setInvoices([])
     } finally {
       setLoading(false)
     }
@@ -108,6 +123,20 @@ export default function InvoicesAdminPage() {
 
   const filteredInvoices = invoices
     .filter((invoice) => {
+      // Ensure invoice has all required properties
+      if (
+        !invoice ||
+        !invoice.invoiceNumber ||
+        !invoice.customerName ||
+        !invoice.customerEmail ||
+        invoice.amount === undefined ||
+        !invoice.status ||
+        !invoice.createdAt
+      ) {
+        console.warn("Filtering out invalid invoice:", invoice)
+        return false
+      }
+
       // Filter by search query
       const matchesSearch =
         invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -534,26 +563,34 @@ export default function InvoicesAdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedInvoice.items.map((item, index) => (
-                      <tr key={index} className="border-b">
-                        <td className="p-2">
-                          <div>
-                            <p>{item.tier} Package</p>
-                            {item.state && <p className="text-sm text-gray-500">{item.state} State Filing Fee</p>}
-                          </div>
-                        </td>
-                        <td className="p-2 text-right">
-                          <div>
-                            <p>${item.price.toFixed(2)}</p>
-                            {item.stateFee && <p className="text-sm text-gray-500">${item.stateFee.toFixed(2)}</p>}
-                          </div>
-                        </td>
-                        <td className="p-2 text-right">1</td>
-                        <td className="p-2 text-right">
-                          ${(item.price + (item.stateFee || 0) - (item.discount || 0)).toFixed(2)}
+                    {Array.isArray(selectedInvoice.items) ? (
+                      selectedInvoice.items.map((item, index) => (
+                        <tr key={index} className="border-b">
+                          <td className="p-2">
+                            <div>
+                              <p>{item.tier} Package</p>
+                              {item.state && <p className="text-sm text-gray-500">{item.state} State Filing Fee</p>}
+                            </div>
+                          </td>
+                          <td className="p-2 text-right">
+                            <div>
+                              <p>${item.price.toFixed(2)}</p>
+                              {item.stateFee && <p className="text-sm text-gray-500">${item.stateFee.toFixed(2)}</p>}
+                            </div>
+                          </td>
+                          <td className="p-2 text-right">1</td>
+                          <td className="p-2 text-right">
+                            ${(item.price + (item.stateFee || 0) - (item.discount || 0)).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="p-2 text-center text-gray-500">
+                          No items found or invalid items format
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                   <tfoot>
                     <tr>

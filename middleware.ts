@@ -37,7 +37,13 @@ export async function middleware(request: NextRequest) {
 
   // If it's an admin path and the user is not an admin
   if (pathname.startsWith("/admin") && token && token.role !== "ADMIN") {
+    console.log("Access denied to admin path. User role:", token.role)
     return NextResponse.redirect(new URL("/dashboard", request.url))
+  }
+
+  // For debugging admin access
+  if (pathname.startsWith("/admin") && token) {
+    console.log("Admin access granted to:", pathname, "User role:", token.role)
   }
 
   return NextResponse.next()

@@ -7,9 +7,12 @@ const prisma = new PrismaClient()
 
 export async function GET(req: NextRequest) {
   try {
+    console.log("Fetching invoices from API route")
     const session = await getServerSession(authOptions)
 
+    console.log("Session:", session)
     if (!session || (session.user as any).role !== "ADMIN") {
+      console.log("Unauthorized access attempt")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -19,8 +22,10 @@ export async function GET(req: NextRequest) {
       },
     })
 
+    console.log(`Found ${invoices.length} invoices`)
+
     // Parse the items JSON field for each invoice
-    const formattedInvoices = invoices.map((invoice: { items: string }) => ({
+    const formattedInvoices = invoices.map((invoice: any) => ({
       ...invoice,
       items: typeof invoice.items === "string" ? JSON.parse(invoice.items) : invoice.items,
     }))

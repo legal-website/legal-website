@@ -7,9 +7,12 @@ const prisma = new PrismaClient()
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    console.log("Deleting invoice:", params.id)
+
     const session = await getServerSession(authOptions)
 
     if (!session || (session.user as any).role !== "ADMIN") {
+      console.log("Unauthorized deletion attempt")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -21,18 +24,23 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     })
 
     if (!invoice) {
+      console.log("Invoice not found:", invoiceId)
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
     }
+
+    console.log("Found invoice:", invoice.invoiceNumber)
 
     // Delete the invoice
     await prisma.invoice.delete({
       where: { id: invoiceId },
     })
 
+    console.log("Invoice deleted successfully")
+
     return NextResponse.json({ success: true, message: "Invoice deleted successfully" })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error deleting invoice:", error)
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
+    return NextResponse.json({ error: error.message || "Something went wrong" }, { status: 500 })
   }
 }
 
