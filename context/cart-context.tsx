@@ -18,6 +18,7 @@ interface CartContextType {
   clearCart: () => void
   getCartTotal: () => number
   isInCart: (tier: string, state?: string) => boolean
+  getItemCount: () => number // Add this new function
 }
 
 // Create context with default values
@@ -28,6 +29,7 @@ const CartContext = createContext<CartContextType>({
   clearCart: () => {},
   getCartTotal: () => 0,
   isInCart: () => false,
+  getItemCount: () => 0, // Add default implementation
 })
 
 export function CartProvider({ children }: { children: ReactNode }) {
@@ -97,8 +99,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Add this function inside the CartProvider before the return statement
+  const getItemCount = () => {
+    try {
+      return items.length
+    } catch (error) {
+      console.error("Error getting item count:", error)
+      return 0
+    }
+  }
+
+  // Update the context provider value to include the new function
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, clearCart, getCartTotal, isInCart }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, clearCart, getCartTotal, isInCart, getItemCount }}>
       {children}
     </CartContext.Provider>
   )
