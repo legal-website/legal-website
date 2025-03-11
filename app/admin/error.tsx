@@ -1,9 +1,5 @@
 "use client"
 
-import { useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-
 export default function AdminError({
   error,
   reset,
@@ -11,26 +7,26 @@ export default function AdminError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useEffect(() => {
-    console.error("Admin error:", error)
-  }, [error])
+  // Safely access error properties
+  const errorMessage = error && typeof error === "object" ? error.message : "An unexpected error occurred"
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
-      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md max-w-md w-full">
-        <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
-          {error.message || "An error occurred while loading the admin dashboard."}
-        </p>
-        <div className="flex flex-col space-y-4">
-          <Button onClick={reset} variant="outline">
-            Try again
-          </Button>
-          <Button asChild>
-            <Link href="/dashboard">Back to Dashboard</Link>
-          </Button>
-        </div>
-      </div>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Error</h1>
+      <p className="mb-4">Something went wrong: {errorMessage}</p>
+      <button
+        onClick={() => {
+          // Safely call reset
+          if (typeof reset === "function") {
+            reset()
+          } else {
+            window.location.reload()
+          }
+        }}
+        className="px-4 py-2 bg-blue-500 text-white rounded"
+      >
+        Try again
+      </button>
     </div>
   )
 }
