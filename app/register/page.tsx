@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,8 @@ import { Icons } from "@/components/icons"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, XCircle } from "lucide-react"
 
-const RegisterPage = () => {
+// Create a client component that uses useSearchParams
+function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -302,5 +303,12 @@ const RegisterPage = () => {
   )
 }
 
-export default RegisterPage
+// Main page component with Suspense boundary
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <RegisterForm />
+    </Suspense>
+  )
+}
 

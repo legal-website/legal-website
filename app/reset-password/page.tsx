@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 
-export default function ResetPasswordPage() {
+// Create a client component that uses useSearchParams
+function ResetPasswordForm() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [token, setToken] = useState<string | null>(null)
@@ -180,6 +181,15 @@ export default function ResetPasswordPage() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+// Main page component with Suspense boundary
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <ResetPasswordForm />
+    </Suspense>
   )
 }
 

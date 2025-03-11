@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 
-export default function VerifyEmailPage() {
+// Create a client component that uses useSearchParams
+function VerifyEmailContent() {
   const [verifying, setVerifying] = useState(false)
   const [verified, setVerified] = useState(false)
   const [error, setError] = useState("")
@@ -122,6 +123,15 @@ export default function VerifyEmailPage() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+// Main page component with Suspense boundary
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <VerifyEmailContent />
+    </Suspense>
   )
 }
 
