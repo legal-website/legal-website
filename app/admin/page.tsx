@@ -6,6 +6,7 @@ import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Progress } from "@/components/ui/progress"
 import {
   Users,
   FileText,
@@ -31,9 +32,7 @@ export default function AdminDashboard() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Welcome back. Here&apos;s what&apos;s happening today.
-          </p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Welcome back, John. Here&apos;s whats happening today.</p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
           <Button variant="outline" size="sm" className="flex items-center">
@@ -89,7 +88,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="mb-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList className="mb-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">User Management</TabsTrigger>
@@ -155,11 +154,11 @@ export default function AdminDashboard() {
               </div>
               <div className="p-6">
                 <div className="space-y-6">
-                  <ComplianceItem title="Document Verification" value={85} />
-                  <ComplianceItem title="User Identity Verification" value={72} />
-                  <ComplianceItem title="Annual Report Submissions" value={94} />
-                  <ComplianceItem title="Tax Compliance" value={68} />
-                  <ComplianceItem title="Data Protection" value={98} />
+                  <ComplianceItem title="Document Verification" value={85} color="bg-green-500" />
+                  <ComplianceItem title="User Identity Verification" value={72} color="bg-amber-500" />
+                  <ComplianceItem title="Annual Report Submissions" value={94} color="bg-green-500" />
+                  <ComplianceItem title="Tax Compliance" value={68} color="bg-amber-500" />
+                  <ComplianceItem title="Data Protection" value={98} color="bg-green-500" />
                 </div>
               </div>
             </Card>
@@ -584,9 +583,11 @@ function ActivityItem({
 function ComplianceItem({
   title,
   value,
+  color,
 }: {
   title: string
   value: number
+  color: string
 }) {
   return (
     <div>
@@ -594,12 +595,7 @@ function ComplianceItem({
         <span className="text-sm font-medium">{title}</span>
         <span className="text-sm font-medium">{value}%</span>
       </div>
-      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-        <div
-          className={`h-2 rounded-full ${value > 90 ? "bg-green-500" : value > 70 ? "bg-amber-500" : "bg-red-500"}`}
-          style={{ width: `${value}%` }}
-        ></div>
-      </div>
+      <Progress value={value} className={`h-2 [&>div]:${color}`} />
     </div>
   )
 }
