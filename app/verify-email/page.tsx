@@ -1,137 +1,97 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useToast } from "@/components/ui/use-toast"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 
-// Create a client component that uses useSearchParams
-function VerifyEmailContent() {
-  const [verifying, setVerifying] = useState(false)
-  const [verified, setVerified] = useState(false)
-  const [error, setError] = useState("")
+export default function VerifyEmailPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
+  const [message, setMessage] = useState("")
+  const [email, setEmail] = useState("")
+
+  // Get token from URL
+  const token = searchParams?.get("token") || null
 
   useEffect(() => {
-    const token = searchParams?.get("token")
-    const email = searchParams?.get("email")
-
-    if (token) {
-      verifyEmail(token)
-    } else if (email) {
-      // Just showing the waiting verification screen
-      setVerifying(false)
-    } else {
-      setError("Invalid verification link")
+    if (!token) {
+      setStatus("error")
+      setMessage("No verification token provided.")
+      return
     }
-  }, [searchParams])
 
-  const verifyEmail = async (token: string) => {
-    setVerifying(true)
-    setError("")
+    const verifyToken = async () => {
+      try {
+        const response = await fetch(`/api/auth/verify-email?token=${token}`)
+        const data = await response.json()
 
-    try {
-      const response = await fetch(`/api/auth/verify-email?token=${token}`)
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Verification failed")
+        if (response.ok && data.success) {
+          setStatus("success")
+          setMessage("Your email has been verified successfully!")
+          setEmail(data.email)
+        } else {
+          setStatus("error")
+          setMessage(data.error || "Failed to verify email. The token may be invalid or expired.")
+        }
+      } catch (error) {
+        console.error("Error verifying email:", error)
+        setStatus("error")
+        setMessage("An error occurred while verifying your email. Please try again.")
       }
+    }
 
-      setVerified(true)
-      toast({
-        title: "Email verified",
-        description: "Your email has been verified successfully. You can now log in.",
-      })
+    verifyToken()
+  }, [token, toast])
 
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        router.push("/login")
-      }, 3000)
-    } catch (error: any) {
-      setError(error.message)
-      toast({
-        title: "Verification failed",
-        description: error.message,
-        variant: "destructive",
-      })
-    } finally {
-      setVerifying(false)
+  const handleContinue = () => {
+    if (status === "success") {
+      router.push(`/login${email ? `?email=${encodeURIComponent(email)}` : ""}`)
+    } else {
+      router.push("/register")
     }
   }
 
-  const emailWaiting = searchParams?.get("email") && !searchParams?.get("token")
-
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
-      <Card className="w-full max-w-md">
+    <div className="container mx-auto py-12 px-4">
+      <Card className="max-w-md mx-auto">
         <CardHeader>
-          <CardTitle className="text-2xl flex items-center gap-2">
-            {verified && <CheckCircle className="text-green-500 h-6 w-6" />}
-            {error && <AlertCircle className="text-red-500 h-6 w-6" />}
-            {verifying && <Loader2 className="h-6 w-6 animate-spin" />}
-            {!verified && !error && !verifying && "Email Verification"}
-            {verified && "Email Verified"}
-            {error && "Verification Failed"}
-          </CardTitle>
+          <CardTitle>Email Verification</CardTitle>
           <CardDescription>
-            {emailWaiting &&
-              `We've sent a verification email to ${searchParams?.get("email")}. Please check your inbox.`}
-            {!emailWaiting && !verified && !error && "Verifying your email address..."}
-            {verified && "Your email has been verified successfully."}
-            {error && error}
+            {status === "loading"
+              ? "Verifying your email address..."
+              : status === "success"
+                ? "Your email has been verified"
+                : "Email verification failed"}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {emailWaiting && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              If you don't see an email from us within a few minutes, check your spam folder. If you still don't see it,
-              you can request a new verification email.
-            </p>
-          )}
-          {verified && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              You will be redirected to the login page in 3 seconds.
-            </p>
-          )}
+        <CardContent className="flex flex-col items-center text-center">
+          {status === "loading" && <Loader2 className="h-16 w-16 text-blue-500 animate-spin mb-4" />}
+
+          {status === "success" && <CheckCircle className="h-16 w-16 text-green-500 mb-4" />}
+
+          {status === "error" && <AlertCircle className="h-16 w-16 text-red-500 mb-4" />}
+
+          <p className="mb-4">{message}</p>
+
+          <Button onClick={handleContinue} className="mt-4">
+            {status === "success" ? "Continue to Login" : "Back to Registration"}
+          </Button>
         </CardContent>
         <CardFooter className="flex justify-center">
-          {emailWaiting && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                // Request a new verification email
-                toast({
-                  title: "Verification email sent",
-                  description: "We've sent a new verification email. Please check your inbox.",
-                })
-              }}
-            >
-              Resend Verification Email
-            </Button>
-          )}
-          {(verified || error) && (
-            <Link href="/login">
-              <Button>{verified ? "Go to Login" : "Back to Login"}</Button>
-            </Link>
-          )}
+          <p className="text-sm text-gray-500">
+            Need help?{" "}
+            <a href="/contact" className="text-blue-600 hover:underline">
+              Contact Support
+            </a>
+          </p>
         </CardFooter>
       </Card>
     </div>
-  )
-}
-
-// Main page component with Suspense boundary
-export default function VerifyEmailPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
-      <VerifyEmailContent />
-    </Suspense>
   )
 }
 
