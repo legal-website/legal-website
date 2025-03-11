@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "binary"
 }
 
@@ -9,27 +9,26 @@ datasource db {
 }
 
 model User {
-  id                String    @id @default(uuid())
-  email             String    @unique
-  name              String?
-  password          String
-  role              Role      @default(CLIENT)
-  emailVerified     DateTime?
-  image             String?
-  verificationToken String?   @unique
-  resetToken        String?   @unique
-  resetTokenExpiry  DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  business          Business? @relation(fields: [businessId], references: [id])
-  businessId        String?
-  sessions          Session[]
-  tickets           Ticket[]  @relation("TicketCreator")
-  assignedTickets   Ticket[]  @relation("TicketAssignee")
-  accounts          Account[]
+  id                 String              @id @default(uuid())
+  name               String?
+  email              String              @unique
+  password           String
+  role               Role                @default(CLIENT)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  businessId         String?
+  emailVerified      DateTime?
+  image              String?
+  accounts           Account[]
+  invoices           Invoice[]
+  payments           Payment[]
+  sessions           Session[]
+  assignedTickets    Ticket[]            @relation("TicketAssignee")
+  tickets            Ticket[]            @relation("TicketCreator")
+  business           Business?           @relation(fields: [businessId], references: [id])
   verificationTokens VerificationToken[]
-  payments          Payment[]
-  invoices          Invoice[]
+
+  @@index([businessId], map: "User_businessId_fkey")
 }
 
 model Account {
@@ -45,10 +44,10 @@ model Account {
   scope             String?
   id_token          String? @db.Text
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId], map: "Account_userId_fkey")
 }
 
 model VerificationToken {
@@ -58,6 +57,8 @@ model VerificationToken {
   expires    DateTime
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "VerificationToken_userId_fkey")
 }
 
 model Payment {
@@ -66,108 +67,117 @@ model Payment {
   amount          Float
   status          String
   customerEmail   String
-  metadata        Json?
+  metadata        String?  @db.LongText
   createdAt       DateTime @default(now())
-  user            User?    @relation(fields: [userId], references: [id])
   userId          String?
+  user            User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "Payment_userId_fkey")
 }
 
 model Business {
-  id              String    @id @default(uuid())
-  name            String
-  email           String?
-  phone           String?
-  address         String?
-  website         String?
-  industry        String?
-  formationDate   DateTime?
-  ein             String?
-  businessId      String?   @unique
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  users           User[]
-  documents       Document[]
-  subscriptions   Subscription[]
+  id            String         @id @default(uuid())
+  name          String
+  email         String?
+  phone         String?
+  address       String?
+  website       String?
+  industry      String?
+  formationDate DateTime?
+  ein           String?
+  businessId    String?        @unique
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  documents     Document[]
+  subscriptions Subscription[]
+  users         User[]
 }
 
 model Subscription {
-  id                String   @id @default(uuid())
-  planId            String
-  planName          String
-  price             Float
-  billingCycle      String   // "monthly" or "annual"
-  status            String   // "active", "past_due", "canceled"
-  startDate         DateTime
-  nextBillingDate   DateTime
-  business          Business @relation(fields: [businessId], references: [id])
-  businessId        String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              String   @id @default(uuid())
+  planId          String
+  status          String
+  startDate       DateTime @default(now())
+  nextBillingDate DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  billingCycle    String
+  businessId      String
+  planName        String
+  price           Float
+  business        Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId], map: "Subscription_businessId_fkey")
 }
 
 model Document {
-  id          String   @id @default(uuid())
-  name        String
-  type        String
-  category    String
-  fileUrl     String
-  business    Business @relation(fields: [businessId], references: [id])
-  businessId  String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(uuid())
+  name       String
+  category   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  businessId String
+  fileUrl    String
+  type       String
+  business   Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId], map: "Document_businessId_fkey")
 }
 
 model Ticket {
   id          String    @id @default(uuid())
   subject     String
   description String    @db.Text
-  status      String    // "open", "in-progress", "resolved", "closed"
-  priority    String    // "low", "medium", "high", "urgent"
+  status      String
+  priority    String
   category    String
-  creator     User      @relation("TicketCreator", fields: [creatorId], references: [id])
   creatorId   String
-  assignee    User?     @relation("TicketAssignee", fields: [assigneeId], references: [id])
   assigneeId  String?
-  messages    Message[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  messages    Message[]
+  assignee    User?     @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  creator     User      @relation("TicketCreator", fields: [creatorId], references: [id])
+
+  @@index([assigneeId], map: "Ticket_assigneeId_fkey")
+  @@index([creatorId], map: "Ticket_creatorId_fkey")
 }
 
 model Message {
-  id          String   @id @default(uuid())
-  content     String   @db.Text
-  sender      String   // "client" or "support"
+  id          String       @id @default(uuid())
+  content     String       @db.Text
+  sender      String
   senderName  String
-  ticket      Ticket   @relation(fields: [ticketId], references: [id])
   ticketId    String
+  createdAt   DateTime     @default(now())
   attachments Attachment[]
-  createdAt   DateTime @default(now())
+  ticket      Ticket       @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId], map: "Message_ticketId_fkey")
 }
 
 model Attachment {
-  id          String   @id @default(uuid())
-  name        String
-  fileUrl     String
-  size        String
-  type        String
-  message     Message  @relation(fields: [messageId], references: [id])
-  messageId   String
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  name      String
+  fileUrl   String
+  size      String
+  type      String
+  messageId String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id])
+
+  @@index([messageId], map: "Attachment_messageId_fkey")
 }
 
 model Session {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
-}
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-enum Role {
-  ADMIN
-  SUPPORT
-  CLIENT
+  @@index([userId], map: "Session_userId_fkey")
 }
 
 model Invoice {
@@ -183,13 +193,20 @@ model Invoice {
   customerZip     String?
   customerCountry String?
   amount          Float
-  status          String    // "pending", "paid", "cancelled"
-  items           Json      // Array of items
-  paymentReceipt  String?   // URL to uploaded receipt
+  status          String
+  items           String    @db.LongText
+  paymentReceipt  String?
   paymentDate     DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  user            User?     @relation(fields: [userId], references: [id])
   userId          String?
+  user            User?     @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "Invoice_userId_fkey")
 }
 
+enum Role {
+  ADMIN
+  SUPPORT
+  CLIENT
+}
