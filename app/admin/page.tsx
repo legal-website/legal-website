@@ -32,7 +32,9 @@ export default function AdminDashboard() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Welcome back, John. Here&apos;s what&apos;s happening today.</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
+            Welcome back, John. Here&apos;s what&apos;s happening today.
+          </p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
           <Button variant="outline" size="sm" className="flex items-center">
