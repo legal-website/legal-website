@@ -9,9 +9,11 @@ import { useToast } from "@/components/ui/use-toast"
 interface CheckoutFormProps {
   items: any[]
   total: number
+  onSuccess?: (invoiceId: string) => void
+  onError?: (error: Error) => void
 }
 
-export default function CheckoutForm({ items, total }: CheckoutFormProps) {
+export default function CheckoutForm({ items, total, onSuccess, onError }: CheckoutFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -65,10 +67,25 @@ export default function CheckoutForm({ items, total }: CheckoutFormProps) {
         body: JSON.stringify(checkoutData),
       })
 
-      const data = await response.json()
+      // Log the raw response for debugging
+      console.log("Checkout response status:", response.status)
+
+      // Clone the response so we can log it and still use it
+      const responseClone = response.clone()
+      const rawText = await responseClone.text()
+      console.log("Raw response:", rawText)
+
+      // Try to parse the response as JSON
+      let data
+      try {
+        data = JSON.parse(rawText)
+      } catch (parseError) {
+        console.error("Failed to parse response as JSON:", parseError)
+        throw new Error("Invalid response from server")
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to process checkout")
+        throw new Error(data.message || data.error || "Failed to process checkout")
       }
 
       console.log("Checkout successful:", data)
@@ -79,16 +96,33 @@ export default function CheckoutForm({ items, total }: CheckoutFormProps) {
         description: "Your order has been placed successfully.",
       })
 
-      // Redirect to the invoice page
+      // Check if we have an invoice ID
       if (data.invoice && data.invoice.id) {
+        // Call the success callback if provided
+        if (onSuccess) {
+          onSuccess(data.invoice.id)
+        }
+
+        // Redirect to the invoice page
+        router.push(`/invoice/${data.invoice.id}`)
+      } else if (data.success && data.invoice) {
+        // Alternative format - success flag with invoice object
+        if (onSuccess) {
+          onSuccess(data.invoice.id)
+        }
+
         router.push(`/invoice/${data.invoice.id}`)
       } else {
-        console.error("No invoice ID returned from server")
+        console.error("No invoice ID returned from server:", data)
         toast({
           title: "Warning",
           description: "Order placed but invoice details are missing.",
           variant: "destructive",
         })
+
+        if (onError) {
+          onError(new Error("No invoice ID returned from server"))
+        }
       }
     } catch (error: any) {
       console.error("Checkout error:", error)
@@ -97,6 +131,10 @@ export default function CheckoutForm({ items, total }: CheckoutFormProps) {
         description: error.message || "Something went wrong. Please try again.",
         variant: "destructive",
       })
+
+      if (onError) {
+        onError(error)
+      }
     } finally {
       setIsSubmitting(false)
     }

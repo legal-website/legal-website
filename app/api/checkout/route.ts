@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     if (!customer || !customer.name || !customer.email) {
       return NextResponse.json(
         {
+          success: false,
           error: "Customer with name and email is required",
         },
         {
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         {
+          success: false,
           error: "Items array is required and must not be empty",
         },
         {
@@ -51,6 +53,7 @@ export async function POST(req: NextRequest) {
     if (total === undefined || total === null) {
       return NextResponse.json(
         {
+          success: false,
           error: "Total amount is required",
         },
         {
@@ -109,10 +112,12 @@ export async function POST(req: NextRequest) {
 
     console.log("Invoice created successfully:", invoice.id)
 
+    // Return a consistent response format
     return NextResponse.json(
       {
         success: true,
         invoice,
+        message: "Invoice created successfully",
       },
       {
         status: 201,
@@ -124,6 +129,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       {
+        success: false,
         error: "Failed to create invoice",
         message: error.message,
         code: error.code,
