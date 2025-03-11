@@ -45,16 +45,33 @@ function LoginForm() {
       })
 
       if (result?.error) {
-        toast({
-          title: "Login failed",
-          description: result.error === "CredentialsSignin" ? "Invalid email or password" : result.error,
-          variant: "destructive",
-        })
+        console.error("Login error:", result.error)
+
+        // Show appropriate error message
+        if (result.error === "CredentialsSignin") {
+          toast({
+            title: "Login failed",
+            description: "Invalid email or password. Please try again.",
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "Login failed",
+            description: result.error,
+            variant: "destructive",
+          })
+        }
       } else {
-        router.push("/dashboard")
+        // Successful login
+        console.log("Login successful, redirecting...")
+
+        // Get the callback URL from the query parameters or default to dashboard
+        const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard"
+        router.push(callbackUrl)
         router.refresh()
       }
     } catch (err) {
+      console.error("Unexpected login error:", err)
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",

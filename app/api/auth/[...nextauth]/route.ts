@@ -2,7 +2,7 @@ import NextAuth from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaClient } from "@prisma/client"
-import { verifyPassword, getOrCreateUserFromOAuth } from "@/lib/auth-service"
+import { verifyPassword } from "@/lib/auth"
 import type { NextAuthOptions } from "next-auth"
 
 const prisma = new PrismaClient()
@@ -24,67 +24,61 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        })
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+          })
 
-        if (!user) {
-          return null
-        }
+          if (!user) {
+            console.log("User not found:", credentials.email)
+            return null
+          }
 
-        const isValid = await verifyPassword(user.password, credentials.password)
+          // For the admin user, we'll skip email verification check
+          if (user.email !== "ary5054@gmail.com" && !user.emailVerified) {
+            console.log("Email not verified for user:", credentials.email)
+            throw new Error("Please verify your email before logging in")
+          }
 
-        if (!isValid) {
-          return null
-        }
+          const isValid = await verifyPassword(credentials.password, user.password)
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          role: user.role,
+          if (!isValid) {
+            console.log("Invalid password for user:", credentials.email)
+            return null
+          }
+
+          console.log("User authenticated successfully:", user.email, "Role:", user.role)
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+            role: user.role,
+          }
+        } catch (error) {
+          console.error("Error in authorize function:", error)
+          throw error
         }
       },
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
-      // For OAuth sign-ins, create or get the user
-      if (account && account.provider === "google" && profile?.email) {
-        try {
-          await getOrCreateUserFromOAuth(
-            account.provider,
-            account.providerAccountId!,
-            profile.email,
-            profile.name || undefined,
-            profile.image || undefined,
-          )
-          return true
-        } catch (error) {
-          console.error("Error in OAuth sign-in:", error)
-          return false
-        }
-      }
-      return true
-    },
-    async session({ session, token }) {
-      if (session.user && token.sub) {
-        session.user.id = token.sub
-        // Make sure to include the role in the session
-        session.user.role = token.role as string
-        console.log("Session callback - user role:", token.role)
-      }
-      return session
-    },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id
-        // Make sure to include the role in the JWT token
         token.role = (user as any).role || "CLIENT"
         console.log("JWT callback - user role:", (user as any).role)
       }
       return token
+    },
+    async session({ session, token }) {
+      if (session.user && token.sub) {
+        session.user.id = token.sub
+        session.user.role = token.role as string
+        console.log("Session callback - user role:", token.role)
+      }
+      return session
     },
   },
   pages: {
