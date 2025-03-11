@@ -1,15 +1,13 @@
 "use client"
-
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import Image from "next/image"
+import type React from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useCart } from "@/context/cart-context"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -63,18 +61,42 @@ export default function CheckoutPage() {
     }
 
     try {
-      // Store customer data in session storage for the payment page
-      sessionStorage.setItem(
-        "checkoutData",
-        JSON.stringify({
+      // Prepare simplified items to reduce memory usage
+      const simplifiedItems = items.map((item) => ({
+        id: item.id,
+        tier: item.tier,
+        price: Number(item.price),
+        stateFee: item.stateFee ? Number(item.stateFee) : undefined,
+        state: item.state || undefined,
+        discount: item.discount ? Number(item.discount) : undefined,
+      }))
+
+      // Create invoice
+      const response = await fetch("/api/create-invoice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           customer: formData,
-          items: items,
+          items: simplifiedItems,
           total: getCartTotal(),
         }),
-      )
+      })
 
-      // Redirect to payment page
-      router.push("/checkout/payment")
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create invoice")
+      }
+
+      const data = await response.json()
+
+      if (!data.invoiceId) {
+        throw new Error("No invoice ID returned from server")
+      }
+
+      // Redirect to invoice page
+      router.push(`/invoice/${data.invoiceId}`)
     } catch (error: any) {
       console.error("Checkout error:", error)
       toast({
