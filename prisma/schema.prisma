@@ -9,24 +9,27 @@ datasource db {
 }
 
 model User {
-  id             String    @id @default(uuid())
-  email          String    @unique
-  name           String?
-  password       String
-  role           Role      @default(CLIENT)
-  emailVerified  DateTime?
-  image          String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  business       Business? @relation(fields: [businessId], references: [id])
-  businessId     String?
-  sessions       Session[]
-  tickets        Ticket[]  @relation("TicketCreator")
-  assignedTickets Ticket[] @relation("TicketAssignee")
-  accounts       Account[]
+  id                String    @id @default(uuid())
+  email             String    @unique
+  name              String?
+  password          String
+  role              Role      @default(CLIENT)
+  emailVerified     DateTime?
+  image             String?
+  verificationToken String?   @unique
+  resetToken        String?   @unique
+  resetTokenExpiry  DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  business          Business? @relation(fields: [businessId], references: [id])
+  businessId        String?
+  sessions          Session[]
+  tickets           Ticket[]  @relation("TicketCreator")
+  assignedTickets   Ticket[]  @relation("TicketAssignee")
+  accounts          Account[]
   verificationTokens VerificationToken[]
-  payments       Payment[]
-  invoices        Invoice[]
+  payments          Payment[]
+  invoices          Invoice[]
 }
 
 model Account {

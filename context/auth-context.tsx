@@ -1,107 +1,105 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { signIn } from "next-auth/react"
+import { signIn, signOut, useSession } from "next-auth/react"
 
 type User = {
   id: string
   email: string
-  name: string | null
-  role: string
-  businessId: string | null
+  name?: string
+  role?: string
 }
 
 type AuthContextType = {
   user: User | null
-  loading: boolean
+  isAuthenticated: boolean
+  isLoading: boolean
   login: (email: string, password: string) => Promise<boolean>
   logout: () => Promise<void>
-  register: (email: string, password: string, name: string) => Promise<boolean>
   signInWithGoogle: () => Promise<boolean>
+  register: (email: string, password: string, name: string) => Promise<boolean>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { data: session, status } = useSession()
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const isLoading = status === "loading"
+  const isAuthenticated = !!user
 
   useEffect(() => {
-    // Check if user is logged in on mount
-    async function loadUserFromSession() {
-      try {
-        const res = await fetch("/api/auth/me")
-        if (res.ok) {
-          const data = await res.json()
-          setUser(data.user)
-        }
-      } catch (error) {
-        console.error("Failed to load user session", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadUserFromSession()
-  }, [])
-
-  const login = async (email: string, password: string) => {
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+    if (session?.user) {
+      setUser({
+        id: session.user.id as string,
+        email: session.user.email as string,
+        name: session.user.name || undefined,
+        role: (session.user as any).role || "CLIENT",
       })
-
-      if (!res.ok) return false
-
-      const data = await res.json()
-      setUser(data.user)
-      return true
-    } catch (error) {
-      console.error("Login failed", error)
-      return false
-    }
-  }
-
-  const logout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" })
+    } else {
       setUser(null)
-    } catch (error) {
-      console.error("Logout failed", error)
     }
-  }
+  }, [session])
 
-  const register = async (email: string, password: string, name: string) => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name }),
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
       })
 
-      if (!res.ok) return false
-
-      return true
+      return !result?.error
     } catch (error) {
-      console.error("Registration failed", error)
+      console.error("Login error:", error)
       return false
     }
   }
 
-  const signInWithGoogle = async () => {
+  const logout = async (): Promise<void> => {
+    await signOut({ redirect: false })
+    setUser(null)
+  }
+
+  const signInWithGoogle = async (): Promise<boolean> => {
     try {
       const result = await signIn("google", { redirect: false })
       return !result?.error
     } catch (error) {
-      console.error("Google sign-in failed", error)
+      console.error("Google sign-in error:", error)
+      return false
+    }
+  }
+
+  const register = async (email: string, password: string, name: string): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password, name }),
+      })
+
+      return response.ok
+    } catch (error) {
+      console.error("Registration error:", error)
       return false
     }
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, register, signInWithGoogle }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        isLoading,
+        login,
+        logout,
+        signInWithGoogle,
+        register,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

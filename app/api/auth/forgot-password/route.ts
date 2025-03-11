@@ -1,34 +1,21 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { requestPasswordReset } from "@/lib/auth-service"
 
-// This is a mock implementation. In a real application, you would:
-// 1. Validate the email
-// 2. Check if the user exists
-// 3. Generate a secure token
-// 4. Store the token with an expiration time
-// 5. Send an email with a reset link
-
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { email } = await request.json()
+    const { email } = await req.json()
 
-    // Basic validation
     if (!email) {
-      return NextResponse.json({ message: "Email is required" }, { status: 400 })
+      return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
 
-    // In a real application, you would:
-    // 1. Check if the user exists
-    // 2. Generate a password reset token
-    // 3. Store the token in your database with an expiration time
-    // 4. Send an email with a reset link
+    await requestPasswordReset(email)
 
-    // Simulate successful password reset request
-    return NextResponse.json({
-      message: "Password reset email sent successfully",
-    })
-  } catch (error) {
-    console.error("Password reset error:", error)
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
+    // Always return success even if the email doesn't exist (for security)
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error("Forgot password error:", error)
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }
 
