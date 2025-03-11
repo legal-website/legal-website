@@ -1,26 +1,36 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
-import { FileUp, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { FileUp, CheckCircle, Clock, AlertCircle, FileText } from "lucide-react"
+import Image from "next/image"
 
-// Simplified interface to reduce memory usage
+// Interface matching the Prisma schema
 interface Invoice {
   id: string
   invoiceNumber: string
   customerName: string
   customerEmail: string
+  customerPhone?: string
+  customerCompany?: string
+  customerAddress?: string
+  customerCity?: string
+  customerState?: string
+  customerZip?: string
+  customerCountry?: string
   amount: number
   status: string
-  items: any[] // Using any to reduce TypeScript complexity
+  items: any[]
   paymentReceipt?: string
+  paymentDate?: string
   createdAt: string
+  updatedAt: string
+  userId?: string
 }
 
 export default function InvoicePage({ params }: { params: { id: string } }) {
@@ -31,12 +41,28 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
   const [error, setError] = useState<string | null>(null)
   const [uploadingReceipt, setUploadingReceipt] = useState(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
+    setFileError(null)
+
     if (file) {
+      // Validate file type
+      const allowedTypes = ["image/jpeg", "image/png", "image/gif", "application/pdf"]
+      if (!allowedTypes.includes(file.type)) {
+        setFileError("Invalid file type. Please upload an image or PDF.")
+        return
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setFileError("File is too large. Maximum size is 5MB.")
+        return
+      }
+
       setReceiptFile(file)
-      console.log("File selected:", file.name) // Add logging
+      console.log("File selected:", file.name)
     }
   }
 
@@ -50,7 +76,16 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
       return
     }
 
-    console.log("Starting receipt upload...") // Add logging
+    if (fileError) {
+      toast({
+        title: "Error",
+        description: fileError,
+        variant: "destructive",
+      })
+      return
+    }
+
+    console.log("Starting receipt upload...")
     setUploadingReceipt(true)
 
     try {
@@ -58,7 +93,7 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
       formData.append("receipt", receiptFile)
       formData.append("invoiceId", params.id)
 
-      console.log("Sending upload request for invoice:", params.id) // Add logging
+      console.log("Sending upload request for invoice:", params.id)
 
       const response = await fetch("/api/upload-receipt", {
         method: "POST",
@@ -66,7 +101,7 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
       })
 
       const data = await response.json()
-      console.log("Upload response:", data) // Add logging
+      console.log("Upload response:", data)
 
       if (!response.ok) {
         throw new Error(data.error || "Failed to upload receipt")
@@ -101,7 +136,7 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
   useEffect(() => {
     async function fetchInvoice() {
       try {
-        console.log("Fetching invoice with ID:", params.id) // Add logging
+        console.log("Fetching invoice with ID:", params.id)
         const response = await fetch(`/api/invoices/${params.id}`)
         const data = await response.json()
 
@@ -109,10 +144,10 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
           throw new Error(data.error || "Failed to fetch invoice")
         }
 
-        console.log("Invoice data received:", data) // Add logging
+        console.log("Invoice data received:", data)
         setInvoice(data.invoice)
       } catch (error: any) {
-        console.error("Error fetching invoice:", error) // Add logging
+        console.error("Error fetching invoice:", error)
         setError(error.message)
         toast({
           title: "Error",
@@ -193,6 +228,17 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
               <div className="text-sm">
                 <p className="font-medium">{invoice.customerName}</p>
                 <p>{invoice.customerEmail}</p>
+                {invoice.customerPhone && <p>{invoice.customerPhone}</p>}
+                {invoice.customerCompany && <p>{invoice.customerCompany}</p>}
+                {invoice.customerAddress && (
+                  <p>
+                    {invoice.customerAddress}
+                    {invoice.customerCity && `, ${invoice.customerCity}`}
+                    {invoice.customerState && `, ${invoice.customerState}`}
+                    {invoice.customerZip && ` ${invoice.customerZip}`}
+                  </p>
+                )}
+                {invoice.customerCountry && <p>{invoice.customerCountry}</p>}
               </div>
             </div>
           </div>
@@ -226,15 +272,19 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
                     <Input
                       id="receipt-upload"
                       type="file"
-                      accept="image/*,.pdf"
+                      accept="image/jpeg,image/png,image/gif,application/pdf"
                       onChange={handleFileChange}
                       className="hidden"
                     />
+                    {fileError && <p className="text-sm text-red-500 mt-2">{fileError}</p>}
+                    <p className="text-xs text-gray-500 mt-2">
+                      Accepted file types: JPEG, PNG, GIF, PDF. Maximum size: 5MB.
+                    </p>
                   </div>
 
                   <Button
                     onClick={uploadReceipt}
-                    disabled={!receiptFile || uploadingReceipt}
+                    disabled={!receiptFile || !!fileError || uploadingReceipt}
                     className="bg-[#22c984] hover:bg-[#1eac73] text-white"
                   >
                     {uploadingReceipt ? "Uploading..." : "Upload Receipt"}
@@ -251,7 +301,41 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
                 <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 mr-2" />
                 <div>
                   <h3 className="font-semibold mb-2">Payment Receipt Uploaded</h3>
-                  <p className="mb-4">Your payment receipt has been uploaded and is pending verification.</p>
+                  <p className="mb-4">
+                    Your payment receipt has been uploaded and is pending verification.
+                    {invoice.paymentDate && (
+                      <span className="block text-sm text-gray-500 mt-1">
+                        Uploaded on {new Date(invoice.paymentDate).toLocaleDateString()} at{" "}
+                        {new Date(invoice.paymentDate).toLocaleTimeString()}
+                      </span>
+                    )}
+                  </p>
+
+                  {/* Display receipt preview */}
+                  <div className="mb-4">
+                    {invoice.paymentReceipt.endsWith(".pdf") ? (
+                      <div className="flex items-center p-3 bg-white dark:bg-gray-800 rounded border">
+                        <FileText className="h-6 w-6 mr-2 text-blue-500" />
+                        <a
+                          href={invoice.paymentReceipt}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:underline"
+                        >
+                          View Receipt PDF
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="relative h-40 w-full max-w-xs mx-auto border rounded overflow-hidden">
+                        <Image
+                          src={invoice.paymentReceipt || "/placeholder.svg"}
+                          alt="Payment Receipt"
+                          fill
+                          style={{ objectFit: "contain" }}
+                        />
+                      </div>
+                    )}
+                  </div>
 
                   {invoice.status === "pending" && (
                     <Button
