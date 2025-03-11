@@ -1,8 +1,6 @@
 import type { ReactNode } from "react"
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth/next"
-import { Toaster } from "@/components/ui/toaster"
-import { ThemeProvider } from "@/context/theme-context"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
@@ -26,12 +24,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     }
 
     return (
-      <ThemeProvider>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-          <Toaster />
-          <main className="flex-1 overflow-y-auto">{children}</main>
-        </div>
-      </ThemeProvider>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <main className="flex-1 overflow-y-auto">{children}</main>
+      </div>
     )
   } catch (error) {
     console.error("Error in admin layout:", error)

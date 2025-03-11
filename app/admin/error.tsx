@@ -12,7 +12,6 @@ export default function AdminError({
   reset: () => void
 }) {
   useEffect(() => {
-    // Log the error to an error reporting service
     console.error("Admin error:", error)
   }, [error])
 
@@ -28,7 +27,7 @@ export default function AdminError({
             Try again
           </Button>
           <Button asChild>
-            <Link href="/login">Back to Login</Link>
+            <Link href="/dashboard">Back to Dashboard</Link>
           </Button>
         </div>
       </div>
