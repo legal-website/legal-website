@@ -17,8 +17,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     }
 
     // Check if user has admin role
-    const userRole = (session.user as any).role
-    if (userRole !== "ADMIN") {
+    const userRole = session.user.role
+    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
       redirect("/dashboard")
     }
 
@@ -35,22 +35,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     )
   } catch (error) {
     console.error("Error in admin layout:", error)
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md max-w-md w-full">
-          <h1 className="text-2xl font-bold mb-4">Error Loading Admin Dashboard</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            There was a problem loading the admin dashboard. Please try logging in again.
-          </p>
-          <a
-            href="/login?callbackUrl=/admin"
-            className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-          >
-            Back to Login
-          </a>
-        </div>
-      </div>
-    )
+    redirect("/login?callbackUrl=/admin")
   }
 }
 

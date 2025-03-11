@@ -1,35 +1,9 @@
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
-
-// Import the authOptions directly from the NextAuth route file
-// We'll export it from there and import it here to avoid circular dependencies
 import { authOptions as nextAuthOptions } from "@/app/api/auth/[...nextauth]/route"
-import { scrypt, randomBytes } from "crypto"
-import { promisify } from "util"
-
-const scryptAsync = promisify(scrypt)
 
 // Export the authOptions for use in other files
 export const authOptions = nextAuthOptions
-
-// Password hashing
-export async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(8).toString("hex")
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer
-  return `${buf.toString("hex")}.${salt}`
-}
-
-// Password verification
-export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
-  try {
-    const [hashed, salt] = hashedPassword.split(".")
-    const buf = (await scryptAsync(password, salt, 64)) as Buffer
-    return buf.toString("hex") === hashed
-  } catch (error) {
-    console.error("Password verification error:", error)
-    return false
-  }
-}
 
 // Check if user is authenticated (for server components)
 export async function requireAuth() {
@@ -50,8 +24,23 @@ export async function requireAdmin() {
     redirect("/login?callbackUrl=/admin")
   }
 
-  if ((session.user as any).role !== "ADMIN") {
+  if (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN") {
     redirect("/dashboard")
+  }
+
+  return session
+}
+
+// Check if user is a super admin (for server components)
+export async function requireSuperAdmin() {
+  const session = await getServerSession(authOptions)
+
+  if (!session || !session.user) {
+    redirect("/login?callbackUrl=/admin")
+  }
+
+  if (session.user.role !== "SUPER_ADMIN") {
+    redirect("/admin")
   }
 
   return session
@@ -65,5 +54,10 @@ export function getUserRole(session: any) {
 // Check if user has a specific role
 export function hasRole(session: any, role: string) {
   return session?.user?.role === role
+}
+
+// Check if user is a super admin
+export function isSuperAdmin(session: any) {
+  return session?.user?.role === "SUPER_ADMIN"
 }
 
