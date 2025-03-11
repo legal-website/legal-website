@@ -93,6 +93,7 @@ export async function registerUser(
   const hashedPassword = await hashPassword(password)
   const verificationToken = uuidv4()
 
+  // Create user without setting verificationToken directly
   const user = await prisma.user.create({
     data: {
       email,

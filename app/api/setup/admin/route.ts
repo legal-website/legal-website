@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     } else {
       console.log("Admin user doesn't exist, creating new admin user...")
 
-      // Create new admin user
+      // Create new admin user without using verificationToken
       await prisma.user.create({
         data: {
           email: "ary5054@gmail.com",
