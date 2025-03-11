@@ -10,6 +10,7 @@ import type { ToastActionElement, ToastProps } from "@/components/ui/toast"
 const TOAST_LIMIT = 10
 const TOAST_REMOVE_DELAY = 1000
 const TOAST_AUTO_DISMISS_DELAY = 5000 // 5 seconds for auto-dismissal
+const TOAST_AUTO_CLOSE_DELAY = 5000 // 5 seconds
 
 type ToasterToast = ToastProps & {
   id: string
@@ -86,9 +87,22 @@ const clearAutoDismissTimeout = (toastId: string) => {
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case actionTypes.ADD_TOAST:
+      const newToast = { id: generateId(), ...action.toast }
+
+      // Set up auto-dismiss timeout for the new toast
+      const autoCloseTimeout = setTimeout(() => {
+        dispatch({
+          type: actionTypes.DISMISS_TOAST,
+          toastId: newToast.id,
+        })
+      }, TOAST_AUTO_CLOSE_DELAY)
+
+      // Store the timeout so we can clear it if needed
+      autoDismissTimeouts.set(newToast.id, autoCloseTimeout)
+
       return {
         ...state,
-        toasts: [...state.toasts, { id: generateId(), ...action.toast }].slice(0, TOAST_LIMIT),
+        toasts: [...state.toasts, newToast].slice(0, TOAST_LIMIT),
       }
 
     case actionTypes.UPDATE_TOAST:
@@ -100,12 +114,11 @@ export const reducer = (state: State, action: Action): State => {
     case actionTypes.DISMISS_TOAST: {
       const { toastId } = action
 
+      // Handle both manual and auto-dismiss
       if (toastId) {
-        clearAutoDismissTimeout(toastId)
         addToRemoveQueue(toastId)
       } else {
         state.toasts.forEach((toast) => {
-          clearAutoDismissTimeout(toast.id)
           addToRemoveQueue(toast.id)
         })
       }
@@ -150,7 +163,7 @@ function dispatch(action: Action) {
 
 type ToastPropsType = Omit<ToasterToast, "id">
 
-function toast({ ...props }: ToastPropsType) {
+function toast(props: ToastPropsType) {
   const id = generateId()
 
   const update = (props: ToastPropsType) =>
@@ -160,23 +173,19 @@ function toast({ ...props }: ToastPropsType) {
     })
   const dismiss = () => dispatch({ type: actionTypes.DISMISS_TOAST, toastId: id })
 
+  const onOpenChangeWrapper = (open: boolean) => {
+    if (!open) dismiss()
+    props.onOpenChange?.(open)
+  }
+
   dispatch({
     type: actionTypes.ADD_TOAST,
     toast: {
       ...props,
       open: true,
-      onOpenChange: (open) => {
-        if (!open) dismiss()
-      },
+      onOpenChange: onOpenChangeWrapper,
     },
   })
-
-  // Set auto-dismiss timeout
-  const autoDismissTimeout = setTimeout(() => {
-    dismiss()
-  }, TOAST_AUTO_DISMISS_DELAY)
-
-  autoDismissTimeouts.set(id, autoDismissTimeout)
 
   return {
     id,
