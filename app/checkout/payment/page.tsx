@@ -9,8 +9,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ArrowLeft, Upload, Copy, CheckCircle, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useCart } from "@/context/cart-context"
+import { ErrorBoundary } from "@/components/error-boundary"
 
-export default function PaymentPage() {
+function PaymentPageContent() {
   const router = useRouter()
   const { toast } = useToast()
   const { clearCart } = useCart()
@@ -19,6 +20,7 @@ export default function PaymentPage() {
   const [file, setFile] = useState<File | null>(null)
   const [checkoutData, setCheckoutData] = useState<any>(null)
   const [copied, setCopied] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Bank account details
   const bankDetails = {
@@ -30,19 +32,19 @@ export default function PaymentPage() {
   }
 
   useEffect(() => {
-    // Get checkout data from session storage
-    const storedData = sessionStorage.getItem("checkoutData")
-    if (!storedData) {
-      router.push("/checkout")
-      return
-    }
-
     try {
+      // Get checkout data from session storage
+      const storedData = sessionStorage.getItem("checkoutData")
+      if (!storedData) {
+        router.push("/checkout")
+        return
+      }
+
       const parsedData = JSON.parse(storedData)
       setCheckoutData(parsedData)
     } catch (error) {
-      console.error("Error parsing checkout data:", error)
-      router.push("/checkout")
+      console.error("Error loading checkout data:", error)
+      setError("Failed to load checkout data. Please try again.")
     }
   }, [router])
 
@@ -53,24 +55,34 @@ export default function PaymentPage() {
   }
 
   const copyAccountDetails = () => {
-    const detailsText = `
-      Account Name: ${bankDetails.accountName}
-      Account Number: ${bankDetails.accountNumber}
-      Routing Number: ${bankDetails.routingNumber}
-      Bank Name: ${bankDetails.bankName}
-      SWIFT Code: ${bankDetails.swiftCode}
-    `
-    navigator.clipboard.writeText(detailsText.trim())
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      const detailsText = `
+        Account Name: ${bankDetails.accountName}
+        Account Number: ${bankDetails.accountNumber}
+        Routing Number: ${bankDetails.routingNumber}
+        Bank Name: ${bankDetails.bankName}
+        SWIFT Code: ${bankDetails.swiftCode}
+      `
+      navigator.clipboard.writeText(detailsText.trim())
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
 
-    toast({
-      title: "Copied to clipboard",
-      description: "Bank account details have been copied to your clipboard.",
-    })
+      toast({
+        title: "Copied to clipboard",
+        description: "Bank account details have been copied to your clipboard.",
+      })
+    } catch (error) {
+      console.error("Error copying to clipboard:", error)
+      toast({
+        title: "Copy failed",
+        description: "Could not copy to clipboard. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleUpload = async () => {
+    // Validate inputs
     if (!file) {
       toast({
         title: "No file selected",
@@ -90,61 +102,94 @@ export default function PaymentPage() {
     }
 
     setUploading(true)
+    setError(null)
 
     try {
-      // Create form data for file upload
+      // Step 1: Create form data for file upload
       const formData = new FormData()
       formData.append("receipt", file)
 
-      // Upload receipt to Cloudinary
+      // Step 2: Upload receipt to Cloudinary
+      console.log("Uploading receipt file...")
       const uploadResponse = await fetch("/api/upload-receipt", {
         method: "POST",
         body: formData,
       })
 
       if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json()
-        throw new Error(errorData.error || "Failed to upload receipt")
+        const errorText = await uploadResponse.text()
+        console.error("Upload response error:", errorText)
+
+        try {
+          const errorData = JSON.parse(errorText)
+          throw new Error(errorData.error || errorData.message || "Failed to upload receipt")
+        } catch (parseError) {
+          throw new Error(`Failed to upload receipt: ${errorText}`)
+        }
       }
 
       const uploadData = await uploadResponse.json()
+      console.log("Receipt uploaded successfully:", uploadData)
+
+      if (!uploadData.url) {
+        throw new Error("No receipt URL returned from server")
+      }
+
       const receiptUrl = uploadData.url
 
-      // Create invoice with receipt URL
+      // Step 3: Create invoice with receipt URL
+      console.log("Creating invoice with receipt URL:", receiptUrl)
+      const invoiceData = {
+        customer: checkoutData.customer,
+        items: checkoutData.items,
+        total: checkoutData.total,
+        paymentReceipt: receiptUrl,
+      }
+
+      console.log("Invoice data:", JSON.stringify(invoiceData, null, 2))
+
       const invoiceResponse = await fetch("/api/create-invoice", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          customer: checkoutData.customer,
-          items: checkoutData.items,
-          total: checkoutData.total,
-          paymentReceipt: receiptUrl,
-        }),
+        body: JSON.stringify(invoiceData),
       })
 
       if (!invoiceResponse.ok) {
-        const errorData = await invoiceResponse.json()
-        throw new Error(errorData.error || "Failed to create invoice")
+        const errorText = await invoiceResponse.text()
+        console.error("Invoice response error:", errorText)
+
+        try {
+          const errorData = JSON.parse(errorText)
+          throw new Error(errorData.error || errorData.message || "Failed to create invoice")
+        } catch (parseError) {
+          throw new Error(`Failed to create invoice: ${errorText}`)
+        }
       }
 
-      const invoiceData = await invoiceResponse.json()
+      const invoiceResult = await invoiceResponse.json()
+      console.log("Invoice created successfully:", invoiceResult)
 
-      // Clear cart and checkout data
+      if (!invoiceResult.invoice || !invoiceResult.invoice.id) {
+        throw new Error("No invoice ID returned from server")
+      }
+
+      // Step 4: Clear cart and checkout data
       clearCart()
       sessionStorage.removeItem("checkoutData")
 
-      // Show success message
+      // Step 5: Show success message
       toast({
         title: "Payment submitted",
         description: "Your payment receipt has been uploaded successfully. We'll process your order shortly.",
       })
 
-      // Redirect to success page
-      router.push(`/invoice/${invoiceData.invoice.id}`)
+      // Step 6: Redirect to success page
+      router.push(`/invoice/${invoiceResult.invoice.id}`)
     } catch (error: any) {
       console.error("Upload error:", error)
+      setError(error.message || "Something went wrong. Please try again.")
       toast({
         title: "Upload failed",
         description: error.message || "Something went wrong. Please try again.",
@@ -153,6 +198,33 @@ export default function PaymentPage() {
     } finally {
       setUploading(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p>Loading payment page...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-12 px-4">
+        <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h1 className="text-xl font-bold mb-4 text-center">Error</h1>
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>
+          <div className="flex justify-between">
+            <Button variant="outline" onClick={() => router.push("/checkout")}>
+              Back to Checkout
+            </Button>
+            <Button onClick={() => window.location.reload()}>Try Again</Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (!checkoutData) {
@@ -275,8 +347,8 @@ export default function PaymentPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {checkoutData.items.map((item: any) => (
-                  <div key={item.id} className="border-b pb-4">
+                {checkoutData.items.map((item: any, index: number) => (
+                  <div key={item.id || index} className="border-b pb-4">
                     <div className="flex justify-between">
                       <span className="font-medium">{item.tier} Package</span>
                       <span>${item.price}</span>
@@ -328,6 +400,14 @@ export default function PaymentPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PaymentPage() {
+  return (
+    <ErrorBoundary>
+      <PaymentPageContent />
+    </ErrorBoundary>
   )
 }
 

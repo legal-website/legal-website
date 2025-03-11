@@ -3,10 +3,25 @@ import { db } from "@/lib/db"
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
-    console.log("Creating invoice with data:", body)
+    // Parse request body
+    let body
+    try {
+      body = await req.json()
+      console.log("Creating invoice with data:", JSON.stringify(body, null, 2))
+    } catch (parseError) {
+      console.error("Error parsing request body:", parseError)
+      return NextResponse.json(
+        { error: "Invalid request data", message: "Could not parse the request body" },
+        { status: 400 },
+      )
+    }
 
     const { customer, items, total, paymentReceipt } = body
+
+    // Validate required fields
+    if (!paymentReceipt) {
+      return NextResponse.json({ error: "Payment receipt is required" }, { status: 400 })
+    }
 
     if (!customer || !customer.name || !customer.email) {
       return NextResponse.json({ error: "Customer information is required" }, { status: 400 })
@@ -27,7 +42,7 @@ export async function POST(req: Request) {
     const invoiceNumber = `INV-${year}${month}-${Math.floor(1000 + Math.random() * 9000)}`
 
     // Process items to ensure they're in the correct format
-    const safeItems = items.map((item) => ({
+    const safeItems = items.map((item: any) => ({
       id: item.id || `item-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       tier: item.tier || "STANDARD",
       price: Number(item.price) || 0,
@@ -48,7 +63,7 @@ export async function POST(req: Request) {
         amount,
         status: "pending",
         items: JSON.stringify(safeItems),
-        paymentReceipt: paymentReceipt || null,
+        paymentReceipt: paymentReceipt,
         // Add optional fields only if they exist
         ...(customer.phone && { customerPhone: customer.phone }),
         ...(customer.company && { customerCompany: customer.company }),
