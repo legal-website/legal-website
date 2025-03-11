@@ -4,27 +4,31 @@ import type React from "react"
 
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useToast } from "@/components/ui/use-toast"
+import Link from "next/link"
+import { FcGoogle } from "react-icons/fc"
+import { Eye, EyeOff, Mail, User, Lock, CheckCircle, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Icons } from "@/components/icons"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckCircle, XCircle } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { signIn } from "next-auth/react"
 
-// Create a client component that uses useSearchParams
 function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
+
   const [email, setEmail] = useState("")
+  const [name, setName] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [name, setName] = useState("")
-  const [invoiceId, setInvoiceId] = useState<string | undefined>(searchParams?.get("invoice") || undefined)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [invoiceId, setInvoiceId] = useState<string | undefined>(searchParams?.get("invoice") || undefined)
 
-  // Add password strength state
+  // Password strength state
   const [passwordStrength, setPasswordStrength] = useState<{
     isStrong: boolean
     message: string
@@ -47,65 +51,28 @@ function RegisterForm() {
     },
   })
 
-  const verifyInvoice = async () => {
-    if (!invoiceId) return
-
-    try {
-      const response = await fetch(`/api/invoices/${invoiceId}/verify`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Invoice verification failed")
-      }
-
-      toast({
-        title: "Invoice verified!",
-        description: data.message,
-      })
-    } catch (error: any) {
-      toast({
-        title: "Invoice verification failed",
-        description: error.message || "Something went wrong. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Add this function after the verifyInvoice function
-  const checkPasswordStrength = (password: string) => {
-    const minLength = 8
-    const hasUpperCase = /[A-Z]/.test(password)
-    const hasLowerCase = /[a-z]/.test(password)
-    const hasNumbers = /\d/.test(password)
-    const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)
-
-    const isStrong = password.length >= minLength && hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar
-
-    const message = isStrong ? "Password is strong" : "Password is too weak"
-
-    return {
-      isStrong,
-      message,
-      criteria: {
-        minLength: password.length >= minLength,
-        hasUpperCase,
-        hasLowerCase,
-        hasNumbers,
-        hasSpecialChar,
-      },
-    }
-  }
-
-  // Add useEffect for password strength checking
+  // Check password strength
   useEffect(() => {
     if (password) {
-      setPasswordStrength(checkPasswordStrength(password))
+      const minLength = 8
+      const hasUpperCase = /[A-Z]/.test(password)
+      const hasLowerCase = /[a-z]/.test(password)
+      const hasNumbers = /\d/.test(password)
+      const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)
+
+      const isStrong = password.length >= minLength && hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar
+
+      setPasswordStrength({
+        isStrong,
+        message: isStrong ? "Password is strong" : "Password is too weak",
+        criteria: {
+          minLength: password.length >= minLength,
+          hasUpperCase,
+          hasLowerCase,
+          hasNumbers,
+          hasSpecialChar,
+        },
+      })
     } else {
       setPasswordStrength({
         isStrong: false,
@@ -121,7 +88,40 @@ function RegisterForm() {
     }
   }, [password])
 
-  // Update the handleRegister function to check password strength
+  // Verify invoice if provided
+  useEffect(() => {
+    if (invoiceId) {
+      verifyInvoice(invoiceId)
+    }
+  }, [invoiceId])
+
+  const verifyInvoice = async (id: string) => {
+    try {
+      const response = await fetch(`/api/invoices/${id}/verify`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Invoice verification failed")
+      }
+
+      if (data.invoice) {
+        setEmail(data.invoice.customerEmail || "")
+        setName(data.invoice.customerName || "")
+      }
+
+      toast({
+        title: "Invoice verified",
+        description: "Please complete your registration to access your account.",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Invoice verification failed",
+        description: error.message || "Unable to verify your invoice. Please contact support.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -171,7 +171,7 @@ function RegisterForm() {
       })
 
       // Redirect to verification page
-      router.push("/verify-email?email=" + encodeURIComponent(email))
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`)
     } catch (error: any) {
       toast({
         title: "Registration failed",
@@ -183,127 +183,197 @@ function RegisterForm() {
     }
   }
 
-  useEffect(() => {
-    verifyInvoice()
-  }, [invoiceId])
+  const handleGoogleSignIn = async () => {
+    setLoading(true)
+    try {
+      await signIn("google", { callbackUrl: "/dashboard" })
+    } catch (err) {
+      // Error handling is done via the redirect
+      setLoading(false)
+    }
+  }
 
   return (
-    <div className="container grid w-full gap-6 lg:grid-cols-2 xl:grid-cols-2 [&>*:nth-child(1)]:row-span-2">
-      <Card className="col-span-12 lg:col-span-1 xl:col-span-1">
-        <CardHeader>
-          <CardTitle>Create an account</CardTitle>
-          <CardDescription>Enter your email below to create your account</CardDescription>
+    <div className="flex items-center justify-center min-h-[calc(100vh-200px)] bg-gray-50 dark:bg-gray-900 p-4">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
+          <CardDescription className="text-center">
+            {invoiceId
+              ? "Complete your registration to access your purchase"
+              : "Enter your details to create your account"}
+          </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your name"
-              type="text"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              type="email"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              type="password"
-            />
-            <div className="space-y-1 mt-1">
-              <div className="text-sm font-medium">Password requirements:</div>
-              <ul className="space-y-1">
-                <li className="text-xs flex items-center gap-1">
-                  {passwordStrength.criteria.minLength ? (
-                    <CheckCircle className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <XCircle className="h-3 w-3 text-red-500" />
-                  )}
-                  At least 8 characters
-                </li>
-                <li className="text-xs flex items-center gap-1">
-                  {passwordStrength.criteria.hasUpperCase ? (
-                    <CheckCircle className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <XCircle className="h-3 w-3 text-red-500" />
-                  )}
-                  At least one uppercase letter
-                </li>
-                <li className="text-xs flex items-center gap-1">
-                  {passwordStrength.criteria.hasLowerCase ? (
-                    <CheckCircle className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <XCircle className="h-3 w-3 text-red-500" />
-                  )}
-                  At least one lowercase letter
-                </li>
-                <li className="text-xs flex items-center gap-1">
-                  {passwordStrength.criteria.hasNumbers ? (
-                    <CheckCircle className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <XCircle className="h-3 w-3 text-red-500" />
-                  )}
-                  At least one number
-                </li>
-                <li className="text-xs flex items-center gap-1">
-                  {passwordStrength.criteria.hasSpecialChar ? (
-                    <CheckCircle className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <XCircle className="h-3 w-3 text-red-500" />
-                  )}
-                  At least one special character
-                </li>
-              </ul>
+        <CardContent className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10"
+                  required
+                  disabled={!!invoiceId && !!email}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Create a password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 pr-10"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+
+              {/* Password strength indicators */}
+              {password && (
+                <div className="mt-2 space-y-2">
+                  <p className={`text-sm ${passwordStrength.isStrong ? "text-green-600" : "text-amber-600"}`}>
+                    {passwordStrength.message}
+                  </p>
+                  <div className="space-y-1">
+                    <div className="text-xs flex items-center gap-1">
+                      {passwordStrength.criteria.minLength ? (
+                        <CheckCircle className="h-3 w-3 text-green-500" />
+                      ) : (
+                        <X className="h-3 w-3 text-red-500" />
+                      )}
+                      <span>At least 8 characters</span>
+                    </div>
+                    <div className="text-xs flex items-center gap-1">
+                      {passwordStrength.criteria.hasUpperCase ? (
+                        <CheckCircle className="h-3 w-3 text-green-500" />
+                      ) : (
+                        <X className="h-3 w-3 text-red-500" />
+                      )}
+                      <span>At least one uppercase letter</span>
+                    </div>
+                    <div className="text-xs flex items-center gap-1">
+                      {passwordStrength.criteria.hasLowerCase ? (
+                        <CheckCircle className="h-3 w-3 text-green-500" />
+                      ) : (
+                        <X className="h-3 w-3 text-red-500" />
+                      )}
+                      <span>At least one lowercase letter</span>
+                    </div>
+                    <div className="text-xs flex items-center gap-1">
+                      {passwordStrength.criteria.hasNumbers ? (
+                        <CheckCircle className="h-3 w-3 text-green-500" />
+                      ) : (
+                        <X className="h-3 w-3 text-red-500" />
+                      )}
+                      <span>At least one number</span>
+                    </div>
+                    <div className="text-xs flex items-center gap-1">
+                      {passwordStrength.criteria.hasSpecialChar ? (
+                        <CheckCircle className="h-3 w-3 text-green-500" />
+                      ) : (
+                        <X className="h-3 w-3 text-red-500" />
+                      )}
+                      <span>At least one special character</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirm your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="pl-10 pr-10"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {password && confirmPassword && password !== confirmPassword && (
+                <p className="text-sm text-red-600 mt-1">Passwords do not match</p>
+              )}
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Creating account..." : "Create account"}
+            </Button>
+          </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-300 dark:border-gray-600" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white dark:bg-gray-900 px-2 text-gray-500 dark:text-gray-400">Or continue with</span>
             </div>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input
-              id="confirmPassword"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm your password"
-              type="password"
-            />
+
+          <Button variant="outline" onClick={handleGoogleSignIn} disabled={loading} className="w-full">
+            <FcGoogle className="h-5 w-5 mr-2" />
+            Google
+          </Button>
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-4">
+          <div className="text-center text-sm">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+            >
+              Sign in
+            </Link>
           </div>
-        </CardContent>
-        <CardFooter>
-          <Button disabled={loading} onClick={handleRegister}>
-            {loading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
-            Create account
-          </Button>
         </CardFooter>
-      </Card>
-      <Card className="col-span-12 lg:col-span-1 xl:col-span-1">
-        <CardHeader>
-          <CardTitle>Already have an account?</CardTitle>
-          <CardDescription>Click below to login to your existing account.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button variant="outline" onClick={() => router.push("/login")}>
-            Login
-          </Button>
-        </CardContent>
       </Card>
     </div>
   )
 }
 
-// Main page component with Suspense boundary
 export default function RegisterPage() {
   return (
     <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>

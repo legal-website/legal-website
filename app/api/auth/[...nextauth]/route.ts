@@ -43,6 +43,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           image: user.image,
+          role: user.role,
         }
       },
     }),
@@ -50,27 +51,34 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       // For OAuth sign-ins, create or get the user
-      if (account && account.provider && account.providerAccountId && user.email) {
-        await getOrCreateUserFromOAuth(
-          account.provider,
-          account.providerAccountId,
-          user.email,
-          user.name || undefined,
-          user.image || undefined,
-        )
+      if (account && account.provider === "google" && profile?.email) {
+        try {
+          await getOrCreateUserFromOAuth(
+            account.provider,
+            account.providerAccountId!,
+            profile.email,
+            profile.name || undefined,
+            profile.image || undefined,
+          )
+          return true
+        } catch (error) {
+          console.error("Error in OAuth sign-in:", error)
+          return false
+        }
       }
-
       return true
     },
     async session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub
+        session.user.role = token.role as string
       }
       return session
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id
+        token.role = (user as any).role || "CLIENT"
       }
       return token
     },
@@ -84,7 +92,9 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
+  debug: process.env.NODE_ENV === "development",
 }
 
 const handler = NextAuth(authOptions)

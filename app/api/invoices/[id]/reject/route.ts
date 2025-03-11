@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { PrismaClient } from "@prisma/client"
-import { sendPaymentApprovalEmail } from "@/lib/auth-service"
 
 const prisma = new PrismaClient()
 
@@ -17,21 +16,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
     }
 
-    // Update invoice status to paid
+    // Update invoice status to cancelled
     const updatedInvoice = await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
-        status: "paid",
-        paymentDate: new Date(),
+        status: "cancelled",
       },
     })
 
-    // Send approval email
-    await sendPaymentApprovalEmail(invoice.customerEmail, invoice.customerName, invoiceId)
-
     return NextResponse.json({ success: true, invoice: updatedInvoice })
   } catch (error: any) {
-    console.error("Error approving invoice:", error)
+    console.error("Error rejecting invoice:", error)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }

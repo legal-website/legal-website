@@ -14,13 +14,25 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  Calendar,
   Mail,
   CheckCircle,
   X,
+  Trash2,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useToast } from "@/components/ui/use-toast"
+import { format } from "date-fns"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // First, let's define a proper interface for the invoice item
 interface InvoiceItem {
@@ -62,6 +74,10 @@ export default function InvoicesAdminPage() {
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
+  const [sortOrder, setSortOrder] = useState<string>("newest")
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -70,6 +86,7 @@ export default function InvoicesAdminPage() {
 
   const fetchInvoices = async () => {
     try {
+      setLoading(true)
       const response = await fetch("/api/admin/invoices")
 
       if (!response.ok) {
@@ -89,24 +106,87 @@ export default function InvoicesAdminPage() {
     }
   }
 
-  const filteredInvoices = invoices.filter((invoice) => {
-    const matchesSearch =
-      invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.customerEmail.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredInvoices = invoices
+    .filter((invoice) => {
+      // Filter by search query
+      const matchesSearch =
+        invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        invoice.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        invoice.customerEmail.toLowerCase().includes(searchQuery.toLowerCase())
 
-    const matchesTab =
-      (activeTab === "paid" && invoice.status === "paid") ||
-      (activeTab === "pending" && invoice.status === "pending") ||
-      (activeTab === "cancelled" && invoice.status === "cancelled") ||
-      activeTab === "all"
+      // Filter by status tab
+      const matchesTab =
+        activeTab === "all" ||
+        (activeTab === "paid" && invoice.status === "paid") ||
+        (activeTab === "pending" && invoice.status === "pending") ||
+        (activeTab === "cancelled" && invoice.status === "cancelled")
 
-    return matchesSearch && matchesTab
-  })
+      return matchesSearch && matchesTab
+    })
+    .sort((a, b) => {
+      // Sort by selected order
+      switch (sortOrder) {
+        case "newest":
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        case "oldest":
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        case "highest":
+          return b.amount - a.amount
+        case "lowest":
+          return a.amount - b.amount
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      }
+    })
 
   const viewInvoiceDetails = (invoice: Invoice) => {
     setSelectedInvoice(invoice)
     setShowInvoiceDialog(true)
+  }
+
+  const confirmDeleteInvoice = (invoice: Invoice) => {
+    setInvoiceToDelete(invoice)
+    setShowDeleteDialog(true)
+  }
+
+  const deleteInvoice = async () => {
+    if (!invoiceToDelete) return
+
+    try {
+      setIsDeleting(true)
+      const response = await fetch(`/api/admin/invoices/${invoiceToDelete.id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete invoice")
+      }
+
+      // Remove the invoice from the local state
+      setInvoices((prevInvoices) => prevInvoices.filter((inv) => inv.id !== invoiceToDelete.id))
+
+      toast({
+        title: "Invoice deleted",
+        description: `Invoice ${invoiceToDelete.invoiceNumber} has been deleted successfully.`,
+      })
+
+      // Close the dialog
+      setShowDeleteDialog(false)
+
+      // If the deleted invoice is currently being viewed, close that dialog too
+      if (selectedInvoice && selectedInvoice.id === invoiceToDelete.id) {
+        setShowInvoiceDialog(false)
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete invoice. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+      setInvoiceToDelete(null)
+    }
   }
 
   const approvePayment = async (invoiceId: string) => {
@@ -208,7 +288,10 @@ export default function InvoicesAdminPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p>Loading invoices...</p>
+        <div className="flex flex-col items-center gap-2">
+          <Clock className="h-8 w-8 animate-spin text-primary" />
+          <p>Loading invoices...</p>
+        </div>
       </div>
     )
   }
@@ -242,35 +325,48 @@ export default function InvoicesAdminPage() {
         </div>
 
         <div className="flex space-x-2">
-          <Button variant="outline" className="flex-1">
+          <Button variant="outline" className="flex-1" onClick={() => setSearchQuery("")}>
             <Filter className="mr-2 h-4 w-4" />
-            Filter
+            Clear Filters
           </Button>
-          <Button variant="outline" className="flex-1">
-            <Calendar className="mr-2 h-4 w-4" />
-            Date Range
+          <Button variant="outline" className="flex-1" onClick={fetchInvoices}>
+            <Clock className="mr-2 h-4 w-4" />
+            Refresh
           </Button>
         </div>
 
         <div className="flex items-center justify-end space-x-2">
           <span className="text-sm text-gray-500">Sort by:</span>
-          <select className="h-10 px-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-            <option>Most Recent</option>
-            <option>Oldest First</option>
-            <option>Highest Amount</option>
-            <option>Lowest Amount</option>
-          </select>
+          <Select value={sortOrder} onValueChange={setSortOrder}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Sort order" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Most Recent</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+              <SelectItem value="highest">Highest Amount</SelectItem>
+              <SelectItem value="lowest">Lowest Amount</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="all">All Invoices</TabsTrigger>
+        <TabsList className="grid grid-cols-4 w-full max-w-md">
+          <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="paid">Paid</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
         </TabsList>
+
+        <div className="mt-2 text-sm text-gray-500">
+          {activeTab === "all" && "Showing all invoices"}
+          {activeTab === "paid" && "Showing paid invoices only"}
+          {activeTab === "pending" && "Showing pending invoices only"}
+          {activeTab === "cancelled" && "Showing cancelled invoices only"}
+          {filteredInvoices.length > 0 && ` (${filteredInvoices.length} found)`}
+        </div>
       </Tabs>
 
       {/* Invoices Table */}
@@ -297,7 +393,7 @@ export default function InvoicesAdminPage() {
                 </tr>
               ) : (
                 filteredInvoices.map((invoice) => (
-                  <tr key={invoice.id} className="border-b">
+                  <tr key={invoice.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="p-4">
                       <div className="flex items-center">
                         <FileText className="h-4 w-4 mr-2 text-gray-400" />
@@ -311,7 +407,7 @@ export default function InvoicesAdminPage() {
                       </div>
                     </td>
                     <td className="p-4 font-medium">${invoice.amount.toFixed(2)}</td>
-                    <td className="p-4 text-gray-500">{new Date(invoice.createdAt).toLocaleDateString()}</td>
+                    <td className="p-4 text-gray-500">{format(new Date(invoice.createdAt), "MMM d, yyyy")}</td>
                     <td className="p-4">
                       <InvoiceStatusBadge status={invoice.status} />
                     </td>
@@ -356,6 +452,16 @@ export default function InvoicesAdminPage() {
                             </Button>
                           </>
                         )}
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => confirmDeleteInvoice(invoice)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -405,12 +511,12 @@ export default function InvoicesAdminPage() {
                   </div>
                   <div className="mb-2">
                     <p className="text-sm text-gray-500">Invoice Date</p>
-                    <p>{new Date(selectedInvoice.createdAt).toLocaleDateString()}</p>
+                    <p>{format(new Date(selectedInvoice.createdAt), "MMM d, yyyy")}</p>
                   </div>
                   {selectedInvoice.paymentDate && (
                     <div>
                       <p className="text-sm text-gray-500">Payment Date</p>
-                      <p>{new Date(selectedInvoice.paymentDate).toLocaleDateString()}</p>
+                      <p>{format(new Date(selectedInvoice.paymentDate), "MMM d, yyyy")}</p>
                     </div>
                   )}
                 </div>
@@ -500,7 +606,7 @@ export default function InvoicesAdminPage() {
               )}
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => setShowInvoiceDialog(false)}>
                 Close
               </Button>
@@ -512,10 +618,43 @@ export default function InvoicesAdminPage() {
                 <Mail className="h-4 w-4 mr-2" />
                 Email Customer
               </Button>
+              <Button
+                variant="outline"
+                className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                onClick={() => confirmDeleteInvoice(selectedInvoice)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Invoice
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete invoice {invoiceToDelete?.invoiceNumber}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                deleteInvoice()
+              }}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

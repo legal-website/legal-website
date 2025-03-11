@@ -1,13 +1,15 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { signIn, signOut, useSession } from "next-auth/react"
+import { createContext, useContext, type ReactNode } from "react"
+import { useSession, signIn, signOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
 
 type User = {
   id: string
   email: string
   name?: string
   role?: string
+  image?: string
 }
 
 type AuthContextType = {
@@ -24,22 +26,20 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession()
-  const [user, setUser] = useState<User | null>(null)
-  const isLoading = status === "loading"
-  const isAuthenticated = !!user
+  const router = useRouter()
 
-  useEffect(() => {
-    if (session?.user) {
-      setUser({
-        id: session.user.id as string,
-        email: session.user.email as string,
+  const isLoading = status === "loading"
+  const isAuthenticated = status === "authenticated"
+
+  const user = session?.user
+    ? {
+        id: session.user.id,
+        email: session.user.email || "",
         name: session.user.name || undefined,
-        role: (session.user as any).role || "CLIENT",
-      })
-    } else {
-      setUser(null)
-    }
-  }, [session])
+        role: session.user.role || "CLIENT",
+        image: session.user.image || undefined,
+      }
+    : null
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -58,13 +58,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async (): Promise<void> => {
     await signOut({ redirect: false })
-    setUser(null)
+    router.push("/")
   }
 
   const signInWithGoogle = async (): Promise<boolean> => {
     try {
-      const result = await signIn("google", { redirect: false })
-      return !result?.error
+      await signIn("google", { redirect: false })
+      return true
     } catch (error) {
       console.error("Google sign-in error:", error)
       return false

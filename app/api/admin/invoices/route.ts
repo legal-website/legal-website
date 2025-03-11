@@ -1,9 +1,17 @@
-import { NextResponse, type NextRequest } from "next/server"
-import prisma from "@/lib/prisma"
+import { type NextRequest, NextResponse } from "next/server"
+import { PrismaClient } from "@prisma/client"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+
+const prisma = new PrismaClient()
 
 export async function GET(req: NextRequest) {
   try {
-    // In a real app, you would check admin authentication here
+    const session = await getServerSession(authOptions)
+
+    if (!session || (session.user as any).role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
     const invoices = await prisma.invoice.findMany({
       orderBy: {
@@ -11,16 +19,16 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({ invoices })
-  } catch (error: any) {
-    console.error("Error fetching invoices:", error instanceof Error ? error.message : String(error))
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Unknown error occurred",
-        stack: process.env.NODE_ENV !== "production" ? error.stack : undefined,
-      },
-      { status: 500 },
-    )
+    // Parse the items JSON field for each invoice
+    const formattedInvoices = invoices.map((invoice: { items: string }) => ({
+      ...invoice,
+      items: typeof invoice.items === "string" ? JSON.parse(invoice.items) : invoice.items,
+    }))
+
+    return NextResponse.json({ invoices: formattedInvoices })
+  } catch (error) {
+    console.error("Error fetching invoices:", error)
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }
 
