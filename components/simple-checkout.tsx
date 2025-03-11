@@ -26,59 +26,66 @@ export default function SimpleCheckout({ items, total, customer, className = "" 
     setIsProcessing(true)
 
     try {
-      // Prepare checkout data
+      // Log the checkout attempt
+      console.log("Starting checkout process...")
+
+      // Prepare checkout data - match the exact format that worked in the direct test
       const checkoutData = {
-        customer,
-        items,
-        total,
+        customer: {
+          name: customer.name,
+          email: customer.email,
+        },
+        items: items.map((item) => ({
+          id: item.id || `item-${Date.now()}`,
+          tier: item.tier,
+          price: Number(item.price),
+        })),
+        total: Number(total),
       }
 
       console.log("Sending checkout data:", checkoutData)
 
-      // Use the direct checkout endpoint
+      // Use the direct-checkout endpoint that we know works
       const response = await fetch("/api/direct-checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(checkoutData),
+        cache: "no-store", // Prevent caching
       })
 
-      // Log the raw response
+      // Log the response status
+      console.log("Response status:", response.status)
+
+      // Get the raw response text first
       const responseText = await response.text()
       console.log("Raw response:", responseText)
 
-      // Try to parse the response
-      let data
-      try {
-        data = JSON.parse(responseText)
-      } catch (parseError) {
-        console.error("Failed to parse response:", parseError)
-        throw new Error("Invalid response from server")
+      // Parse the response text
+      const data = JSON.parse(responseText)
+      console.log("Parsed response:", data)
+
+      // Verify we have an invoice
+      if (!data.invoice || !data.invoice.id) {
+        throw new Error("No invoice data in response")
       }
 
-      // Check for errors
-      if (!response.ok) {
-        throw new Error(data.error || data.message || "Checkout failed")
-      }
-
-      // Check if we have an invoice
-      if (!data.invoice) {
-        console.error("No invoice in response:", data)
-        throw new Error("No invoice returned from server")
-      }
-
-      // Success!
-      console.log("Checkout successful:", data)
+      // Success! Show toast and redirect
       toast({
-        title: "Checkout Successful",
-        description: "Your order has been placed successfully.",
+        title: "Purchase Successful",
+        description: `Invoice #${data.invoice.invoiceNumber} has been created.`,
       })
+
+      // Wait a brief moment for the toast to be visible
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
       // Redirect to the invoice page
       router.push(`/invoice/${data.invoice.id}`)
     } catch (error: any) {
       console.error("Checkout error:", error)
+
+      // Show error toast
       toast({
         title: "Checkout Failed",
         description: error.message || "Something went wrong. Please try again.",
@@ -90,7 +97,11 @@ export default function SimpleCheckout({ items, total, customer, className = "" 
   }
 
   return (
-    <Button onClick={handleCheckout} disabled={isProcessing} className={className}>
+    <Button
+      onClick={handleCheckout}
+      disabled={isProcessing}
+      className={`w-full bg-green-500 hover:bg-green-600 text-white ${className}`}
+    >
       {isProcessing ? "Processing..." : `Complete Purchase - $${total.toFixed(2)}`}
     </Button>
   )

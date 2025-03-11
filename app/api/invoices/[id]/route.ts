@@ -1,46 +1,35 @@
-import { NextResponse, type NextRequest } from "next/server"
-import prisma from "@/lib/prisma"
+import { NextResponse } from "next/server"
+import { db } from "@/lib/db"
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
-    console.log("API: Fetching invoice with ID:", params.id)
+    const invoiceId = params.id
 
-    // Use select to only fetch the fields we need
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: params.id },
-      select: {
-        id: true,
-        invoiceNumber: true,
-        customerName: true,
-        customerEmail: true,
-        customerPhone: true,
-        customerCompany: true,
-        customerAddress: true,
-        customerCity: true,
-        customerState: true,
-        customerZip: true,
-        customerCountry: true,
-        amount: true,
-        status: true,
-        items: true,
-        paymentReceipt: true,
-        paymentDate: true,
-        createdAt: true,
-        updatedAt: true,
-        userId: true,
-      },
+    if (!invoiceId) {
+      return NextResponse.json({ error: "Invoice ID is required" }, { status: 400 })
+    }
+
+    const invoice = await db.invoice.findUnique({
+      where: { id: invoiceId },
     })
 
     if (!invoice) {
-      console.log("API: Invoice not found")
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
     }
 
-    console.log("API: Invoice found")
-    return NextResponse.json({ invoice })
+    return NextResponse.json({
+      success: true,
+      invoice,
+    })
   } catch (error: any) {
-    console.error("API: Error fetching invoice:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error("Error fetching invoice:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || "An error occurred while fetching the invoice",
+      },
+      { status: 500 },
+    )
   }
 }
 

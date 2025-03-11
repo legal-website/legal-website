@@ -1,14 +1,11 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Upload, Check, AlertCircle, Clock } from "lucide-react"
-import { formatCurrency } from "@/lib/utils"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowLeft, CheckCircle2, Clock, AlertCircle, Download } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 
 interface InvoiceItem {
   id: string
@@ -45,8 +42,6 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
   const { toast } = useToast()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [loading, setLoading] = useState(true)
-  const [uploading, setUploading] = useState(false)
-  const [file, setFile] = useState<File | null>(null)
 
   useEffect(() => {
     async function fetchInvoice() {
@@ -56,6 +51,12 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
           throw new Error("Failed to fetch invoice")
         }
         const data = await response.json()
+
+        // Parse the items JSON string into an array
+        if (data.invoice && typeof data.invoice.items === "string") {
+          data.invoice.items = JSON.parse(data.invoice.items)
+        }
+
         setInvoice(data.invoice)
       } catch (error) {
         console.error("Error fetching invoice:", error)
@@ -72,66 +73,11 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
     fetchInvoice()
   }, [params.id, toast])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0])
-    }
-  }
-
-  const handleUpload = async () => {
-    if (!file) {
-      toast({
-        title: "No file selected",
-        description: "Please select a receipt file to upload.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setUploading(true)
-
-    try {
-      const formData = new FormData()
-      formData.append("receipt", file)
-      formData.append("invoiceId", params.id)
-
-      const response = await fetch("/api/upload-receipt", {
-        method: "POST",
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to upload receipt")
-      }
-
-      const data = await response.json()
-
-      // Update the invoice state with the new receipt URL
-      setInvoice((prev) => {
-        if (!prev) return null
-        return {
-          ...prev,
-          paymentReceipt: data.receiptUrl,
-          status: "paid",
-          paymentDate: new Date().toISOString(),
-        }
-      })
-
-      toast({
-        title: "Success",
-        description: "Receipt uploaded successfully. Your payment is being processed.",
-      })
-    } catch (error: any) {
-      console.error("Upload error:", error)
-      toast({
-        title: "Upload failed",
-        description: error.message || "Something went wrong. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setUploading(false)
-    }
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(amount)
   }
 
   if (loading) {
@@ -181,7 +127,7 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
               }`}
             >
               {invoice.status === "paid" ? (
-                <Check className="mr-1 h-4 w-4" />
+                <CheckCircle2 className="mr-1 h-4 w-4" />
               ) : invoice.status === "cancelled" ? (
                 <AlertCircle className="mr-1 h-4 w-4" />
               ) : (
@@ -319,43 +265,56 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
         </Card>
 
         {invoice.status === "pending" && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment</CardTitle>
-              <CardDescription>Please upload your payment receipt to complete your order.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                  <p className="text-sm text-gray-500 mb-2">Drag and drop your receipt here, or click to browse</p>
-                  <input
-                    type="file"
-                    id="receipt"
-                    className="hidden"
-                    accept="image/jpeg,image/png,image/gif,application/pdf"
-                    onChange={handleFileChange}
-                  />
-                  <Button variant="outline" onClick={() => document.getElementById("receipt")?.click()}>
-                    Select File
-                  </Button>
-                  {file && <p className="mt-2 text-sm text-gray-600">Selected: {file.name}</p>}
-                </div>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
+            <div className="flex items-start">
+              <Clock className="h-6 w-6 text-yellow-500 mr-3 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-yellow-800 mb-2">Payment Pending</h3>
+                <p className="text-yellow-700">
+                  Your payment is currently being processed. We'll notify you by email once it's approved.
+                </p>
               </div>
-            </CardContent>
-            <CardFooter>
-              <Button
-                className="w-full bg-[#22c984] hover:bg-[#1eac73] text-white"
-                onClick={handleUpload}
-                disabled={!file || uploading}
-              >
-                {uploading ? "Uploading..." : "Upload Receipt"}
-              </Button>
-            </CardFooter>
-          </Card>
+            </div>
+          </div>
         )}
 
-        {invoice.status === "paid" && invoice.paymentReceipt && (
+        {invoice.status === "paid" && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-8">
+            <div className="flex items-start">
+              <CheckCircle2 className="h-6 w-6 text-green-500 mr-3 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-green-800 mb-2">Payment Approved</h3>
+                <p className="text-green-700">Your payment has been approved. Thank you for your purchase!</p>
+                {invoice.paymentDate && (
+                  <p className="text-green-700 text-sm mt-1">
+                    Payment processed on{" "}
+                    {new Date(invoice.paymentDate).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {invoice.status === "cancelled" && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
+            <div className="flex items-start">
+              <AlertCircle className="h-6 w-6 text-red-500 mr-3 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-red-800 mb-2">Payment Rejected</h3>
+                <p className="text-red-700">
+                  Your payment has been rejected. Please contact our support team for assistance.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {invoice.paymentReceipt && (
           <Card>
             <CardHeader>
               <CardTitle>Payment Receipt</CardTitle>
@@ -366,6 +325,7 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
                   <div className="text-center">
                     <p className="mb-2">PDF Receipt</p>
                     <Button variant="outline" onClick={() => window.open(invoice.paymentReceipt, "_blank")}>
+                      <Download className="mr-2 h-4 w-4" />
                       View Receipt
                     </Button>
                   </div>

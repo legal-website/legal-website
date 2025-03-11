@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import SimpleCheckout from "@/components/simple-checkout"
 import ErrorTracker from "@/components/error-tracker"
+import CheckoutPatch from "@/components/checkout-patch"
 
 export default function SimpleCheckoutTest() {
   const [customer] = useState({
@@ -24,6 +25,7 @@ export default function SimpleCheckoutTest() {
   return (
     <div className="container mx-auto py-10">
       <ErrorTracker />
+      <CheckoutPatch />
       <Card className="max-w-md mx-auto">
         <CardHeader>
           <CardTitle>Simple Checkout Test</CardTitle>
@@ -46,7 +48,7 @@ export default function SimpleCheckoutTest() {
             <p>${total.toFixed(2)}</p>
           </div>
 
-          <SimpleCheckout customer={customer} items={items} total={total} className="w-full" />
+          <SimpleCheckout customer={customer} items={items} total={total} />
         </CardContent>
       </Card>
     </div>
