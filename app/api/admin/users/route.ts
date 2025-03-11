@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { createAdminUser, getAllAdminUsers } from "@/lib/db/direct-db"
+import { PrismaClient } from "@prisma/client"
 import { z } from "zod"
+
+const prisma = new PrismaClient()
 
 // Admin user schema
 const adminUserSchema = z.object({
@@ -21,7 +23,7 @@ async function isSuperAdmin(req: NextRequest) {
       return false
     }
 
-    return (session.user as any).role === "SUPER_ADMIN"
+    return session.user.role === "SUPER_ADMIN"
   } catch (error) {
     console.error("Error checking super admin status:", error)
     return false
@@ -38,7 +40,20 @@ export async function GET(req: NextRequest) {
     }
 
     // Get all admin users
-    const users = await getAllAdminUsers()
+    const users = await prisma.user.findMany({
+      where: {
+        OR: [{ role: "ADMIN" }, { role: "SUPER_ADMIN" }],
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    })
+
     return NextResponse.json({ users })
   } catch (error) {
     console.error("Error getting admin users:", error)
@@ -68,9 +83,19 @@ export async function POST(req: NextRequest) {
     const validatedData = adminUserSchema.parse(body)
 
     // Create admin user
-    const user = await createAdminUser(validatedData)
+    const user = await prisma.user.create({
+      data: {
+        email: validatedData.email,
+        password: validatedData.password,
+        name: validatedData.name,
+        role: validatedData.role,
+      },
+    })
 
-    return NextResponse.json({ user }, { status: 201 })
+    // Return user without password
+    const { password, ...userWithoutPassword } = user
+
+    return NextResponse.json({ user: userWithoutPassword }, { status: 201 })
   } catch (error) {
     console.error("Error creating admin user:", error)
 

@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { updateAdminUser, deleteAdminUser } from "@/lib/db/direct-db"
+import { PrismaClient } from "@prisma/client"
 import { z } from "zod"
+
+const prisma = new PrismaClient()
 
 // Admin user update schema
 const adminUserUpdateSchema = z.object({
@@ -21,14 +23,53 @@ async function isSuperAdmin(req: NextRequest) {
       return false
     }
 
-    return (session.user as any).role === "SUPER_ADMIN"
+    return session.user.role === "SUPER_ADMIN"
   } catch (error) {
     console.error("Error checking super admin status:", error)
     return false
   }
 }
 
-// PUT/PATCH update an admin user (super admin only)
+// GET a specific user (super admin only)
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    // Check if user is super admin
+    const superAdmin = await isSuperAdmin(req)
+    if (!superAdmin) {
+      return NextResponse.json({ error: "Unauthorized. Super Admin access required." }, { status: 403 })
+    }
+
+    // Get user by ID
+    const user = await prisma.user.findUnique({
+      where: { id: params.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({ user })
+  } catch (error) {
+    console.error("Error getting user:", error)
+    return NextResponse.json(
+      {
+        error: "Failed to get user",
+        message: process.env.NODE_ENV === "development" ? (error as Error).message : undefined,
+      },
+      { status: 500 },
+    )
+  }
+}
+
+// PUT/PATCH update a user (super admin only)
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     // Check if user is super admin
@@ -43,12 +84,23 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     // Validate request body
     const validatedData = adminUserUpdateSchema.parse(body)
 
-    // Update admin user
-    const user = await updateAdminUser(params.id, validatedData)
+    // Update user
+    const user = await prisma.user.update({
+      where: { id: params.id },
+      data: validatedData,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    })
 
     return NextResponse.json({ user })
   } catch (error) {
-    console.error("Error updating admin user:", error)
+    console.error("Error updating user:", error)
 
     // Handle validation errors
     if (error instanceof z.ZodError) {
@@ -57,7 +109,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     return NextResponse.json(
       {
-        error: "Failed to update admin user",
+        error: "Failed to update user",
         message: process.env.NODE_ENV === "development" ? (error as Error).message : undefined,
       },
       { status: 500 },
@@ -65,7 +117,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-// DELETE an admin user (super admin only)
+// DELETE a user (super admin only)
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     // Check if user is super admin
@@ -74,19 +126,17 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       return NextResponse.json({ error: "Unauthorized. Super Admin access required." }, { status: 403 })
     }
 
-    // Delete admin user
-    const success = await deleteAdminUser(params.id)
-
-    if (!success) {
-      return NextResponse.json({ error: "Failed to delete admin user" }, { status: 500 })
-    }
+    // Delete user
+    await prisma.user.delete({
+      where: { id: params.id },
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error deleting admin user:", error)
+    console.error("Error deleting user:", error)
     return NextResponse.json(
       {
-        error: "Failed to delete admin user",
+        error: "Failed to delete user",
         message: process.env.NODE_ENV === "development" ? (error as Error).message : undefined,
       },
       { status: 500 },
