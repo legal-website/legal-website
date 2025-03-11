@@ -4,10 +4,11 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/context/theme-context"
 import { Button } from "@/components/ui/button"
+import { signOut } from "next-auth/react"
 import {
   LayoutDashboard,
   Users,
@@ -109,7 +110,8 @@ const menuItems: MenuItem[] = [
 ]
 
 export default function AdminSidebar() {
-  const pathname = usePathname()
+  const pathname = usePathname() || "" // Provide default empty string if null
+  const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const { theme } = useTheme()
@@ -119,6 +121,13 @@ export default function AdminSidebar() {
   }
 
   const isActive = (href: string) => pathname === href
+
+  const handleLogout = async () => {
+    await signOut({
+      redirect: true,
+      callbackUrl: "/login",
+    })
+  }
 
   return (
     <div
@@ -285,7 +294,13 @@ export default function AdminSidebar() {
               </div>
             </div>
           )}
-          <Button variant="ghost" size="icon" className={cn(collapsed && "mx-auto")} title="Logout">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(collapsed && "mx-auto")}
+            title="Logout"
+            onClick={handleLogout}
+          >
             <LogOut className="w-5 h-5" />
           </Button>
         </div>

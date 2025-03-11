@@ -9,6 +9,7 @@ import type { ToastActionElement, ToastProps } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 10
 const TOAST_REMOVE_DELAY = 1000
+const TOAST_AUTO_DISMISS_DELAY = 5000 // 5 seconds for auto-dismissal
 
 type ToasterToast = ToastProps & {
   id: string
@@ -55,6 +56,7 @@ interface State {
 }
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
+const autoDismissTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
 const addToRemoveQueue = (toastId: string) => {
   if (toastTimeouts.has(toastId)) {
@@ -70,6 +72,15 @@ const addToRemoveQueue = (toastId: string) => {
   }, TOAST_REMOVE_DELAY)
 
   toastTimeouts.set(toastId, timeout)
+}
+
+// Clear auto-dismiss timeout when toast is manually dismissed
+const clearAutoDismissTimeout = (toastId: string) => {
+  const timeout = autoDismissTimeouts.get(toastId)
+  if (timeout) {
+    clearTimeout(timeout)
+    autoDismissTimeouts.delete(toastId)
+  }
 }
 
 export const reducer = (state: State, action: Action): State => {
@@ -90,9 +101,11 @@ export const reducer = (state: State, action: Action): State => {
       const { toastId } = action
 
       if (toastId) {
+        clearAutoDismissTimeout(toastId)
         addToRemoveQueue(toastId)
       } else {
         state.toasts.forEach((toast) => {
+          clearAutoDismissTimeout(toast.id)
           addToRemoveQueue(toast.id)
         })
       }
@@ -157,6 +170,13 @@ function toast({ ...props }: ToastPropsType) {
       },
     },
   })
+
+  // Set auto-dismiss timeout
+  const autoDismissTimeout = setTimeout(() => {
+    dismiss()
+  }, TOAST_AUTO_DISMISS_DELAY)
+
+  autoDismissTimeouts.set(id, autoDismissTimeout)
 
   return {
     id,
