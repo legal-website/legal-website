@@ -3,7 +3,7 @@ import Link from "next/link"
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, ChevronDown, X, Eye, EyeOff, ShoppingCart } from "lucide-react"
+import { Search, ChevronDown, X, Eye, EyeOff, ShoppingCart } from 'lucide-react'
 import { useRouter } from "next/navigation"
 import CartDropdown from "./cart-dropdown"
 import Image from "next/image"
@@ -13,7 +13,8 @@ export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [signInOpen, setSignInOpen] = useState(false)
   const [hasScrolled] = useState(false)
-  const { itemCount } = useCart()
+  const { getItemCount } = useCart() // Updated to use getItemCount function
+  const itemCount = getItemCount() // Get the actual count
   const [cartOpen, setCartOpen] = useState(false)
   const cartRef = useRef<HTMLDivElement>(null)
   const [showPassword, setShowPassword] = useState(false)
@@ -320,5 +321,3 @@ export default function Navbar() {
     </nav>
   )
 }
-
-
