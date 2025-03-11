@@ -1,22 +1,25 @@
-import { NextResponse } from "next/server"
-import { logoutUser } from "@/lib/auth-service"
+import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
+import { logoutUser } from "@/lib/auth-service"
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
-    const sessionToken = (await cookies()).get("session_token")?.value
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get("session_token")?.value
 
-    if (sessionToken) {
-      await logoutUser(sessionToken)
+    if (!sessionToken) {
+      return NextResponse.json({ success: true }) // Already logged out
     }
 
-    // Clear the session cookie
-    (await
-          // Clear the session cookie
-          cookies()).delete("session_token")
+    await logoutUser(sessionToken)
 
-    return NextResponse.json({ success: true })
+    // Clear the session cookie
+    const response = NextResponse.json({ success: true })
+    response.cookies.delete("session_token")
+
+    return response
   } catch (error) {
+    console.error("Logout error:", error)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }

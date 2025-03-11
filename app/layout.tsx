@@ -10,6 +10,7 @@ import Preloader from "@/components/preloader"
 import { CartProvider } from "@/context/cart-context"
 import { ThemeProvider } from "@/context/theme-context"
 import { AuthProvider } from "@/context/auth-context"
+import { SessionProvider } from "@/components/session-provider"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -29,17 +30,19 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider>
-          <AuthProvider>
-            <CartProvider>
-              <Toaster />
-              <TopBar /> {/* Topbar at the top */}
-              <Preloader />
-              <Navbar /> {/* Navbar below the Topbar */}
-              <main>{children}</main> {/* Main content */}
-              <Footer /> {/* Footer at the bottom */}
-              <ScrollToTopButton /> {/* Scroll to top button */}
-            </CartProvider>
-          </AuthProvider>
+          <SessionProvider>
+            <AuthProvider>
+              <CartProvider>
+                <Toaster />
+                <TopBar /> {/* Topbar at the top */}
+                <Preloader />
+                <Navbar /> {/* Navbar below the Topbar */}
+                <main>{children}</main> {/* Main content */}
+                <Footer /> {/* Footer at the bottom */}
+                <ScrollToTopButton /> {/* Scroll to top button */}
+              </CartProvider>
+            </AuthProvider>
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

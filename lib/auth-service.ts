@@ -160,6 +160,19 @@ export async function loginUser(email: string, password: string) {
   return { user: userWithoutPassword, token: session.token }
 }
 
+// Logout user - Adding this missing export
+export async function logoutUser(token: string): Promise<boolean> {
+  try {
+    await prisma.session.delete({
+      where: { token },
+    })
+    return true
+  } catch (error) {
+    console.error("Logout error:", error)
+    return false
+  }
+}
+
 // Verify email
 export async function verifyEmail(token: string) {
   const verificationToken = await prisma.verificationToken.findUnique({
@@ -309,8 +322,29 @@ export async function getOrCreateUserFromOAuth(
   return user
 }
 
-// Send verification email
-async function sendVerificationEmail(email: string, name: string, token: string) {
+// Validate session - Adding this missing export
+export async function validateSession(token: string) {
+  try {
+    const session = await prisma.session.findUnique({
+      where: { token },
+      include: { user: true },
+    })
+
+    if (!session || session.expiresAt < new Date()) {
+      return null
+    }
+
+    // Remove password from user object
+    const { password: _, ...userWithoutPassword } = session.user
+    return { session, user: userWithoutPassword }
+  } catch (error) {
+    console.error("Session validation error:", error)
+    return null
+  }
+}
+
+// Export the sendVerificationEmail function that was previously private
+export async function sendVerificationEmail(email: string, name: string, token: string) {
   const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`
 
   const mailOptions = {

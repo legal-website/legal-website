@@ -1,26 +1,25 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { validateSession } from "@/lib/auth-service"
 import { cookies } from "next/headers"
+import { validateSession } from "@/lib/auth-service"
 
 export async function GET(req: NextRequest) {
   try {
-    const sessionToken = (await cookies()).get("session_token")?.value
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get("session_token")?.value
 
     if (!sessionToken) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const user = await validateSession(sessionToken)
+    const result = await validateSession(sessionToken)
 
-    if (!user) {
-      return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
+    if (!result) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Remove password from response
-    const { password, ...userWithoutPassword } = user
-
-    return NextResponse.json({ user: userWithoutPassword })
+    return NextResponse.json({ user: result.user })
   } catch (error) {
+    console.error("Get user error:", error)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }
