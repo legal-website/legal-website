@@ -1,9 +1,21 @@
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
 import { authOptions as nextAuthOptions } from "@/app/api/auth/[...nextauth]/route"
+import * as bcrypt from "bcrypt"
 
 // Export the authOptions for use in other files
 export const authOptions = nextAuthOptions
+
+// Hash password function for user creation/authentication
+export async function hashPassword(password: string): Promise<string> {
+  const saltRounds = 10
+  return bcrypt.hash(password, saltRounds)
+}
+
+// Compare password with hash
+export async function comparePassword(password: string, hashedPassword: string): Promise<boolean> {
+  return bcrypt.compare(password, hashedPassword)
+}
 
 // Check if user is authenticated (for server components)
 export async function requireAuth() {
