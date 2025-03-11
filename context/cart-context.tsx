@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode } from "react"
+import { createContext, useContext, useState, type ReactNode, useEffect } from "react"
 
 interface CartItem {
   id: string
@@ -19,6 +19,7 @@ interface CartContextType {
   getCartTotal: () => number
 }
 
+// Create context with default values
 const CartContext = createContext<CartContextType>({
   items: [],
   addItem: () => {},
@@ -27,32 +28,77 @@ const CartContext = createContext<CartContextType>({
   getCartTotal: () => 0,
 })
 
-export const CartProvider = ({ children }: { children: ReactNode }) => {
+export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
+  const [isInitialized, setIsInitialized] = useState(false)
+
+  // Initialize cart from localStorage if available
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const savedCart = localStorage.getItem("cart")
+        if (savedCart) {
+          setItems(JSON.parse(savedCart))
+        }
+        setIsInitialized(true)
+      }
+    } catch (error) {
+      console.error("Error initializing cart from localStorage:", error)
+      setIsInitialized(true)
+    }
+  }, [])
+
+  // Save cart to localStorage when it changes
+  useEffect(() => {
+    try {
+      if (isInitialized && typeof window !== "undefined") {
+        localStorage.setItem("cart", JSON.stringify(items))
+      }
+    } catch (error) {
+      console.error("Error saving cart to localStorage:", error)
+    }
+  }, [items, isInitialized])
 
   const addItem = (item: CartItem) => {
-    setItems((prevItems) => [...prevItems, item])
+    try {
+      setItems((prevItems) => [...prevItems, item])
+    } catch (error) {
+      console.error("Error adding item to cart:", error)
+    }
   }
 
   const removeItem = (itemId: string) => {
-    setItems((prevItems) => prevItems.filter((item) => item.id !== itemId))
+    try {
+      setItems((prevItems) => prevItems.filter((item) => item.id !== itemId))
+    } catch (error) {
+      console.error("Error removing item from cart:", error)
+    }
   }
 
   const clearCart = () => {
-    setItems([])
+    try {
+      setItems([])
+    } catch (error) {
+      console.error("Error clearing cart:", error)
+    }
   }
 
   const getCartTotal = () => {
-    return items.reduce((total, item) => {
-      let itemTotal = item.price
-      if (item.stateFee) {
-        itemTotal += item.stateFee
-      }
-      if (item.discount) {
-        itemTotal -= item.discount
-      }
-      return total + itemTotal
-    }, 0)
+    try {
+      return items.reduce((total, item) => {
+        let itemTotal = item.price
+        if (item.stateFee) {
+          itemTotal += item.stateFee
+        }
+        if (item.discount) {
+          itemTotal -= item.discount
+        }
+        return total + itemTotal
+      }, 0)
+    } catch (error) {
+      console.error("Error calculating cart total:", error)
+      return 0
+    }
   }
 
   return (
@@ -62,9 +108,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   )
 }
 
-export const useCart = () => {
+export function useCart() {
   const context = useContext(CartContext)
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useCart must be used within a CartProvider")
   }
   return context
