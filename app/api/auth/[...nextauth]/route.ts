@@ -40,7 +40,7 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Please verify your email before logging in")
           }
 
-          const isValid = await verifyPassword(user.password, user.password)
+          const isValid = await verifyPassword(credentials.password, user.password)
 
           if (!isValid) {
             console.log("Invalid password for user:", credentials.email)

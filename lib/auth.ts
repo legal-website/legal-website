@@ -1,22 +1,34 @@
-import { hash, compare } from "bcryptjs"
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
 
 // Import the authOptions directly from the NextAuth route file
 // We'll export it from there and import it here to avoid circular dependencies
 import { authOptions as nextAuthOptions } from "@/app/api/auth/[...nextauth]/route"
+import { scrypt, randomBytes } from "crypto"
+import { promisify } from "util"
+
+const scryptAsync = promisify(scrypt)
 
 // Export the authOptions for use in other files
 export const authOptions = nextAuthOptions
 
 // Password hashing
 export async function hashPassword(password: string): Promise<string> {
-  return await hash(password, 12)
+  const salt = randomBytes(8).toString("hex")
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer
+  return `${buf.toString("hex")}.${salt}`
 }
 
 // Password verification
 export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
-  return await compare(password, hashedPassword)
+  try {
+    const [hashed, salt] = hashedPassword.split(".")
+    const buf = (await scryptAsync(password, salt, 64)) as Buffer
+    return buf.toString("hex") === hashed
+  } catch (error) {
+    console.error("Password verification error:", error)
+    return false
+  }
 }
 
 // Check if user is authenticated (for server components)

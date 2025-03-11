@@ -4,23 +4,37 @@ import { hashPassword } from "@/lib/auth"
 
 const prisma = new PrismaClient()
 
+// Define a default setup key that will work if no environment variable is set
+const DEFAULT_SETUP_KEY = "setup-orizen-admin-account"
+
 export async function GET(req: NextRequest) {
-  // This should only be accessible in development or with a special setup key
+  // Get the setup key from query parameters
   const setupKey = req.nextUrl.searchParams.get("key")
   const isDevEnvironment = process.env.NODE_ENV === "development"
+  const validSetupKey = process.env.ADMIN_SETUP_KEY || DEFAULT_SETUP_KEY
 
-  // Only allow in development or with the correct setup key
-  if (!isDevEnvironment && setupKey !== process.env.ADMIN_SETUP_KEY) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  // Allow access in development or with the correct setup key
+  if (!isDevEnvironment && setupKey !== validSetupKey) {
+    console.log("Unauthorized setup attempt. Invalid or missing setup key.")
+    return NextResponse.json(
+      {
+        error: "Unauthorized. Please provide a valid setup key as a query parameter: ?key=YOUR_SETUP_KEY",
+      },
+      { status: 401 },
+    )
   }
 
   try {
+    console.log("Starting admin user setup...")
+
     // Check if admin user already exists
     const existingAdmin = await prisma.user.findUnique({
       where: { email: "ary5054@gmail.com" },
     })
 
     if (existingAdmin) {
+      console.log("Admin user exists, updating role and password...")
+
       // Update existing user to ensure they have admin role
       await prisma.user.update({
         where: { email: "ary5054@gmail.com" },
@@ -35,8 +49,12 @@ export async function GET(req: NextRequest) {
         success: true,
         message: "Admin user updated successfully",
         action: "updated",
+        loginEmail: "ary5054@gmail.com",
+        loginPassword: "p@$$worD1122", // Only showing this in the setup response
       })
     } else {
+      console.log("Admin user doesn't exist, creating new admin user...")
+
       // Create new admin user
       await prisma.user.create({
         data: {
@@ -52,6 +70,8 @@ export async function GET(req: NextRequest) {
         success: true,
         message: "Admin user created successfully",
         action: "created",
+        loginEmail: "ary5054@gmail.com",
+        loginPassword: "p@$$worD1122", // Only showing this in the setup response
       })
     }
   } catch (error: any) {
