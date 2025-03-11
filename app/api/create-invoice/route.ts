@@ -14,31 +14,56 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
   try {
+    // Parse the request body
     const body = await req.json()
-
     console.log("Received request body:", JSON.stringify(body, null, 2))
 
     const { customer, items, total } = body
 
-    if (!customer) {
-      return NextResponse.json({ error: "Customer is required" }, { status: 400, headers: corsHeaders })
+    // Validate required fields
+    if (!customer || !customer.name || !customer.email) {
+      return NextResponse.json(
+        {
+          error: "Customer with name and email is required",
+        },
+        {
+          status: 400,
+          headers: corsHeaders,
+        },
+      )
     }
 
-    if (!items || items.length === 0) {
-      return NextResponse.json({ error: "Items are required" }, { status: 400, headers: corsHeaders })
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json(
+        {
+          error: "Items array is required and must not be empty",
+        },
+        {
+          status: 400,
+          headers: corsHeaders,
+        },
+      )
     }
 
-    if (!total) {
-      return NextResponse.json({ error: "Total is required" }, { status: 400, headers: corsHeaders })
+    if (total === undefined || total === null) {
+      return NextResponse.json(
+        {
+          error: "Total amount is required",
+        },
+        {
+          status: 400,
+          headers: corsHeaders,
+        },
+      )
     }
 
-    // Generate a more readable invoice number
+    // Generate invoice number
     const date = new Date()
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, "0")
     const invoiceNumber = `INV-${year}${month}-${Math.floor(1000 + Math.random() * 9000)}`
 
-    // Make sure items is serializable
+    // Process items to ensure they're in the correct format
     const safeItems = items.map((item: any) => ({
       id: item.id || uuidv4().substring(0, 8),
       tier: item.tier || "STANDARD",
@@ -56,32 +81,36 @@ export async function POST(req: Request) {
       customerName: customer.name,
       customerEmail: customer.email,
       amount,
-      items: JSON.stringify(safeItems),
+      itemsCount: safeItems.length,
     })
 
-    // Create the invoice
+    // Create the invoice with minimal required fields first
     const invoice = await db.invoice.create({
       data: {
         invoiceNumber,
         customerName: customer.name,
         customerEmail: customer.email,
-        customerPhone: customer.phone || null,
-        customerCompany: customer.company || null,
-        customerAddress: customer.address || null,
-        customerCity: customer.city || null,
-        customerState: customer.state || null,
-        customerZip: customer.zip || null,
-        customerCountry: customer.country || null,
         amount,
         status: "pending",
-        items: JSON.stringify(safeItems), // Convert items array to string
+        items: JSON.stringify(safeItems),
+        // Add optional fields only if they exist
+        ...(customer.phone && { customerPhone: customer.phone }),
+        ...(customer.company && { customerCompany: customer.company }),
+        ...(customer.address && { customerAddress: customer.address }),
+        ...(customer.city && { customerCity: customer.city }),
+        ...(customer.state && { customerState: customer.state }),
+        ...(customer.zip && { customerZip: customer.zip }),
+        ...(customer.country && { customerCountry: customer.country }),
       },
     })
 
-    console.log("Invoice created successfully:", invoice)
+    console.log("Invoice created successfully:", invoice.id)
 
     return NextResponse.json(
-      { success: true, invoice },
+      {
+        success: true,
+        invoice,
+      },
       {
         headers: corsHeaders,
       },
@@ -94,7 +123,8 @@ export async function POST(req: Request) {
       {
         error: "Failed to create invoice",
         message: error.message,
-        details: error.stack,
+        code: error.code,
+        meta: error.meta,
       },
       {
         status: 500,
