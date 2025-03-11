@@ -6,7 +6,6 @@ import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
 import {
   Users,
   FileText,
@@ -90,7 +89,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+      <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList className="mb-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">User Management</TabsTrigger>
@@ -156,11 +155,11 @@ export default function AdminDashboard() {
               </div>
               <div className="p-6">
                 <div className="space-y-6">
-                  <ComplianceItem title="Document Verification" value={85} color="bg-green-500" />
-                  <ComplianceItem title="User Identity Verification" value={72} color="bg-amber-500" />
-                  <ComplianceItem title="Annual Report Submissions" value={94} color="bg-green-500" />
-                  <ComplianceItem title="Tax Compliance" value={68} color="bg-amber-500" />
-                  <ComplianceItem title="Data Protection" value={98} color="bg-green-500" />
+                  <ComplianceItem title="Document Verification" value={85} />
+                  <ComplianceItem title="User Identity Verification" value={72} />
+                  <ComplianceItem title="Annual Report Submissions" value={94} />
+                  <ComplianceItem title="Tax Compliance" value={68} />
+                  <ComplianceItem title="Data Protection" value={98} />
                 </div>
               </div>
             </Card>
@@ -585,11 +584,9 @@ function ActivityItem({
 function ComplianceItem({
   title,
   value,
-  color,
 }: {
   title: string
   value: number
-  color: string
 }) {
   return (
     <div>
@@ -597,7 +594,12 @@ function ComplianceItem({
         <span className="text-sm font-medium">{title}</span>
         <span className="text-sm font-medium">{value}%</span>
       </div>
-      <Progress value={value} className={`h-2 [&>div]:${color}`} />
+      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+        <div
+          className={`h-2 rounded-full ${value > 90 ? "bg-green-500" : value > 70 ? "bg-amber-500" : "bg-red-500"}`}
+          style={{ width: `${value}%` }}
+        ></div>
+      </div>
     </div>
   )
 }
