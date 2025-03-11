@@ -20,39 +20,45 @@ export async function middleware(request: NextRequest) {
   // Check if the path is an admin API route
   const isAdminApiRoute = pathname.startsWith("/api/admin")
 
-  // Get the token
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  })
+  try {
+    // Get the token
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET,
+    })
 
-  console.log("Middleware checking path:", pathname, "Token:", token ? "exists" : "none")
+    console.log("Middleware checking path:", pathname, "Token:", token ? "exists" : "none")
 
-  // If it's a protected path and there's no token, redirect to login
-  if (isProtectedPath && !token) {
-    console.log("No token found, redirecting to login")
-    const url = new URL("/login", request.url)
-    url.searchParams.set("callbackUrl", encodeURI(request.url))
-    return NextResponse.redirect(url)
+    // If it's a protected path and there's no token, redirect to login
+    if (isProtectedPath && !token) {
+      console.log("No token found, redirecting to login")
+      const url = new URL("/login", request.url)
+      url.searchParams.set("callbackUrl", encodeURI(request.url))
+      return NextResponse.redirect(url)
+    }
+
+    // If it's an auth path and there's a token, redirect to dashboard
+    if (isAuthPath && token) {
+      return NextResponse.redirect(new URL("/dashboard", request.url))
+    }
+
+    // If it's an admin path or admin API route and the user is not an admin
+    if ((pathname.startsWith("/admin") || isAdminApiRoute) && token && token.role !== "ADMIN") {
+      console.log("Access denied to admin path. User role:", token.role)
+      return NextResponse.redirect(new URL("/dashboard", request.url))
+    }
+
+    // For debugging admin access
+    if ((pathname.startsWith("/admin") || isAdminApiRoute) && token) {
+      console.log("Admin access granted to:", pathname, "User role:", token.role)
+    }
+
+    return NextResponse.next()
+  } catch (error) {
+    console.error("Middleware error:", error)
+    // Don't throw errors in middleware, just continue
+    return NextResponse.next()
   }
-
-  // If it's an auth path and there's a token, redirect to dashboard
-  if (isAuthPath && token) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
-  }
-
-  // If it's an admin path or admin API route and the user is not an admin
-  if ((pathname.startsWith("/admin") || isAdminApiRoute) && token && token.role !== "ADMIN") {
-    console.log("Access denied to admin path. User role:", token.role)
-    return NextResponse.redirect(new URL("/dashboard", request.url))
-  }
-
-  // For debugging admin access
-  if ((pathname.startsWith("/admin") || isAdminApiRoute) && token) {
-    console.log("Admin access granted to:", pathname, "User role:", token.role)
-  }
-
-  return NextResponse.next()
 }
 
 export const config = {
