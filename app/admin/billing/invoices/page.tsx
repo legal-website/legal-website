@@ -33,6 +33,8 @@ import {
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 
 // First, let's define a proper interface for the invoice item
 interface InvoiceItem {
@@ -74,23 +76,71 @@ export default function InvoicesAdminPage() {
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [sortOrder, setSortOrder] = useState<string>("newest")
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const { toast } = useToast()
+  const router = useRouter()
+  const { data: session, status } = useSession()
 
   useEffect(() => {
-    fetchInvoices()
-  }, [])
+    // Check if user is authenticated and has admin role
+    if (status === "unauthenticated") {
+      router.push("/login?callbackUrl=/admin/billing/invoices")
+      return
+    }
+
+    if (status === "authenticated" && (session?.user as any)?.role !== "ADMIN") {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to access this page.",
+        variant: "destructive",
+      })
+      router.push("/dashboard")
+      return
+    }
+
+    if (status === "authenticated") {
+      fetchInvoices()
+    }
+  }, [status, session, router])
 
   const fetchInvoices = async () => {
     try {
       setLoading(true)
+      setError(null)
       console.log("Fetching invoices...")
-      const response = await fetch("/api/admin/invoices")
+      const response = await fetch("/api/admin/invoices", {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        // Include credentials to send cookies with the request
+        credentials: "include",
+      })
 
       console.log("Response status:", response.status)
+
+      if (response.status === 401) {
+        toast({
+          title: "Authentication Error",
+          description: "You must be logged in to view invoices.",
+          variant: "destructive",
+        })
+        router.push("/login?callbackUrl=/admin/billing/invoices")
+        return
+      }
+
+      if (response.status === 403) {
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to view invoices.",
+          variant: "destructive",
+        })
+        router.push("/dashboard")
+        return
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -109,6 +159,7 @@ export default function InvoicesAdminPage() {
       setInvoices(data.invoices)
     } catch (error: any) {
       console.error("Error in fetchInvoices:", error)
+      setError(error.message || "Failed to load invoices")
       toast({
         title: "Error",
         description: `Failed to load invoices: ${error.message || "Unknown error"}`,
@@ -320,6 +371,21 @@ export default function InvoicesAdminPage() {
         <div className="flex flex-col items-center gap-2">
           <Clock className="h-8 w-8 animate-spin text-primary" />
           <p>Loading invoices...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-2 max-w-md text-center">
+          <AlertCircle className="h-8 w-8 text-red-500" />
+          <h2 className="text-xl font-bold">Error Loading Invoices</h2>
+          <p className="text-gray-600 dark:text-gray-400">{error}</p>
+          <Button onClick={fetchInvoices} className="mt-4">
+            Try Again
+          </Button>
         </div>
       </div>
     )
