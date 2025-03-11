@@ -125,7 +125,7 @@ export default function AdminSidebar() {
   const handleLogout = async () => {
     await signOut({
       redirect: true,
-      callbackUrl: "/login",
+      callbackUrl: "https://legal-website-five.vercel.app/login?callbackUrl=/admin",
     })
   }
 
