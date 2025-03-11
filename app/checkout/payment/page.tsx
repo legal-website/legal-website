@@ -1,21 +1,22 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Upload, Copy, CheckCircle, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { useCart } from "@/context/cart-context"
 
-// Remove any metadata or generateMetadata exports
-// Remove any generateViewport exports
+// Remove cart context dependency if it's causing issues
+// import { useCart } from "@/context/cart-context"
 
 export default function PaymentPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { clearCart } = useCart()
+  // Replace cart context with local state if needed
+  // const { clearCart } = useCart()
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [file, setFile] = useState<File | null>(null)
@@ -32,21 +33,24 @@ export default function PaymentPage() {
   }
 
   useEffect(() => {
-    // Get checkout data from session storage
-    const storedData = sessionStorage.getItem("checkoutData")
-    if (!storedData) {
-      router.push("/checkout")
-      return
-    }
-
+    // Safely get checkout data from session storage with error handling
     try {
+      // Get checkout data from session storage
+      const storedData = typeof window !== "undefined" ? sessionStorage.getItem("checkoutData") : null
+
+      if (!storedData) {
+        // Handle missing data gracefully
+        console.log("No checkout data found in session storage")
+        return
+      }
+
       const parsedData = JSON.parse(storedData)
       setCheckoutData(parsedData)
     } catch (error) {
-      console.error("Error parsing checkout data:", error)
-      router.push("/checkout")
+      console.error("Error accessing or parsing checkout data:", error)
+      // Don't redirect immediately, let the user see the error
     }
-  }, [router])
+  }, [])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -55,21 +59,30 @@ export default function PaymentPage() {
   }
 
   const copyAccountDetails = () => {
-    const detailsText = `
-      Account Name: ${bankDetails.accountName}
-      Account Number: ${bankDetails.accountNumber}
-      Routing Number: ${bankDetails.routingNumber}
-      Bank Name: ${bankDetails.bankName}
-      SWIFT Code: ${bankDetails.swiftCode}
-    `
-    navigator.clipboard.writeText(detailsText.trim())
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      const detailsText = `
+        Account Name: ${bankDetails.accountName}
+        Account Number: ${bankDetails.accountNumber}
+        Routing Number: ${bankDetails.routingNumber}
+        Bank Name: ${bankDetails.bankName}
+        SWIFT Code: ${bankDetails.swiftCode}
+      `
+      navigator.clipboard.writeText(detailsText.trim())
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
 
-    toast({
-      title: "Copied to clipboard",
-      description: "Bank account details have been copied to your clipboard.",
-    })
+      toast({
+        title: "Copied to clipboard",
+        description: "Bank account details have been copied to your clipboard.",
+      })
+    } catch (error) {
+      console.error("Failed to copy to clipboard:", error)
+      toast({
+        title: "Copy failed",
+        description: "Could not copy to clipboard. Please try manually selecting the text.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleUpload = async () => {
@@ -97,6 +110,8 @@ export default function PaymentPage() {
       // Create form data for file upload
       const formData = new FormData()
       formData.append("receipt", file)
+
+      console.log("Uploading file:", file.name, "Size:", file.size, "Type:", file.type)
 
       // Upload receipt to Cloudinary
       const uploadResponse = await fetch("/api/upload-receipt", {
@@ -133,9 +148,12 @@ export default function PaymentPage() {
 
       const invoiceData = await invoiceResponse.json()
 
-      // Clear cart and checkout data
-      clearCart()
-      sessionStorage.removeItem("checkoutData")
+      // Clear checkout data
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("checkoutData")
+        // Only clear cart if the function exists
+        // if (typeof clearCart === 'function') clearCart()
+      }
 
       // Show success message
       toast({
@@ -157,10 +175,15 @@ export default function PaymentPage() {
     }
   }
 
+  // Show a simple loading state if data isn't available yet
   if (!checkoutData) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <p>Loading...</p>
+      <div className="container mx-auto py-12 px-4">
+        <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
+          <h1 className="text-xl font-bold mb-4">Loading payment information...</h1>
+          <p className="mb-4">If you're not redirected automatically, please go back to the checkout page.</p>
+          <Button onClick={() => router.push("/checkout")}>Return to Checkout</Button>
+        </div>
       </div>
     )
   }
@@ -277,33 +300,37 @@ export default function PaymentPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {checkoutData.items.map((item: any) => (
-                  <div key={item.id} className="border-b pb-4">
-                    <div className="flex justify-between">
-                      <span className="font-medium">{item.tier} Package</span>
-                      <span>${item.price}</span>
+                {checkoutData.items && Array.isArray(checkoutData.items) ? (
+                  checkoutData.items.map((item: any, index: number) => (
+                    <div key={item.id || index} className="border-b pb-4">
+                      <div className="flex justify-between">
+                        <span className="font-medium">{item.tier} Package</span>
+                        <span>${item.price}</span>
+                      </div>
+
+                      {item.state && item.stateFee && (
+                        <div className="flex justify-between mt-1 text-sm text-gray-600">
+                          <span>{item.state} State Filing Fee</span>
+                          <span>${item.stateFee}</span>
+                        </div>
+                      )}
+
+                      {item.discount && (
+                        <div className="flex justify-between mt-1 text-sm text-[#22c984]">
+                          <span>Discounted Price</span>
+                          <span>${item.discount}</span>
+                        </div>
+                      )}
                     </div>
-
-                    {item.state && item.stateFee && (
-                      <div className="flex justify-between mt-1 text-sm text-gray-600">
-                        <span>{item.state} State Filing Fee</span>
-                        <span>${item.stateFee}</span>
-                      </div>
-                    )}
-
-                    {item.discount && (
-                      <div className="flex justify-between mt-1 text-sm text-[#22c984]">
-                        <span>Discounted Price</span>
-                        <span>${item.discount}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p>No items in order</p>
+                )}
 
                 <div className="pt-4">
                   <div className="flex justify-between font-bold">
                     <span>Total</span>
-                    <span>${checkoutData.total}</span>
+                    <span>${checkoutData.total || 0}</span>
                   </div>
                 </div>
               </div>
@@ -312,16 +339,22 @@ export default function PaymentPage() {
               <div className="w-full">
                 <h3 className="font-semibold mb-2">Customer Information</h3>
                 <div className="text-sm space-y-1">
-                  <p>
-                    <span className="text-gray-500">Name:</span> {checkoutData.customer.name}
-                  </p>
-                  <p>
-                    <span className="text-gray-500">Email:</span> {checkoutData.customer.email}
-                  </p>
-                  {checkoutData.customer.phone && (
-                    <p>
-                      <span className="text-gray-500">Phone:</span> {checkoutData.customer.phone}
-                    </p>
+                  {checkoutData.customer ? (
+                    <>
+                      <p>
+                        <span className="text-gray-500">Name:</span> {checkoutData.customer.name || "N/A"}
+                      </p>
+                      <p>
+                        <span className="text-gray-500">Email:</span> {checkoutData.customer.email || "N/A"}
+                      </p>
+                      {checkoutData.customer.phone && (
+                        <p>
+                          <span className="text-gray-500">Phone:</span> {checkoutData.customer.phone}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p>No customer information available</p>
                   )}
                 </div>
               </div>
