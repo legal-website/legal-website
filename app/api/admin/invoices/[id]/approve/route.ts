@@ -1,30 +1,38 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { PrismaClient } from "@prisma/client"
+import { sendPaymentApprovalEmail } from "@/lib/auth-service"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { db } from "@/lib/db"
-import nodemailer from "nodemailer"
+import { authOptions } from "@/lib/auth"
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+const prisma = new PrismaClient()
+
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    // Check if user is authenticated and is an admin
+    console.log("Approving invoice:", params.id)
+
+    // Check authentication
     const session = await getServerSession(authOptions)
-
-    if (!session?.user) {
+    if (!session || (session.user as any).role !== "ADMIN") {
+      console.log("Unauthorized approval attempt")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    if ((session.user as any).role !== "ADMIN" && (session.user as any).role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const invoiceId = params.id
 
-    if (!invoiceId) {
-      return NextResponse.json({ error: "Invoice ID is required" }, { status: 400 })
+    // Get the invoice
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+    })
+
+    if (!invoice) {
+      console.log("Invoice not found:", invoiceId)
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
     }
 
+    console.log("Found invoice:", invoice.invoiceNumber)
+
     // Update invoice status to paid
-    const invoice = await db.invoice.update({
+    const updatedInvoice = await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         status: "paid",
@@ -32,71 +40,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       },
     })
 
-    // Ensure we have the app URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL
-    if (!appUrl) {
-      console.error("NEXT_PUBLIC_APP_URL environment variable is not set")
-      return NextResponse.json(
-        {
-          error: "Server configuration error",
-          message: "Application URL is not configured properly",
-        },
-        { status: 500 },
-      )
+    console.log("Invoice updated successfully")
+
+    // Send approval email
+    try {
+      await sendPaymentApprovalEmail(invoice.customerEmail, invoice.customerName, invoiceId)
+      console.log("Approval email sent")
+    } catch (emailError) {
+      console.error("Error sending approval email:", emailError)
+      // Continue even if email fails
     }
 
-    // Send email notification to customer
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_SERVER_HOST,
-      port: Number(process.env.EMAIL_SERVER_PORT),
-      secure: Number(process.env.EMAIL_SERVER_PORT) === 465,
-      auth: {
-        user: process.env.EMAIL_SERVER_USER,
-        pass: process.env.EMAIL_SERVER_PASSWORD,
-      },
-    })
-
-    // Generate registration link with proper URL
-    const registrationLink = `${appUrl}/register?invoice=${invoice.id}`
-    console.log("Generated registration link:", registrationLink)
-
-    // Send email
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: invoice.customerEmail,
-      subject: `Payment Approved for Invoice ${invoice.invoiceNumber}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #22c984;">Payment Approved</h1>
-          <p>Dear ${invoice.customerName},</p>
-          <p>Your payment for invoice ${invoice.invoiceNumber} has been approved. Thank you for your purchase!</p>
-          <p>You can now complete your registration by clicking the button below:</p>
-          <p>
-            <a href="${registrationLink}" style="display: inline-block; background-color: #22c984; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
-              Complete Registration
-            </a>
-          </p>
-          <p>If you have any questions, please don't hesitate to contact us.</p>
-          <p>Thank you for your business!</p>
-          <p>Sincerely,<br>Your Company Team</p>
-        </div>
-      `,
-    })
-
-    return NextResponse.json({
-      success: true,
-      invoice,
-      message: "Payment approved and email sent to customer",
-    })
+    return NextResponse.json({ success: true, invoice: updatedInvoice })
   } catch (error: any) {
-    console.error("Error approving payment:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to approve payment",
-        message: error.message,
-      },
-      { status: 500 },
-    )
+    console.error("Error approving invoice:", error)
+    return NextResponse.json({ error: error.message || "Something went wrong" }, { status: 500 })
   }
 }
 
