@@ -1,16 +1,24 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { useToast } from "@/components/ui/use-toast"
-import { FileUp, CheckCircle, Clock, AlertCircle, FileText } from "lucide-react"
-import Image from "next/image"
+import { ArrowLeft, Upload, Check, AlertCircle, Clock } from "lucide-react"
+import { formatCurrency } from "@/lib/utils"
 
-// Interface matching the Prisma schema
+interface InvoiceItem {
+  id: string
+  tier: string
+  price: number
+  stateFee?: number
+  state?: string
+  discount?: number
+}
+
 interface Invoice {
   id: string
   invoiceNumber: string
@@ -24,13 +32,12 @@ interface Invoice {
   customerZip?: string
   customerCountry?: string
   amount: number
-  status: string
-  items: any[]
+  status: "pending" | "paid" | "cancelled"
+  items: InvoiceItem[]
   paymentReceipt?: string
   paymentDate?: string
   createdAt: string
   updatedAt: string
-  userId?: string
 }
 
 export default function InvoicePage({ params }: { params: { id: string } }) {
@@ -38,120 +45,23 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
   const { toast } = useToast()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [uploadingReceipt, setUploadingReceipt] = useState(false)
-  const [receiptFile, setReceiptFile] = useState<File | null>(null)
-  const [fileError, setFileError] = useState<string | null>(null)
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    setFileError(null)
-
-    if (file) {
-      // Validate file type
-      const allowedTypes = ["image/jpeg", "image/png", "image/gif", "application/pdf"]
-      if (!allowedTypes.includes(file.type)) {
-        setFileError("Invalid file type. Please upload an image or PDF.")
-        return
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setFileError("File is too large. Maximum size is 5MB.")
-        return
-      }
-
-      setReceiptFile(file)
-      console.log("File selected:", file.name)
-    }
-  }
-
-  const uploadReceipt = async () => {
-    if (!receiptFile) {
-      toast({
-        title: "Error",
-        description: "Please select a file to upload.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (fileError) {
-      toast({
-        title: "Error",
-        description: fileError,
-        variant: "destructive",
-      })
-      return
-    }
-
-    console.log("Starting receipt upload...")
-    setUploadingReceipt(true)
-
-    try {
-      const formData = new FormData()
-      formData.append("receipt", receiptFile)
-      formData.append("invoiceId", params.id)
-
-      console.log("Sending upload request for invoice:", params.id)
-
-      const response = await fetch("/api/upload-receipt", {
-        method: "POST",
-        body: formData,
-      })
-
-      const data = await response.json()
-      console.log("Upload response:", data)
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to upload receipt")
-      }
-
-      toast({
-        title: "Success",
-        description: "Receipt uploaded successfully. Waiting for verification.",
-      })
-
-      // Refresh invoice data after successful upload
-      const updatedInvoiceResponse = await fetch(`/api/invoices/${params.id}`)
-      const updatedInvoiceData = await updatedInvoiceResponse.json()
-
-      if (!updatedInvoiceResponse.ok) {
-        throw new Error(updatedInvoiceData.error || "Failed to fetch updated invoice")
-      }
-
-      setInvoice(updatedInvoiceData.invoice)
-    } catch (error: any) {
-      console.error("Error uploading receipt:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to upload receipt. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setUploadingReceipt(false)
-    }
-  }
+  const [uploading, setUploading] = useState(false)
+  const [file, setFile] = useState<File | null>(null)
 
   useEffect(() => {
     async function fetchInvoice() {
       try {
-        console.log("Fetching invoice with ID:", params.id)
         const response = await fetch(`/api/invoices/${params.id}`)
-        const data = await response.json()
-
         if (!response.ok) {
-          throw new Error(data.error || "Failed to fetch invoice")
+          throw new Error("Failed to fetch invoice")
         }
-
-        console.log("Invoice data received:", data)
+        const data = await response.json()
         setInvoice(data.invoice)
-      } catch (error: any) {
+      } catch (error) {
         console.error("Error fetching invoice:", error)
-        setError(error.message)
         toast({
           title: "Error",
-          description: error.message || "Failed to load invoice. Please try again.",
+          description: "Could not load invoice details. Please try again.",
           variant: "destructive",
         })
       } finally {
@@ -159,251 +69,319 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
       }
     }
 
-    if (params.id) {
-      fetchInvoice()
-    }
+    fetchInvoice()
   }, [params.id, toast])
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0])
+    }
+  }
+
+  const handleUpload = async () => {
+    if (!file) {
+      toast({
+        title: "No file selected",
+        description: "Please select a receipt file to upload.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setUploading(true)
+
+    try {
+      const formData = new FormData()
+      formData.append("receipt", file)
+      formData.append("invoiceId", params.id)
+
+      const response = await fetch("/api/upload-receipt", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to upload receipt")
+      }
+
+      const data = await response.json()
+
+      // Update the invoice state with the new receipt URL
+      setInvoice((prev) => {
+        if (!prev) return null
+        return {
+          ...prev,
+          paymentReceipt: data.receiptUrl,
+          status: "paid",
+          paymentDate: new Date().toISOString(),
+        }
+      })
+
+      toast({
+        title: "Success",
+        description: "Receipt uploaded successfully. Your payment is being processed.",
+      })
+    } catch (error: any) {
+      console.error("Upload error:", error)
+      toast({
+        title: "Upload failed",
+        description: error.message || "Something went wrong. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setUploading(false)
+    }
+  }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center">Loading Invoice...</CardTitle>
-            <CardDescription className="text-center">Please wait while we fetch your invoice details.</CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading invoice details...</p>
+        </div>
       </div>
     )
   }
 
-  if (error || !invoice) {
+  if (!invoice) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center">Invoice Not Found</CardTitle>
-            <CardDescription className="text-center">
-              {error || "The requested invoice could not be found."}
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="flex justify-center">
-            <Button onClick={() => router.push("/")} className="bg-[#22c984] hover:bg-[#1eac73] text-white">
-              Return to Home
-            </Button>
-          </CardFooter>
-        </Card>
+      <div className="container mx-auto py-12 px-4 md:px-36">
+        <div className="text-center">
+          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Invoice Not Found</h1>
+          <p className="mb-6">The invoice you're looking for doesn't exist or has been removed.</p>
+          <Button onClick={() => router.push("/")}>Return Home</Button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto py-12 px-4 max-w-4xl mb-20">
-      <Card className="mb-8">
-        <CardHeader className="border-b">
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center">
-            <div>
-              <CardTitle>Invoice {invoice.invoiceNumber}</CardTitle>
-              <CardDescription>Created on {new Date(invoice.createdAt).toLocaleDateString()}</CardDescription>
-            </div>
-            <div className="mt-4 md:mt-0">
-              <InvoiceStatusBadge status={invoice.status} />
-            </div>
+    <div className="container mx-auto py-12 px-4 md:px-36 mb-44">
+      <Button variant="ghost" className="mb-8" onClick={() => router.push("/")}>
+        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
+      </Button>
+
+      <div className="max-w-4xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold">Invoice</h1>
+            <p className="text-gray-500">{invoice.invoiceNumber}</p>
           </div>
-        </CardHeader>
-
-        <CardContent className="pt-6">
-          {/* Basic Invoice Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            <div>
-              <h3 className="font-semibold mb-2">From</h3>
-              <div className="text-sm">
-                <p className="font-medium">Orizen Inc</p>
-                <p>support@orizeninc.com</p>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-2">Bill To</h3>
-              <div className="text-sm">
-                <p className="font-medium">{invoice.customerName}</p>
-                <p>{invoice.customerEmail}</p>
-                {invoice.customerPhone && <p>{invoice.customerPhone}</p>}
-                {invoice.customerCompany && <p>{invoice.customerCompany}</p>}
-                {invoice.customerAddress && (
-                  <p>
-                    {invoice.customerAddress}
-                    {invoice.customerCity && `, ${invoice.customerCity}`}
-                    {invoice.customerState && `, ${invoice.customerState}`}
-                    {invoice.customerZip && ` ${invoice.customerZip}`}
-                  </p>
-                )}
-                {invoice.customerCountry && <p>{invoice.customerCountry}</p>}
-              </div>
-            </div>
-          </div>
-
-          {/* Invoice Total */}
-          <div className="mb-8 bg-gray-50 dark:bg-gray-800 p-6 rounded-lg border">
-            <div className="flex justify-between items-center">
-              <h3 className="font-semibold">Total Amount</h3>
-              <p className="text-xl font-bold">${invoice.amount.toFixed(2)}</p>
-            </div>
-          </div>
-
-          {/* Upload Receipt */}
-          {invoice.status === "pending" && !invoice.paymentReceipt && (
-            <div className="mb-8" id="receipt-upload-section">
-              <h3 className="font-semibold mb-4">Upload Payment Receipt</h3>
-              <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 text-center">
-                <FileUp className="h-10 w-10 mx-auto mb-4 text-gray-400" />
-                <p className="mb-4">Upload your payment receipt to confirm your payment</p>
-
-                <div className="flex flex-col items-center space-y-4">
-                  <div className="w-full">
-                    <div className="flex items-center justify-center w-full mb-2">
-                      <label htmlFor="receipt-upload" className="cursor-pointer">
-                        <Button variant="outline" type="button" className="mr-2">
-                          Choose File
-                        </Button>
-                      </label>
-                      <span className="text-sm text-gray-500">{receiptFile ? receiptFile.name : "No file chosen"}</span>
-                    </div>
-                    <Input
-                      id="receipt-upload"
-                      type="file"
-                      accept="image/jpeg,image/png,image/gif,application/pdf"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                    {fileError && <p className="text-sm text-red-500 mt-2">{fileError}</p>}
-                    <p className="text-xs text-gray-500 mt-2">
-                      Accepted file types: JPEG, PNG, GIF, PDF. Maximum size: 5MB.
-                    </p>
-                  </div>
-
-                  <Button
-                    onClick={uploadReceipt}
-                    disabled={!receiptFile || !!fileError || uploadingReceipt}
-                    className="bg-[#22c984] hover:bg-[#1eac73] text-white"
-                  >
-                    {uploadingReceipt ? "Uploading..." : "Upload Receipt"}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Receipt Already Uploaded */}
-          {invoice.paymentReceipt && (
-            <div className="mb-8 bg-green-50 dark:bg-green-900/20 p-6 rounded-lg border border-green-100 dark:border-green-800">
-              <div className="flex items-start">
-                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 mr-2" />
-                <div>
-                  <h3 className="font-semibold mb-2">Payment Receipt Uploaded</h3>
-                  <p className="mb-4">
-                    Your payment receipt has been uploaded and is pending verification.
-                    {invoice.paymentDate && (
-                      <span className="block text-sm text-gray-500 mt-1">
-                        Uploaded on {new Date(invoice.paymentDate).toLocaleDateString()} at{" "}
-                        {new Date(invoice.paymentDate).toLocaleTimeString()}
-                      </span>
-                    )}
-                  </p>
-
-                  {/* Display receipt preview */}
-                  <div className="mb-4">
-                    {invoice.paymentReceipt.endsWith(".pdf") ? (
-                      <div className="flex items-center p-3 bg-white dark:bg-gray-800 rounded border">
-                        <FileText className="h-6 w-6 mr-2 text-blue-500" />
-                        <a
-                          href={invoice.paymentReceipt}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 hover:underline"
-                        >
-                          View Receipt PDF
-                        </a>
-                      </div>
-                    ) : (
-                      <div className="relative h-40 w-full max-w-xs mx-auto border rounded overflow-hidden">
-                        <Image
-                          src={invoice.paymentReceipt || "/placeholder.svg"}
-                          alt="Payment Receipt"
-                          fill
-                          style={{ objectFit: "contain" }}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {invoice.status === "pending" && (
-                    <Button
-                      onClick={() => router.push(`/register?invoice=${params.id}`)}
-                      className="bg-[#22c984] hover:bg-[#1eac73] text-white"
-                    >
-                      Continue to Registration
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-
-        <CardFooter className="border-t pt-6 flex flex-wrap justify-between gap-4">
-          <Button variant="outline" onClick={() => router.push("/")}>
-            Return to Home
-          </Button>
-
-          {invoice.status === "pending" && !invoice.paymentReceipt && (
-            <Button
-              className="bg-[#22c984] hover:bg-[#1eac73] text-white"
-              onClick={() => {
-                const receiptUploadElement = document.getElementById("receipt-upload-section")
-                if (receiptUploadElement) {
-                  receiptUploadElement.scrollIntoView({ behavior: "smooth" })
-                }
-              }}
+          <div className="mt-4 md:mt-0">
+            <div
+              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                invoice.status === "paid"
+                  ? "bg-green-100 text-green-800"
+                  : invoice.status === "cancelled"
+                    ? "bg-red-100 text-red-800"
+                    : "bg-yellow-100 text-yellow-800"
+              }`}
             >
-              Pay Now
-            </Button>
-          )}
-        </CardFooter>
-      </Card>
+              {invoice.status === "paid" ? (
+                <Check className="mr-1 h-4 w-4" />
+              ) : invoice.status === "cancelled" ? (
+                <AlertCircle className="mr-1 h-4 w-4" />
+              ) : (
+                <Clock className="mr-1 h-4 w-4" />
+              )}
+              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-8 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Customer Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p>
+                <span className="font-medium">Name:</span> {invoice.customerName}
+              </p>
+              <p>
+                <span className="font-medium">Email:</span> {invoice.customerEmail}
+              </p>
+              {invoice.customerPhone && (
+                <p>
+                  <span className="font-medium">Phone:</span> {invoice.customerPhone}
+                </p>
+              )}
+              {invoice.customerCompany && (
+                <p>
+                  <span className="font-medium">Company:</span> {invoice.customerCompany}
+                </p>
+              )}
+              {invoice.customerAddress && (
+                <div>
+                  <p className="font-medium">Address:</p>
+                  <p>{invoice.customerAddress}</p>
+                  <p>
+                    {invoice.customerCity}
+                    {invoice.customerState && `, ${invoice.customerState}`} {invoice.customerZip}
+                  </p>
+                  <p>{invoice.customerCountry}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Invoice Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p>
+                <span className="font-medium">Invoice Number:</span> {invoice.invoiceNumber}
+              </p>
+              <p>
+                <span className="font-medium">Date:</span>{" "}
+                {new Date(invoice.createdAt).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </p>
+              <p>
+                <span className="font-medium">Status:</span>{" "}
+                <span
+                  className={
+                    invoice.status === "paid"
+                      ? "text-green-600"
+                      : invoice.status === "cancelled"
+                        ? "text-red-600"
+                        : "text-yellow-600"
+                  }
+                >
+                  {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                </span>
+              </p>
+              {invoice.paymentDate && (
+                <p>
+                  <span className="font-medium">Payment Date:</span>{" "}
+                  {new Date(invoice.paymentDate).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Order Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-4">Item</th>
+                    <th className="text-right py-3 px-4">Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoice.items.map((item, index) => (
+                    <tr key={index} className="border-b">
+                      <td className="py-3 px-4">
+                        <div className="font-medium">{item.tier} Package</div>
+                        {item.state && item.stateFee && (
+                          <div className="text-sm text-gray-600">{item.state} State Filing Fee</div>
+                        )}
+                        {item.discount && <div className="text-sm text-green-600">Discount</div>}
+                      </td>
+                      <td className="text-right py-3 px-4">
+                        <div>{formatCurrency(item.price)}</div>
+                        {item.state && item.stateFee && (
+                          <div className="text-sm text-gray-600">{formatCurrency(item.stateFee)}</div>
+                        )}
+                        {item.discount && (
+                          <div className="text-sm text-green-600">-{formatCurrency(item.discount)}</div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td className="py-4 px-4 font-bold">Total</td>
+                    <td className="text-right py-4 px-4 font-bold">{formatCurrency(invoice.amount)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {invoice.status === "pending" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment</CardTitle>
+              <CardDescription>Please upload your payment receipt to complete your order.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                  <p className="text-sm text-gray-500 mb-2">Drag and drop your receipt here, or click to browse</p>
+                  <input
+                    type="file"
+                    id="receipt"
+                    className="hidden"
+                    accept="image/jpeg,image/png,image/gif,application/pdf"
+                    onChange={handleFileChange}
+                  />
+                  <Button variant="outline" onClick={() => document.getElementById("receipt")?.click()}>
+                    Select File
+                  </Button>
+                  {file && <p className="mt-2 text-sm text-gray-600">Selected: {file.name}</p>}
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button
+                className="w-full bg-[#22c984] hover:bg-[#1eac73] text-white"
+                onClick={handleUpload}
+                disabled={!file || uploading}
+              >
+                {uploading ? "Uploading..." : "Upload Receipt"}
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
+
+        {invoice.status === "paid" && invoice.paymentReceipt && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment Receipt</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-center">
+                {invoice.paymentReceipt.endsWith(".pdf") ? (
+                  <div className="text-center">
+                    <p className="mb-2">PDF Receipt</p>
+                    <Button variant="outline" onClick={() => window.open(invoice.paymentReceipt, "_blank")}>
+                      View Receipt
+                    </Button>
+                  </div>
+                ) : (
+                  <img
+                    src={invoice.paymentReceipt || "/placeholder.svg"}
+                    alt="Payment Receipt"
+                    className="max-w-full max-h-96 object-contain rounded-lg"
+                  />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   )
-}
-
-function InvoiceStatusBadge({ status }: { status: string }) {
-  switch (status) {
-    case "paid":
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-          <CheckCircle className="h-3 w-3 mr-1" />
-          Paid
-        </span>
-      )
-    case "pending":
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-          <Clock className="h-3 w-3 mr-1" />
-          Pending
-        </span>
-      )
-    case "cancelled":
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-          <AlertCircle className="h-3 w-3 mr-1" />
-          Cancelled
-        </span>
-      )
-    default:
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
-          {status}
-        </span>
-      )
-  }
 }
 

@@ -1,72 +1,49 @@
-import { NextResponse, type NextRequest } from "next/server"
-import prisma from "@/lib/prisma"
+import { NextResponse } from "next/server"
+import { v4 as uuidv4 } from "uuid"
+import { db } from "@/lib/db" // Import the db instance
 
-export async function POST(req: NextRequest) {
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+}
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders })
+}
+
+export async function POST(req: Request) {
   try {
     const body = await req.json()
     const { customer, items, total } = body
 
-    if (!customer || !items || !total) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Missing required fields",
-        },
-        { status: 400 },
-      )
+    if (!customer) {
+      return new NextResponse("Customer is required", { status: 400 })
     }
 
-    console.log("Creating invoice with data:", { customer, items, total })
-
-    // Generate invoice number (format: INV-YYYY-XXXX)
-    const date = new Date()
-    const year = date.getFullYear()
-
-    // Get the count of invoices for this year to generate sequential number
-    let invoiceCount = 0
-    try {
-      invoiceCount = await prisma.invoice.count({
-        where: {
-          invoiceNumber: {
-            startsWith: `INV-${year}`,
-          },
-        },
-      })
-    } catch (countError) {
-      console.error("Error counting invoices:", countError instanceof Error ? countError.message : String(countError))
-      // Continue with count = 0 if there's an error
+    if (!items || items.length === 0) {
+      return new NextResponse("Items are required", { status: 400 })
     }
 
-    const sequentialNumber = (invoiceCount + 1).toString().padStart(4, "0")
-    const invoiceNumber = `INV-${year}-${sequentialNumber}`
-
-    // Safely serialize items to JSON
-    let itemsJson
-    try {
-      // Make sure items is serializable
-      const safeItems = items.map((item: { id: any; tier: any; price: any; stateFee: any; state: any; discount: any }) => ({
-        id: item.id,
-        tier: item.tier,
-        price: Number(item.price),
-        stateFee: item.stateFee ? Number(item.stateFee) : undefined,
-        state: item.state || undefined,
-        discount: item.discount ? Number(item.discount) : undefined,
-      }))
-
-      itemsJson = safeItems
-    } catch (jsonError) {
-      console.error("Error serializing items:", jsonError instanceof Error ? jsonError.message : String(jsonError))
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid items format",
-        },
-        { status: 400 },
-      )
+    if (!total) {
+      return new NextResponse("Total is required", { status: 400 })
     }
+
+    const invoiceNumber = uuidv4()
+
+    // Make sure items is serializable
+    const safeItems = items.map((item: any) => ({
+      id: item.id,
+      tier: item.tier,
+      price: Number(item.price),
+      stateFee: item.stateFee ? Number(item.stateFee) : null,
+      state: item.state || null,
+      discount: item.discount ? Number(item.discount) : null,
+    }))
+
+    const itemsJson = safeItems
 
     // Create the invoice
-    const invoice = await prisma.invoice.create({
+    const invoice = await db.invoice.create({
       data: {
         invoiceNumber,
         customerName: customer.name,
@@ -80,26 +57,16 @@ export async function POST(req: NextRequest) {
         customerCountry: customer.country || null,
         amount: typeof total === "string" ? Number.parseFloat(total) : Number(total),
         status: "pending",
-        items: itemsJson,
+        items: JSON.stringify(itemsJson), // Convert items array to string
       },
     })
 
-    console.log("Invoice created successfully:", invoice.id)
-
-    return NextResponse.json({
-      success: true,
-      invoiceId: invoice.id,
-      invoiceNumber: invoice.invoiceNumber,
+    return NextResponse.json(invoice, {
+      headers: corsHeaders,
     })
-  } catch (error: any) {
-    console.error("Error creating invoice:", error instanceof Error ? error.message : String(error))
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error occurred",
-      },
-      { status: 500 },
-    )
+  } catch (error) {
+    console.log("[CREATE_INVOICE_POST]", error)
+    return new NextResponse("Internal error", { status: 500 })
   }
 }
 
