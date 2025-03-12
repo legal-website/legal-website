@@ -19,7 +19,6 @@ import {
   Phone,
   Building,
   Calendar,
-  Shield,
   User,
   FileText,
   Key,
@@ -78,7 +77,7 @@ interface UserActivity {
   details: string
 }
 
-// Update the UserData interface to include emailVerified
+// Update the UserData interface to match your schema
 interface UserData {
   id: string
   name: string
@@ -94,10 +93,15 @@ interface UserData {
   profileImage?: string
   phone: string
   address: string
+  businessId?: string
+  // Update subscription related fields to match your schema
   subscriptionPlan?: string
-  subscriptionStatus?: "Active" | "Expired" | "Trial"
+  subscriptionStatus?: string
   notes?: string
   createdAt?: string
+  nextBillingDate?: string
+  subscriptionAmount?: number
+  lastPasswordChange?: string
 }
 
 export default function AllUsersPage() {
@@ -305,7 +309,7 @@ export default function AllUsersPage() {
     return matchesSearch && matchesTab && matchesRole
   })
 
-  // Fetch user details
+  // Update the fetchUserDetails function to fetch more user data
   const fetchUserDetails = async (userId: string) => {
     try {
       setLoading(true)
@@ -319,12 +323,59 @@ export default function AllUsersPage() {
 
       const data = await response.json()
 
+      // Get business and subscription data if available
+      let subscriptionData = {
+        planName: "None",
+        status: "Inactive",
+        price: 0,
+        nextBillingDate: null,
+      }
+
+      // If user has a business, try to get business data using your existing API
+      if (data.user.businessId) {
+        try {
+          const businessResponse = await fetch(`/api/admin/businesses/${data.user.businessId}`)
+          if (businessResponse.ok) {
+            const businessData = await businessResponse.json()
+
+            // If business has subscriptions, use the first active one
+            if (businessData.subscriptions?.length > 0) {
+              const activeSubscription =
+                businessData.subscriptions.find((sub: any) => sub.status === "active") || businessData.subscriptions[0]
+
+              subscriptionData = {
+                planName: activeSubscription.planName || "None",
+                status: activeSubscription.status || "Inactive",
+                price: activeSubscription.price || 0,
+                nextBillingDate: activeSubscription.nextBillingDate || null,
+              }
+            }
+          }
+        } catch (businessError) {
+          console.error("Error fetching business data:", businessError)
+          // Continue with default subscription data
+        }
+      }
+
+      // Get user activity if available
+      let userActivity = []
+      try {
+        const activityResponse = await fetch(`/api/admin/users/${userId}/activity`)
+        if (activityResponse.ok) {
+          const activityData = await activityResponse.json()
+          userActivity = activityData.activities || []
+        }
+      } catch (activityError) {
+        console.error("Error fetching user activity:", activityError)
+        // Continue with empty activity array
+      }
+
       // Format the user data for display
       const userDetails: UserData = {
         id: data.user.id,
         name: data.user.name || "Unknown",
         email: data.user.email,
-        company: data.user.company || "Not specified",
+        company: data.user.business?.name || "Not specified",
         role: data.user.role || Role.CLIENT,
         status: data.user.status || "Active",
         joinDate: new Date(data.user.createdAt).toLocaleDateString("en-US", {
@@ -341,15 +392,31 @@ export default function AllUsersPage() {
               minute: "2-digit",
             })
           : "Never",
-        phone: data.user.phone || "Not provided",
-        address: data.user.address || "Not provided",
-        profileImage: data.user.profileImage || null,
+        phone: data.user.business?.phone || "Not provided",
+        address: data.user.business?.address || "Not provided",
+        profileImage: data.user.image || null,
         notes: data.user.notes || "",
-        subscriptionPlan: data.user.subscription?.plan || "None",
-        subscriptionStatus: data.user.subscription?.status || "Inactive",
+        businessId: data.user.businessId || null,
+        subscriptionPlan: subscriptionData.planName,
+        subscriptionStatus: subscriptionData.status,
+        subscriptionAmount: subscriptionData.price,
+        nextBillingDate: subscriptionData.nextBillingDate
+          ? new Date(subscriptionData.nextBillingDate).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })
+          : "N/A",
+        lastPasswordChange: data.user.lastPasswordChange
+          ? new Date(data.user.lastPasswordChange).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })
+          : "Never",
         // Add placeholder data for documents and activity if not available
-        documents: data.user.documents || [],
-        activity: data.user.activities || [],
+        documents: data.user.business?.documents || [],
+        activity: userActivity.length > 0 ? userActivity : [],
       }
 
       setSelectedUser(userDetails)
@@ -884,7 +951,7 @@ export default function AllUsersPage() {
       {/* User Details Dialog */}
       {selectedUser && (
         <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
-          <DialogContent className="sm:max-w-[800px]">
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>User Details</DialogTitle>
               <DialogDescription>Detailed information about {selectedUser.name}</DialogDescription>
@@ -978,11 +1045,13 @@ export default function AllUsersPage() {
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Next Billing</p>
-                        <p className="font-medium">Not available</p>
+                        <p className="font-medium">{selectedUser.nextBillingDate || "N/A"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Amount</p>
-                        <p className="font-medium">Not available</p>
+                        <p className="font-medium">
+                          {selectedUser.subscriptionAmount ? `$${selectedUser.subscriptionAmount}` : "N/A"}
+                        </p>
                       </div>
                     </div>
                   </Card>
@@ -993,17 +1062,10 @@ export default function AllUsersPage() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                          <Shield className="h-5 w-5 mr-2 text-gray-400" />
-                          <span>Two-Factor Authentication</span>
-                        </div>
-                        <span className="text-red-600 dark:text-red-400 font-medium">Disabled</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
                           <User className="h-5 w-5 mr-2 text-gray-400" />
                           <span>Last Password Change</span>
                         </div>
-                        <span>Not available</span>
+                        <span>{selectedUser.lastPasswordChange || "Never"}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
@@ -1115,7 +1177,7 @@ export default function AllUsersPage() {
 
       {/* Add User Dialog */}
       <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New User</DialogTitle>
             <DialogDescription>Create a new user account in the system</DialogDescription>
