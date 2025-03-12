@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, Eye, Copy } from "lucide-react"
+import { Search, Filter, Eye, Copy, ChevronLeft, ChevronRight } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -64,12 +64,30 @@ export default function PendingUsersPage() {
   })
   const [processingAction, setProcessingAction] = useState(false)
 
+  // Add these new state variables after the existing state declarations
+  const [sortOrder, setSortOrder] = useState("newest")
+  const [dateFilter, setDateFilter] = useState({
+    startDate: "",
+    endDate: "",
+  })
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 12
+
   // Update URL when tab changes
   useEffect(() => {
     const url = new URL(window.location.href)
     url.searchParams.set("tab", activeTab)
     window.history.pushState({}, "", url.toString())
+    // Reset to first page when tab changes
+    setCurrentPage(1)
   }, [activeTab])
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, sortOrder, dateFilter])
 
   // Fetch users
   useEffect(() => {
@@ -297,23 +315,73 @@ export default function PendingUsersPage() {
     }
   }
 
-  // Filter users based on search query and tab
-  const filteredUsers = pendingUsers.filter((user) => {
-    // First filter by search query
-    const matchesSearch =
-      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.business?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  // Add this function before the filteredUsers declaration
+  const sortUsers = (users: PendingUser[]) => {
+    return [...users].sort((a, b) => {
+      // Sort by formation date
+      const dateA = a.business?.formationDate ? new Date(a.business.formationDate).getTime() : 0
+      const dateB = b.business?.formationDate ? new Date(b.business.formationDate).getTime() : 0
 
-    // Then filter by tab (service status)
-    const matchesTab =
-      activeTab === "all" ||
-      (activeTab === "pending" && user.business?.serviceStatus === "Pending") ||
-      (activeTab === "approved" && user.business?.serviceStatus === "Approved") ||
-      (activeTab === "rejected" && user.business?.serviceStatus === "Rejected")
+      if (sortOrder === "newest") {
+        return dateB - dateA
+      } else if (sortOrder === "oldest") {
+        return dateA - dateB
+      } else if (sortOrder === "pendingFirst") {
+        return (a.business?.serviceStatus === "Pending" ? -1 : 1) - (b.business?.serviceStatus === "Pending" ? -1 : 1)
+      } else if (sortOrder === "approvedFirst") {
+        return (a.business?.serviceStatus === "Approved" ? -1 : 1) - (b.business?.serviceStatus === "Approved" ? -1 : 1)
+      }
 
-    return matchesSearch && matchesTab
-  })
+      return 0
+    })
+  }
+
+  // Modify the filteredUsers declaration to include sorting and date filtering
+  const filteredUsers = sortUsers(
+    pendingUsers.filter((user) => {
+      // First filter by search query
+      const matchesSearch =
+        user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.business?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+
+      // Then filter by tab (service status)
+      const matchesTab =
+        activeTab === "all" ||
+        (activeTab === "pending" && user.business?.serviceStatus === "Pending") ||
+        (activeTab === "approved" && user.business?.serviceStatus === "Approved") ||
+        (activeTab === "rejected" && user.business?.serviceStatus === "Rejected")
+
+      // Filter by date range if set
+      let matchesDateRange = true
+      if (dateFilter.startDate && user.business?.formationDate) {
+        const formationDate = new Date(user.business.formationDate)
+        const startDate = new Date(dateFilter.startDate)
+
+        if (formationDate < startDate) {
+          matchesDateRange = false
+        }
+      }
+
+      if (dateFilter.endDate && user.business?.formationDate) {
+        const formationDate = new Date(user.business.formationDate)
+        const endDate = new Date(dateFilter.endDate)
+        endDate.setHours(23, 59, 59, 999) // Set to end of day
+
+        if (formationDate > endDate) {
+          matchesDateRange = false
+        }
+      }
+
+      return matchesSearch && matchesTab && matchesDateRange
+    }),
+  )
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex)
 
   // Copy to clipboard function
   const copyToClipboard = (text: string, label: string) => {
@@ -378,15 +446,79 @@ export default function PendingUsersPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md mb-6">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-        <Input
-          placeholder="Search users..."
-          className="pl-10"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      {/* Replace the search div with this updated version that includes filters */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="relative md:max-w-md w-full">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            placeholder="Search users..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <Select value={sortOrder} onValueChange={setSortOrder}>
+              <SelectTrigger className="w-full md:w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
+                <SelectItem value="pendingFirst">Pending First</SelectItem>
+                <SelectItem value="approvedFirst">Approved First</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex gap-2">
+            <div>
+              <Input
+                type="date"
+                placeholder="Start Date"
+                value={dateFilter.startDate}
+                onChange={(e) => setDateFilter((prev) => ({ ...prev, startDate: e.target.value }))}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <Input
+                type="date"
+                placeholder="End Date"
+                value={dateFilter.endDate}
+                onChange={(e) => setDateFilter((prev) => ({ ...prev, endDate: e.target.value }))}
+                className="w-full"
+              />
+            </div>
+            {(dateFilter.startDate || dateFilter.endDate) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDateFilter({ startDate: "", endDate: "" })}
+                className="shrink-0"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+                <span className="sr-only">Clear dates</span>
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -399,19 +531,55 @@ export default function PendingUsersPage() {
         </TabsList>
 
         <TabsContent value="all">
-          <UserList users={filteredUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+          <UserList users={paginatedUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredUsers.length}
+              itemsPerPage={itemsPerPage}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="pending">
-          <UserList users={filteredUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+          <UserList users={paginatedUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredUsers.length}
+              itemsPerPage={itemsPerPage}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="approved">
-          <UserList users={filteredUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+          <UserList users={paginatedUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredUsers.length}
+              itemsPerPage={itemsPerPage}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="rejected">
-          <UserList users={filteredUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+          <UserList users={paginatedUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredUsers.length}
+              itemsPerPage={itemsPerPage}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
@@ -569,6 +737,133 @@ export default function PendingUsersPage() {
   )
 }
 
+// Pagination component
+function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+  totalItems,
+  itemsPerPage,
+}: {
+  currentPage: number
+  totalPages: number
+  onPageChange: (page: number) => void
+  totalItems: number
+  itemsPerPage: number
+}) {
+  const startItem = (currentPage - 1) * itemsPerPage + 1
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems)
+
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages = []
+    const maxPagesToShow = 5 // Show at most 5 page numbers
+
+    if (totalPages <= maxPagesToShow) {
+      // If we have 5 or fewer pages, show all of them
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      // Always include first page
+      pages.push(1)
+
+      // Calculate start and end of page range around current page
+      let startPage = Math.max(2, currentPage - 1)
+      let endPage = Math.min(totalPages - 1, currentPage + 1)
+
+      // Adjust if we're near the beginning
+      if (currentPage <= 3) {
+        endPage = 4
+      }
+
+      // Adjust if we're near the end
+      if (currentPage >= totalPages - 2) {
+        startPage = totalPages - 3
+      }
+
+      // Add ellipsis after first page if needed
+      if (startPage > 2) {
+        pages.push(-1) // -1 represents ellipsis
+      }
+
+      // Add pages in the middle
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i)
+      }
+
+      // Add ellipsis before last page if needed
+      if (endPage < totalPages - 1) {
+        pages.push(-2) // -2 represents ellipsis
+      }
+
+      // Always include last page
+      pages.push(totalPages)
+    }
+
+    return pages
+  }
+
+  const pageNumbers = getPageNumbers()
+
+  return (
+    <div className="mt-6 flex flex-col sm:flex-row items-center justify-between">
+      <div className="text-sm text-gray-500 mb-4 sm:mb-0">
+        Showing <span className="font-medium">{startItem}</span> to <span className="font-medium">{endItem}</span> of{" "}
+        <span className="font-medium">{totalItems}</span> results
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="h-8 w-8 p-0"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          <span className="sr-only">Previous page</span>
+        </Button>
+
+        {pageNumbers.map((pageNumber, index) => {
+          // Render ellipsis
+          if (pageNumber < 0) {
+            return (
+              <span key={`ellipsis-${index}`} className="px-2">
+                ...
+              </span>
+            )
+          }
+
+          // Render page number
+          return (
+            <Button
+              key={pageNumber}
+              variant={currentPage === pageNumber ? "default" : "outline"}
+              size="sm"
+              onClick={() => onPageChange(pageNumber)}
+              className="h-8 w-8 p-0"
+            >
+              {pageNumber}
+            </Button>
+          )
+        })}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="h-8 w-8 p-0"
+        >
+          <ChevronRight className="h-4 w-4" />
+          <span className="sr-only">Next page</span>
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 // Separate component for the user list
 function UserList({
   users,
@@ -590,14 +885,14 @@ function UserList({
   return (
     <div className="space-y-4">
       {users.map((user) => (
-        <Card key={user.id} className="p-4">
+        <Card key={user.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
           <div className="flex flex-col md:flex-row md:items-center justify-between">
             <div className="mb-4 md:mb-0">
               <div className="flex items-center mb-1">
                 <p className="font-medium">{user.name}</p>
               </div>
               <p className="text-sm text-gray-500">{user.email}</p>
-              <div className="flex items-center mt-1">
+              <div className="flex flex-wrap items-center mt-1 gap-y-1">
                 <span className="text-xs text-gray-500">Business: {user.business?.name || "Not set"}</span>
                 <span className="mx-2 text-gray-300">•</span>
                 <span className="text-xs text-gray-500">Status: {user.business?.serviceStatus || "Pending"}</span>
@@ -614,6 +909,14 @@ function UserList({
                       >
                         <Copy className="h-3 w-3" />
                       </Button>
+                    </span>
+                  </>
+                )}
+                {user.business?.formationDate && (
+                  <>
+                    <span className="mx-2 text-gray-300">•</span>
+                    <span className="text-xs text-gray-500">
+                      Formation: {new Date(user.business.formationDate).toLocaleDateString()}
                     </span>
                   </>
                 )}
