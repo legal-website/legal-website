@@ -1,7 +1,8 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, Role } from "@prisma/client"
 import type { NextAuthOptions } from "next-auth"
+import { verifyPassword } from "@/lib/auth-service"
 
 const prisma = new PrismaClient()
 
@@ -28,13 +29,19 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          // Check if password matches
-          if (user.password !== credentials.password) {
+          // Check if email is verified, but allow login in development environment
+          if (!user.emailVerified && process.env.NODE_ENV === "production") {
+            throw new Error("Email not verified")
+          }
+
+          // Check if password matches using the verifyPassword function
+          const isPasswordValid = await verifyPassword(user.password, credentials.password)
+          if (!isPasswordValid) {
             return null
           }
 
-          // Check if user is an admin
-          if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+          // Check if user has admin role
+          if (user.role !== Role.ADMIN && user.role !== Role.SUPPORT) {
             return null
           }
 

@@ -133,7 +133,8 @@ export async function loginUser(email: string, password: string) {
     return null
   }
 
-  if (!user.emailVerified) {
+  // Check if email is verified, but allow login in development environment
+  if (!user.emailVerified && process.env.NODE_ENV === "production") {
     throw new Error("Email not verified. Please check your email for verification link.")
   }
 

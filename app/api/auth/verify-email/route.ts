@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import nodemailer from "nodemailer"
 import { v4 as uuidv4 } from "uuid"
+import { verifyEmail } from "@/lib/auth-service"
 
 // Store tokens temporarily (in a real app, these would be in a database)
 const verificationTokens = new Map<string, { email: string; expires: Date }>()
@@ -102,98 +103,38 @@ export async function GET(req: Request) {
     const redirectUrl = url.searchParams.get("redirect") || "/login"
 
     if (!token) {
-      return NextResponse.json({ error: "Token is required" }, { status: 400 })
-    }
-
-    // First, check if token is in the database
-    const dbToken = await db.verificationToken.findUnique({
-      where: { token },
-      include: { user: true },
-    })
-
-    if (dbToken) {
-      // Check if token is expired
-      if (dbToken.expires < new Date()) {
-        return NextResponse.redirect(
-          new URL(
-            `${redirectUrl}?error=expired`,
-            process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
-          ),
-        )
-      }
-
-      // Update user's emailVerified status
-      if (dbToken.user) {
-        await db.user.update({
-          where: { id: dbToken.user.id },
-          data: {
-            emailVerified: new Date(),
-            // Remove the status field as it doesn't exist in the schema
-          },
-        })
-
-        // Delete the used token
-        await db.verificationToken.delete({
-          where: { id: dbToken.id },
-        })
-
-        // Redirect to login with success message
-        return NextResponse.redirect(
-          new URL(
-            `${redirectUrl}?verified=true`,
-            process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
-          ),
-        )
-      }
-    }
-
-    // If not in database, check the temporary map (for backward compatibility)
-    const verification = verificationTokens.get(token)
-    if (!verification) {
+      console.error("Verification token is missing")
       return NextResponse.redirect(
         new URL(
-          `${redirectUrl}?error=invalid`,
+          `${redirectUrl}?error=missing_token`,
           process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
         ),
       )
     }
 
-    // Check if token is expired
-    if (verification.expires < new Date()) {
-      verificationTokens.delete(token)
+    // Use the verifyEmail function from auth-service
+    try {
+      const user = await verifyEmail(token)
+      console.log("Email verified successfully for user:", user.email)
+
+      // Redirect to login with success message
       return NextResponse.redirect(
         new URL(
-          `${redirectUrl}?error=expired`,
+          `${redirectUrl}?verified=true`,
+          process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
+        ),
+      )
+    } catch (error) {
+      console.error("Error verifying email:", error)
+      return NextResponse.redirect(
+        new URL(
+          `${redirectUrl}?error=invalid_token`,
           process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
         ),
       )
     }
-
-    // Find user by email
-    const user = await db.user.findUnique({
-      where: { email: verification.email },
-    })
-
-    if (user) {
-      // Update user's emailVerified status
-      await db.user.update({
-        where: { id: user.id },
-        data: { emailVerified: new Date() },
-      })
-    }
-
-    // Remove the token
-    verificationTokens.delete(token)
-
-    // Redirect to login with success message
-    return NextResponse.redirect(
-      new URL(
-        `${redirectUrl}?verified=true`,
-        process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
-      ),
-    )
   } catch (error: any) {
-    console.error("Error verifying email:", error)
+    console.error("Error in verify-email route:", error)
     return NextResponse.redirect(
       new URL("/login?error=server", process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"),
     )
