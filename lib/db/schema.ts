@@ -26,3 +26,20 @@ export const loginSchema = z.object({
   password: z.string().min(1, { message: "Password is required" }),
 })
 
+// Business schema with validation
+export const businessSchema = z.object({
+  id: z.string().optional(),
+  businessId: z.string().optional(), // Unique business ID
+  businessName: z.string().min(2, { message: "Business name must be at least 2 characters" }),
+  formationDate: z.date().optional(),
+  einNumber: z.string().optional(),
+  serviceStatus: z.enum(["Under Approval", "Pending", "Active"]).default("Pending"),
+  llcStatus: z.number().min(0).max(100).default(10), // Progress percentage
+  llcStatusMessage: z.string().optional(),
+  userId: z.string().optional(), // Reference to user
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
+})
+
+export type Business = z.infer<typeof businessSchema>
+
