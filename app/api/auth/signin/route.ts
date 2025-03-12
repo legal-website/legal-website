@@ -1,58 +1,41 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { loginUser } from "@/lib/auth-service"
+import { cookies } from "next/headers"
 
-// This is a mock implementation. In a real application, you would:
-// 1. Validate the credentials against your database
-// 2. Use a proper authentication library like NextAuth.js or Auth.js
-// 3. Implement proper session management
-// 4. Use secure password hashing
-
-// Mock user database
-const users = [
-  {
-    id: "1",
-    name: "Super Admin",
-    email: "admin@example.com",
-    // In a real app, this would be a hashed password
-    password: "password123",
-    role: "super_admin",
-  },
-  {
-    id: "2",
-    name: "Regular User",
-    email: "user@example.com",
-    password: "password123",
-    role: "user",
-  },
-]
-
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await request.json()
+    const { email, password } = await req.json()
 
-    // Basic validation
     if (!email || !password) {
-      return NextResponse.json({ message: "Email and password are required" }, { status: 400 })
+      return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    // Find user by email
-    const user = users.find((u) => u.email === email)
+    const result = await loginUser(email, password)
 
-    // Check if user exists and password matches
-    if (!user || user.password !== password) {
-      return NextResponse.json({ message: "Invalid email or password" }, { status: 401 })
+    if (!result) {
+      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
     }
 
-    // In a real application, you would:
-    // 1. Create a session
-    // 2. Set cookies or return a JWT token
-    // 3. Not return the password, even if it's hashed
+    const { user, token } = result
 
-    // Return user data (excluding password)
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = user
 
-    
+    // Set session cookie
+    ;(await
+      // Set session cookie
+      cookies()).set({
+      name: "session_token",
+      value: token,
+      httpOnly: true,
+      path: "/",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7, // 1 week
+    })
+
+    return NextResponse.json({ user: userWithoutPassword })
   } catch (error) {
-    console.error("Authentication error:", error)
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }
 
