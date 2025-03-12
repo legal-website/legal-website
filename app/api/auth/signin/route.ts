@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { db } from "@/lib/db"
+import prisma from "@/lib/prisma"
 import { verifyPassword } from "@/lib/auth-service"
 import { v4 as uuidv4 } from "uuid"
 
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     }
 
     // Find user in database
-    const user = await db.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { email },
     })
 
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     const token = uuidv4()
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
 
-    const session = await db.session.create({
+    const session = await prisma.session.create({
       data: {
         userId: user.id,
         token,
@@ -49,7 +49,8 @@ export async function POST(req: Request) {
       },
     })
 
-    // Set session cookie
+    // Set session cookie - using the synchronous cookies() function
+    // In newer versions of Next.js, cookies() is not a Promise, so we don't need to await it
     const cookieStore = cookies()
     cookieStore.set("session_token", session.token, {
       expires: expiresAt,
