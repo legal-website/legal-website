@@ -2,6 +2,7 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaClient } from "@prisma/client"
 import type { NextAuthOptions } from "next-auth"
+import { verifyPassword } from "@/lib/auth-service"
 
 const prisma = new PrismaClient()
 
@@ -28,16 +29,14 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          // Check if password matches
-          if (user.password !== credentials.password) {
+          // Check if password matches using the verifyPassword function
+          const isPasswordValid = await verifyPassword(user.password, credentials.password)
+
+          if (!isPasswordValid) {
             return null
           }
 
-          // Check if user is an admin
-          if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
-            return null
-          }
-
+          // Return user data without checking role - allowing any role to sign in
           return {
             id: user.id,
             email: user.email,
@@ -74,6 +73,7 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
+  debug: process.env.NODE_ENV === "development",
 }
 
 const handler = NextAuth(authOptions)
