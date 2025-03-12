@@ -1,13 +1,27 @@
 "use client"
 import Link from "next/link"
+import type React from "react"
+
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, ChevronDown, X, Eye, EyeOff, ShoppingCart } from 'lucide-react'
+import {
+  Search,
+  ChevronDown,
+  X,
+  Eye,
+  EyeOff,
+  ShoppingCart,
+  User,
+  LogOut,
+  Settings,
+  LayoutDashboard,
+} from "lucide-react"
 import { useRouter } from "next/navigation"
 import CartDropdown from "./cart-dropdown"
 import Image from "next/image"
 import { useCart } from "@/context/cart-context"
+import { signOut, useSession } from "next-auth/react"
 
 export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false)
@@ -21,11 +35,17 @@ export default function Navbar() {
   const [privacyChecked, setPrivacyChecked] = useState(false)
   const modalRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
+  const { data: session, status } = useSession()
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (cartRef.current && !cartRef.current.contains(event.target as Node)) {
         setCartOpen(false)
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false)
       }
     }
 
@@ -108,6 +128,44 @@ export default function Navbar() {
     visible: { opacity: 1 },
   }
 
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const form = e.target as HTMLFormElement
+    const email = (form.elements.namedItem("email") as HTMLInputElement).value
+    const password = (form.elements.namedItem("password") as HTMLInputElement).value
+
+    try {
+      const response = await fetch("/api/auth/signin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      if (response.ok) {
+        setSignInOpen(false)
+        // Refresh the session
+        window.location.reload()
+      } else {
+        const data = await response.json()
+        alert(data.error || "Failed to sign in")
+      }
+    } catch (error) {
+      console.error("Sign in error:", error)
+      alert("An error occurred during sign in")
+    }
+  }
+
+  const handleSignOut = async () => {
+    try {
+      await signOut({ redirect: false })
+      router.push("/")
+    } catch (error) {
+      console.error("Sign out error:", error)
+    }
+  }
+
   return (
     <nav
       className={`bg-[#f9f6f2] px-6 border-b sticky top-0 z-50 transition-shadow duration-300 ${hasScrolled ? "shadow-md" : "shadow-none"}`}
@@ -152,19 +210,23 @@ export default function Navbar() {
             >
               About Us
             </button>
-            </div>
-          <div className="flex items-center space-x-10">
-          <div className="relative" ref={cartRef}>
-            <button
-              className="relative p-2 text-gray-600 hover:text-[#22c984] transition-colors"
-              onClick={() => setCartOpen(!cartOpen)}
-              onMouseEnter={() => setCartOpen(true)}
-            >
-              <ShoppingCart className="h-5 w-5" />
-                {itemCount > 0 && <span className="absolute -top-1 -right-1 bg-[#22c984] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{itemCount}</span>}
-              </button>
-            {cartOpen && <CartDropdown />}
           </div>
+          <div className="flex items-center space-x-10">
+            <div className="relative" ref={cartRef}>
+              <button
+                className="relative p-2 text-gray-600 hover:text-[#22c984] transition-colors"
+                onClick={() => setCartOpen(!cartOpen)}
+                onMouseEnter={() => setCartOpen(true)}
+              >
+                <ShoppingCart className="h-5 w-5" />
+                {itemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#22c984] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {itemCount}
+                  </span>
+                )}
+              </button>
+              {cartOpen && <CartDropdown />}
+            </div>
 
             <Button
               variant="ghost"
@@ -176,9 +238,60 @@ export default function Navbar() {
               <span className="sr-only">Search</span>
             </Button>
 
-            <Button className="bg-black text-white rounded-full px-6" onClick={() => setSignInOpen(true)}>
-              Sign in
-            </Button>
+            {status === "authenticated" ? (
+              <div className="relative" ref={userMenuRef}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full border border-black"
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                >
+                  <User className="h-5 w-5" />
+                  <span className="sr-only">My Account</span>
+                </Button>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                    <div className="px-4 py-2 text-sm text-gray-700 border-b">
+                      <p className="font-medium">{session?.user?.name || session?.user?.email}</p>
+                      <p className="text-xs text-gray-500">{session?.user?.email}</p>
+                    </div>
+                    <Link
+                      href="/dashboard"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 items-center"
+                    >
+                      <LayoutDashboard className="h-4 w-4 mr-2" />
+                      Dashboard
+                    </Link>
+                    <Link
+                      href="/profile"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 items-center"
+                    >
+                      <User className="h-4 w-4 mr-2" />
+                      Profile
+                    </Link>
+                    <Link
+                      href="/settings"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100  items-center"
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Settings
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 items-center"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Button className="bg-black text-white rounded-full px-6" onClick={() => setSignInOpen(true)}>
+                Sign in
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -260,53 +373,59 @@ export default function Navbar() {
                 <div className="mt-20 flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold">Sign In</h2>
                 </div>
-                <input
-                  type="email"
-                  placeholder="Email"
-                  className="w-full p-4 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1eac73] hover:shadow-lg"
-                  pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-                  required
-                />
-                <div className="relative mb-4">
+                <form onSubmit={handleSignIn}>
                   <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Password"
-                    className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1eac73] hover:shadow-lg"
+                    type="email"
+                    name="email"
+                    placeholder="Email"
+                    className="w-full p-4 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1eac73] hover:shadow-lg"
+                    pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+                    required
                   />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-3 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-500" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-gray-500" />
-                    )}
-                  </button>
-                </div>
-                <div className="mb-4">
-                  <label className="flex items-center space-x-2">
+                  <div className="relative mb-4">
                     <input
-                      type="checkbox"
-                      checked={privacyChecked}
-                      onChange={() => setPrivacyChecked(!privacyChecked)}
-                      className="form-checkbox h-5 w-5 text-[#22c984] "
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      placeholder="Password"
+                      className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1eac73] hover:shadow-lg"
+                      required
                     />
-                    <span className="text-sm">
-                      I agree to the{" "}
-                      <a href="/privacy-policy" className="text-[#22c984]  underline">
-                        Privacy Policy
-                      </a>
-                    </span>
-                  </label>
-                </div>
-                <Button
-                  className="w-full bg-black text-white py-4 rounded-lg hover:[#1eac73]"
-                  disabled={!privacyChecked}
-                >
-                  Sign In
-                </Button>
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-3 flex items-center"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5 text-gray-500" />
+                      ) : (
+                        <Eye className="h-5 w-5 text-gray-500" />
+                      )}
+                    </button>
+                  </div>
+                  <div className="mb-4">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={privacyChecked}
+                        onChange={() => setPrivacyChecked(!privacyChecked)}
+                        className="form-checkbox h-5 w-5 text-[#22c984] "
+                      />
+                      <span className="text-sm">
+                        I agree to the{" "}
+                        <a href="/privacy-policy" className="text-[#22c984]  underline">
+                          Privacy Policy
+                        </a>
+                      </span>
+                    </label>
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full bg-black text-white py-4 rounded-lg hover:[#1eac73]"
+                    disabled={!privacyChecked}
+                  >
+                    Sign In
+                  </Button>
+                </form>
                 <div className="text-center mt-4 text-sm">
                   Don&apos;t have an account?{" "}
                   <a href="/sign-up" className="text-[#22c984]  underline">
@@ -321,3 +440,4 @@ export default function Navbar() {
     </nav>
   )
 }
+

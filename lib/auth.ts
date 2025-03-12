@@ -72,3 +72,4 @@ export function hasRole(session: any, role: string) {
 export function isSuperAdmin(session: any) {
   return session?.user?.role === "SUPER_ADMIN"
 }
+
