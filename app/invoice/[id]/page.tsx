@@ -44,6 +44,8 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null
+
     async function fetchInvoice() {
       try {
         const response = await fetch(`/api/invoices/${params.id}`)
@@ -58,6 +60,14 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
         }
 
         setInvoice(data.invoice)
+
+        // If the invoice status is no longer pending, clear the interval
+        if (data.invoice && data.invoice.status !== "pending") {
+          if (intervalId) {
+            clearInterval(intervalId)
+            intervalId = null
+          }
+        }
       } catch (error) {
         console.error("Error fetching invoice:", error)
         toast({
@@ -70,8 +80,22 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
       }
     }
 
+    // Initial fetch
     fetchInvoice()
-  }, [params.id, toast])
+
+    // Set up polling only if we have a pending invoice
+    // Check every 10 seconds for status updates
+    if (invoice?.status === "pending") {
+      intervalId = setInterval(fetchInvoice, 10000)
+    }
+
+    // Clean up interval on component unmount
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId)
+      }
+    }
+  }, [params.id, toast, invoice?.status])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -268,18 +292,27 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
             <div className="flex items-start">
               <Clock className="h-6 w-6 text-yellow-500 mr-3 mt-0.5" />
-              <div>
+              <div className="w-full">
                 <h3 className="font-semibold text-yellow-800 mb-2">Payment Under Review</h3>
                 <p className="text-yellow-700 mb-3">
                   Your payment receipt is currently being reviewed by our team. This typically takes 1-2 business days.
                 </p>
-                <div className="w-full bg-yellow-200 rounded-full h-2.5 mb-2">
-                  <div className="bg-yellow-500 h-2.5 rounded-full w-1/3 animate-pulse"></div>
+                <div className="w-full bg-yellow-200 rounded-full h-2.5 mb-2 overflow-hidden">
+                  <div
+                    className="bg-yellow-500 h-2.5 rounded-full animate-pulse"
+                    style={{
+                      width: "30%",
+                      animation: "progress 2s ease-in-out infinite alternate",
+                    }}
+                  ></div>
                 </div>
                 <p className="text-sm text-yellow-600">
-                  We'll notify you by email once your payment is approved. If you have any questions, please contact our
-                  support team.
+                  This page will automatically update when your payment is approved. No need to refresh.
                 </p>
+                <div className="mt-4 flex items-center text-yellow-700">
+                  <div className="animate-spin mr-2 h-4 w-4 border-2 border-yellow-500 border-t-transparent rounded-full"></div>
+                  <span>Checking for updates...</span>
+                </div>
               </div>
             </div>
           </div>

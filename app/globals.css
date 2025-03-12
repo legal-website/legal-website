@@ -255,3 +255,16 @@
   background-color: hsl(var(--dashboard-card-bg));
   border-color: hsl(var(--dashboard-card-border));
 }
+@keyframes progress {
+  0% {
+    width: 5%;
+  }
+  100% {
+    width: 45%;
+  }
+}
+
+/* Add a smooth transition when status changes */
+.status-transition {
+  transition: all 0.5s ease-in-out;
+}
