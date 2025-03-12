@@ -40,12 +40,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const expires = new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
 
     // Store the token in the VerificationToken model
+    // Include the user relation since it's required
     await db.verificationToken.create({
       data: {
         token: resetToken,
         identifier: `reset-${user.email}`,
         expires,
-        userId: user.id,
+        user: {
+          connect: {
+            id: user.id,
+          },
+        },
       },
     })
 

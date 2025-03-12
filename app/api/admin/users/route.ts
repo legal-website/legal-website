@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
         joinDate,
         lastActive: "N/A", // Virtual field
         company: "N/A", // Virtual field
-        status: "Active", // Virtual field
+        status: "Active", // Virtual field - added after fetching from DB
         phone: "N/A", // Virtual field
         address: "N/A", // Virtual field
         profileImage: user.image, // Map image to profileImage
