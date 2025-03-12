@@ -4,55 +4,66 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, CheckCircle, XCircle } from "lucide-react"
 
 export default function VerifyEmailPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  // Handle the case where searchParams might be null
-  const token = searchParams ? searchParams.get("token") : null
-
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
-  const [message, setMessage] = useState("Verifying your email...")
+  const [message, setMessage] = useState("")
 
   useEffect(() => {
-    if (!token) {
-      setStatus("error")
-      setMessage("Invalid verification link. Please request a new one.")
-      return
+    const verifyToken = async () => {
+      try {
+        const token = searchParams ? searchParams.get("token") : null
+        const redirect = searchParams ? searchParams.get("redirect") : "/login"
+
+        if (!token) {
+          setStatus("error")
+          setMessage("Verification token is missing")
+          return
+        }
+
+        // The API will handle the verification and redirect
+        // This page will only be shown momentarily
+        router.push(`/api/auth/verify-email?token=${token}&redirect=${redirect || "/login"}`)
+      } catch (error) {
+        console.error("Error verifying email:", error)
+        setStatus("error")
+        setMessage("Failed to verify your email. Please try again or contact support.")
+      }
     }
 
-    // The actual verification happens in the API route
-    // This page just shows a loading state and then redirects
-    const timer = setTimeout(() => {
-      // If we're still on this page after 5 seconds, show a button to go to login
-      setStatus("success")
-      setMessage("Email verified successfully! You can now log in.")
-    }, 5000)
-
-    return () => clearTimeout(timer)
-  }, [token, router])
+    verifyToken()
+  }, [searchParams, router])
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-center text-2xl">Email Verification</CardTitle>
-          <CardDescription className="text-center">
-            {status === "loading" && "Please wait while we verify your email"}
-            {status === "success" && "Your email has been verified"}
-            {status === "error" && "There was a problem verifying your email"}
+          <CardTitle>Email Verification</CardTitle>
+          <CardDescription>
+            {status === "loading"
+              ? "Verifying your email address..."
+              : status === "success"
+                ? "Your email has been verified!"
+                : "Verification failed"}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center space-y-4 p-6">
-          {status === "loading" && <Loader2 className="h-16 w-16 animate-spin text-primary" />}
-          {status === "success" && <CheckCircle className="h-16 w-16 text-green-500" />}
-          {status === "error" && <XCircle className="h-16 w-16 text-red-500" />}
-
-          <p className="text-center text-lg">{message}</p>
+        <CardContent>
+          {status === "loading" && (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          )}
+          {status === "success" && (
+            <p className="text-green-600 dark:text-green-400">
+              Your email has been successfully verified. You can now log in to your account.
+            </p>
+          )}
+          {status === "error" && <p className="text-red-600 dark:text-red-400">{message}</p>}
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Button onClick={() => router.push("/login")} className="w-full">
+          <Button onClick={() => router.push("/login")} disabled={status === "loading"}>
             Go to Login
           </Button>
         </CardFooter>

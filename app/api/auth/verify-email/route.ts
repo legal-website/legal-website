@@ -81,6 +81,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       message: "Verification email sent",
+      status: "Validation Email Sent",
     })
   } catch (error: any) {
     console.error("Error sending verification email:", error)
@@ -98,6 +99,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url)
     const token = url.searchParams.get("token")
+    const redirectUrl = url.searchParams.get("redirect") || "/login"
 
     if (!token) {
       return NextResponse.json({ error: "Token is required" }, { status: 400 })
@@ -113,7 +115,10 @@ export async function GET(req: Request) {
       // Check if token is expired
       if (dbToken.expires < new Date()) {
         return NextResponse.redirect(
-          new URL("/login?error=expired", process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"),
+          new URL(
+            `${redirectUrl}?error=expired`,
+            process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
+          ),
         )
       }
 
@@ -121,7 +126,10 @@ export async function GET(req: Request) {
       if (dbToken.user) {
         await db.user.update({
           where: { id: dbToken.user.id },
-          data: { emailVerified: new Date() },
+          data: {
+            emailVerified: new Date(),
+            // Remove the status field as it doesn't exist in the schema
+          },
         })
 
         // Delete the used token
@@ -131,7 +139,10 @@ export async function GET(req: Request) {
 
         // Redirect to login with success message
         return NextResponse.redirect(
-          new URL("/login?verified=true", process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"),
+          new URL(
+            `${redirectUrl}?verified=true`,
+            process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
+          ),
         )
       }
     }
@@ -140,7 +151,10 @@ export async function GET(req: Request) {
     const verification = verificationTokens.get(token)
     if (!verification) {
       return NextResponse.redirect(
-        new URL("/login?error=invalid", process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"),
+        new URL(
+          `${redirectUrl}?error=invalid`,
+          process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
+        ),
       )
     }
 
@@ -148,7 +162,10 @@ export async function GET(req: Request) {
     if (verification.expires < new Date()) {
       verificationTokens.delete(token)
       return NextResponse.redirect(
-        new URL("/login?error=expired", process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"),
+        new URL(
+          `${redirectUrl}?error=expired`,
+          process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
+        ),
       )
     }
 
@@ -170,7 +187,10 @@ export async function GET(req: Request) {
 
     // Redirect to login with success message
     return NextResponse.redirect(
-      new URL("/login?verified=true", process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"),
+      new URL(
+        `${redirectUrl}?verified=true`,
+        process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
+      ),
     )
   } catch (error: any) {
     console.error("Error verifying email:", error)

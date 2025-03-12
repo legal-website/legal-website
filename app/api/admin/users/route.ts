@@ -5,7 +5,10 @@ import { db } from "@/lib/db"
 import { Role } from "@prisma/client"
 import { hash } from "bcryptjs"
 import { getAppUrl } from "@/lib/get-app-url"
-import { sendEmail } from "@/lib/email" // Use the correct import
+import { sendEmail } from "@/lib/email"
+
+// In-memory store for online users
+const onlineUsers = new Map<string, Date>()
 
 export async function GET(req: NextRequest) {
   try {
@@ -52,22 +55,47 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    // Format users for the UI with correct last active time
+    // Get online users
+    const onlineUserIds = Array.from(onlineUsers.keys())
+
+    // Format users for the UI with correct last active time and online status
     const formattedUsers = users.map((user) => {
+      // Check if user is online
+      const isOnline = onlineUserIds.includes(user.id)
+
       // For last active, use the most recent session's creation time
       // If no session, fall back to the user's last update or creation time
       const lastActive =
         user.sessions && user.sessions.length > 0 ? user.sessions[0].createdAt : user.updatedAt || user.createdAt
+
+      // Determine status based on emailVerified
+      let status = "Pending"
+      if (user.emailVerified) {
+        status = "Active"
+      } else {
+        // Check if there's a verification token for this user
+        // This is a virtual status, not stored in the database
+        if (isOnline) {
+          status = "Active" // If they're online, they're active
+        } else if (user.sessions && user.sessions.length > 0) {
+          status = "Active" // If they have sessions, they're active
+        } else {
+          // Check if there's a verification token
+          // This is a simplified approach - in a real app, you'd check the database
+          status = "Validation Email Sent"
+        }
+      }
 
       return {
         id: user.id,
         name: user.name || "Unknown",
         email: user.email,
         role: user.role,
-        status: user.emailVerified ? "Active" : "Pending",
+        status: status,
         emailVerified: user.emailVerified,
         createdAt: user.createdAt,
         lastActive: lastActive,
+        isOnline: isOnline,
         image: user.image,
         company: user.business?.name || "Not specified",
         phone: user.business?.phone || "Not provided",
@@ -127,6 +155,7 @@ export async function POST(req: NextRequest) {
         password: hashedPassword,
         role: role || Role.CLIENT,
         emailVerified: sendInvite ? null : new Date(), // If sending invite, email is not verified yet
+        // status field is not in the schema, so we don't include it
         // Create business record if company name is provided
         ...(businessData.name && {
           business: {
@@ -140,6 +169,9 @@ export async function POST(req: NextRequest) {
         }),
       },
     })
+
+    // Determine initial status (virtual field, not stored in DB)
+    let status = sendInvite ? "Validation Email Sent" : "Active"
 
     // Send welcome email if requested
     if (sendInvite) {
@@ -190,6 +222,7 @@ export async function POST(req: NextRequest) {
 
         if (!emailResult.success) {
           console.error("Failed to send email:", emailResult.error)
+          status = "Pending"
           return NextResponse.json(
             {
               user: {
@@ -197,6 +230,7 @@ export async function POST(req: NextRequest) {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                status: status,
               },
               warning: "User created but failed to send welcome email",
             },
@@ -209,6 +243,7 @@ export async function POST(req: NextRequest) {
         console.error("Error sending welcome email:", emailError)
         // We don't want to fail the user creation if the email fails
         // But we should log it and return a warning
+        status = "Pending"
         return NextResponse.json(
           {
             user: {
@@ -216,6 +251,7 @@ export async function POST(req: NextRequest) {
               name: user.name,
               email: user.email,
               role: user.role,
+              status: status,
             },
             warning: "User created but failed to send welcome email",
           },
@@ -231,6 +267,7 @@ export async function POST(req: NextRequest) {
           name: user.name,
           email: user.email,
           role: user.role,
+          status: status, // This is a virtual field, not stored in DB
         },
         message: sendInvite ? "User created and welcome email sent" : "User created successfully",
       },

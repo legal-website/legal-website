@@ -12,7 +12,6 @@ import {
   Filter,
   Download,
   Plus,
-  MoreHorizontal,
   CheckCircle2,
   Clock,
   XCircle,
@@ -21,11 +20,6 @@ import {
   Calendar,
   User,
   FileText,
-  Key,
-  UserCog,
-  AlertTriangle,
-  Trash2,
-  Edit,
 } from "lucide-react"
 import {
   Dialog,
@@ -35,14 +29,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -62,6 +48,8 @@ import { useSession } from "next-auth/react"
 import Image from "next/image"
 import { Role } from "@prisma/client" // Add this import
 import ErrorState from "./error-state"
+import { OnlineStatusTracker } from "@/components/online-status-tracker"
+import { Badge } from "@/components/ui/badge"
 
 // Define types for our data
 interface UserDocument {
@@ -84,7 +72,7 @@ interface UserData {
   email: string
   company: string
   role: Role
-  status: "Active" | "Pending" | "Inactive" | "Suspended"
+  status: "Active" | "Pending" | "Inactive" | "Suspended" | "Validation Email Sent"
   joinDate: string
   lastActive: string
   emailVerified?: boolean
@@ -102,6 +90,7 @@ interface UserData {
   nextBillingDate?: string
   subscriptionAmount?: number
   lastPasswordChange?: string
+  isOnline?: boolean
 }
 
 export default function AllUsersPage() {
@@ -159,7 +148,7 @@ export default function AllUsersPage() {
       console.log("Fetching users from API")
 
       // Try the main API endpoint with the correct path
-      let response = await fetch("/api/admin/users", {
+      const response = await fetch("/api/admin/users", {
         headers: {
           Accept: "application/json",
         },
@@ -167,15 +156,15 @@ export default function AllUsersPage() {
       })
 
       // If the main endpoint fails, try the test endpoint
-      if (!response.ok) {
-        console.log("Main API failed, trying test endpoint")
-        response = await fetch("/api/users-test", {
-          headers: {
-            Accept: "application/json",
-          },
-          cache: "no-store",
-        })
-      }
+      // if (!response.ok) {
+      //   console.log("Main API failed, trying test endpoint")
+      //   response = await fetch("/api/users-test", {
+      //     headers: {
+      //       Accept: "application/json",
+      //     },
+      //     cache: "no-store",
+      //   })
+      // }
 
       console.log("Response status:", response.status)
 
@@ -196,7 +185,7 @@ export default function AllUsersPage() {
       }
 
       // Clone the response before reading it
-      const responseClone = response.clone()
+      // const responseClone = response.clone()
 
       // Try to parse the response as JSON
       let data
@@ -206,8 +195,8 @@ export default function AllUsersPage() {
         console.error("Error parsing JSON:", parseError)
 
         // If JSON parsing fails, try to get the text content from the cloned response
-        const textContent = await responseClone.text()
-        console.error("Non-JSON response:", textContent.substring(0, 200))
+        // const textContent = await responseClone.text()
+        // console.error("Non-JSON response:", textContent.substring(0, 200))
         throw new Error("Invalid JSON response from server")
       }
 
@@ -248,6 +237,7 @@ export default function AllUsersPage() {
         phone: user.phone || "Not provided",
         address: user.address || "Not provided",
         profileImage: user.profileImage || null,
+        isOnline: user.isOnline || false,
       }))
 
       setUsers(formattedUsers)
@@ -288,6 +278,11 @@ export default function AllUsersPage() {
   useEffect(() => {
     if (sessionStatus === "authenticated" && (session?.user as any)?.role === Role.ADMIN) {
       fetchUsers()
+
+      // Poll for updates every 30 seconds to refresh online status
+      const interval = setInterval(fetchUsers, 30000)
+
+      return () => clearInterval(interval)
     }
   }, [sessionStatus, session])
 
@@ -302,6 +297,7 @@ export default function AllUsersPage() {
       (activeTab === "active" && user.status === "Active") ||
       (activeTab === "pending" && (user.status === "Pending" || user.emailVerified === false)) ||
       (activeTab === "inactive" && (user.status === "Inactive" || user.status === "Suspended")) ||
+      (activeTab === "validationEmailSent" && user.status === "Validation Email Sent") ||
       activeTab === "all"
 
     const matchesRole = selectedRole === "All Roles" || user.role === selectedRole
@@ -418,6 +414,7 @@ export default function AllUsersPage() {
         // Add placeholder data for documents and activity if not available
         documents: data.user.business?.documents || [],
         activity: userActivity.length > 0 ? userActivity : [],
+        isOnline: data.user.isOnline || false,
       }
 
       setSelectedUser(userDetails)
@@ -800,6 +797,28 @@ export default function AllUsersPage() {
     setShowChangeRoleDialog(true)
   }
 
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "N/A"
+    return new Date(dateString).toLocaleString()
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Active":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+      case "Pending":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+      case "Inactive":
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+      case "Suspended":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+      case "Validation Email Sent":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+    }
+  }
+
   // If session is loading or user is not authenticated, show loading state
   if (sessionStatus === "loading" || !session) {
     return (
@@ -834,6 +853,9 @@ export default function AllUsersPage() {
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto mb-40">
+      {/* Include the online status tracker */}
+      <OnlineStatusTracker />
+
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
@@ -894,6 +916,7 @@ export default function AllUsersPage() {
           <TabsTrigger value="active">Active</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="inactive">Inactive</TabsTrigger>
+          <TabsTrigger value="validationEmailSent">Validation Email Sent</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all">
@@ -906,6 +929,9 @@ export default function AllUsersPage() {
             onToggleStatus={toggleUserStatus}
             onDeleteUser={handleDeleteUser}
             loading={loading}
+            formatDate={formatDate}
+            getStatusColor={getStatusColor}
+            router={router}
           />
         </TabsContent>
 
@@ -919,6 +945,9 @@ export default function AllUsersPage() {
             onToggleStatus={toggleUserStatus}
             onDeleteUser={handleDeleteUser}
             loading={loading}
+            formatDate={formatDate}
+            getStatusColor={getStatusColor}
+            router={router}
           />
         </TabsContent>
 
@@ -932,6 +961,9 @@ export default function AllUsersPage() {
             onToggleStatus={toggleUserStatus}
             onDeleteUser={handleDeleteUser}
             loading={loading}
+            formatDate={formatDate}
+            getStatusColor={getStatusColor}
+            router={router}
           />
         </TabsContent>
 
@@ -945,6 +977,28 @@ export default function AllUsersPage() {
             onToggleStatus={toggleUserStatus}
             onDeleteUser={handleDeleteUser}
             loading={loading}
+            formatDate={formatDate}
+            getStatusColor
+            loading={loading}
+            formatDate={formatDate}
+            getStatusColor={getStatusColor}
+            router={router}
+          />
+        </TabsContent>
+
+        <TabsContent value="validationEmailSent">
+          <UserTable
+            users={filteredUsers}
+            onViewUser={viewUserDetails}
+            onEditUser={handleEditUser}
+            onResetPassword={handleResetPassword}
+            onChangeRole={handleChangeRole}
+            onToggleStatus={toggleUserStatus}
+            onDeleteUser={handleDeleteUser}
+            loading={loading}
+            formatDate={formatDate}
+            getStatusColor={getStatusColor}
+            router={router}
           />
         </TabsContent>
       </Tabs>
@@ -1457,6 +1511,9 @@ function UserTable({
   onToggleStatus,
   onDeleteUser,
   loading,
+  formatDate,
+  getStatusColor,
+  router,
 }: {
   users: UserData[]
   onViewUser: (user: UserData) => void
@@ -1466,6 +1523,9 @@ function UserTable({
   onToggleStatus: (user: UserData) => void
   onDeleteUser: (user: UserData) => void
   loading: boolean
+  formatDate: (dateString: string) => string
+  getStatusColor: (status: string) => string
+  router: any
 }) {
   if (loading) {
     return (
@@ -1493,136 +1553,51 @@ function UserTable({
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b">
-              <th className="text-left p-4 font-medium text-sm">User</th>
-              <th className="text-left p-4 font-medium text-sm">Role</th>
-              <th className="text-left p-4 font-medium text-sm">Status</th>
-              <th className="text-left p-4 font-medium text-sm">Company</th>
-              <th className="text-left p-4 font-medium text-sm">Join Date</th>
-              <th className="text-left p-4 font-medium text-sm">Last Active</th>
-              <th className="text-left p-4 font-medium text-sm">Actions</th>
+            <tr className="bg-muted/50">
+              <th className="text-left p-4 font-medium">Name</th>
+              <th className="text-left p-4 font-medium">Email</th>
+              <th className="text-left p-4 font-medium">Status</th>
+              <th className="text-left p-4 font-medium">Role</th>
+              <th className="text-left p-4 font-medium">Company</th>
+              <th className="text-left p-4 font-medium">Last Active</th>
+              <th className="text-left p-4 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
             {users.map((user) => (
-              <tr key={user.id} className="border-b">
+              <tr key={user.id} className="border-t hover:bg-muted/50">
                 <td className="p-4">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mr-3">
-                      {user.profileImage ? (
-                        <Image
-                          src={user.profileImage || "/placeholder.svg"}
-                          alt={user.name}
-                          width={40}
-                          height={40}
-                          className="rounded-full"
-                        />
-                      ) : (
-                        <span className="text-gray-600 dark:text-gray-300 font-medium">
-                          {user.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium">{user.name}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="p-4">
-                  <span
-                    className={`px-2 py-1 text-xs rounded-full ${
-                      user.role === Role.ADMIN
-                        ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
-                        : user.role === Role.SUPPORT
-                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                          : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-                    }`}
-                  >
-                    {user.role}
-                  </span>
-                </td>
-                <td className="p-4">
-                  <span
-                    className={`px-2 py-1 text-xs rounded-full flex items-center w-fit ${
-                      user.status === "Active"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                        : user.status === "Pending"
-                          ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                          : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-                    }`}
-                  >
-                    {user.status === "Active" ? (
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                    ) : user.status === "Pending" ? (
-                      <Clock className="h-3 w-3 mr-1" />
-                    ) : (
-                      <XCircle className="h-3 w-3 mr-1" />
+                  <div className="flex items-center gap-2">
+                    {user.isOnline && (
+                      <span className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                      </span>
                     )}
-                    {user.status}
-                  </span>
-                </td>
-                <td className="p-4">{user.company}</td>
-                <td className="p-4">{user.joinDate}</td>
-                <td className="p-4">{user.lastActive}</td>
-                <td className="p-4">
-                  <div className="flex space-x-2">
-                    <Button variant="ghost" size="sm" onClick={() => onViewUser(user)}>
-                      View
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => onEditUser(user)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit User
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onResetPassword(user)}>
-                          <Key className="h-4 w-4 mr-2" />
-                          Reset Password
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onChangeRole(user)}>
-                          <UserCog className="h-4 w-4 mr-2" />
-                          Change Role
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {user.status === "Active" ? (
-                          <DropdownMenuItem
-                            onClick={() => onToggleStatus(user)}
-                            className="text-amber-600 dark:text-amber-400"
-                          >
-                            <AlertTriangle className="h-4 w-4 mr-2" />
-                            Suspend User
-                          </DropdownMenuItem>
-                        ) : user.status === "Inactive" || user.status === "Suspended" ? (
-                          <DropdownMenuItem
-                            onClick={() => onToggleStatus(user)}
-                            className="text-green-600 dark:text-green-400"
-                          >
-                            <CheckCircle2 className="h-4 w-4 mr-2" />
-                            Activate User
-                          </DropdownMenuItem>
-                        ) : null}
-                        <DropdownMenuItem onClick={() => onDeleteUser(user)} className="text-red-600 dark:text-red-400">
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete User
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {user.name}
                   </div>
+                </td>
+                <td className="p-4">{user.email}</td>
+                <td className="p-4">
+                  <Badge className={getStatusColor(user.status)}>{user.status}</Badge>
+                </td>
+                <td className="p-4">{user.role}</td>
+                <td className="p-4">{user.company}</td>
+                <td className="p-4">
+                  {user.isOnline ? (
+                    <span className="text-green-600 font-medium">Online now</span>
+                  ) : (
+                    formatDate(user.lastActive)
+                  )}
+                </td>
+                <td className="p-4">
+                  <Button variant="outline" size="sm" onClick={() => router.push(`/admin/users/${user.id}`)}>
+                    View
+                  </Button>
                 </td>
               </tr>
             ))}
