@@ -1,54 +1,53 @@
 import nodemailer from "nodemailer"
-import { getAppUrl } from "./get-app-url"
 
-interface EmailOptions {
+type EmailPayload = {
   to: string
   subject: string
-  text: string
   html: string
+  text?: string
 }
 
-export async function sendEmail({ to, subject, text, html }: EmailOptions) {
-  const { EMAIL_SERVER_HOST, EMAIL_SERVER_PORT, EMAIL_SERVER_USER, EMAIL_SERVER_PASSWORD, EMAIL_FROM } = process.env
+// Create a transporter
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_SERVER_HOST,
+  port: Number(process.env.EMAIL_SERVER_PORT),
+  secure: Number(process.env.EMAIL_SERVER_PORT) === 465,
+  auth: {
+    user: process.env.EMAIL_SERVER_USER,
+    pass: process.env.EMAIL_SERVER_PASSWORD,
+  },
+})
 
-  // Log the environment variables (without sensitive info)
-  console.log("Email configuration:", {
-    host: EMAIL_SERVER_HOST,
-    port: EMAIL_SERVER_PORT,
-    user: EMAIL_SERVER_USER ? "Set" : "Not set",
-    password: EMAIL_SERVER_PASSWORD ? "Set" : "Not set",
-    from: EMAIL_FROM,
-  })
+// Export the function with the name that's being imported in other files
+export const sendEmail = async (data: EmailPayload) => {
+  const { to, subject, html, text } = data
 
-  // Get the app URL for links
-  const appUrl = getAppUrl()
-  console.log("App URL for email links:", appUrl)
+  try {
+    console.log("Sending email to:", to)
+    console.log("Email configuration:", {
+      host: process.env.EMAIL_SERVER_HOST,
+      port: Number(process.env.EMAIL_SERVER_PORT),
+      secure: Number(process.env.EMAIL_SERVER_PORT) === 465,
+      user: process.env.EMAIL_SERVER_USER ? "Set" : "Not set",
+      from: process.env.EMAIL_FROM,
+    })
 
-  // Create a transporter
-  const transporter = nodemailer.createTransport({
-    host: EMAIL_SERVER_HOST,
-    port: Number(EMAIL_SERVER_PORT),
-    secure: Number(EMAIL_SERVER_PORT) === 465,
-    auth: {
-      user: EMAIL_SERVER_USER,
-      pass: EMAIL_SERVER_PASSWORD,
-    },
-  })
+    const result = await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to,
+      subject,
+      html,
+      text,
+    })
 
-  // Replace any placeholder URLs with the actual app URL
-  const processedHtml = html.replace(/\{APP_URL\}/g, appUrl)
-  const processedText = text.replace(/\{APP_URL\}/g, appUrl)
-
-  // Send the email
-  const info = await transporter.sendMail({
-    from: EMAIL_FROM,
-    to,
-    subject,
-    text: processedText,
-    html: processedHtml,
-  })
-
-  console.log("Email sent:", info.messageId)
-  return info
+    console.log("Email sent successfully:", result.messageId)
+    return { success: true, messageId: result.messageId }
+  } catch (error) {
+    console.error("Error sending email:", error)
+    return { success: false, error }
+  }
 }
+
+// Also export as sendMail for backward compatibility
+export const sendMail = sendEmail
 

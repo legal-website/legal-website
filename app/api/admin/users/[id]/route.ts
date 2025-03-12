@@ -23,7 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         business: true,
         sessions: {
           orderBy: {
-            createdAt: "desc", // Order by creation time, not expiration time
+            createdAt: "desc", // Order by creation time
           },
           take: 5,
         },
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // Use the most recent session's creation time as the last active time
     const lastActive =
       user.sessions && user.sessions.length > 0
-        ? user.sessions[0].createdAt // Use createdAt instead of expiresAt
+        ? user.sessions[0].createdAt // Use createdAt for last active time
         : user?.updatedAt || user?.createdAt
 
     // Format user data

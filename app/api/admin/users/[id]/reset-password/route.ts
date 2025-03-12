@@ -4,7 +4,8 @@ import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { Role } from "@prisma/client"
 import { getAppUrl } from "@/lib/get-app-url"
-import { sendEmail } from "@/lib/email"
+import { sendEmail } from "@/lib/email" // Use the correct import
+import { randomBytes } from "crypto"
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const userId = params.id
 
-    // Check if user exists
+    // Find the user
     const user = await db.user.findUnique({
       where: { id: userId },
     })
@@ -26,52 +27,61 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Generate a password reset token
-    const resetToken = `${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
+    // Generate a secure token
+    const token = randomBytes(32).toString("hex")
 
-    // Store the token in your database using the correct model
+    // Store the token in the database
     await db.verificationToken.create({
       data: {
         identifier: user.email,
-        token: resetToken,
+        token,
         expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-        userId: userId, // Connect to the user using the userId field
+        userId: user.id, // Connect to the user
       },
     })
 
-    // Get the app URL
-    const appUrl = getAppUrl()
-    console.log("App URL:", appUrl) // Debug log
+    // Get the app URL with a fallback to the Vercel deployment URL
+    const appUrl = getAppUrl() || "https://legal-website-five.vercel.app"
 
-    // Create the reset URL
-    const resetUrl = `${appUrl}/reset-password?token=${resetToken}`
-    console.log("Reset URL:", resetUrl) // Debug log
+    // Create reset password URL
+    const resetUrl = `${appUrl}/reset-password?token=${token}`
 
-    // Send the reset email
-    await sendEmail({
+    console.log("Sending reset password email to:", user.email)
+    console.log("Reset URL:", resetUrl)
+
+    // Send the email with detailed logging
+    const emailResult = await sendEmail({
       to: user.email,
       subject: "Reset Your Password",
-      text: `You have requested to reset your password. Please click this link to reset your password: ${resetUrl}`,
+      text: `You requested a password reset. Please click this link to reset your password: ${resetUrl}`,
       html: `
-        <div>
-          <h1>Reset Your Password</h1>
-          <p>You are receiving this email because an administrator has requested a password reset for your account.</p>
-          <p>Please click the button below to reset your password:</p>
-          <a href="${resetUrl}" style="display: inline-block; background-color: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #22c984;">Reset Your Password</h1>
+          <p>Hello ${user.name || "there"},</p>
+          <p>You (or someone else) requested to reset your password.</p>
+          <p>Click the button below to set a new password:</p>
+          <a href="${resetUrl}" style="display: inline-block; background-color: #22c984; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 20px 0;">
             Reset Password
           </a>
           <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-          <p>${resetUrl}</p>
+          <p style="word-break: break-all;">${resetUrl}</p>
           <p>This link will expire in 24 hours.</p>
-          <p>If you did not request this password reset, you can ignore this email.</p>
+          <p>If you didn't request this, you can safely ignore this email.</p>
         </div>
       `,
     })
 
-    return NextResponse.json({ success: true })
+    console.log("Email sending result:", emailResult)
+
+    if (!emailResult.success) {
+      console.error("Failed to send reset password email:", emailResult.error)
+      return NextResponse.json({ error: "Failed to send reset password email" }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, message: "Password reset email sent" })
   } catch (error) {
-    console.error("Error resetting password:", error)
-    return NextResponse.json({ error: "Failed to reset password" }, { status: 500 })
+    console.error("Error sending reset password email:", error)
+    return NextResponse.json({ error: "Failed to send reset password email" }, { status: 500 })
   }
 }
 

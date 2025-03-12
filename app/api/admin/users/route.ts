@@ -5,8 +5,7 @@ import { db } from "@/lib/db"
 import { Role } from "@prisma/client"
 import { hash } from "bcryptjs"
 import { getAppUrl } from "@/lib/get-app-url"
-// Fix the import for sendEmail - adjust this to match your actual email service
-import { sendEmail as sendEmail } from "@/lib/email"
+import { sendEmail } from "@/lib/email" // Use the correct import
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,14 +16,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Fix the searchParams null issue by creating a new URL
     const url = new URL(req.url)
     const page = Number.parseInt(url.searchParams.get("page") || "1")
     const limit = Number.parseInt(url.searchParams.get("limit") || "10")
 
-    // Update the GET function to include last active time in the user list
-
-    // Inside the GET function, update the user query to include sessions
+    // Get all users with their sessions for last active time
     const users = await db.user.findMany({
       skip: (page - 1) * limit,
       take: limit,
@@ -46,7 +42,7 @@ export async function GET(req: NextRequest) {
         },
         sessions: {
           orderBy: {
-            createdAt: "desc", // Use createdAt instead of expiresAt
+            createdAt: "desc",
           },
           take: 1,
         },
@@ -56,9 +52,10 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    // When formatting users, update the lastActive calculation
+    // Format users for the UI with correct last active time
     const formattedUsers = users.map((user) => {
-      // Use the session's createdAt time for last active
+      // For last active, use the most recent session's creation time
+      // If no session, fall back to the user's last update or creation time
       const lastActive =
         user.sessions && user.sessions.length > 0 ? user.sessions[0].createdAt : user.updatedAt || user.createdAt
 
@@ -85,7 +82,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Update the POST function to fix the sendEmail issue
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -97,6 +93,7 @@ export async function POST(req: NextRequest) {
 
     const data = await req.json()
     const { name, email, password, role, sendInvite, phone, company, notes } = data
+
     // Extract business data if provided
     const businessData = {
       name: company || null,
@@ -148,7 +145,8 @@ export async function POST(req: NextRequest) {
     if (sendInvite) {
       try {
         console.log("Sending welcome email to:", email)
-        const appUrl = getAppUrl()
+        // Get the app URL with a fallback to the Vercel deployment URL
+        const appUrl = getAppUrl() || "https://legal-website-five.vercel.app"
         console.log("App URL:", appUrl)
 
         // Generate a verification token
@@ -161,11 +159,12 @@ export async function POST(req: NextRequest) {
           },
         })
 
-        const verificationUrl = `${appUrl}/verify-email?token=${token.token}`
+        // Create verification URL that redirects to login after verification
+        const verificationUrl = `${appUrl}/verify-email?token=${token.token}&redirect=/login`
         console.log("Verification URL:", verificationUrl)
 
-        // Send the email - using the correct function name
-        await sendEmail({
+        // Send the email with detailed logging
+        const emailResult = await sendEmail({
           to: email,
           subject: "Welcome to Our Platform - Verify Your Email",
           text: `Welcome to our platform! Please verify your email by clicking this link: ${verificationUrl}`,
@@ -186,6 +185,24 @@ export async function POST(req: NextRequest) {
             </div>
           `,
         })
+
+        console.log("Email sending result:", emailResult)
+
+        if (!emailResult.success) {
+          console.error("Failed to send email:", emailResult.error)
+          return NextResponse.json(
+            {
+              user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+              },
+              warning: "User created but failed to send welcome email",
+            },
+            { status: 201 },
+          )
+        }
 
         console.log("Welcome email sent successfully")
       } catch (emailError) {
