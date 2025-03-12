@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     verificationTokens.set(token, { email, expires })
 
     // Ensure we have the app URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"
     if (!appUrl) {
       console.error("NEXT_PUBLIC_APP_URL environment variable is not set")
       return NextResponse.json(
@@ -103,31 +103,79 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Token is required" }, { status: 400 })
     }
 
-    // Check if token exists and is valid
+    // First, check if token is in the database
+    const dbToken = await db.verificationToken.findUnique({
+      where: { token },
+      include: { user: true },
+    })
+
+    if (dbToken) {
+      // Check if token is expired
+      if (dbToken.expires < new Date()) {
+        return NextResponse.redirect(
+          new URL("/login?error=expired", process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"),
+        )
+      }
+
+      // Update user's emailVerified status
+      if (dbToken.user) {
+        await db.user.update({
+          where: { id: dbToken.user.id },
+          data: { emailVerified: new Date() },
+        })
+
+        // Delete the used token
+        await db.verificationToken.delete({
+          where: { id: dbToken.id },
+        })
+
+        // Redirect to login with success message
+        return NextResponse.redirect(
+          new URL("/login?verified=true", process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"),
+        )
+      }
+    }
+
+    // If not in database, check the temporary map (for backward compatibility)
     const verification = verificationTokens.get(token)
     if (!verification) {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 400 })
+      return NextResponse.redirect(
+        new URL("/login?error=invalid", process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"),
+      )
     }
 
     // Check if token is expired
     if (verification.expires < new Date()) {
       verificationTokens.delete(token)
-      return NextResponse.json({ error: "Token has expired" }, { status: 400 })
+      return NextResponse.redirect(
+        new URL("/login?error=expired", process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"),
+      )
     }
 
-    // Token is valid, return the email
-    return NextResponse.json({
-      success: true,
-      email: verification.email,
+    // Find user by email
+    const user = await db.user.findUnique({
+      where: { email: verification.email },
     })
+
+    if (user) {
+      // Update user's emailVerified status
+      await db.user.update({
+        where: { id: user.id },
+        data: { emailVerified: new Date() },
+      })
+    }
+
+    // Remove the token
+    verificationTokens.delete(token)
+
+    // Redirect to login with success message
+    return NextResponse.redirect(
+      new URL("/login?verified=true", process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"),
+    )
   } catch (error: any) {
     console.error("Error verifying email:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to verify email",
-        message: error.message,
-      },
-      { status: 500 },
+    return NextResponse.redirect(
+      new URL("/login?error=server", process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"),
     )
   }
 }

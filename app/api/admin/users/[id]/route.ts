@@ -17,16 +17,15 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const userId = params.id
 
     // Modify the user query to include sessions with proper ordering
-    // Use the correct field names from your schema
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
         business: true,
         sessions: {
           orderBy: {
-            expiresAt: "desc", // Use expiresAt instead of expires
+            createdAt: "desc", // Order by creation time, not expiration time
           },
-          take: 5, // Get more sessions to ensure we have valid ones
+          take: 5,
         },
       },
     })
@@ -35,14 +34,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Update the lastActive calculation to handle the session data correctly
-    // Find the most recent valid session
-    const lastActiveSession = user.sessions?.find(
-      (session) => session.expiresAt && new Date(session.expiresAt) > new Date(),
-    )
-
-    // Calculate last active time from sessions or use updatedAt as fallback
-    const lastActive = lastActiveSession ? lastActiveSession.expiresAt : user?.updatedAt || user?.createdAt
+    // Use the most recent session's creation time as the last active time
+    const lastActive =
+      user.sessions && user.sessions.length > 0
+        ? user.sessions[0].createdAt // Use createdAt instead of expiresAt
+        : user?.updatedAt || user?.createdAt
 
     // Format user data
     const formattedUser = {
@@ -59,6 +55,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
+// Rest of the file remains the same
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)

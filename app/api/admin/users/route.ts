@@ -5,7 +5,8 @@ import { db } from "@/lib/db"
 import { Role } from "@prisma/client"
 import { hash } from "bcryptjs"
 import { getAppUrl } from "@/lib/get-app-url"
-import { sendEmail } from "@/lib/email"
+// Fix the import for sendEmail - adjust this to match your actual email service
+import { sendEmail as sendEmail } from "@/lib/email"
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,9 +17,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { searchParams } = new URL(req.url)
-    const page = Number.parseInt(searchParams.get("page") || "1")
-    const limit = Number.parseInt(searchParams.get("limit") || "10")
+    // Fix the searchParams null issue by creating a new URL
+    const url = new URL(req.url)
+    const page = Number.parseInt(url.searchParams.get("page") || "1")
+    const limit = Number.parseInt(url.searchParams.get("limit") || "10")
 
     // Update the GET function to include last active time in the user list
 
@@ -44,7 +46,7 @@ export async function GET(req: NextRequest) {
         },
         sessions: {
           orderBy: {
-            expiresAt: "desc", // Use expiresAt instead of expires
+            createdAt: "desc", // Use createdAt instead of expiresAt
           },
           take: 1,
         },
@@ -56,13 +58,9 @@ export async function GET(req: NextRequest) {
 
     // When formatting users, update the lastActive calculation
     const formattedUsers = users.map((user) => {
-      // Find the most recent valid session
-      const lastActiveSession = user.sessions?.find(
-        (session) => session.expiresAt && new Date(session.expiresAt) > new Date(),
-      )
-
-      // Calculate last active time from sessions or use updatedAt as fallback
-      const lastActive = lastActiveSession ? lastActiveSession.expiresAt : user.updatedAt || user.createdAt
+      // Use the session's createdAt time for last active
+      const lastActive =
+        user.sessions && user.sessions.length > 0 ? user.sessions[0].createdAt : user.updatedAt || user.createdAt
 
       return {
         id: user.id,
@@ -87,7 +85,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Update the POST function to ensure email notifications are sent
+// Update the POST function to fix the sendEmail issue
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -146,9 +144,6 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Store the notes if provided - but don't use userNote since it doesn't exist in your schema
-    // Instead, we'll handle notes in a different way or skip this part
-
     // Send welcome email if requested
     if (sendInvite) {
       try {
@@ -169,7 +164,7 @@ export async function POST(req: NextRequest) {
         const verificationUrl = `${appUrl}/verify-email?token=${token.token}`
         console.log("Verification URL:", verificationUrl)
 
-        // Send the email
+        // Send the email - using the correct function name
         await sendEmail({
           to: email,
           subject: "Welcome to Our Platform - Verify Your Email",
