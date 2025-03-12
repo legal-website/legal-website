@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, Role } from "@prisma/client"
 import { v4 as uuidv4 } from "uuid"
 import nodemailer from "nodemailer"
 import { scrypt, randomBytes } from "crypto"
@@ -73,7 +73,7 @@ export async function registerUser(
   email: string,
   password: string,
   name: string,
-  role = "CLIENT",
+  role = Role.CLIENT,
   businessId?: string,
 ) {
   const existingUser = await prisma.user.findUnique({
@@ -161,7 +161,7 @@ export async function loginUser(email: string, password: string) {
   return { user: userWithoutPassword, token: session.token }
 }
 
-// Logout user - Adding this missing export
+// Logout user
 export async function logoutUser(token: string): Promise<boolean> {
   try {
     await prisma.session.delete({
@@ -296,7 +296,7 @@ export async function getOrCreateUserFromOAuth(
         password: hashedPassword,
         emailVerified: new Date(), // Email is verified via OAuth
         image,
-        role: "CLIENT",
+        role: Role.CLIENT,
       },
     })
   }
@@ -323,7 +323,7 @@ export async function getOrCreateUserFromOAuth(
   return user
 }
 
-// Validate session - Adding this missing export
+// Validate session
 export async function validateSession(token: string) {
   try {
     const session = await prisma.session.findUnique({
@@ -344,7 +344,7 @@ export async function validateSession(token: string) {
   }
 }
 
-// Export the sendVerificationEmail function that was previously private
+// Send verification email
 export async function sendVerificationEmail(email: string, name: string, token: string) {
   const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`
 

@@ -18,13 +18,9 @@ export async function POST(req: NextRequest) {
 
     const { user, token } = result
 
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = user
-
-    // Set session cookie
-    ;(await
-      // Set session cookie
-      cookies()).set({
+    // Set session cookie - using the synchronous cookies() function
+    const cookieStore = cookies()
+    ;(await cookieStore).set({
       name: "session_token",
       value: token,
       httpOnly: true,
@@ -33,8 +29,17 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 1 week
     })
 
-    return NextResponse.json({ user: userWithoutPassword })
+    // Remove password from user object before returning
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    })
   } catch (error) {
+    console.error("Signin error:", error)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }

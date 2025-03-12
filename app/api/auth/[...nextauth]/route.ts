@@ -1,7 +1,8 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, Role } from "@prisma/client"
 import type { NextAuthOptions } from "next-auth"
+import { verifyPassword } from "@/lib/auth-service"
 
 const prisma = new PrismaClient()
 
@@ -24,17 +25,19 @@ export const authOptions: NextAuthOptions = {
             where: { email: credentials.email },
           })
 
-          if (!user) {
+          if (!user || !user.password) {
             return null
           }
 
-          // Check if password matches
-          if (user.password !== credentials.password) {
+          // Check if password matches using the verifyPassword function
+          const passwordMatch = await verifyPassword(user.password, credentials.password)
+          if (!passwordMatch) {
             return null
           }
 
-          // Check if user is an admin
-          if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+          // Check if user has admin privileges
+          // Using the correct Role enum values from the schema
+          if (user.role !== Role.ADMIN && user.role !== Role.SUPPORT) {
             return null
           }
 
