@@ -1,8 +1,10 @@
-import { PrismaClient, Role } from "@prisma/client"
+import { PrismaClient } from "@prisma/client"
 import { v4 as uuidv4 } from "uuid"
 import nodemailer from "nodemailer"
-import * as bcryptjs from "bcryptjs"
+import { scrypt, randomBytes } from "crypto"
+import { promisify } from "util"
 
+const scryptAsync = promisify(scrypt)
 const prisma = new PrismaClient()
 
 // Password strength validation
@@ -47,23 +49,19 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-// Hash password using bcryptjs
+// Hash password using scrypt (Node.js built-in)
 export async function hashPassword(password: string): Promise<string> {
-  return bcryptjs.hash(password, 10)
+  const salt = randomBytes(16).toString("hex")
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer
+  return `${buf.toString("hex")}.${salt}`
 }
 
 // Verify password
 export async function verifyPassword(hashedPassword: string, plainPassword: string): Promise<boolean> {
   try {
-    // Add debugging
-    console.log("Verifying password:")
-    console.log("Plain password length:", plainPassword.length)
-    console.log("Hashed password format:", hashedPassword.substring(0, 10) + "...")
-
-    // Use bcryptjs for consistent verification
-    const result = await bcryptjs.compare(plainPassword, hashedPassword)
-    console.log("Password verification result:", result)
-    return result
+    const [hashed, salt] = hashedPassword.split(".")
+    const buf = (await scryptAsync(plainPassword, salt, 64)) as Buffer
+    return buf.toString("hex") === hashed
   } catch (error) {
     console.error("Password verification error:", error)
     return false
@@ -75,7 +73,7 @@ export async function registerUser(
   email: string,
   password: string,
   name: string,
-  role = Role.CLIENT,
+  role = "CLIENT",
   businessId?: string,
 ) {
   const existingUser = await prisma.user.findUnique({
@@ -135,18 +133,11 @@ export async function loginUser(email: string, password: string) {
     return null
   }
 
-  // Check if email is verified, but allow login in development environment
-  if (!user.emailVerified && process.env.NODE_ENV === "production") {
+  if (!user.emailVerified) {
     throw new Error("Email not verified. Please check your email for verification link.")
   }
 
-  // For debugging
-  console.log("Attempting login for:", email)
-
   const isValid = await verifyPassword(user.password, password)
-
-  // For debugging
-  console.log("Password valid:", isValid)
 
   if (!isValid) {
     return null
@@ -170,7 +161,7 @@ export async function loginUser(email: string, password: string) {
   return { user: userWithoutPassword, token: session.token }
 }
 
-// Logout user
+// Logout user - Adding this missing export
 export async function logoutUser(token: string): Promise<boolean> {
   try {
     await prisma.session.delete({
@@ -305,7 +296,7 @@ export async function getOrCreateUserFromOAuth(
         password: hashedPassword,
         emailVerified: new Date(), // Email is verified via OAuth
         image,
-        role: Role.CLIENT,
+        role: "CLIENT",
       },
     })
   }
@@ -332,7 +323,7 @@ export async function getOrCreateUserFromOAuth(
   return user
 }
 
-// Validate session
+// Validate session - Adding this missing export
 export async function validateSession(token: string) {
   try {
     const session = await prisma.session.findUnique({
@@ -353,7 +344,7 @@ export async function validateSession(token: string) {
   }
 }
 
-// Send verification email
+// Export the sendVerificationEmail function that was previously private
 export async function sendVerificationEmail(email: string, name: string, token: string) {
   const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`
 
@@ -427,20 +418,5 @@ async function sendPasswordResetEmail(email: string, name: string, token: string
   }
 
   return transporter.sendMail(mailOptions)
-}
-
-// Helper function for randomBytes (used in OAuth)
-function randomBytes(size: number): { toString: (encoding: string) => string } {
-  return {
-    toString: (encoding: string) => {
-      let result = ""
-      const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-      const charactersLength = characters.length
-      for (let i = 0; i < size * 2; i++) {
-        result += characters.charAt(Math.floor(Math.random() * charactersLength))
-      }
-      return result
-    },
-  }
 }
 
