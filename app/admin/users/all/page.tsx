@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Search,
-  Filter,
   Download,
   Plus,
   CheckCircle2,
@@ -21,6 +20,11 @@ import {
   User,
   FileText,
   MoreHorizontal,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  FilterX,
+  Shield,
 } from "lucide-react"
 import {
   Dialog,
@@ -59,6 +63,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { format } from "date-fns"
 
 // Define types for our data
 interface UserDocument {
@@ -145,6 +150,19 @@ export default function AllUsersPage() {
     sendInvite: true,
     notes: "",
   })
+
+  // Sorting and filtering states
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "pending" | "approved" | "none">("none")
+  const [dateFilter, setDateFilter] = useState<{
+    startDate: string
+    endDate: string
+  }>({
+    startDate: "",
+    endDate: "",
+  })
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
 
   // Modify the fetchUsers function to try the test endpoint if the main one fails
 
@@ -296,24 +314,81 @@ export default function AllUsersPage() {
     }
   }, [sessionStatus, session])
 
-  // Filter users based on search query, tab, and role
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.company && user.company.toLowerCase().includes(searchQuery.toLowerCase()))
+  // Replace the filteredUsers function with this enhanced version that includes sorting and date filtering
+  // Replace the existing filteredUsers definition (around line 200)
+  const filteredUsers = users
+    .filter((user) => {
+      const matchesSearch =
+        user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (user.company && user.company.toLowerCase().includes(searchQuery.toLowerCase()))
 
-    const matchesTab =
-      (activeTab === "active" && user.status === "Active") ||
-      (activeTab === "pending" && (user.status === "Pending" || user.emailVerified === false)) ||
-      (activeTab === "inactive" && (user.status === "Inactive" || user.status === "Suspended")) ||
-      (activeTab === "validationEmailSent" && user.status === "Validation Email Sent") ||
-      activeTab === "all"
+      const matchesTab =
+        (activeTab === "active" && user.status === "Active") ||
+        (activeTab === "pending" && (user.status === "Pending" || user.emailVerified === false)) ||
+        (activeTab === "inactive" && (user.status === "Inactive" || user.status === "Suspended")) ||
+        (activeTab === "validationEmailSent" && user.status === "Validation Email Sent") ||
+        activeTab === "all"
 
-    const matchesRole = selectedRole === "All Roles" || user.role === selectedRole
+      const matchesRole = selectedRole === "All Roles" || user.role === selectedRole
 
-    return matchesSearch && matchesTab && matchesRole
-  })
+      // Add date filtering
+      let matchesDateFilter = true
+      if (dateFilter.startDate) {
+        const userJoinDate = new Date(user.joinDate)
+        const filterStartDate = new Date(dateFilter.startDate)
+        matchesDateFilter = userJoinDate >= filterStartDate
+      }
+
+      if (dateFilter.endDate && matchesDateFilter) {
+        const userJoinDate = new Date(user.joinDate)
+        const filterEndDate = new Date(dateFilter.endDate)
+        // Set end date to end of day
+        filterEndDate.setHours(23, 59, 59, 999)
+        matchesDateFilter = userJoinDate <= filterEndDate
+      }
+
+      return matchesSearch && matchesTab && matchesRole && matchesDateFilter
+    })
+    .sort((a, b) => {
+      // Apply sorting
+      if (sortOrder === "newest") {
+        return new Date(b.joinDate).getTime() - new Date(a.joinDate).getTime()
+      } else if (sortOrder === "oldest") {
+        return new Date(a.joinDate).getTime() - new Date(b.joinDate).getTime()
+      } else if (sortOrder === "pending") {
+        if (a.status === "Pending" && b.status !== "Pending") return -1
+        if (a.status !== "Pending" && b.status === "Pending") return 1
+        return 0
+      } else if (sortOrder === "approved") {
+        if (a.status === "Active" && b.status !== "Active") return -1
+        if (a.status !== "Active" && b.status === "Active") return 1
+        return 0
+      }
+      return 0
+    })
+
+  // Add pagination calculation
+  // Add this after the filteredUsers definition
+  const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
+
+  // Add pagination navigation functions
+  const goToPage = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
 
   // Update the fetchUserDetails function to fetch more user data
   const fetchUserDetails = async (userId: string) => {
@@ -881,13 +956,70 @@ export default function AllUsersPage() {
     }
   }
 
-  // If session is loading or user is not authenticated, show loading state
+  const handleSortChange = (value: string) => {
+    setSortOrder(value as "newest" | "oldest" | "pending" | "approved" | "none")
+    setCurrentPage(1) // Reset to first page when sorting changes
+    setSortOrder(value as "newest" | "oldest" | "pending" | "approved" | "none")
+    setCurrentPage(1) // Reset to first page when sorting changes
+  }
+
+  // Add this function to handle date filter changes
+  const handleDateFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+
+    // Validate date range
+    if (name === "startDate" && dateFilter.endDate && value) {
+      const startDate = new Date(value)
+      const endDate = new Date(dateFilter.endDate)
+
+      if (startDate > endDate) {
+        toast({
+          title: "Invalid Date Range",
+          description: "Start date cannot be after end date",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
+    if (name === "endDate" && dateFilter.startDate && value) {
+      const startDate = new Date(dateFilter.startDate)
+      const endDate = new Date(value)
+
+      if (startDate > endDate) {
+        toast({
+          title: "Invalid Date Range",
+          description: "End date cannot be before start date",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
+    setDateFilter((prev) => ({ ...prev, [name]: value }))
+    setCurrentPage(1) // Reset to first page when date filter changes
+  }
+
+  // Add this function to reset filters
+  const resetFilters = () => {
+    setSortOrder("none")
+    setDateFilter({ startDate: "", endDate: "" })
+    setCurrentPage(1)
+  }
+
+  // Replace the loading state with a more attractive loader (around line 620)
   if (sessionStatus === "loading" || !session) {
     return (
-      <div className="p-6 text-center">
-        <div className="flex flex-col items-center justify-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-gray-500">Loading...</p>
+      <div className="flex h-[80vh] w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative h-24 w-24">
+            <div className="absolute inset-0 h-full w-full animate-spin rounded-full border-4 border-t-4 border-[#22c984] border-t-transparent"></div>
+            <div className="absolute inset-2 h-[calc(100%-16px)] w-[calc(100%-16px)] animate-ping rounded-full bg-[#22c984]/20"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Shield className="h-10 w-10 text-[#22c984]" />
+            </div>
+          </div>
+          <p className="text-lg font-medium text-muted-foreground">Loading user data...</p>
         </div>
       </div>
     )
@@ -895,12 +1027,17 @@ export default function AllUsersPage() {
 
   if (loading) {
     return (
-      <Card className="p-8 text-center">
-        <div className="flex flex-col items-center justify-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-gray-500">Loading users...</p>
+      <div className="flex h-[50vh] w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative h-16 w-16">
+            <div className="absolute inset-0 h-full w-full animate-spin rounded-full border-4 border-t-4 border-[#22c984] border-t-transparent"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <User className="h-6 w-6 text-[#22c984]" />
+            </div>
+          </div>
+          <p className="text-base font-medium text-muted-foreground">Loading users...</p>
         </div>
-      </Card>
+      </div>
     )
   }
 
@@ -929,15 +1066,17 @@ export default function AllUsersPage() {
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
-          <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setShowAddUserDialog(true)}>
+          {/* Update the Add User button color (around line 660) */}
+          <Button className="bg-[#22c984] hover:bg-[#1ba36d]" onClick={() => setShowAddUserDialog(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add User
           </Button>
         </div>
       </div>
 
+      {/* Replace the filters and search section with this updated version (around line 670) */}
       {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -963,13 +1102,91 @@ export default function AllUsersPage() {
           </Select>
         </div>
 
-        <div className="flex space-x-2">
-          <Button variant="outline" className="flex-1">
-            <Filter className="mr-2 h-4 w-4" />
-            More Filters
-          </Button>
+        <div>
+          <Select value={sortOrder} onValueChange={handleSortChange}>
+            <SelectTrigger>
+              <div className="flex items-center">
+                <ArrowUpDown className="mr-2 h-4 w-4" />
+                <span>
+                  {sortOrder === "newest"
+                    ? "Newest First"
+                    : sortOrder === "oldest"
+                      ? "Oldest First"
+                      : sortOrder === "pending"
+                        ? "Pending First"
+                        : sortOrder === "approved"
+                          ? "Approved First"
+                          : "Sort Users"}
+                </span>
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No Sorting</SelectItem>
+              <SelectItem value="newest">Newest First</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+              <SelectItem value="pending">Pending First</SelectItem>
+              <SelectItem value="approved">Approved First</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Input
+              type="date"
+              name="startDate"
+              value={dateFilter.startDate}
+              onChange={handleDateFilterChange}
+              placeholder="Start Date"
+              className="w-full"
+            />
+          </div>
+          <div>
+            <Input
+              type="date"
+              name="endDate"
+              value={dateFilter.endDate}
+              onChange={handleDateFilterChange}
+              placeholder="End Date"
+              className="w-full"
+            />
+          </div>
         </div>
       </div>
+
+      {/* Active Filters */}
+      {(sortOrder !== "none" || dateFilter.startDate || dateFilter.endDate) && (
+        <div className="flex items-center mb-4 p-2 bg-muted rounded-md">
+          <div className="flex-1 flex flex-wrap gap-2">
+            <span className="text-sm font-medium">Active Filters:</span>
+            {sortOrder !== "none" && (
+              <Badge variant="outline" className="mr-2">
+                {sortOrder === "newest"
+                  ? "Newest First"
+                  : sortOrder === "oldest"
+                    ? "Oldest First"
+                    : sortOrder === "pending"
+                      ? "Pending First"
+                      : "Approved First"}
+              </Badge>
+            )}
+            {dateFilter.startDate && (
+              <Badge variant="outline" className="mr-2">
+                From: {format(new Date(dateFilter.startDate), "MMM dd, yyyy")}
+              </Badge>
+            )}
+            {dateFilter.endDate && (
+              <Badge variant="outline" className="mr-2">
+                To: {format(new Date(dateFilter.endDate), "MMM dd, yyyy")}
+              </Badge>
+            )}
+          </div>
+          <Button variant="ghost" size="sm" onClick={resetFilters}>
+            <FilterX className="h-4 w-4 mr-1" />
+            Reset Filters
+          </Button>
+        </div>
+      )}
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
@@ -981,9 +1198,12 @@ export default function AllUsersPage() {
           <TabsTrigger value="validationEmailSent">Validation Email Sent</TabsTrigger>
         </TabsList>
 
+        {/* Update the TabsContent to use paginatedUsers instead of filteredUsers (around line 720) */}
+        {/* For each TabsContent, replace users={filteredUsers} with users={paginatedUsers} */}
+        {/* For example: */}
         <TabsContent value="all">
           <UserTable
-            users={filteredUsers}
+            users={paginatedUsers}
             onViewUser={viewUserDetails}
             onEditUser={handleEditUser}
             onResetPassword={handleResetPassword}
@@ -994,11 +1214,59 @@ export default function AllUsersPage() {
             formatDate={formatDate}
             getStatusColor={getStatusColor}
           />
+          {/* Add Pagination */}
+          {filteredUsers.length > 0 && (
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-muted-foreground">
+                Showing{" "}
+                <span className="font-medium">
+                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
+                </span>{" "}
+                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
+                <span className="font-medium">{filteredUsers.length}</span> users
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only">Previous page</span>
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => goToPage(page)}
+                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                  >
+                    {page}
+                    <span className="sr-only">Page {page}</span>
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className="h-8 w-8"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                  <span className="sr-only">Next page</span>
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
+        {/* Do the same for the other TabsContent sections (active, pending, inactive, validationEmailSent) */}
         <TabsContent value="active">
           <UserTable
-            users={filteredUsers}
+            users={paginatedUsers}
             onViewUser={viewUserDetails}
             onEditUser={handleEditUser}
             onResetPassword={handleResetPassword}
@@ -1009,11 +1277,58 @@ export default function AllUsersPage() {
             formatDate={formatDate}
             getStatusColor={getStatusColor}
           />
+          {/* Add Pagination */}
+          {filteredUsers.length > 0 && (
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-muted-foreground">
+                Showing{" "}
+                <span className="font-medium">
+                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
+                </span>{" "}
+                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
+                <span className="font-medium">{filteredUsers.length}</span> users
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only">Previous page</span>
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => goToPage(page)}
+                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                  >
+                    {page}
+                    <span className="sr-only">Page {page}</span>
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className="h-8 w-8"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                  <span className="sr-only">Next page</span>
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="pending">
           <UserTable
-            users={filteredUsers}
+            users={paginatedUsers}
             onViewUser={viewUserDetails}
             onEditUser={handleEditUser}
             onResetPassword={handleResetPassword}
@@ -1024,11 +1339,58 @@ export default function AllUsersPage() {
             formatDate={formatDate}
             getStatusColor={getStatusColor}
           />
+          {/* Add Pagination */}
+          {filteredUsers.length > 0 && (
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-muted-foreground">
+                Showing{" "}
+                <span className="font-medium">
+                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
+                </span>{" "}
+                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
+                <span className="font-medium">{filteredUsers.length}</span> users
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only">Previous page</span>
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => goToPage(page)}
+                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                  >
+                    {page}
+                    <span className="sr-only">Page {page}</span>
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className="h-8 w-8"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                  <span className="sr-only">Next page</span>
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="inactive">
           <UserTable
-            users={filteredUsers}
+            users={paginatedUsers}
             onViewUser={viewUserDetails}
             onEditUser={handleEditUser}
             onResetPassword={handleResetPassword}
@@ -1039,11 +1401,58 @@ export default function AllUsersPage() {
             formatDate={formatDate}
             getStatusColor={getStatusColor}
           />
+          {/* Add Pagination */}
+          {filteredUsers.length > 0 && (
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-muted-foreground">
+                Showing{" "}
+                <span className="font-medium">
+                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
+                </span>{" "}
+                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
+                <span className="font-medium">{filteredUsers.length}</span> users
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only">Previous page</span>
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => goToPage(page)}
+                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                  >
+                    {page}
+                    <span className="sr-only">Page {page}</span>
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className="h-8 w-8"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                  <span className="sr-only">Next page</span>
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="validationEmailSent">
           <UserTable
-            users={filteredUsers}
+            users={paginatedUsers}
             onViewUser={viewUserDetails}
             onEditUser={handleEditUser}
             onResetPassword={handleResetPassword}
@@ -1054,6 +1463,53 @@ export default function AllUsersPage() {
             formatDate={formatDate}
             getStatusColor={getStatusColor}
           />
+          {/* Add Pagination */}
+          {filteredUsers.length > 0 && (
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-muted-foreground">
+                Showing{" "}
+                <span className="font-medium">
+                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
+                </span>{" "}
+                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
+                <span className="font-medium">{filteredUsers.length}</span> users
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only">Previous page</span>
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => goToPage(page)}
+                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                  >
+                    {page}
+                    <span className="sr-only">Page {page}</span>
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className="h-8 w-8"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                  <span className="sr-only">Next page</span>
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -1092,10 +1548,11 @@ export default function AllUsersPage() {
                       </div>
                       <h3 className="text-lg font-medium">{selectedUser.name}</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{selectedUser.email}</p>
+                      {/* Update the role badge colors (around line 850) */}
                       <span
                         className={`px-2 py-1 text-xs rounded-full ${
                           selectedUser.role === Role.ADMIN
-                            ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
+                            ? "bg-[#22c984]/20 text-[#22c984] dark:bg-[#22c984]/30 dark:text-[#22c984]"
                             : selectedUser.role === Role.SUPPORT
                               ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
                               : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
@@ -1455,7 +1912,8 @@ export default function AllUsersPage() {
             <Button variant="outline" onClick={() => setShowAddUserDialog(false)}>
               Cancel
             </Button>
-            <Button className="bg-purple-600 hover:bg-purple-700" onClick={createUser} disabled={processingAction}>
+            {/* Change the Create User button color (around line 1000) */}
+            <Button className="bg-[#22c984] hover:bg-[#1ba36d]" onClick={createUser} disabled={processingAction}>
               {processingAction ? "Creating..." : "Create User"}
             </Button>
           </DialogFooter>
@@ -1507,7 +1965,8 @@ export default function AllUsersPage() {
               <Button variant="outline" onClick={() => setShowEditUserDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveUser} disabled={processingAction}>
+              {/* Change the Save Changes button color (around line 1080) */}
+              <Button onClick={handleSaveUser} disabled={processingAction} className="bg-[#22c984] hover:bg-[#1ba36d]">
                 {processingAction ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
@@ -1567,7 +2026,12 @@ export default function AllUsersPage() {
               <Button variant="outline" onClick={() => setShowChangeRoleDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={confirmChangeRole} disabled={processingAction}>
+              {/* Change the Update Role button color (around line 1120) */}
+              <Button
+                onClick={confirmChangeRole}
+                disabled={processingAction}
+                className="bg-[#22c984] hover:bg-[#1ba36d]"
+              >
                 {processingAction ? "Updating..." : "Update Role"}
               </Button>
             </DialogFooter>
