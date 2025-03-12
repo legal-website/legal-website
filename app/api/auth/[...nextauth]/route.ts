@@ -1,82 +1,41 @@
-import NextAuth from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials"
-import { PrismaClient } from "@prisma/client"
-import type { NextAuthOptions } from "next-auth"
+import { type NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
+import bcrypt from "bcrypt"
+import { db } from "@/lib/db"
 
-const prisma = new PrismaClient()
+const schema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+})
 
-export const authOptions: NextAuthOptions = {
-  providers: [
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const { email, password } = schema.parse(body)
+
+    const existingUserByEmail = await db.user.findUnique({
+      where: { email: email },
+    })
+
+    if (existingUserByEmail) {
+      return NextResponse.json({ user: null, message: "User with this email already exists" }, { status: 409 })
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    const newUser = await db.user.create({
+      data: {
+        email,
+        password: hashedPassword,
       },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
+    })
 
-        try {
-          // Find user in database
-          const user = await prisma.user.findUnique({
-            where: { email: credentials.email },
-          })
+    const { password: newUserPassword, ...rest } = newUser
 
-          if (!user) {
-            return null
-          }
-
-          // Check if password matches
-          if (user.password !== credentials.password) {
-            return null
-          }
-
-          // Check if user is an admin
-          if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
-            return null
-          }
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name || "",
-            role: user.role,
-          }
-        } catch (error) {
-          console.error("Auth error:", error)
-          return null
-        }
-      },
-    }),
-  ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.role = user.role
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string
-        session.user.role = token.role as string
-      }
-      return session
-    },
-  },
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
-  session: {
-    strategy: "jwt",
-  },
+    return NextResponse.json({ user: rest, message: "User created successfully" }, { status: 201 })
+  } catch (error) {
+    console.error("Registration error:", error)
+    return NextResponse.json({ message: "Something went wrong!" }, { status: 500 })
+  }
 }
-
-const handler = NextAuth(authOptions)
-
-export { handler as GET, handler as POST }
 
