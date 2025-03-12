@@ -21,7 +21,8 @@ import { useRouter } from "next/navigation"
 import CartDropdown from "./cart-dropdown"
 import Image from "next/image"
 import { useCart } from "@/context/cart-context"
-import { signOut, useSession } from "next-auth/react"
+import { signIn, signOut, useSession } from "next-auth/react"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false)
@@ -38,6 +39,10 @@ export default function Navbar() {
   const { data: session, status } = useSession()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -130,30 +135,49 @@ export default function Navbar() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
-    const form = e.target as HTMLFormElement
-    const email = (form.elements.namedItem("email") as HTMLInputElement).value
-    const password = (form.elements.namedItem("password") as HTMLInputElement).value
+    setIsLoading(true)
 
     try {
-      const response = await fetch("/api/auth/signin", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
       })
 
-      if (response.ok) {
-        setSignInOpen(false)
-        // Refresh the session
-        window.location.reload()
+      if (result?.error) {
+        console.error("Login error:", result.error)
+
+        // Show appropriate error message
+        if (result.error === "CredentialsSignin") {
+          toast({
+            title: "Login failed",
+            description: "Invalid email or password. Please try again.",
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "Login failed",
+            description: result.error,
+            variant: "destructive",
+          })
+        }
       } else {
-        const data = await response.json()
-        alert(data.error || "Failed to sign in")
+        // Successful login
+        setSignInOpen(false)
+        toast({
+          title: "Success",
+          description: "You have successfully logged in.",
+        })
       }
-    } catch (error) {
-      console.error("Sign in error:", error)
-      alert("An error occurred during sign in")
+    } catch (err) {
+      console.error("Unexpected login error:", err)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -161,8 +185,17 @@ export default function Navbar() {
     try {
       await signOut({ redirect: false })
       router.push("/")
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      })
     } catch (error) {
       console.error("Sign out error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to log out. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -258,28 +291,28 @@ export default function Navbar() {
                     </div>
                     <Link
                       href="/dashboard"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 items-center"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                     >
                       <LayoutDashboard className="h-4 w-4 mr-2" />
                       Dashboard
                     </Link>
                     <Link
                       href="/profile"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 items-center"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                     >
                       <User className="h-4 w-4 mr-2" />
                       Profile
                     </Link>
                     <Link
                       href="/settings"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100  items-center"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                     >
                       <Settings className="h-4 w-4 mr-2" />
                       Settings
                     </Link>
                     <button
                       onClick={handleSignOut}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 items-center"
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                     >
                       <LogOut className="h-4 w-4 mr-2" />
                       Logout
@@ -378,6 +411,8 @@ export default function Navbar() {
                     type="email"
                     name="email"
                     placeholder="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="w-full p-4 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1eac73] hover:shadow-lg"
                     pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
                     required
@@ -387,6 +422,8 @@ export default function Navbar() {
                       type={showPassword ? "text" : "password"}
                       name="password"
                       placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1eac73] hover:shadow-lg"
                       required
                     />
@@ -421,9 +458,9 @@ export default function Navbar() {
                   <Button
                     type="submit"
                     className="w-full bg-black text-white py-4 rounded-lg hover:[#1eac73]"
-                    disabled={!privacyChecked}
+                    disabled={!privacyChecked || isLoading}
                   >
-                    Sign In
+                    {isLoading ? "Signing in..." : "Sign In"}
                   </Button>
                 </form>
                 <div className="text-center mt-4 text-sm">
