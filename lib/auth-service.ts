@@ -1,10 +1,9 @@
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, Role } from "@prisma/client"
 import { v4 as uuidv4 } from "uuid"
 import nodemailer from "nodemailer"
-import { scrypt, randomBytes } from "crypto"
-import { promisify } from "util"
+import { randomBytes as cryptoRandomBytes } from "crypto"
+import * as bcryptjs from "bcryptjs"
 
-const scryptAsync = promisify(scrypt)
 const prisma = new PrismaClient()
 
 // Password strength validation
@@ -49,19 +48,23 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-// Hash password using scrypt (Node.js built-in)
+// Hash password using bcryptjs
 export async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16).toString("hex")
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer
-  return `${buf.toString("hex")}.${salt}`
+  return bcryptjs.hash(password, 10)
 }
 
 // Verify password
 export async function verifyPassword(hashedPassword: string, plainPassword: string): Promise<boolean> {
   try {
-    const [hashed, salt] = hashedPassword.split(".")
-    const buf = (await scryptAsync(plainPassword, salt, 64)) as Buffer
-    return buf.toString("hex") === hashed
+    // Add debugging
+    console.log("Verifying password:")
+    console.log("Plain password length:", plainPassword.length)
+    console.log("Hashed password format:", hashedPassword.substring(0, 10) + "...")
+
+    // Use bcryptjs for consistent verification
+    const result = await bcryptjs.compare(plainPassword, hashedPassword)
+    console.log("Password verification result:", result)
+    return result
   } catch (error) {
     console.error("Password verification error:", error)
     return false
@@ -73,7 +76,7 @@ export async function registerUser(
   email: string,
   password: string,
   name: string,
-  role = "CLIENT",
+  role = Role.CLIENT,
   businessId?: string,
 ) {
   const existingUser = await prisma.user.findUnique({
@@ -133,11 +136,18 @@ export async function loginUser(email: string, password: string) {
     return null
   }
 
-  if (!user.emailVerified) {
+  // Check if email is verified, but allow login in development environment
+  if (!user.emailVerified && process.env.NODE_ENV === "production") {
     throw new Error("Email not verified. Please check your email for verification link.")
   }
 
+  // For debugging
+  console.log("Attempting login for:", email)
+
   const isValid = await verifyPassword(user.password, password)
+
+  // For debugging
+  console.log("Password valid:", isValid)
 
   if (!isValid) {
     return null
@@ -161,7 +171,7 @@ export async function loginUser(email: string, password: string) {
   return { user: userWithoutPassword, token: session.token }
 }
 
-// Logout user - Adding this missing export
+// Logout user
 export async function logoutUser(token: string): Promise<boolean> {
   try {
     await prisma.session.delete({
@@ -286,7 +296,7 @@ export async function getOrCreateUserFromOAuth(
 
   if (!user) {
     // Create a new user with a random password
-    const randomPassword = randomBytes(16).toString("hex")
+    const randomPassword = cryptoRandomBytes(16).toString("hex")
     const hashedPassword = await hashPassword(randomPassword)
 
     user = await prisma.user.create({
@@ -296,7 +306,7 @@ export async function getOrCreateUserFromOAuth(
         password: hashedPassword,
         emailVerified: new Date(), // Email is verified via OAuth
         image,
-        role: "CLIENT",
+        role: Role.CLIENT,
       },
     })
   }
@@ -323,7 +333,7 @@ export async function getOrCreateUserFromOAuth(
   return user
 }
 
-// Validate session - Adding this missing export
+// Validate session
 export async function validateSession(token: string) {
   try {
     const session = await prisma.session.findUnique({
@@ -344,7 +354,7 @@ export async function validateSession(token: string) {
   }
 }
 
-// Export the sendVerificationEmail function that was previously private
+// Send verification email
 export async function sendVerificationEmail(email: string, name: string, token: string) {
   const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`
 
