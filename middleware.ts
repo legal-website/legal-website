@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
+import { Role } from "@prisma/client"
 
 export async function middleware(request: NextRequest) {
   // Get the pathname
@@ -18,7 +19,7 @@ export async function middleware(request: NextRequest) {
   // If trying to access admin routes
   if (isAdminPath) {
     // Check if user is authenticated and is an admin
-    if (!token || (token.role !== "ADMIN" && token.role !== "SUPER_ADMIN")) {
+    if (!token || token.role !== Role.ADMIN) {
       const url = new URL("/login", request.url)
       url.searchParams.set("callbackUrl", encodeURI(request.url))
       return NextResponse.redirect(url)

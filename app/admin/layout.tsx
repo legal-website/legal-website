@@ -5,6 +5,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import AdminSidebar from "@/components/admin/sidebar"
 import AdminHeader from "@/components/admin/header"
 import { ThemeProvider } from "@/context/theme-context"
+import { Role } from "@prisma/client"
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   try {
@@ -18,7 +19,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
     // Check if user has admin role
     const userRole = session.user.role
-    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+    if (userRole !== Role.ADMIN) {
       redirect("/dashboard")
     }
 

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { Role } from "@prisma/client"
 
 export async function GET(req: NextRequest) {
   // Check required environment variables
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if ((session.user as any).role !== "ADMIN") {
+    if ((session.user as any).role !== Role.ADMIN) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -56,7 +58,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import Image from "next/image"
+import { Role } from "@prisma/client" // Add this import
 
 // Define types for our data
 interface UserDocument {
@@ -72,26 +77,29 @@ interface UserActivity {
 }
 
 interface UserData {
-  id: number
+  id: string
   name: string
   email: string
   company: string
-  role: string
+  role: Role
   status: "Active" | "Pending" | "Inactive" | "Suspended"
   joinDate: string
   lastActive: string
-  documents: UserDocument[]
-  activity: UserActivity[]
+  documents?: UserDocument[]
+  activity?: UserActivity[]
   profileImage?: string
   phone: string
   address: string
-  subscriptionPlan: string
-  subscriptionStatus: "Active" | "Expired" | "Trial"
+  subscriptionPlan?: string
+  subscriptionStatus?: "Active" | "Expired" | "Trial"
   notes?: string
+  createdAt?: string
 }
 
 export default function AllUsersPage() {
   const { toast } = useToast()
+  const router = useRouter()
+  const { data: session, status: sessionStatus } = useSession()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null)
   const [showUserDialog, setShowUserDialog] = useState(false)
@@ -104,20 +112,83 @@ export default function AllUsersPage() {
   const [selectedRole, setSelectedRole] = useState("All Roles")
   const [loading, setLoading] = useState(true)
   const [users, setUsers] = useState<UserData[]>([])
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    company: "",
+    address: "",
+    notes: "",
+  })
+  const [newRole, setNewRole] = useState<Role | "">("")
+  const [processingAction, setProcessingAction] = useState(false)
+
+  // Check if user is authenticated and is an admin
+  useEffect(() => {
+    if (sessionStatus === "loading") return
+
+    if (!session) {
+      router.push("/login?callbackUrl=/admin/users/all")
+      return
+    }
+
+    // Only ADMIN users can access this page
+    if ((session.user as any).role !== Role.ADMIN) {
+      router.push("/dashboard")
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to access this page.",
+        variant: "destructive",
+      })
+    }
+  }, [session, sessionStatus, router, toast])
 
   // Fetch users data
   useEffect(() => {
     const fetchUsers = async () => {
+      if (sessionStatus !== "authenticated") return
+
       try {
         setLoading(true)
-        // In a real app, this would be an API call
-        // const response = await fetch('/api/admin/users')
-        // const data = await response.json()
-        // setUsers(data.users)
 
-        // For now, we'll use sample data
-        setUsers(sampleUsers)
-        setLoading(false)
+        // Use your existing API endpoint to fetch users
+        const response = await fetch("/api/users")
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch users")
+        }
+
+        const data = await response.json()
+
+        // Format the user data for display
+        const formattedUsers = data.users.map((user: any) => ({
+          id: user.id,
+          name: user.name || "Unknown",
+          email: user.email,
+          company: user.company || "Not specified",
+          role: user.role || Role.CLIENT,
+          status: user.status || "Active",
+          joinDate: new Date(user.createdAt).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          }),
+          lastActive: user.lastActive
+            ? new Date(user.lastActive).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "Never",
+          phone: user.phone || "Not provided",
+          address: user.address || "Not provided",
+          profileImage: user.profileImage || null,
+          // Add other fields as needed
+        }))
+
+        setUsers(formattedUsers)
       } catch (error) {
         console.error("Error fetching users:", error)
         toast({
@@ -125,19 +196,20 @@ export default function AllUsersPage() {
           description: "Failed to load users. Please try again.",
           variant: "destructive",
         })
+      } finally {
         setLoading(false)
       }
     }
 
     fetchUsers()
-  }, [toast])
+  }, [sessionStatus, toast])
 
   // Filter users based on search query, tab, and role
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.company.toLowerCase().includes(searchQuery.toLowerCase())
+      (user.company && user.company.toLowerCase().includes(searchQuery.toLowerCase()))
 
     const matchesTab =
       (activeTab === "active" && user.status === "Active") ||
@@ -150,13 +222,82 @@ export default function AllUsersPage() {
     return matchesSearch && matchesTab && matchesRole
   })
 
-  const viewUserDetails = (user: UserData) => {
-    setSelectedUser(user)
+  // Fetch user details
+  const fetchUserDetails = async (userId: string) => {
+    try {
+      setLoading(true)
+
+      // Use your existing API endpoint to fetch user details
+      const response = await fetch(`/api/users/${userId}`)
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch user details")
+      }
+
+      const data = await response.json()
+
+      // Format the user data for display
+      const userDetails: UserData = {
+        id: data.user.id,
+        name: data.user.name || "Unknown",
+        email: data.user.email,
+        company: data.user.company || "Not specified",
+        role: data.user.role || Role.CLIENT,
+        status: data.user.status || "Active",
+        joinDate: new Date(data.user.createdAt).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        }),
+        lastActive: data.user.lastActive
+          ? new Date(data.user.lastActive).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "Never",
+        phone: data.user.phone || "Not provided",
+        address: data.user.address || "Not provided",
+        profileImage: data.user.profileImage || null,
+        notes: data.user.notes || "",
+        subscriptionPlan: data.user.subscription?.plan || "None",
+        subscriptionStatus: data.user.subscription?.status || "Inactive",
+        // Add placeholder data for documents and activity if not available
+        documents: data.user.documents || [],
+        activity: data.user.activities || [],
+      }
+
+      setSelectedUser(userDetails)
+      setFormData({
+        name: userDetails.name,
+        email: userDetails.email,
+        phone: userDetails.phone,
+        company: userDetails.company,
+        address: userDetails.address,
+        notes: userDetails.notes || "",
+      })
+      setNewRole(userDetails.role)
+    } catch (error) {
+      console.error("Error fetching user details:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load user details. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const viewUserDetails = async (user: UserData) => {
+    await fetchUserDetails(user.id)
     setShowUserDialog(true)
   }
 
-  const handleEditUser = (user: UserData) => {
-    setSelectedUser(user)
+  const handleEditUser = async (user: UserData) => {
+    await fetchUserDetails(user.id)
     setShowEditUserDialog(true)
   }
 
@@ -165,8 +306,8 @@ export default function AllUsersPage() {
     setShowResetPasswordDialog(true)
   }
 
-  const handleChangeRole = (user: UserData) => {
-    setSelectedUser(user)
+  const handleChangeRole = async (user: UserData) => {
+    await fetchUserDetails(user.id)
     setShowChangeRoleDialog(true)
   }
 
@@ -175,90 +316,215 @@ export default function AllUsersPage() {
     setShowDeleteDialog(true)
   }
 
-  const confirmDeleteUser = () => {
-    if (!selectedUser) return
-
-    // In a real app, this would be an API call
-    // await fetch(`/api/admin/users/${selectedUser.id}`, { method: 'DELETE' })
-
-    setUsers((prevUsers) => prevUsers.filter((user) => user.id !== selectedUser.id))
-    setShowDeleteDialog(false)
-
-    toast({
-      title: "User Deleted",
-      description: `${selectedUser.name} has been deleted successfully.`,
-    })
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const confirmResetPassword = () => {
+  const confirmDeleteUser = async () => {
     if (!selectedUser) return
 
-    // In a real app, this would be an API call
-    // await fetch(`/api/admin/users/${selectedUser.id}/reset-password`, { method: 'POST' })
+    setProcessingAction(true)
 
-    setShowResetPasswordDialog(false)
+    try {
+      // Use your existing API endpoint to delete a user
+      const response = await fetch(`/api/users/${selectedUser.id}`, {
+        method: "DELETE",
+      })
 
-    toast({
-      title: "Password Reset",
-      description: `Password reset email has been sent to ${selectedUser.email}.`,
-    })
+      if (!response.ok) {
+        throw new Error("Failed to delete user")
+      }
+
+      // Remove user from the list
+      setUsers((prevUsers) => prevUsers.filter((user) => user.id !== selectedUser.id))
+      setShowDeleteDialog(false)
+
+      toast({
+        title: "User Deleted",
+        description: `${selectedUser.name} has been deleted successfully.`,
+      })
+    } catch (error) {
+      console.error("Error deleting user:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete user. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingAction(false)
+    }
   }
 
-  const confirmChangeRole = (newRole: string) => {
+  const confirmResetPassword = async () => {
     if (!selectedUser) return
 
-    // In a real app, this would be an API call
-    // await fetch(`/api/admin/users/${selectedUser.id}/change-role`, {
-    //   method: 'PUT',
-    //   body: JSON.stringify({ role: newRole })
-    // })
+    setProcessingAction(true)
 
-    setUsers((prevUsers) => prevUsers.map((user) => (user.id === selectedUser.id ? { ...user, role: newRole } : user)))
+    try {
+      // Use your existing API endpoint to reset a user's password
+      const response = await fetch(`/api/users/${selectedUser.id}/reset-password`, {
+        method: "POST",
+      })
 
-    setShowChangeRoleDialog(false)
+      if (!response.ok) {
+        throw new Error("Failed to reset password")
+      }
 
-    toast({
-      title: "Role Updated",
-      description: `${selectedUser.name}'s role has been updated to ${newRole}.`,
-    })
+      setShowResetPasswordDialog(false)
+
+      toast({
+        title: "Password Reset",
+        description: `Password reset email has been sent to ${selectedUser.email}.`,
+      })
+    } catch (error) {
+      console.error("Error resetting password:", error)
+      toast({
+        title: "Error",
+        description: "Failed to reset password. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingAction(false)
+    }
   }
 
-  const toggleUserStatus = (user: UserData) => {
+  const confirmChangeRole = async () => {
+    if (!selectedUser || !newRole) return
+
+    setProcessingAction(true)
+
+    try {
+      // Use your existing API endpoint to change a user's role
+      const response = await fetch(`/api/users/${selectedUser.id}/role`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ role: newRole }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to change user role")
+      }
+
+      // Update user in the list
+      setUsers((prevUsers) =>
+        prevUsers.map((user) => (user.id === selectedUser.id ? { ...user, role: newRole as Role } : user)),
+      )
+
+      setShowChangeRoleDialog(false)
+
+      toast({
+        title: "Role Updated",
+        description: `${selectedUser.name}'s role has been updated to ${newRole}.`,
+      })
+    } catch (error) {
+      console.error("Error changing role:", error)
+      toast({
+        title: "Error",
+        description: "Failed to change user role. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
+  const toggleUserStatus = async (user: UserData) => {
     const newStatus = user.status === "Active" ? "Suspended" : "Active"
 
-    // In a real app, this would be an API call
-    // await fetch(`/api/admin/users/${user.id}/status`, {
-    //   method: 'PUT',
-    //   body: JSON.stringify({ status: newStatus })
-    // })
+    try {
+      // Use your existing API endpoint to update a user's status
+      const response = await fetch(`/api/users/${user.id}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: newStatus }),
+      })
 
-    setUsers((prevUsers) => prevUsers.map((u) => (u.id === user.id ? { ...u, status: newStatus as any } : u)))
+      if (!response.ok) {
+        throw new Error("Failed to update user status")
+      }
 
-    toast({
-      title: `User ${newStatus}`,
-      description: `${user.name} has been ${newStatus.toLowerCase()}.`,
-    })
+      // Update user in the list
+      setUsers((prevUsers) => prevUsers.map((u) => (u.id === user.id ? { ...u, status: newStatus as any } : u)))
+
+      toast({
+        title: `User ${newStatus}`,
+        description: `${user.name} has been ${newStatus.toLowerCase()}.`,
+      })
+    } catch (error) {
+      console.error("Error updating status:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update user status. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
-  const roles = ["All Roles", "Super Admin", "Admin", "Support Agent", "Client Admin", "Client User"]
+  const handleSaveUser = async () => {
+    if (!selectedUser) return
+
+    setProcessingAction(true)
+
+    try {
+      // Use your existing API endpoint to update a user
+      const response = await fetch(`/api/users/${selectedUser.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update user")
+      }
+
+      // Update user in the list
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.id === selectedUser.id
+            ? {
+                ...user,
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone,
+                company: formData.company,
+                address: formData.address,
+              }
+            : user,
+        ),
+      )
+
+      setShowEditUserDialog(false)
+
+      toast({
+        title: "User Updated",
+        description: `${selectedUser.name}'s information has been updated.`,
+      })
+    } catch (error) {
+      console.error("Error updating user:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update user. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
+  // Get available roles from your system
+  const roles = ["All Roles", Role.ADMIN, Role.SUPPORT, Role.CLIENT]
 
   // Function to export user data as CSV
   const exportUserData = () => {
     // Define the headers for the CSV file
-    const headers = [
-      "ID",
-      "Name",
-      "Email",
-      "Company",
-      "Role",
-      "Status",
-      "Join Date",
-      "Last Active",
-      "Phone",
-      "Address",
-      "Subscription Plan",
-      "Subscription Status",
-    ]
+    const headers = ["ID", "Name", "Email", "Company", "Role", "Status", "Join Date", "Last Active", "Phone", "Address"]
 
     // Convert user data to CSV format
     const userDataCSV = filteredUsers.map((user) => [
@@ -272,8 +538,6 @@ export default function AllUsersPage() {
       user.lastActive,
       user.phone,
       user.address,
-      user.subscriptionPlan,
-      user.subscriptionStatus,
     ])
 
     // Combine headers and data
@@ -293,6 +557,23 @@ export default function AllUsersPage() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  // If session is loading or user is not authenticated, show loading state
+  if (sessionStatus === "loading" || !session) {
+    return (
+      <div className="p-6 text-center">
+        <div className="flex flex-col items-center justify-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // If user is not an admin, don't render the page
+  if (session && (session.user as any).role !== Role.ADMIN) {
+    return null
   }
 
   return (
@@ -449,13 +730,11 @@ export default function AllUsersPage() {
                       <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{selectedUser.email}</p>
                       <span
                         className={`px-2 py-1 text-xs rounded-full ${
-                          selectedUser.role === "Super Admin"
+                          selectedUser.role === Role.ADMIN
                             ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
-                            : selectedUser.role === "Admin" || selectedUser.role === "Client Admin"
+                            : selectedUser.role === Role.SUPPORT
                               ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                              : selectedUser.role === "Support Agent"
-                                ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                                : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                              : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
                         }`}
                       >
                         {selectedUser.role}
@@ -464,11 +743,11 @@ export default function AllUsersPage() {
                       <div className="mt-6 w-full">
                         <div className="flex items-center text-sm mb-2">
                           <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                          {selectedUser.phone}
+                          {selectedUser.phone || "Not provided"}
                         </div>
                         <div className="flex items-start text-sm mb-2">
                           <Building className="h-4 w-4 mr-2 text-gray-400 mt-1" />
-                          <span>{selectedUser.address}</span>
+                          <span>{selectedUser.address || "Not provided"}</span>
                         </div>
                         <div className="flex items-center text-sm mb-2">
                           <Calendar className="h-4 w-4 mr-2 text-gray-400" />
@@ -486,7 +765,7 @@ export default function AllUsersPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Plan</p>
-                        <p className="font-medium">{selectedUser.subscriptionPlan}</p>
+                        <p className="font-medium">{selectedUser.subscriptionPlan || "None"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
@@ -506,16 +785,16 @@ export default function AllUsersPage() {
                           ) : (
                             <XCircle className="h-3 w-3 mr-1" />
                           )}
-                          {selectedUser.subscriptionStatus}
+                          {selectedUser.subscriptionStatus || "Inactive"}
                         </span>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Next Billing</p>
-                        <p className="font-medium">Apr 15, 2025</p>
+                        <p className="font-medium">Not available</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Amount</p>
-                        <p className="font-medium">$49.99/month</p>
+                        <p className="font-medium">Not available</p>
                       </div>
                     </div>
                   </Card>
@@ -529,14 +808,14 @@ export default function AllUsersPage() {
                           <Shield className="h-5 w-5 mr-2 text-gray-400" />
                           <span>Two-Factor Authentication</span>
                         </div>
-                        <span className="text-green-600 dark:text-green-400 font-medium">Enabled</span>
+                        <span className="text-red-600 dark:text-red-400 font-medium">Disabled</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
                           <User className="h-5 w-5 mr-2 text-gray-400" />
                           <span>Last Password Change</span>
                         </div>
-                        <span>Feb 15, 2025</span>
+                        <span>Not available</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
@@ -560,7 +839,7 @@ export default function AllUsersPage() {
                     <h3 className="font-medium">Documents</h3>
                   </div>
                   <div className="p-4">
-                    {selectedUser.documents.length > 0 ? (
+                    {selectedUser.documents && selectedUser.documents.length > 0 ? (
                       <div className="space-y-3">
                         {selectedUser.documents.map((doc, index) => (
                           <div key={index} className="flex items-center justify-between">
@@ -597,7 +876,7 @@ export default function AllUsersPage() {
                     <h3 className="font-medium">Recent Activity</h3>
                   </div>
                   <div className="p-4">
-                    {selectedUser.activity.length > 0 ? (
+                    {selectedUser.activity && selectedUser.activity.length > 0 ? (
                       <div className="space-y-3">
                         {selectedUser.activity.map((activity, index) => (
                           <div key={index} className="flex items-start">
@@ -740,35 +1019,34 @@ export default function AllUsersPage() {
             </DialogHeader>
 
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="editName">Full Name</Label>
-                  <Input id="editName" defaultValue={selectedUser.name} />
-                </div>
-                <div>
-                  <Label htmlFor="editEmail">Email Address</Label>
-                  <Input id="editEmail" type="email" defaultValue={selectedUser.email} />
-                </div>
+              <div>
+                <Label htmlFor="name">Full Name</Label>
+                <Input id="name" name="name" value={formData.name} onChange={handleInputChange} />
               </div>
 
               <div>
-                <Label htmlFor="editPhone">Phone Number</Label>
-                <Input id="editPhone" defaultValue={selectedUser.phone} />
+                <Label htmlFor="email">Email Address</Label>
+                <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} />
               </div>
 
               <div>
-                <Label htmlFor="editCompany">Company</Label>
-                <Input id="editCompany" defaultValue={selectedUser.company} />
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input id="phone" name="phone" value={formData.phone} onChange={handleInputChange} />
               </div>
 
               <div>
-                <Label htmlFor="editAddress">Address</Label>
-                <Input id="editAddress" defaultValue={selectedUser.address} />
+                <Label htmlFor="company">Company</Label>
+                <Input id="company" name="company" value={formData.company} onChange={handleInputChange} />
               </div>
 
               <div>
-                <Label htmlFor="editNotes">Notes</Label>
-                <Textarea id="editNotes" defaultValue={selectedUser.notes || ""} />
+                <Label htmlFor="address">Address</Label>
+                <Input id="address" name="address" value={formData.address} onChange={handleInputChange} />
+              </div>
+
+              <div>
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea id="notes" name="notes" value={formData.notes} onChange={handleInputChange} />
               </div>
             </div>
 
@@ -776,16 +1054,8 @@ export default function AllUsersPage() {
               <Button variant="outline" onClick={() => setShowEditUserDialog(false)}>
                 Cancel
               </Button>
-              <Button
-                onClick={() => {
-                  setShowEditUserDialog(false)
-                  toast({
-                    title: "User Updated",
-                    description: `${selectedUser.name}'s information has been updated.`,
-                  })
-                }}
-              >
-                Save Changes
+              <Button onClick={handleSaveUser} disabled={processingAction}>
+                {processingAction ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -804,8 +1074,10 @@ export default function AllUsersPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmResetPassword}>Reset Password</AlertDialogAction>
+              <AlertDialogCancel disabled={processingAction}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmResetPassword} disabled={processingAction}>
+                {processingAction ? "Processing..." : "Reset Password"}
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -823,7 +1095,7 @@ export default function AllUsersPage() {
               <Label htmlFor="newRole" className="mb-2 block">
                 Select New Role
               </Label>
-              <Select defaultValue={selectedUser.role} onValueChange={(value) => confirmChangeRole(value)}>
+              <Select value={newRole} onValueChange={setNewRole as any}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
@@ -842,6 +1114,9 @@ export default function AllUsersPage() {
               <Button variant="outline" onClick={() => setShowChangeRoleDialog(false)}>
                 Cancel
               </Button>
+              <Button onClick={confirmChangeRole} disabled={processingAction}>
+                {processingAction ? "Updating..." : "Update Role"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -858,9 +1133,13 @@ export default function AllUsersPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeleteUser} className="bg-red-600 hover:bg-red-700">
-                Delete
+              <AlertDialogCancel disabled={processingAction}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDeleteUser}
+                className="bg-red-600 hover:bg-red-700"
+                disabled={processingAction}
+              >
+                {processingAction ? "Deleting..." : "Delete"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -962,13 +1241,11 @@ function UserTable({
                 <td className="p-4">
                   <span
                     className={`px-2 py-1 text-xs rounded-full ${
-                      user.role === "Super Admin"
+                      user.role === Role.ADMIN
                         ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
-                        : user.role === "Admin" || user.role === "Client Admin"
+                        : user.role === Role.SUPPORT
                           ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                          : user.role === "Support Agent"
-                            ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                            : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                          : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
                     }`}
                   >
                     {user.role}
@@ -1057,173 +1334,4 @@ function UserTable({
     </Card>
   )
 }
-
-// Sample user data
-const sampleUsers: UserData[] = [
-  {
-    id: 1,
-    name: "Sarah Johnson",
-    email: "sarah@rapidventures.com",
-    company: "Rapid Ventures LLC",
-    role: "Client Admin",
-    status: "Active",
-    joinDate: "Jan 15, 2023",
-    lastActive: "Today at 10:23 AM",
-    phone: "(555) 123-4567",
-    address: "123 Business Ave, San Francisco, CA 94107",
-    subscriptionPlan: "Business Pro",
-    subscriptionStatus: "Active",
-    documents: [
-      { name: "Articles of Organization", status: "Verified", date: "Jan 15, 2023" },
-      { name: "Operating Agreement", status: "Verified", date: "Jan 15, 2023" },
-      { name: "EIN Confirmation", status: "Verified", date: "Jan 20, 2023" },
-    ],
-    activity: [
-      { action: "Login", date: "Today at 10:23 AM", details: "Logged in from San Francisco, CA" },
-      { action: "Document Upload", date: "Yesterday at 3:45 PM", details: "Uploaded Annual Report 2024" },
-      { action: "Profile Update", date: "Mar 5, 2025", details: "Updated company address" },
-    ],
-  },
-  {
-    id: 2,
-    name: "Michael Chen",
-    email: "michael@blueocean.com",
-    company: "Blue Ocean Inc",
-    role: "Client User",
-    status: "Active",
-    joinDate: "Feb 10, 2023",
-    lastActive: "Yesterday at 4:15 PM",
-    phone: "(555) 987-6543",
-    address: "456 Tech Blvd, Seattle, WA 98101",
-    subscriptionPlan: "Business Standard",
-    subscriptionStatus: "Active",
-    documents: [
-      { name: "Articles of Organization", status: "Verified", date: "Feb 10, 2023" },
-      { name: "Operating Agreement", status: "Verified", date: "Feb 10, 2023" },
-      { name: "Tax Filing Q1", status: "Pending", date: "Mar 5, 2025" },
-    ],
-    activity: [
-      { action: "Login", date: "Yesterday at 4:15 PM", details: "Logged in from Seattle, WA" },
-      { action: "Document Download", date: "Mar 6, 2025", details: "Downloaded Tax Filing Template" },
-      { action: "Support Request", date: "Mar 3, 2025", details: "Opened ticket #45678" },
-    ],
-  },
-  {
-    id: 3,
-    name: "Emily Rodriguez",
-    email: "emily@summitsolutions.com",
-    company: "Summit Solutions",
-    role: "Client Admin",
-    status: "Active",
-    joinDate: "Mar 5, 2023",
-    lastActive: "Mar 7, 2025 at 9:30 AM",
-    phone: "(555) 456-7890",
-    address: "789 Summit Ave, Denver, CO 80202",
-    subscriptionPlan: "Business Pro",
-    subscriptionStatus: "Active",
-    documents: [
-      { name: "Articles of Organization", status: "Verified", date: "Mar 5, 2023" },
-      { name: "Operating Agreement", status: "Verified", date: "Mar 5, 2023" },
-      { name: "Business License", status: "Verified", date: "Mar 10, 2023" },
-    ],
-    activity: [
-      { action: "Login", date: "Mar 7, 2025 at 9:30 AM", details: "Logged in from Denver, CO" },
-      { action: "Payment", date: "Mar 1, 2025", details: "Processed subscription renewal" },
-      { action: "User Invite", date: "Feb 25, 2025", details: "Invited team member john@summitsolutions.com" },
-    ],
-  },
-  {
-    id: 4,
-    name: "David Kim",
-    email: "david@horizongroup.com",
-    company: "Horizon Group",
-    role: "Client User",
-    status: "Inactive",
-    joinDate: "Apr 20, 2023",
-    lastActive: "Feb 15, 2025 at 2:45 PM",
-    phone: "(555) 789-0123",
-    address: "101 Horizon St, Austin, TX 78701",
-    subscriptionPlan: "Business Standard",
-    subscriptionStatus: "Expired",
-    documents: [
-      { name: "Articles of Organization", status: "Verified", date: "Apr 20, 2023" },
-      { name: "Operating Agreement", status: "Verified", date: "Apr 20, 2023" },
-    ],
-    activity: [
-      { action: "Login", date: "Feb 15, 2025 at 2:45 PM", details: "Logged in from Austin, TX" },
-      { action: "Subscription", date: "Feb 15, 2025", details: "Subscription expired" },
-      { action: "Document Access", date: "Feb 10, 2025", details: "Accessed Operating Agreement" },
-    ],
-  },
-  {
-    id: 5,
-    name: "Alex Thompson",
-    email: "alex@nexustech.com",
-    company: "Nexus Technologies",
-    role: "Client Admin",
-    status: "Pending",
-    joinDate: "Mar 7, 2025",
-    lastActive: "Mar 7, 2025 at 11:20 AM",
-    phone: "(555) 234-5678",
-    address: "222 Tech Park, Boston, MA 02110",
-    subscriptionPlan: "Business Pro",
-    subscriptionStatus: "Trial",
-    documents: [
-      { name: "ID Verification", status: "Verified", date: "Mar 7, 2025" },
-      { name: "Business License", status: "Pending", date: "Mar 7, 2025" },
-      { name: "Tax ID", status: "Verified", date: "Mar 7, 2025" },
-    ],
-    activity: [
-      { action: "Account Creation", date: "Mar 7, 2025 at 11:00 AM", details: "Account created" },
-      { action: "Document Upload", date: "Mar 7, 2025 at 11:15 AM", details: "Uploaded verification documents" },
-      { action: "Login", date: "Mar 7, 2025 at 11:20 AM", details: "First login from Boston, MA" },
-    ],
-  },
-  {
-    id: 6,
-    name: "Maria Garcia",
-    email: "maria@stellarinnovations.com",
-    company: "Stellar Innovations",
-    role: "Super Admin",
-    status: "Active",
-    joinDate: "Jan 5, 2023",
-    lastActive: "Today at 9:45 AM",
-    phone: "(555) 345-6789",
-    address: "333 Innovation Way, Chicago, IL 60601",
-    subscriptionPlan: "Enterprise",
-    subscriptionStatus: "Active",
-    documents: [
-      { name: "ID Verification", status: "Verified", date: "Jan 5, 2023" },
-      { name: "Employment Contract", status: "Verified", date: "Jan 5, 2023" },
-    ],
-    activity: [
-      { action: "Login", date: "Today at 9:45 AM", details: "Logged in from Chicago, IL" },
-      { action: "User Management", date: "Today at 10:15 AM", details: "Approved new user account" },
-      { action: "System Settings", date: "Yesterday at 2:30 PM", details: "Updated system configuration" },
-    ],
-  },
-  {
-    id: 7,
-    name: "James Wilson",
-    email: "james@pinnaclegroup.com",
-    company: "Pinnacle Group",
-    role: "Support Agent",
-    status: "Active",
-    joinDate: "Feb 15, 2023",
-    lastActive: "Today at 11:30 AM",
-    phone: "(555) 456-7890",
-    address: "444 Support Ave, Miami, FL 33101",
-    subscriptionPlan: "Internal",
-    subscriptionStatus: "Active",
-    documents: [
-      { name: "ID Verification", status: "Verified", date: "Feb 15, 2023" },
-      { name: "Employment Contract", status: "Verified", date: "Feb 15, 2023" },
-    ],
-    activity: [
-      { action: "Login", date: "Today at 11:30 AM", details: "Logged in from Miami, FL" },
-      { action: "Ticket Response", date: "Today at 11:45 AM", details: "Responded to ticket #45678" },
-      { action: "Document Review", date: "Yesterday at 3:15 PM", details: "Reviewed client documents" },
-    ],
-  },
-]
 
