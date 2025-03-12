@@ -6,8 +6,8 @@ import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, CheckCircle2, XCircle, Eye } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Search, Filter, Eye, Copy } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -49,6 +49,7 @@ export default function PendingUsersPage() {
   const [showUserDialog, setShowUserDialog] = useState(false)
   const [loading, setLoading] = useState(true)
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
+  const [activeTab, setActiveTab] = useState("all")
   const [businessFormData, setBusinessFormData] = useState({
     name: "",
     businessId: "",
@@ -77,19 +78,20 @@ export default function PendingUsersPage() {
   const fetchPendingUsers = async () => {
     try {
       setLoading(true)
-      const response = await fetch("/api/admin/users?status=Pending")
+      // Fetch all users regardless of status to populate all tabs
+      const response = await fetch("/api/admin/users")
 
       if (!response.ok) {
-        throw new Error("Failed to fetch pending users")
+        throw new Error("Failed to fetch users")
       }
 
       const data = await response.json()
       setPendingUsers(data.users)
     } catch (error) {
-      console.error("Error fetching pending users:", error)
+      console.error("Error fetching users:", error)
       toast({
         title: "Error",
-        description: "Failed to load pending users. Please try again.",
+        description: "Failed to load users. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -158,6 +160,9 @@ export default function PendingUsersPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
+    // Don't allow businessId to be changed
+    if (name === "businessId") return
+
     setBusinessFormData((prev) => ({ ...prev, [name]: value }))
   }
 
@@ -228,75 +233,42 @@ export default function PendingUsersPage() {
     }
   }
 
-  const approveUser = async (user: PendingUser) => {
-    try {
-      const response = await fetch(`/api/admin/users/${user.id}/status`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: "Active" }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to approve user")
-      }
-
-      toast({
-        title: "User Approved",
-        description: `${user.name} has been approved successfully.`,
-      })
-
-      // Remove user from the list
-      setPendingUsers((prev) => prev.filter((u) => u.id !== user.id))
-    } catch (error) {
-      console.error("Error approving user:", error)
-      toast({
-        title: "Error",
-        description: "Failed to approve user. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const rejectUser = async (user: PendingUser) => {
-    try {
-      const response = await fetch(`/api/admin/users/${user.id}/status`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: "Rejected" }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to reject user")
-      }
-
-      toast({
-        title: "User Rejected",
-        description: `${user.name} has been rejected.`,
-      })
-
-      // Remove user from the list
-      setPendingUsers((prev) => prev.filter((u) => u.id !== user.id))
-    } catch (error) {
-      console.error("Error rejecting user:", error)
-      toast({
-        title: "Error",
-        description: "Failed to reject user. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
+  // Filter users based on search query and tab
   const filteredUsers = pendingUsers.filter((user) => {
-    return (
+    // First filter by search query
+    const matchesSearch =
       user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.business?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+
+    // Then filter by tab (service status)
+    const matchesTab =
+      activeTab === "all" ||
+      (activeTab === "pending" && user.business?.serviceStatus === "Pending") ||
+      (activeTab === "approved" && user.business?.serviceStatus === "Approved")
+
+    return matchesSearch && matchesTab
   })
+
+  // Copy to clipboard function
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(
+      () => {
+        toast({
+          title: "Copied!",
+          description: `${label} copied to clipboard`,
+        })
+      },
+      (err) => {
+        console.error("Could not copy text: ", err)
+        toast({
+          title: "Error",
+          description: "Failed to copy to clipboard",
+          variant: "destructive",
+        })
+      },
+    )
+  }
 
   if (sessionStatus === "loading" || !session) {
     return (
@@ -319,6 +291,10 @@ export default function PendingUsersPage() {
       </Card>
     )
   }
+
+  // Count users by service status
+  const pendingCount = pendingUsers.filter((user) => user.business?.serviceStatus === "Pending").length
+  const approvedCount = pendingUsers.filter((user) => user.business?.serviceStatus === "Approved").length
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto mb-40">
@@ -348,60 +324,25 @@ export default function PendingUsersPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="all" className="mb-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList>
           <TabsTrigger value="all">All Users ({pendingUsers.length})</TabsTrigger>
-          <TabsTrigger value="pending">Pending LLC</TabsTrigger>
-          <TabsTrigger value="approved">Approved LLC</TabsTrigger>
+          <TabsTrigger value="pending">Pending LLC ({pendingCount})</TabsTrigger>
+          <TabsTrigger value="approved">Approved LLC ({approvedCount})</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="all">
+          <UserList users={filteredUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+        </TabsContent>
+
+        <TabsContent value="pending">
+          <UserList users={filteredUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+        </TabsContent>
+
+        <TabsContent value="approved">
+          <UserList users={filteredUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+        </TabsContent>
       </Tabs>
-
-      {/* User Cards */}
-      <div className="space-y-4">
-        {filteredUsers.length > 0 ? (
-          filteredUsers.map((user) => (
-            <Card key={user.id} className="p-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between">
-                <div className="mb-4 md:mb-0">
-                  <div className="flex items-center mb-1">
-                    <p className="font-medium">{user.name}</p>
-                  </div>
-                  <p className="text-sm text-gray-500">{user.email}</p>
-                  <div className="flex items-center mt-1">
-                    <span className="text-xs text-gray-500">Business: {user.business?.name || "Not set"}</span>
-                    <span className="mx-2 text-gray-300">•</span>
-                    <span className="text-xs text-gray-500">Status: {user.business?.serviceStatus || "Pending"}</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => viewUserDetails(user)}>
-                    <Eye className="h-4 w-4 mr-2" />
-                    Manage LLC
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
-                    onClick={() => rejectUser(user)}
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Reject
-                  </Button>
-                  <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => approveUser(user)}>
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Approve
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))
-        ) : (
-          <Card className="p-8 text-center">
-            <p>No users found</p>
-          </Card>
-        )}
-      </div>
 
       {/* LLC Details Dialog */}
       {selectedUser && (
@@ -440,14 +381,24 @@ export default function PendingUsersPage() {
                     </div>
 
                     <div>
-                      <Label htmlFor="businessId">Business ID</Label>
-                      <Input
-                        id="businessId"
-                        name="businessId"
-                        value={businessFormData.businessId}
-                        onChange={handleInputChange}
-                        className="mt-1"
-                      />
+                      <Label htmlFor="businessId">Business ID (Auto-generated)</Label>
+                      <div className="flex items-center mt-1">
+                        <Input
+                          id="businessId"
+                          name="businessId"
+                          value={businessFormData.businessId}
+                          readOnly
+                          className="bg-gray-50"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="ml-2"
+                          onClick={() => copyToClipboard(businessFormData.businessId, "Business ID")}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
 
                     <div>
@@ -539,20 +490,74 @@ export default function PendingUsersPage() {
               <Button onClick={saveBusinessData} disabled={processingAction}>
                 {processingAction ? "Saving..." : "Save Business Info"}
               </Button>
-              <Button
-                className="bg-green-600 hover:bg-green-700"
-                onClick={() => {
-                  saveBusinessData()
-                  approveUser(selectedUser)
-                }}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Save & Approve
-              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
+    </div>
+  )
+}
+
+// Separate component for the user list
+function UserList({
+  users,
+  onViewDetails,
+  copyToClipboard,
+}: {
+  users: PendingUser[]
+  onViewDetails: (user: PendingUser) => void
+  copyToClipboard: (text: string, label: string) => void
+}) {
+  if (users.length === 0) {
+    return (
+      <Card className="p-8 text-center">
+        <p>No users found</p>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {users.map((user) => (
+        <Card key={user.id} className="p-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between">
+            <div className="mb-4 md:mb-0">
+              <div className="flex items-center mb-1">
+                <p className="font-medium">{user.name}</p>
+              </div>
+              <p className="text-sm text-gray-500">{user.email}</p>
+              <div className="flex items-center mt-1">
+                <span className="text-xs text-gray-500">Business: {user.business?.name || "Not set"}</span>
+                <span className="mx-2 text-gray-300">•</span>
+                <span className="text-xs text-gray-500">Status: {user.business?.serviceStatus || "Pending"}</span>
+                {user.business?.businessId && (
+                  <>
+                    <span className="mx-2 text-gray-300">•</span>
+                    <span className="text-xs text-gray-500">
+                      ID: {user.business.businessId}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 ml-1"
+                        onClick={() => copyToClipboard(user.business?.businessId || "", "Business ID")}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
+              <Button variant="outline" size="sm" onClick={() => onViewDetails(user)}>
+                <Eye className="h-4 w-4 mr-2" />
+                Manage LLC
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ))}
     </div>
   )
 }

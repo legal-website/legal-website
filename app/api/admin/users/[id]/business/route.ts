@@ -34,17 +34,19 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         where: { id: user.businessId },
         data: {
           name,
-          businessId,
+          // Don't update businessId if it already exists
+          ...(user.business?.businessId ? {} : { businessId }),
           ein,
           formationDate: formationDate ? new Date(formationDate) : undefined,
-          // Store custom fields in metadata or similar field if needed
-          // For now, we'll just update the standard fields
+          // Store serviceStatus in an existing field like 'status' or 'notes'
+          // For now, we'll use the 'industry' field to store JSON with our custom data
+          industry: JSON.stringify({
+            serviceStatus,
+            llcStatusMessage,
+            llcProgress,
+          }),
         },
       })
-
-      // Store the LLC status and progress in a custom way
-      // This could be in a separate table or as metadata
-      // For now, we'll just return them with the response
     } else {
       // If user doesn't have a business, create one
       business = await db.business.create({
@@ -53,6 +55,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
           businessId,
           ein,
           formationDate: formationDate ? new Date(formationDate) : undefined,
+          industry: JSON.stringify({
+            serviceStatus,
+            llcStatusMessage,
+            llcProgress,
+          }),
           users: {
             connect: { id: userId },
           },
@@ -68,13 +75,28 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       })
     }
 
+    // Parse custom data from industry field
+    let customData = {
+      serviceStatus: "Pending",
+      llcStatusMessage: "LLC formation initiated",
+      llcProgress: 10,
+    }
+
+    try {
+      if (business.industry) {
+        customData = JSON.parse(business.industry)
+      }
+    } catch (e) {
+      console.error("Error parsing custom data:", e)
+    }
+
     // Return the business with the custom fields
     return NextResponse.json({
       business: {
         ...business,
-        serviceStatus,
-        llcStatusMessage,
-        llcProgress,
+        serviceStatus: customData.serviceStatus,
+        llcStatusMessage: customData.llcStatusMessage,
+        llcProgress: customData.llcProgress,
       },
     })
   } catch (error) {
@@ -106,15 +128,30 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
+    // Parse custom data from industry field
+    let customData = {
+      serviceStatus: "Pending",
+      llcStatusMessage: "LLC formation initiated",
+      llcProgress: 10,
+    }
+
+    if (user.business?.industry) {
+      try {
+        const parsedData = JSON.parse(user.business.industry)
+        customData = { ...customData, ...parsedData }
+      } catch (e) {
+        console.error("Error parsing custom data:", e)
+      }
+    }
+
     // Return the business with custom fields
-    // In a real app, you would fetch these from wherever they're stored
     return NextResponse.json({
       business: user.business
         ? {
             ...user.business,
-            serviceStatus: "Pending", // Default value
-            llcStatusMessage: "LLC formation initiated", // Default value
-            llcProgress: 10, // Default value
+            serviceStatus: customData.serviceStatus,
+            llcStatusMessage: customData.llcStatusMessage,
+            llcProgress: customData.llcProgress,
           }
         : null,
     })
