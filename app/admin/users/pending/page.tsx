@@ -354,23 +354,29 @@ export default function PendingUsersPage() {
 
       // Filter by date range if set
       let matchesDateRange = true
-      if (dateFilter.startDate && user.business?.formationDate) {
+      if (dateFilter.startDate && dateFilter.endDate && user.business?.formationDate) {
         const formationDate = new Date(user.business.formationDate)
         const startDate = new Date(dateFilter.startDate)
+        const endDate = new Date(dateFilter.endDate)
 
-        if (formationDate < startDate) {
-          matchesDateRange = false
+        // Ensure end date is set to end of day for inclusive comparison
+        endDate.setHours(23, 59, 59, 999)
+
+        // Only apply filter if date range is valid (start <= end)
+        if (startDate <= endDate) {
+          matchesDateRange = formationDate >= startDate && formationDate <= endDate
         }
-      }
-
-      if (dateFilter.endDate && user.business?.formationDate) {
+      } else if (dateFilter.startDate && user.business?.formationDate) {
+        // Only start date is set
+        const formationDate = new Date(user.business.formationDate)
+        const startDate = new Date(dateFilter.startDate)
+        matchesDateRange = formationDate >= startDate
+      } else if (dateFilter.endDate && user.business?.formationDate) {
+        // Only end date is set
         const formationDate = new Date(user.business.formationDate)
         const endDate = new Date(dateFilter.endDate)
-        endDate.setHours(23, 59, 59, 999) // Set to end of day
-
-        if (formationDate > endDate) {
-          matchesDateRange = false
-        }
+        endDate.setHours(23, 59, 59, 999)
+        matchesDateRange = formationDate <= endDate
       }
 
       return matchesSearch && matchesTab && matchesDateRange
@@ -479,7 +485,19 @@ export default function PendingUsersPage() {
                 type="date"
                 placeholder="Start Date"
                 value={dateFilter.startDate}
-                onChange={(e) => setDateFilter((prev) => ({ ...prev, startDate: e.target.value }))}
+                onChange={(e) => {
+                  const newStartDate = e.target.value
+                  // Validate that start date is before end date if both exist
+                  if (newStartDate && dateFilter.endDate && new Date(newStartDate) > new Date(dateFilter.endDate)) {
+                    toast({
+                      title: "Invalid Date Range",
+                      description: "The start date must be before or equal to the end date.",
+                      variant: "destructive",
+                    })
+                    return // Don't update with invalid range
+                  }
+                  setDateFilter((prev) => ({ ...prev, startDate: newStartDate }))
+                }}
                 className="w-full"
               />
             </div>
@@ -488,7 +506,19 @@ export default function PendingUsersPage() {
                 type="date"
                 placeholder="End Date"
                 value={dateFilter.endDate}
-                onChange={(e) => setDateFilter((prev) => ({ ...prev, endDate: e.target.value }))}
+                onChange={(e) => {
+                  const newEndDate = e.target.value
+                  // Validate that end date is after start date if both exist
+                  if (dateFilter.startDate && newEndDate && new Date(dateFilter.startDate) > new Date(newEndDate)) {
+                    toast({
+                      title: "Invalid Date Range",
+                      description: "The end date must be after or equal to the start date.",
+                      variant: "destructive",
+                    })
+                    return // Don't update with invalid range
+                  }
+                  setDateFilter((prev) => ({ ...prev, endDate: newEndDate }))
+                }}
                 className="w-full"
               />
             </div>
