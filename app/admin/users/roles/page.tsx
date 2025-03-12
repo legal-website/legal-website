@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Plus, Edit, Trash2, Shield, Users, FileText, Settings, Bell, CreditCard, Info } from 'lucide-react'
+import { Search, Shield, User, Calendar, Mail, Building, Loader2, CheckCircle2, XCircle, Clock } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -14,426 +15,420 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useToast } from "@/components/ui/use-toast"
+import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
+import { Role } from "@prisma/client"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
-// Define types for our data
-interface Permission {
+// Define the UserData interface
+interface UserData {
   id: string
   name: string
-  description: string
-  category: string
-}
-
-interface Role {
-  id: number
-  name: string
-  description: string
-  usersCount: number
-  isSystem: boolean
-  permissions: string[]
-  createdAt: string
-  updatedAt: string
+  email: string
+  company: string
+  role: Role
+  status: "Active" | "Pending" | "Inactive" | "Suspended" | "Validation Email Sent"
+  joinDate: string
+  lastActive: string
+  profileImage?: string
+  isOnline?: boolean
 }
 
 export default function UserRolesPage() {
+  const { toast } = useToast()
+  const router = useRouter()
+  const { data: session, status: sessionStatus } = useSession()
   const [searchQuery, setSearchQuery] = useState("")
-  const [showAddRoleDialog, setShowAddRoleDialog] = useState(false)
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null)
-  const [showEditRoleDialog, setShowEditRoleDialog] = useState(false)
-  
-  // Sample permissions data
-  const permissions: Permission[] = [
-    // User Management
-    { id: "user_view", name: "View Users", description: "Can view user details", category: "User Management" },
-    { id: "user_create", name: "Create Users", description: "Can create new users", category: "User Management" },
-    { id: "user_edit", name: "Edit Users", description: "Can edit user details", category: "User Management" },
-    { id: "user_delete", name: "Delete Users", description: "Can delete users", category: "User Management" },
-    { id: "user_approve", name: "Approve Users", description: "Can approve new user registrations", category: "User Management" },
-    
-    // Document Management
-    { id: "doc_view", name: "View Documents", description: "Can view documents", category: "Document Management" },
-    { id: "doc_create", name: "Create Documents", description: "Can create new documents", category: "Document Management" },
-    { id: "doc_edit", name: "Edit Documents", description: "Can edit documents", category: "Document Management" },
-    { id: "doc_delete", name: "Delete Documents", description: "Can delete documents", category: "Document Management" },
-    { id: "doc_approve", name: "Approve Documents", description: "Can approve document submissions", category: "Document Management" },
-    
-    // Template Management
-    { id: "template_view", name: "View Templates", description: "Can view document templates", category: "Template Management" },
-    { id: "template_create", name: "Create Templates", description: "Can create new templates", category: "Template Management" },
-    { id: "template_edit", name: "Edit Templates", description: "Can edit templates", category: "Template Management" },
-    { id: "template_delete", name: "Delete Templates", description: "Can delete templates", category: "Template Management" },
-    
-    // Promotion Management
-    { id: "promo_view", name: "View Promotions", description: "Can view promotions", category: "Promotion Management" },
-    { id: "promo_create", name: "Create Promotions", description: "Can create new promotions", category: "Promotion Management" },
-    { id: "promo_edit", name: "Edit Promotions", description: "Can edit promotions", category: "Promotion Management" },
-    { id: "promo_delete", name: "Delete Promotions", description: "Can delete promotions", category: "Promotion Management" },
-    
-    // Billing Management
-    { id: "billing_view", name: "View Billing", description: "Can view billing information", category: "Billing Management" },
-    { id: "billing_process", name: "Process Payments", description: "Can process payments", category: "Billing Management" },
-    { id: "billing_refund", name: "Issue Refunds", description: "Can issue refunds", category: "Billing Management" },
-    
-    // System Settings
-    { id: "settings_view", name: "View Settings", description: "Can view system settings", category: "System Settings" },
-    { id: "settings_edit", name: "Edit Settings", description: "Can edit system settings", category: "System Settings" },
-  ]
-  
-  // Sample roles data
-  const roles: Role[] = [
-    {
-      id: 1,
-      name: "Super Admin",
-      description: "Full access to all system features and settings",
-      usersCount: 3,
-      isSystem: true,
-      permissions: permissions.map(p => p.id),
-      createdAt: "Jan 1, 2023",
-      updatedAt: "Mar 1, 2025",
-    },
-    {
-      id: 2,
-      name: "Admin",
-      description: "Administrative access with some restrictions",
-      usersCount: 8,
-      isSystem: true,
-      permissions: [
-        "user_view", "user_create", "user_edit", "user_approve",
-        "doc_view", "doc_create", "doc_edit", "doc_approve",
-        "template_view", "template_create", "template_edit",
-        "promo_view", "promo_create", "promo_edit",
-        "billing_view", "settings_view"
-      ],
-      createdAt: "Jan 1, 2023",
-      updatedAt: "Feb 15, 2025",
-    },
-    {
-      id: 3,
-      name: "Support Agent",
-      description: "Customer support with limited administrative access",
-      usersCount: 12,
-      isSystem: true,
-      permissions: [
-        "user_view", "doc_view", "doc_approve", "template_view", "promo_view", "billing_view"
-      ],
-      createdAt: "Jan 1, 2023",
-      updatedAt: "Jan 30, 2025",
-    },
-    {
-      id: 4,
-      name: "Client Admin",
-      description: "Administrative access for client companies",
-      usersCount: 156,
-      isSystem: true,
-      permissions: [
-        "user_view", "user_create", "user_edit",
-        "doc_view", "doc_create", "doc_edit",
-        "template_view", "billing_view"
-      ],
-      createdAt: "Jan 1, 2023",
-      updatedAt: "Jan 15, 2025",
-    },
-    {
-      id: 5,
-      name: "Client User",
-      description: "Basic access for client company employees",
-      usersCount: 1243,
-      isSystem: true,
-      permissions: [
-        "user_view", "doc_view", "doc_create", "template_view"
-      ],
-      createdAt: "Jan 1, 2023",
-      updatedAt: "Jan 10, 2025",
-    },
-    {
-      id: 6,
-      name: "Compliance Officer",
-      description: "Specialized role for compliance monitoring",
-      usersCount: 5,
-      isSystem: false,
-      permissions: [
-        "user_view", "doc_view", "doc_approve", "template_view"
-      ],
-      createdAt: "Feb 10, 2025",
-      updatedAt: "Feb 10, 2025",
-    },
-    {
-      id: 7,
-      name: "Finance Manager",
-      description: "Access to financial and billing features",
-      usersCount: 7,
-      isSystem: false,
-      permissions: [
-        "user_view", "billing_view", "billing_process", "billing_refund"
-      ],
-      createdAt: "Feb 15, 2025",
-      updatedAt: "Feb 15, 2025",
-    },
-  ]
-  
-  // Filter roles based on search query
-  const filteredRoles = roles.filter((role) => {
-    return role.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           role.description.toLowerCase().includes(searchQuery.toLowerCase())
-  })
-  
-  // Group permissions by category
-  const permissionsByCategory = permissions.reduce((acc, permission) => {
-    if (!acc[permission.category]) {
-      acc[permission.category] = []
+  const [selectedUser, setSelectedUser] = useState<UserData | null>(null)
+  const [showChangeRoleDialog, setShowChangeRoleDialog] = useState(false)
+  const [activeTab, setActiveTab] = useState("all")
+  const [loading, setLoading] = useState(true)
+  const [users, setUsers] = useState<UserData[]>([])
+  const [newRole, setNewRole] = useState<Role | "">("")
+  const [processingAction, setProcessingAction] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch users from the API
+  const fetchUsers = async () => {
+    if (sessionStatus !== "authenticated") return
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      const response = await fetch("/api/admin/users", {
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        let errorMessage = "Failed to fetch users"
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (parseError) {
+          errorMessage = "Server returned an error"
+        }
+
+        throw new Error(errorMessage)
+      }
+
+      let data
+      try {
+        data = await response.json()
+      } catch (parseError) {
+        throw new Error("Invalid JSON response from server")
+      }
+
+      if (!data.users || !Array.isArray(data.users)) {
+        throw new Error("Invalid response format from server")
+      }
+
+      // Format the user data for display
+      const formattedUsers = data.users.map((user: any) => ({
+        id: user.id,
+        name: user.name || "Unknown",
+        email: user.email,
+        company: user.company || "Not specified",
+        role: user.role || Role.CLIENT,
+        status: user.status || "Active",
+        joinDate:
+          user.joinDate ||
+          (user.createdAt
+            ? new Date(user.createdAt).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })
+            : "Unknown"),
+        lastActive: user.lastActive
+          ? new Date(user.lastActive).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })
+          : "Never",
+        profileImage: user.profileImage || user.image || null,
+        isOnline: user.isOnline || false,
+      }))
+
+      setUsers(formattedUsers)
+    } catch (error) {
+      console.error("Error fetching users:", error)
+      setError((error as Error).message || "Failed to load users. Please try again.")
+      toast({
+        title: "Error",
+        description: "Failed to load users. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
-    acc[permission.category].push(permission)
-    return acc
-  }, {} as Record<string, Permission[]>)
-  
-  const editRole = (role: Role) => {
-    setSelectedRole(role)
-    setShowEditRoleDialog(true)
   }
-  
+
+  // Check if user is authenticated and is an admin
+  useEffect(() => {
+    if (sessionStatus === "loading") return
+
+    if (!session) {
+      router.push("/login?callbackUrl=/admin/users/roles")
+      return
+    }
+
+    // Only ADMIN users can access this page
+    if ((session.user as any).role !== Role.ADMIN) {
+      router.push("/dashboard")
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to access this page.",
+        variant: "destructive",
+      })
+    }
+  }, [session, sessionStatus, router, toast])
+
+  // Fetch users when session is authenticated
+  useEffect(() => {
+    if (sessionStatus === "authenticated" && (session?.user as any)?.role === Role.ADMIN) {
+      fetchUsers()
+    }
+  }, [sessionStatus, session])
+
+  // Filter users based on search query and tab
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.company && user.company.toLowerCase().includes(searchQuery.toLowerCase()))
+
+    const matchesTab =
+      (activeTab === "admin" && user.role === Role.ADMIN) ||
+      (activeTab === "support" && user.role === Role.SUPPORT) ||
+      (activeTab === "client" && user.role === Role.CLIENT) ||
+      activeTab === "all"
+
+    return matchesSearch && matchesTab
+  })
+
+  const handleChangeRole = (user: UserData) => {
+    setSelectedUser(user)
+    setNewRole(user.role)
+    setShowChangeRoleDialog(true)
+  }
+
+  const confirmChangeRole = async () => {
+    if (!selectedUser || !newRole) return
+
+    setProcessingAction(true)
+
+    try {
+      // Use the API endpoint to change a user's role
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/role`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ role: newRole }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to change user role")
+      }
+
+      // Update user in the list
+      setUsers((prevUsers) =>
+        prevUsers.map((user) => (user.id === selectedUser.id ? { ...user, role: newRole as Role } : user)),
+      )
+
+      setShowChangeRoleDialog(false)
+
+      toast({
+        title: "Role Updated",
+        description: `${selectedUser.name}'s role has been updated to ${newRole}.`,
+      })
+    } catch (error) {
+      console.error("Error changing role:", error)
+      toast({
+        title: "Error",
+        description: "Failed to change user role. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
+  const getRoleBadgeColor = (role: Role) => {
+    switch (role) {
+      case Role.ADMIN:
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
+      case Role.SUPPORT:
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+      case Role.CLIENT:
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+    }
+  }
+
+  const getStatusIcon = (status: string): React.ReactNode => {
+    switch (status) {
+      case "Active":
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />
+      case "Pending":
+        return <Clock className="h-4 w-4 text-yellow-500" />
+      case "Inactive":
+      case "Suspended":
+        return <XCircle className="h-4 w-4 text-red-500" />
+      default:
+        return <Clock className="h-4 w-4 text-gray-500" />
+    }
+  }
+
+  // Loading state
+  if (sessionStatus === "loading" || !session) {
+    return (
+      <div className="flex h-[80vh] w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-16 w-16 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <p className="text-lg font-medium text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // If user is not an admin, don't render the page
+  if (session && (session.user as any).role !== Role.ADMIN) {
+    return null
+  }
+
   return (
     <div className="p-6 max-w-[1600px] mx-auto mb-40">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">User Roles</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Manage roles and permissions in the system
-          </p>
-        </div>
-        <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <Button 
-            className="bg-purple-600 hover:bg-purple-700"
-            onClick={() => setShowAddRoleDialog(true)}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Role
-          </Button>
+          <h1 className="text-2xl font-bold">User Role Management</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage user roles and permissions in the system</p>
         </div>
       </div>
-      
+
       {/* Search */}
       <div className="relative max-w-md mb-6">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
         <Input
-          placeholder="Search roles..."
+          placeholder="Search users..."
           className="pl-10"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
-      
-      {/* Roles Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-        {filteredRoles.map((role) => (
-          <RoleCard 
-            key={role.id} 
-            role={role} 
-            onEdit={() => editRole(role)} 
-          />
-        ))}
-      </div>
-      
-      {/* Create Role Dialog */}
-      <Dialog open={showAddRoleDialog} onOpenChange={setShowAddRoleDialog}>
-        <DialogContent className="sm:max-w-[700px]">
-          <DialogHeader>
-            <DialogTitle>Create New Role</DialogTitle>
-            <DialogDescription>
-              Define a new role with specific permissions
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="role-name" className="text-right">
-                Role Name
-              </Label>
-              <Input id="role-name" placeholder="e.g. Marketing Manager" className="col-span-3" />
-            </div>
-            
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="role-description" className="text-right">
-                Description
-              </Label>
-              <Input 
-                id="role-description" 
-                placeholder="Brief description of this role" 
-                className="col-span-3" 
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 gap-4 mt-4">
-              <Label>Permissions</Label>
-              
-              {Object.entries(permissionsByCategory).map(([category, categoryPermissions]) => (
-                <Card key={category} className="p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center">
-                      {category === "User Management" ? (
-                        <Users className="h-5 w-5 mr-2 text-blue-500" />
-                      ) : category === "Document Management" ? (
-                        <FileText className="h-5 w-5 mr-2 text-green-500" />
-                      ) : category === "Template Management" ? (
-                        <FileText className="h-5 w-5 mr-2 text-amber-500" />
-                      ) : category === "Promotion Management" ? (
-                        <Bell className="h-5 w-5 mr-2 text-purple-500" />
-                      ) : category === "Billing Management" ? (
-                        <CreditCard className="h-5 w-5 mr-2 text-red-500" />
-                      ) : (
-                        <Settings className="h-5 w-5 mr-2 text-gray-500" />
-                      )}
-                      <h3 className="font-medium">{category}</h3>
-                    </div>
-                    <div className="flex items-center">
-                      <Label htmlFor={`select-all-${category}`} className="mr-2 text-sm">Select All</Label>
-                      <Switch id={`select-all-${category}`} />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {categoryPermissions.map((permission) => (
-                      <div key={permission.id} className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <Label htmlFor={permission.id} className="flex-1 cursor-pointer">
-                            <span>{permission.name}</span>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Info className="h-4 w-4 ml-1 text-gray-400 inline-block" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{permission.description}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </Label>
-                        </div>
-                        <Switch id={permission.id} />
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddRoleDialog(false)}>
-              Cancel
-            </Button>
-            <Button className="bg-purple-600 hover:bg-purple-700">
-              Create Role
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Edit Role Dialog */}
-      {selectedRole && (
-        <Dialog open={showEditRoleDialog} onOpenChange={setShowEditRoleDialog}>
-          <DialogContent className="sm:max-w-[700px]">
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList>
+          <TabsTrigger value="all">All Roles</TabsTrigger>
+          <TabsTrigger value="admin">Admin</TabsTrigger>
+          <TabsTrigger value="support">Support</TabsTrigger>
+          <TabsTrigger value="client">Client</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all">
+          {loading ? (
+            <LoadingState />
+          ) : filteredUsers.length === 0 ? (
+            <EmptyState query={searchQuery} />
+          ) : (
+            <UserRolesGrid
+              users={filteredUsers}
+              onChangeRole={handleChangeRole}
+              getRoleBadgeColor={getRoleBadgeColor}
+              getStatusIcon={getStatusIcon}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="admin">
+          {loading ? (
+            <LoadingState />
+          ) : filteredUsers.length === 0 ? (
+            <EmptyState query={searchQuery} />
+          ) : (
+            <UserRolesGrid
+              users={filteredUsers}
+              onChangeRole={handleChangeRole}
+              getRoleBadgeColor={getRoleBadgeColor}
+              getStatusIcon={getStatusIcon}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="support">
+          {loading ? (
+            <LoadingState />
+          ) : filteredUsers.length === 0 ? (
+            <EmptyState query={searchQuery} />
+          ) : (
+            <UserRolesGrid
+              users={filteredUsers}
+              onChangeRole={handleChangeRole}
+              getRoleBadgeColor={getRoleBadgeColor}
+              getStatusIcon={getStatusIcon}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="client">
+          {loading ? (
+            <LoadingState />
+          ) : filteredUsers.length === 0 ? (
+            <EmptyState query={searchQuery} />
+          ) : (
+            <UserRolesGrid
+              users={filteredUsers}
+              onChangeRole={handleChangeRole}
+              getRoleBadgeColor={getRoleBadgeColor}
+              getStatusIcon={getStatusIcon}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Change Role Dialog */}
+      {selectedUser && (
+        <Dialog open={showChangeRoleDialog} onOpenChange={setShowChangeRoleDialog}>
+          <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Edit Role: {selectedRole.name}</DialogTitle>
-              <DialogDescription>
-                Modify role details and permissions
-              </DialogDescription>
+              <DialogTitle>Change User Role</DialogTitle>
+              <DialogDescription>Update the role for {selectedUser.name}</DialogDescription>
             </DialogHeader>
-            
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-role-name" className="text-right">
-                  Role Name
-                </Label>
-                <Input 
-                  id="edit-role-name" 
-                  defaultValue={selectedRole.name} 
-                  className="col-span-3"
-                  disabled={selectedRole.isSystem}
-                />
-                {selectedRole.isSystem && (
-                  <p className="col-span-3 col-start-2 text-xs text-amber-500">
-                    System roles cannot be renamed
-                  </p>
-                )}
+            <div className="py-4">
+              <div className="flex items-center gap-4 mb-6">
+                <Avatar className="h-16 w-16">
+                  {selectedUser.profileImage ? (
+                    <AvatarImage src={selectedUser.profileImage} alt={selectedUser.name} />
+                  ) : (
+                    <AvatarFallback className="text-lg">
+                      {selectedUser.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                <div>
+                  <h3 className="font-medium">{selectedUser.name}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
+                </div>
               </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-role-description" className="text-right">
-                  Description
-                </Label>
-                <Input 
-                  id="edit-role-description" 
-                  defaultValue={selectedRole.description} 
-                  className="col-span-3" 
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 gap-4 mt-4">
-                <Label>Permissions</Label>
-                
-                {Object.entries(permissionsByCategory).map(([category, categoryPermissions]) => (
-                  <Card key={category} className="p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center">
-                        {category === "User Management" ? (
-                          <Users className="h-5 w-5 mr-2 text-blue-500" />
-                        ) : category === "Document Management" ? (
-                          <FileText className="h-5 w-5 mr-2 text-green-500" />
-                        ) : category === "Template Management" ? (
-                          <FileText className="h-5 w-5 mr-2 text-amber-500" />
-                        ) : category === "Promotion Management" ? (
-                          <Bell className="h-5 w-5 mr-2 text-purple-500" />
-                        ) : category === "Billing Management" ? (
-                          <CreditCard className="h-5 w-5 mr-2 text-red-500" />
-                        ) : (
-                          <Settings className="h-5 w-5 mr-2 text-gray-500" />
-                        )}
-                        <h3 className="font-medium">{category}</h3>
-                      </div>
-                      <div className="flex items-center">
-                        <Label htmlFor={`edit-select-all-${category}`} className="mr-2 text-sm">Select All</Label>
-                        <Switch id={`edit-select-all-${category}`} />
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {categoryPermissions.map((permission) => (
-                        <div key={permission.id} className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <Label htmlFor={`edit-${permission.id}`} className="flex-1 cursor-pointer">
-                              <span>{permission.name}</span>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Info className="h-4 w-4 ml-1 text-gray-400 inline-block" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>{permission.description}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </Label>
-                          </div>
-                          <Switch 
-                            id={`edit-${permission.id}`} 
-                            defaultChecked={selectedRole.permissions.includes(permission.id)}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                ))}
+
+              <Label htmlFor="newRole" className="mb-2 block">
+                Select New Role
+              </Label>
+              <Select value={newRole} onValueChange={setNewRole as any}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={Role.ADMIN}>Admin</SelectItem>
+                  <SelectItem value={Role.SUPPORT}>Support</SelectItem>
+                  <SelectItem value={Role.CLIENT}>Client</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="mt-4">
+                <h4 className="text-sm font-medium mb-2">Role Description</h4>
+                <p className="text-sm text-muted-foreground">
+                  {newRole === Role.ADMIN
+                    ? "Administrators have full access to all features and settings in the system."
+                    : newRole === Role.SUPPORT
+                      ? "Support agents can help users with issues but have limited administrative access."
+                      : "Clients have basic access to the platform features."}
+                </p>
               </div>
             </div>
-            
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowEditRoleDialog(false)}>
+              <Button variant="outline" onClick={() => setShowChangeRoleDialog(false)}>
                 Cancel
               </Button>
-              <Button className="bg-purple-600 hover:bg-purple-700">
-                Save Changes
+              <Button
+                onClick={confirmChangeRole}
+                disabled={processingAction || newRole === selectedUser.role}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {processingAction ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Role"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -443,96 +438,132 @@ export default function UserRolesPage() {
   )
 }
 
-interface RoleCardProps {
-  role: Role
-  onEdit: () => void
-}
-
-function RoleCard({ role, onEdit }: RoleCardProps) {
-  // Calculate the percentage of total permissions
-  const totalPermissions = 24 // Total number of permissions in the system
-  const permissionPercentage = Math.round((role.permissions.length / totalPermissions) * 100)
-  
+// Loading State Component
+function LoadingState() {
   return (
-    <Card className="overflow-hidden">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
-              role.name === "Super Admin" 
-                ? "bg-purple-100 dark:bg-purple-900/30" 
-                : role.name === "Admin" || role.name === "Client Admin"
-                ? "bg-blue-100 dark:bg-blue-900/30"
-                : role.name === "Support Agent"
-                ? "bg-amber-100 dark:bg-amber-900/30"
-                : "bg-gray-100 dark:bg-gray-800"
-            }`}>
-              <Shield className={`h-5 w-5 ${
-                role.name === "Super Admin" 
-                  ? "text-purple-600 dark:text-purple-400" 
-                  : role.name === "Admin" || role.name === "Client Admin"
-                  ? "text-blue-600 dark:text-blue-400"
-                  : role.name === "Support Agent"
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-gray-600 dark:text-gray-400"
-              }`} />
-            </div>
-            <div>
-              <h3 className="font-medium">{role.name}</h3>
-              <div className="flex items-center">
-                <Users className="h-3 w-3 text-gray-400 mr-1" />
-                <span className="text-xs text-gray-500">{role.usersCount} users</span>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {[...Array(6)].map((_, i) => (
+        <Card key={i} className="overflow-hidden">
+          <div className="p-6">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-800 animate-pulse"></div>
+              <div className="space-y-2">
+                <div className="h-4 w-32 bg-gray-200 dark:bg-gray-800 rounded animate-pulse"></div>
+                <div className="h-3 w-24 bg-gray-200 dark:bg-gray-800 rounded animate-pulse"></div>
               </div>
             </div>
+            <div className="space-y-3">
+              <div className="h-3 w-full bg-gray-200 dark:bg-gray-800 rounded animate-pulse"></div>
+              <div className="h-3 w-3/4 bg-gray-200 dark:bg-gray-800 rounded animate-pulse"></div>
+              <div className="h-3 w-1/2 bg-gray-200 dark:bg-gray-800 rounded animate-pulse"></div>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <div className="h-8 w-24 bg-gray-200 dark:bg-gray-800 rounded animate-pulse"></div>
+            </div>
           </div>
-          {role.isSystem && (
-            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-              System
-            </span>
-          )}
-        </div>
-        
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{role.description}</p>
-        
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-gray-500">Permissions</span>
-            <span className="text-xs font-medium">{role.permissions.length}/{totalPermissions}</span>
-          </div>
-          <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-            <div 
-              className={`h-full rounded-full ${
-                permissionPercentage > 80 
-                  ? "bg-purple-500" 
-                  : permissionPercentage > 50
-                  ? "bg-blue-500"
-                  : permissionPercentage > 30
-                  ? "bg-amber-500"
-                  : "bg-gray-500"
-              }`}
-              style={{ width: `${permissionPercentage}%` }}
-            ></div>
-          </div>
-        </div>
-        
-        <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>Created: {role.createdAt}</span>
-          <span>Updated: {role.updatedAt}</span>
-        </div>
-        
-        <div className="flex justify-end mt-4 space-x-2">
-          <Button variant="outline" size="sm" onClick={onEdit}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
-          {!role.isSystem && (
-            <Button variant="outline" size="sm" className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20">
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
-          )}
-        </div>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+// Empty State Component
+function EmptyState({ query }: { query: string }) {
+  return (
+    <Card className="p-8 text-center">
+      <div className="flex flex-col items-center justify-center">
+        <User className="h-12 w-12 text-gray-300 mb-4" />
+        <h3 className="text-lg font-medium mb-2">No users found</h3>
+        <p className="text-gray-500 dark:text-gray-400 mb-4">
+          {query
+            ? `No users match your search for "${query}". Try a different search term.`
+            : "No users found in this category."}
+        </p>
       </div>
     </Card>
   )
 }
+
+// User Roles Grid Component
+function UserRolesGrid({
+  users,
+  onChangeRole,
+  getRoleBadgeColor,
+  getStatusIcon,
+}: {
+  users: UserData[]
+  onChangeRole: (user: UserData) => void
+  getRoleBadgeColor: (role: Role) => string
+  getStatusIcon: (status: string) => React.ReactNode
+}) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {users.map((user) => (
+        <Card key={user.id} className="overflow-hidden">
+          <div className="p-6">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="relative">
+                <Avatar className="h-12 w-12">
+                  {user.profileImage ? (
+                    <AvatarImage src={user.profileImage} alt={user.name} />
+                  ) : (
+                    <AvatarFallback>
+                      {user.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                {user.isOnline && (
+                  <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white dark:ring-gray-900"></span>
+                )}
+              </div>
+              <div>
+                <h3 className="font-medium">{user.name}</h3>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Mail className="h-3 w-3 mr-1" />
+                  {user.email}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Building className="h-4 w-4 mr-2" />
+                  <span>{user.company || "Not specified"}</span>
+                </div>
+                <div className="flex items-center">
+                  {getStatusIcon(user.status)}
+                  <span className="text-xs ml-1">{user.status}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4 mr-2" />
+                <span>Joined {user.joinDate}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center text-sm">
+                  <Shield className="h-4 w-4 mr-2" />
+                  <span className="font-medium">Current Role</span>
+                </div>
+                <Badge className={getRoleBadgeColor(user.role)}>{user.role}</Badge>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-4">
+              <Button onClick={() => onChangeRole(user)} className="bg-purple-600 hover:bg-purple-700">
+                Change Role
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
