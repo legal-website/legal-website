@@ -125,7 +125,8 @@ export default function AllUsersPage() {
   const [processingAction, setProcessingAction] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Add this function at the beginning of your component
+  // Modify the fetchUsers function to try the test endpoint if the main one fails
+
   const fetchUsers = async () => {
     if (sessionStatus !== "authenticated") return
 
@@ -135,13 +136,24 @@ export default function AllUsersPage() {
 
       console.log("Fetching users from API")
 
-      // Use your existing API endpoint to fetch users
-      const response = await fetch("/api/users", {
+      // Try the main API endpoint with the correct path
+      let response = await fetch("/api/admin/users", {
         headers: {
           Accept: "application/json",
         },
         cache: "no-store",
       })
+
+      // If the main endpoint fails, try the test endpoint
+      if (!response.ok) {
+        console.log("Main API failed, trying test endpoint")
+        response = await fetch("/api/users-test", {
+          headers: {
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        })
+      }
 
       console.log("Response status:", response.status)
 
@@ -192,22 +204,16 @@ export default function AllUsersPage() {
         company: user.company || "Not specified",
         role: user.role || Role.CLIENT,
         status: user.status || "Active",
-        joinDate: user.createdAt
-          ? new Date(user.createdAt).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-            })
-          : "Unknown",
-        lastActive: user.lastActive
-          ? new Date(user.lastActive).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : "Never",
+        joinDate:
+          user.joinDate ||
+          (user.createdAt
+            ? new Date(user.createdAt).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })
+            : "Unknown"),
+        lastActive: user.lastActive || "Never",
         phone: user.phone || "Not provided",
         address: user.address || "Not provided",
         profileImage: user.profileImage || null,
@@ -277,8 +283,8 @@ export default function AllUsersPage() {
     try {
       setLoading(true)
 
-      // Use your existing API endpoint to fetch user details
-      const response = await fetch(`/api/users/${userId}`)
+      // Use the correct API endpoint to fetch user details
+      const response = await fetch(`/api/admin/users/${userId}`)
 
       if (!response.ok) {
         throw new Error("Failed to fetch user details")
@@ -356,88 +362,7 @@ export default function AllUsersPage() {
     setShowResetPasswordDialog(true)
   }
 
-  const handleChangeRole = async (user: UserData) => {
-    await fetchUserDetails(user.id)
-    setShowChangeRoleDialog(true)
-  }
-
-  const handleDeleteUser = (user: UserData) => {
-    setSelectedUser(user)
-    setShowDeleteDialog(true)
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const confirmDeleteUser = async () => {
-    if (!selectedUser) return
-
-    setProcessingAction(true)
-
-    try {
-      // Use your existing API endpoint to delete a user
-      const response = await fetch(`/api/users/${selectedUser.id}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to delete user")
-      }
-
-      // Remove user from the list
-      setUsers((prevUsers) => prevUsers.filter((user) => user.id !== selectedUser.id))
-      setShowDeleteDialog(false)
-
-      toast({
-        title: "User Deleted",
-        description: `${selectedUser.name} has been deleted successfully.`,
-      })
-    } catch (error) {
-      console.error("Error deleting user:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete user. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setProcessingAction(false)
-    }
-  }
-
-  const confirmResetPassword = async () => {
-    if (!selectedUser) return
-
-    setProcessingAction(true)
-
-    try {
-      // Use your existing API endpoint to reset a user's password
-      const response = await fetch(`/api/users/${selectedUser.id}/reset-password`, {
-        method: "POST",
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to reset password")
-      }
-
-      setShowResetPasswordDialog(false)
-
-      toast({
-        title: "Password Reset",
-        description: `Password reset email has been sent to ${selectedUser.email}.`,
-      })
-    } catch (error) {
-      console.error("Error resetting password:", error)
-      toast({
-        title: "Error",
-        description: "Failed to reset password. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setProcessingAction(false)
-    }
-  }
+  // Update the confirmChangeRole function to use the correct API path
 
   const confirmChangeRole = async () => {
     if (!selectedUser || !newRole) return
@@ -445,8 +370,8 @@ export default function AllUsersPage() {
     setProcessingAction(true)
 
     try {
-      // Use your existing API endpoint to change a user's role
-      const response = await fetch(`/api/users/${selectedUser.id}/role`, {
+      // Use the correct API endpoint to change a user's role
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/role`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -481,12 +406,96 @@ export default function AllUsersPage() {
     }
   }
 
+  const handleDeleteUser = (user: UserData) => {
+    setSelectedUser(user)
+    setShowDeleteDialog(true)
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  // Update the confirmDeleteUser function to use the correct API path
+
+  const confirmDeleteUser = async () => {
+    if (!selectedUser) return
+
+    setProcessingAction(true)
+
+    try {
+      // Use the correct API endpoint to delete a user
+      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete user")
+      }
+
+      // Remove user from the list
+      setUsers((prevUsers) => prevUsers.filter((user) => user.id !== selectedUser.id))
+      setShowDeleteDialog(false)
+
+      toast({
+        title: "User Deleted",
+        description: `${selectedUser.name} has been deleted successfully.`,
+      })
+    } catch (error) {
+      console.error("Error deleting user:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete user. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
+  // Update the confirmResetPassword function to use the correct API path
+
+  const confirmResetPassword = async () => {
+    if (!selectedUser) return
+
+    setProcessingAction(true)
+
+    try {
+      // Use the correct API endpoint to reset a user's password
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/reset-password`, {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to reset password")
+      }
+
+      setShowResetPasswordDialog(false)
+
+      toast({
+        title: "Password Reset",
+        description: `Password reset email has been sent to ${selectedUser.email}.`,
+      })
+    } catch (error) {
+      console.error("Error resetting password:", error)
+      toast({
+        title: "Error",
+        description: "Failed to reset password. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
+  // Update the toggleUserStatus function to use the correct API path
+
   const toggleUserStatus = async (user: UserData) => {
     const newStatus = user.status === "Active" ? "Suspended" : "Active"
 
     try {
-      // Use your existing API endpoint to update a user's status
-      const response = await fetch(`/api/users/${user.id}/status`, {
+      // Use the correct API endpoint to update a user's status
+      const response = await fetch(`/api/admin/users/${user.id}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -515,14 +524,16 @@ export default function AllUsersPage() {
     }
   }
 
+  // Update the handleSaveUser function to use the correct API path
+
   const handleSaveUser = async () => {
     if (!selectedUser) return
 
     setProcessingAction(true)
 
     try {
-      // Use your existing API endpoint to update a user
-      const response = await fetch(`/api/users/${selectedUser.id}`, {
+      // Use the correct API endpoint to update a user
+      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -607,6 +618,12 @@ export default function AllUsersPage() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  const handleChangeRole = (user: UserData) => {
+    setSelectedUser(user)
+    setNewRole(user.role)
+    setShowChangeRoleDialog(true)
   }
 
   // If session is loading or user is not authenticated, show loading state
