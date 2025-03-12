@@ -1,28 +1,29 @@
-import { NextResponse, type NextRequest } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { db } from "@/lib/db"
+import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import prisma from "@/lib/prisma"
 import { Role } from "@prisma/client"
 
-export async function GET(req: NextRequest) {
+export async function GET(request: Request) {
   try {
-    // Check if user is authenticated and is an admin
+    // Check if user is authenticated
     const session = await getServerSession(authOptions)
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!session) {
+      return NextResponse.json({ error: "You must be signed in to access this endpoint" }, { status: 401 })
     }
 
+    // Only allow admins to access all users
     if ((session.user as any).role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return NextResponse.json({ error: "You don't have permission to access this resource" }, { status: 403 })
     }
 
     // Get URL parameters for filtering
-    const url = new URL(req.url)
+    const url = new URL(request.url)
     const role = url.searchParams.get("role")
     const search = url.searchParams.get("search")
 
-    // Build the query with only fields that exist in the User model
+    // Build the query
     const query: any = {
       where: {},
       orderBy: {
@@ -52,8 +53,8 @@ export async function GET(req: NextRequest) {
       ]
     }
 
-    // Get users from database
-    const users = await db.user.findMany(query)
+    // Fetch users from database
+    const users = await prisma.user.findMany(query)
 
     // Format dates and add virtual fields for UI display
     const formattedUsers = users.map((user) => {
@@ -70,26 +71,17 @@ export async function GET(req: NextRequest) {
         joinDate,
         lastActive: "N/A", // Virtual field
         company: "N/A", // Virtual field
-        status: "Active", // Virtual field - added after fetching from DB
+        status: "Active", // Virtual field
         phone: "N/A", // Virtual field
         address: "N/A", // Virtual field
         profileImage: user.image, // Map image to profileImage
       }
     })
 
-    return NextResponse.json({
-      success: true,
-      users: formattedUsers,
-    })
-  } catch (error: any) {
+    return NextResponse.json({ users: formattedUsers })
+  } catch (error) {
     console.error("Error fetching users:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "An error occurred while fetching users",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 })
   }
 }
 

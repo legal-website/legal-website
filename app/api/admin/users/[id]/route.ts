@@ -1,27 +1,28 @@
-import { NextResponse, type NextRequest } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { db } from "@/lib/db"
+import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import prisma from "@/lib/prisma"
 import { Role } from "@prisma/client"
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    // Check if user is authenticated and is an admin
+    const id = params.id
+
+    // Check if user is authenticated
     const session = await getServerSession(authOptions)
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!session) {
+      return NextResponse.json({ error: "You must be signed in to access this endpoint" }, { status: 401 })
     }
 
-    if ((session.user as any).role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    // Only allow admins or the user themselves to access user details
+    if ((session.user as any).role !== Role.ADMIN && (session.user as any).id !== id) {
+      return NextResponse.json({ error: "You don't have permission to access this resource" }, { status: 403 })
     }
 
-    const userId = params.id
-
-    // Get user from database with only fields that exist in the User model
-    const user = await db.user.findUnique({
-      where: { id: userId },
+    // Fetch user with detailed information
+    const user = await prisma.user.findUnique({
+      where: { id },
       select: {
         id: true,
         name: true,
@@ -38,144 +39,91 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Format the user data for the frontend with virtual fields for UI
-    const formattedUser = {
-      id: user.id,
-      name: user.name || "",
-      email: user.email,
-      role: user.role,
+    // Add virtual fields for subscription info
+    const userWithSubscription = {
+      ...user,
       status: "Active", // Virtual field
       company: "N/A", // Virtual field
       phone: "N/A", // Virtual field
       address: "N/A", // Virtual field
-      joinDate: new Date(user.createdAt).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }),
-      lastActive: "Never", // Virtual field
-      profileImage: user.image || null,
-      subscriptionPlan: "None", // Virtual field
-      subscriptionStatus: "Inactive", // Virtual field
-      notes: "", // Virtual field
-      documents: [], // Virtual field
-      activity: [], // Virtual field
+      subscription: {
+        plan: "None",
+        status: "Inactive",
+      },
+      // Add empty arrays for documents and activities
+      documents: [],
+      activities: [],
+      notes: "",
+      lastActive: "Never",
+      profileImage: user.image,
     }
 
-    return NextResponse.json({
-      success: true,
-      user: formattedUser,
-    })
-  } catch (error: any) {
+    return NextResponse.json({ user: userWithSubscription })
+  } catch (error) {
     console.error("Error fetching user:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "An error occurred while fetching the user",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to fetch user" }, { status: 500 })
   }
 }
 
-// Update user
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    // Check if user is authenticated and is an admin
+    const id = params.id
+    const body = await request.json()
+
+    // Check if user is authenticated
     const session = await getServerSession(authOptions)
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!session) {
+      return NextResponse.json({ error: "You must be signed in to access this endpoint" }, { status: 401 })
     }
 
-    if ((session.user as any).role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    // Only allow admins or the user themselves to update user details
+    if ((session.user as any).role !== Role.ADMIN && (session.user as any).id !== id) {
+      return NextResponse.json({ error: "You don't have permission to access this resource" }, { status: 403 })
     }
 
-    const userId = params.id
-    const data = await req.json()
-
-    // Validate the user exists
-    const existingUser = await db.user.findUnique({
-      where: { id: userId },
-    })
-
-    if (!existingUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // Update user in database with only fields that exist in the User model
-    const updatedUser = await db.user.update({
-      where: { id: userId },
+    // Update user
+    const updatedUser = await prisma.user.update({
+      where: { id },
       data: {
-        name: data.name,
-        email: data.email,
+        name: body.name,
+        email: body.email,
         // Only include fields that exist in the User model
       },
     })
 
-    // Log the activity
-    console.log(`User ${userId} updated by admin ${session.user.id}`)
-
-    return NextResponse.json({
-      success: true,
-      user: updatedUser,
-    })
-  } catch (error: any) {
+    return NextResponse.json({ user: updatedUser })
+  } catch (error) {
     console.error("Error updating user:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "An error occurred while updating the user",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to update user" }, { status: 500 })
   }
 }
 
-// Delete user
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
-    // Check if user is authenticated and is an admin
+    const id = params.id
+
+    // Check if user is authenticated
     const session = await getServerSession(authOptions)
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!session) {
+      return NextResponse.json({ error: "You must be signed in to access this endpoint" }, { status: 401 })
     }
 
+    // Only allow admins to delete users
     if ((session.user as any).role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return NextResponse.json({ error: "You don't have permission to access this resource" }, { status: 403 })
     }
 
-    const userId = params.id
-
-    // Validate the user exists
-    const existingUser = await db.user.findUnique({
-      where: { id: userId },
+    // Delete user
+    await prisma.user.delete({
+      where: { id },
     })
 
-    if (!existingUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // Delete user from database
-    await db.user.delete({
-      where: { id: userId },
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: "User deleted successfully",
-    })
-  } catch (error: any) {
+    return NextResponse.json({ success: true })
+  } catch (error) {
     console.error("Error deleting user:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "An error occurred while deleting the user",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to delete user" }, { status: 500 })
   }
 }
 

@@ -27,6 +27,7 @@ import {
   AlertTriangle,
   Trash2,
   Edit,
+  AlertCircle,
 } from "lucide-react"
 import {
   Dialog,
@@ -122,6 +123,7 @@ export default function AllUsersPage() {
   })
   const [newRole, setNewRole] = useState<Role | "">("")
   const [processingAction, setProcessingAction] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Check if user is authenticated and is an admin
   useEffect(() => {
@@ -150,15 +152,21 @@ export default function AllUsersPage() {
 
       try {
         setLoading(true)
+        setError(null) // Clear any previous errors
 
         // Use your existing API endpoint to fetch users
         const response = await fetch("/api/users")
 
         if (!response.ok) {
-          throw new Error("Failed to fetch users")
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to fetch users")
         }
 
         const data = await response.json()
+
+        if (!data.users || !Array.isArray(data.users)) {
+          throw new Error("Invalid response format from server")
+        }
 
         // Format the user data for display
         const formattedUsers = data.users.map((user: any) => ({
@@ -185,12 +193,12 @@ export default function AllUsersPage() {
           phone: user.phone || "Not provided",
           address: user.address || "Not provided",
           profileImage: user.profileImage || null,
-          // Add other fields as needed
         }))
 
         setUsers(formattedUsers)
       } catch (error) {
         console.error("Error fetching users:", error)
+        setError((error as Error).message || "Failed to load users. Please try again.")
         toast({
           title: "Error",
           description: "Failed to load users. Please try again.",
@@ -568,6 +576,30 @@ export default function AllUsersPage() {
           <p className="text-gray-500">Loading...</p>
         </div>
       </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <Card className="p-8 text-center">
+        <div className="flex flex-col items-center justify-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-500">Loading users...</p>
+        </div>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card className="p-8 text-center">
+        <div className="flex flex-col items-center justify-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h3 className="text-lg font-medium mb-2">Error Loading Users</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>Try Again</Button>
+        </div>
+      </Card>
     )
   }
 

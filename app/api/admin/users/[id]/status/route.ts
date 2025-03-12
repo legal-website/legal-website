@@ -1,61 +1,54 @@
-import { NextResponse, type NextRequest } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { db } from "@/lib/db"
+import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import prisma from "@/lib/prisma"
 import { Role } from "@prisma/client"
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    // Check if user is authenticated and is an admin
+    const id = params.id
+    const body = await request.json()
+
+    // Check if user is authenticated
     const session = await getServerSession(authOptions)
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!session) {
+      return NextResponse.json({ error: "You must be signed in to access this endpoint" }, { status: 401 })
     }
 
+    // Only allow admins to update user status
     if ((session.user as any).role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return NextResponse.json({ error: "You don't have permission to access this resource" }, { status: 403 })
     }
-
-    const userId = params.id
-    const { status } = await req.json()
 
     // Validate status
-    const validStatuses = ["Active", "Inactive", "Suspended", "Pending"]
-    if (!validStatuses.includes(status)) {
+    const validStatuses = ["Active", "Pending", "Inactive", "Suspended"]
+    if (!validStatuses.includes(body.status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 })
     }
 
-    // Validate the user exists
-    const existingUser = await db.user.findUnique({
-      where: { id: userId },
+    // Get the user to verify they exist
+    const user = await prisma.user.findUnique({
+      where: { id },
     })
 
-    if (!existingUser) {
+    if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Since status field doesn't exist in the User model,
-    // we'll just log the status change and return success
-    console.log(`Status changed to ${status} for user ${userId} by admin ${session.user.id}`)
+    // Since status is a virtual field, we'll just return success
+    // In a real app, you would store this in a separate table or add the field to the User model
 
-    // Return the user with the virtual status field
     return NextResponse.json({
       success: true,
       user: {
-        ...existingUser,
-        status, // Add the virtual status field to the response
+        ...user,
+        status: body.status,
       },
     })
-  } catch (error: any) {
-    console.error("Error changing user status:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "An error occurred while changing the user status",
-      },
-      { status: 500 },
-    )
+  } catch (error) {
+    console.error("Error updating user status:", error)
+    return NextResponse.json({ error: "Failed to update user status" }, { status: 500 })
   }
 }
 

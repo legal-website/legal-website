@@ -1,64 +1,44 @@
-import { NextResponse, type NextRequest } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { db } from "@/lib/db"
+import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import prisma from "@/lib/prisma"
 import { Role } from "@prisma/client"
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    // Check if user is authenticated and is an admin
+    const id = params.id
+    const body = await request.json()
+
+    // Check if user is authenticated
     const session = await getServerSession(authOptions)
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!session) {
+      return NextResponse.json({ error: "You must be signed in to access this endpoint" }, { status: 401 })
     }
 
-    // Only ADMIN can change roles (since SUPER_ADMIN doesn't exist in the Role enum)
+    // Only allow admins to update user roles
     if ((session.user as any).role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Forbidden. Only Admins can change user roles." }, { status: 403 })
+      return NextResponse.json({ error: "You don't have permission to access this resource" }, { status: 403 })
     }
 
-    const userId = params.id
-    const { role } = await req.json()
-
-    // Validate role using the actual Role enum values
-    if (!Object.values(Role).includes(role as Role)) {
+    // Validate role
+    const validRoles = Object.values(Role)
+    if (!validRoles.includes(body.role)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 })
     }
 
-    // Validate the user exists
-    const existingUser = await db.user.findUnique({
-      where: { id: userId },
-    })
-
-    if (!existingUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // Update user role in database
-    const updatedUser = await db.user.update({
-      where: { id: userId },
+    // Update user role
+    const updatedUser = await prisma.user.update({
+      where: { id },
       data: {
-        role: role as Role,
+        role: body.role,
       },
     })
 
-    // Log the activity (using console.log instead of db.userActivity which doesn't exist)
-    console.log(`Role changed to ${role} for user ${userId} by admin ${session.user.id}`)
-
-    return NextResponse.json({
-      success: true,
-      user: updatedUser,
-    })
-  } catch (error: any) {
-    console.error("Error changing user role:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "An error occurred while changing the user role",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ user: updatedUser })
+  } catch (error) {
+    console.error("Error updating user role:", error)
+    return NextResponse.json({ error: "Failed to update user role" }, { status: 500 })
   }
 }
 
