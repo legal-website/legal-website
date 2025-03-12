@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,6 +20,11 @@ import {
   Shield,
   User,
   FileText,
+  Key,
+  UserCog,
+  AlertTriangle,
+  Trash2,
+  Edit,
 } from "lucide-react"
 import {
   Dialog,
@@ -39,6 +44,18 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useToast } from "@/components/ui/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import Image from "next/image"
 
 // Define types for our data
@@ -74,181 +91,46 @@ interface UserData {
 }
 
 export default function AllUsersPage() {
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null)
   const [showUserDialog, setShowUserDialog] = useState(false)
   const [showAddUserDialog, setShowAddUserDialog] = useState(false)
+  const [showEditUserDialog, setShowEditUserDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false)
+  const [showChangeRoleDialog, setShowChangeRoleDialog] = useState(false)
   const [activeTab, setActiveTab] = useState("all")
   const [selectedRole, setSelectedRole] = useState("All Roles")
+  const [loading, setLoading] = useState(true)
+  const [users, setUsers] = useState<UserData[]>([])
 
-  // Sample user data
-  const users: UserData[] = [
-    {
-      id: 1,
-      name: "Sarah Johnson",
-      email: "sarah@rapidventures.com",
-      company: "Rapid Ventures LLC",
-      role: "Client Admin",
-      status: "Active",
-      joinDate: "Jan 15, 2023",
-      lastActive: "Today at 10:23 AM",
-      phone: "(555) 123-4567",
-      address: "123 Business Ave, San Francisco, CA 94107",
-      subscriptionPlan: "Business Pro",
-      subscriptionStatus: "Active",
-      documents: [
-        { name: "Articles of Organization", status: "Verified", date: "Jan 15, 2023" },
-        { name: "Operating Agreement", status: "Verified", date: "Jan 15, 2023" },
-        { name: "EIN Confirmation", status: "Verified", date: "Jan 20, 2023" },
-      ],
-      activity: [
-        { action: "Login", date: "Today at 10:23 AM", details: "Logged in from San Francisco, CA" },
-        { action: "Document Upload", date: "Yesterday at 3:45 PM", details: "Uploaded Annual Report 2024" },
-        { action: "Profile Update", date: "Mar 5, 2025", details: "Updated company address" },
-      ],
-    },
-    {
-      id: 2,
-      name: "Michael Chen",
-      email: "michael@blueocean.com",
-      company: "Blue Ocean Inc",
-      role: "Client User",
-      status: "Active",
-      joinDate: "Feb 10, 2023",
-      lastActive: "Yesterday at 4:15 PM",
-      phone: "(555) 987-6543",
-      address: "456 Tech Blvd, Seattle, WA 98101",
-      subscriptionPlan: "Business Standard",
-      subscriptionStatus: "Active",
-      documents: [
-        { name: "Articles of Organization", status: "Verified", date: "Feb 10, 2023" },
-        { name: "Operating Agreement", status: "Verified", date: "Feb 10, 2023" },
-        { name: "Tax Filing Q1", status: "Pending", date: "Mar 5, 2025" },
-      ],
-      activity: [
-        { action: "Login", date: "Yesterday at 4:15 PM", details: "Logged in from Seattle, WA" },
-        { action: "Document Download", date: "Mar 6, 2025", details: "Downloaded Tax Filing Template" },
-        { action: "Support Request", date: "Mar 3, 2025", details: "Opened ticket #45678" },
-      ],
-    },
-    {
-      id: 3,
-      name: "Emily Rodriguez",
-      email: "emily@summitsolutions.com",
-      company: "Summit Solutions",
-      role: "Client Admin",
-      status: "Active",
-      joinDate: "Mar 5, 2023",
-      lastActive: "Mar 7, 2025 at 9:30 AM",
-      phone: "(555) 456-7890",
-      address: "789 Summit Ave, Denver, CO 80202",
-      subscriptionPlan: "Business Pro",
-      subscriptionStatus: "Active",
-      documents: [
-        { name: "Articles of Organization", status: "Verified", date: "Mar 5, 2023" },
-        { name: "Operating Agreement", status: "Verified", date: "Mar 5, 2023" },
-        { name: "Business License", status: "Verified", date: "Mar 10, 2023" },
-      ],
-      activity: [
-        { action: "Login", date: "Mar 7, 2025 at 9:30 AM", details: "Logged in from Denver, CO" },
-        { action: "Payment", date: "Mar 1, 2025", details: "Processed subscription renewal" },
-        { action: "User Invite", date: "Feb 25, 2025", details: "Invited team member john@summitsolutions.com" },
-      ],
-    },
-    {
-      id: 4,
-      name: "David Kim",
-      email: "david@horizongroup.com",
-      company: "Horizon Group",
-      role: "Client User",
-      status: "Inactive",
-      joinDate: "Apr 20, 2023",
-      lastActive: "Feb 15, 2025 at 2:45 PM",
-      phone: "(555) 789-0123",
-      address: "101 Horizon St, Austin, TX 78701",
-      subscriptionPlan: "Business Standard",
-      subscriptionStatus: "Expired",
-      documents: [
-        { name: "Articles of Organization", status: "Verified", date: "Apr 20, 2023" },
-        { name: "Operating Agreement", status: "Verified", date: "Apr 20, 2023" },
-      ],
-      activity: [
-        { action: "Login", date: "Feb 15, 2025 at 2:45 PM", details: "Logged in from Austin, TX" },
-        { action: "Subscription", date: "Feb 15, 2025", details: "Subscription expired" },
-        { action: "Document Access", date: "Feb 10, 2025", details: "Accessed Operating Agreement" },
-      ],
-    },
-    {
-      id: 5,
-      name: "Alex Thompson",
-      email: "alex@nexustech.com",
-      company: "Nexus Technologies",
-      role: "Client Admin",
-      status: "Pending",
-      joinDate: "Mar 7, 2025",
-      lastActive: "Mar 7, 2025 at 11:20 AM",
-      phone: "(555) 234-5678",
-      address: "222 Tech Park, Boston, MA 02110",
-      subscriptionPlan: "Business Pro",
-      subscriptionStatus: "Trial",
-      documents: [
-        { name: "ID Verification", status: "Verified", date: "Mar 7, 2025" },
-        { name: "Business License", status: "Pending", date: "Mar 7, 2025" },
-        { name: "Tax ID", status: "Verified", date: "Mar 7, 2025" },
-      ],
-      activity: [
-        { action: "Account Creation", date: "Mar 7, 2025 at 11:00 AM", details: "Account created" },
-        { action: "Document Upload", date: "Mar 7, 2025 at 11:15 AM", details: "Uploaded verification documents" },
-        { action: "Login", date: "Mar 7, 2025 at 11:20 AM", details: "First login from Boston, MA" },
-      ],
-    },
-    {
-      id: 6,
-      name: "Maria Garcia",
-      email: "maria@stellarinnovations.com",
-      company: "Stellar Innovations",
-      role: "Super Admin",
-      status: "Active",
-      joinDate: "Jan 5, 2023",
-      lastActive: "Today at 9:45 AM",
-      phone: "(555) 345-6789",
-      address: "333 Innovation Way, Chicago, IL 60601",
-      subscriptionPlan: "Enterprise",
-      subscriptionStatus: "Active",
-      documents: [
-        { name: "ID Verification", status: "Verified", date: "Jan 5, 2023" },
-        { name: "Employment Contract", status: "Verified", date: "Jan 5, 2023" },
-      ],
-      activity: [
-        { action: "Login", date: "Today at 9:45 AM", details: "Logged in from Chicago, IL" },
-        { action: "User Management", date: "Today at 10:15 AM", details: "Approved new user account" },
-        { action: "System Settings", date: "Yesterday at 2:30 PM", details: "Updated system configuration" },
-      ],
-    },
-    {
-      id: 7,
-      name: "James Wilson",
-      email: "james@pinnaclegroup.com",
-      company: "Pinnacle Group",
-      role: "Support Agent",
-      status: "Active",
-      joinDate: "Feb 15, 2023",
-      lastActive: "Today at 11:30 AM",
-      phone: "(555) 456-7890",
-      address: "444 Support Ave, Miami, FL 33101",
-      subscriptionPlan: "Internal",
-      subscriptionStatus: "Active",
-      documents: [
-        { name: "ID Verification", status: "Verified", date: "Feb 15, 2023" },
-        { name: "Employment Contract", status: "Verified", date: "Feb 15, 2023" },
-      ],
-      activity: [
-        { action: "Login", date: "Today at 11:30 AM", details: "Logged in from Miami, FL" },
-        { action: "Ticket Response", date: "Today at 11:45 AM", details: "Responded to ticket #45678" },
-        { action: "Document Review", date: "Yesterday at 3:15 PM", details: "Reviewed client documents" },
-      ],
-    },
-  ]
+  // Fetch users data
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true)
+        // In a real app, this would be an API call
+        // const response = await fetch('/api/admin/users')
+        // const data = await response.json()
+        // setUsers(data.users)
+
+        // For now, we'll use sample data
+        setUsers(sampleUsers)
+        setLoading(false)
+      } catch (error) {
+        console.error("Error fetching users:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load users. Please try again.",
+          variant: "destructive",
+        })
+        setLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [toast])
 
   // Filter users based on search query, tab, and role
   const filteredUsers = users.filter((user) => {
@@ -271,6 +153,91 @@ export default function AllUsersPage() {
   const viewUserDetails = (user: UserData) => {
     setSelectedUser(user)
     setShowUserDialog(true)
+  }
+
+  const handleEditUser = (user: UserData) => {
+    setSelectedUser(user)
+    setShowEditUserDialog(true)
+  }
+
+  const handleResetPassword = (user: UserData) => {
+    setSelectedUser(user)
+    setShowResetPasswordDialog(true)
+  }
+
+  const handleChangeRole = (user: UserData) => {
+    setSelectedUser(user)
+    setShowChangeRoleDialog(true)
+  }
+
+  const handleDeleteUser = (user: UserData) => {
+    setSelectedUser(user)
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDeleteUser = () => {
+    if (!selectedUser) return
+
+    // In a real app, this would be an API call
+    // await fetch(`/api/admin/users/${selectedUser.id}`, { method: 'DELETE' })
+
+    setUsers((prevUsers) => prevUsers.filter((user) => user.id !== selectedUser.id))
+    setShowDeleteDialog(false)
+
+    toast({
+      title: "User Deleted",
+      description: `${selectedUser.name} has been deleted successfully.`,
+    })
+  }
+
+  const confirmResetPassword = () => {
+    if (!selectedUser) return
+
+    // In a real app, this would be an API call
+    // await fetch(`/api/admin/users/${selectedUser.id}/reset-password`, { method: 'POST' })
+
+    setShowResetPasswordDialog(false)
+
+    toast({
+      title: "Password Reset",
+      description: `Password reset email has been sent to ${selectedUser.email}.`,
+    })
+  }
+
+  const confirmChangeRole = (newRole: string) => {
+    if (!selectedUser) return
+
+    // In a real app, this would be an API call
+    // await fetch(`/api/admin/users/${selectedUser.id}/change-role`, {
+    //   method: 'PUT',
+    //   body: JSON.stringify({ role: newRole })
+    // })
+
+    setUsers((prevUsers) => prevUsers.map((user) => (user.id === selectedUser.id ? { ...user, role: newRole } : user)))
+
+    setShowChangeRoleDialog(false)
+
+    toast({
+      title: "Role Updated",
+      description: `${selectedUser.name}'s role has been updated to ${newRole}.`,
+    })
+  }
+
+  const toggleUserStatus = (user: UserData) => {
+    const newStatus = user.status === "Active" ? "Suspended" : "Active"
+
+    // In a real app, this would be an API call
+    // await fetch(`/api/admin/users/${user.id}/status`, {
+    //   method: 'PUT',
+    //   body: JSON.stringify({ status: newStatus })
+    // })
+
+    setUsers((prevUsers) => prevUsers.map((u) => (u.id === user.id ? { ...u, status: newStatus as any } : u)))
+
+    toast({
+      title: `User ${newStatus}`,
+      description: `${user.name} has been ${newStatus.toLowerCase()}.`,
+    })
   }
 
   const roles = ["All Roles", "Super Admin", "Admin", "Support Agent", "Client Admin", "Client User"]
@@ -361,17 +328,18 @@ export default function AllUsersPage() {
         </div>
 
         <div>
-          <select
-            className="w-full h-10 px-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-            value={selectedRole}
-            onChange={(e) => setSelectedRole(e.target.value)}
-          >
-            {roles.map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
-          </select>
+          <Select value={selectedRole} onValueChange={setSelectedRole}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select role" />
+            </SelectTrigger>
+            <SelectContent>
+              {roles.map((role) => (
+                <SelectItem key={role} value={role}>
+                  {role}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex space-x-2">
@@ -392,19 +360,55 @@ export default function AllUsersPage() {
         </TabsList>
 
         <TabsContent value="all">
-          <UserTable users={filteredUsers} onViewUser={viewUserDetails} />
+          <UserTable
+            users={filteredUsers}
+            onViewUser={viewUserDetails}
+            onEditUser={handleEditUser}
+            onResetPassword={handleResetPassword}
+            onChangeRole={handleChangeRole}
+            onToggleStatus={toggleUserStatus}
+            onDeleteUser={handleDeleteUser}
+            loading={loading}
+          />
         </TabsContent>
 
         <TabsContent value="active">
-          <UserTable users={filteredUsers} onViewUser={viewUserDetails} />
+          <UserTable
+            users={filteredUsers}
+            onViewUser={viewUserDetails}
+            onEditUser={handleEditUser}
+            onResetPassword={handleResetPassword}
+            onChangeRole={handleChangeRole}
+            onToggleStatus={toggleUserStatus}
+            onDeleteUser={handleDeleteUser}
+            loading={loading}
+          />
         </TabsContent>
 
         <TabsContent value="pending">
-          <UserTable users={filteredUsers} onViewUser={viewUserDetails} />
+          <UserTable
+            users={filteredUsers}
+            onViewUser={viewUserDetails}
+            onEditUser={handleEditUser}
+            onResetPassword={handleResetPassword}
+            onChangeRole={handleChangeRole}
+            onToggleStatus={toggleUserStatus}
+            onDeleteUser={handleDeleteUser}
+            loading={loading}
+          />
         </TabsContent>
 
         <TabsContent value="inactive">
-          <UserTable users={filteredUsers} onViewUser={viewUserDetails} />
+          <UserTable
+            users={filteredUsers}
+            onViewUser={viewUserDetails}
+            onEditUser={handleEditUser}
+            onResetPassword={handleResetPassword}
+            onChangeRole={handleChangeRole}
+            onToggleStatus={toggleUserStatus}
+            onDeleteUser={handleDeleteUser}
+            loading={loading}
+          />
         </TabsContent>
       </Tabs>
 
@@ -628,7 +632,15 @@ export default function AllUsersPage() {
               <Button variant="outline" onClick={() => setShowUserDialog(false)}>
                 Close
               </Button>
-              <Button variant="outline">Edit User</Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowUserDialog(false)
+                  handleEditUser(selectedUser)
+                }}
+              >
+                Edit User
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -671,18 +683,20 @@ export default function AllUsersPage() {
 
             <div>
               <Label htmlFor="role">Role</Label>
-              <select
-                id="role"
-                className="w-full h-10 px-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-              >
-                {roles
-                  .filter((r) => r !== "All Roles")
-                  .map((role) => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-              </select>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles
+                    .filter((r) => r !== "All Roles")
+                    .map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -700,16 +714,193 @@ export default function AllUsersPage() {
             <Button variant="outline" onClick={() => setShowAddUserDialog(false)}>
               Cancel
             </Button>
-            <Button className="bg-purple-600 hover:bg-purple-700">Create User</Button>
+            <Button
+              className="bg-purple-600 hover:bg-purple-700"
+              onClick={() => {
+                setShowAddUserDialog(false)
+                toast({
+                  title: "User Created",
+                  description: "New user has been created successfully.",
+                })
+              }}
+            >
+              Create User
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit User Dialog */}
+      {selectedUser && (
+        <Dialog open={showEditUserDialog} onOpenChange={setShowEditUserDialog}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>Update information for {selectedUser.name}</DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="editName">Full Name</Label>
+                  <Input id="editName" defaultValue={selectedUser.name} />
+                </div>
+                <div>
+                  <Label htmlFor="editEmail">Email Address</Label>
+                  <Input id="editEmail" type="email" defaultValue={selectedUser.email} />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="editPhone">Phone Number</Label>
+                <Input id="editPhone" defaultValue={selectedUser.phone} />
+              </div>
+
+              <div>
+                <Label htmlFor="editCompany">Company</Label>
+                <Input id="editCompany" defaultValue={selectedUser.company} />
+              </div>
+
+              <div>
+                <Label htmlFor="editAddress">Address</Label>
+                <Input id="editAddress" defaultValue={selectedUser.address} />
+              </div>
+
+              <div>
+                <Label htmlFor="editNotes">Notes</Label>
+                <Textarea id="editNotes" defaultValue={selectedUser.notes || ""} />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEditUserDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowEditUserDialog(false)
+                  toast({
+                    title: "User Updated",
+                    description: `${selectedUser.name}'s information has been updated.`,
+                  })
+                }}
+              >
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Reset Password Dialog */}
+      {selectedUser && (
+        <AlertDialog open={showResetPasswordDialog} onOpenChange={setShowResetPasswordDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Reset Password</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to reset the password for {selectedUser.name}? A password reset link will be sent
+                to their email address.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmResetPassword}>Reset Password</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* Change Role Dialog */}
+      {selectedUser && (
+        <Dialog open={showChangeRoleDialog} onOpenChange={setShowChangeRoleDialog}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Change User Role</DialogTitle>
+              <DialogDescription>Update the role for {selectedUser.name}</DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Label htmlFor="newRole" className="mb-2 block">
+                Select New Role
+              </Label>
+              <Select defaultValue={selectedUser.role} onValueChange={(value) => confirmChangeRole(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles
+                    .filter((r) => r !== "All Roles")
+                    .map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowChangeRoleDialog(false)}>
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Delete User Dialog */}
+      {selectedUser && (
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete User</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete {selectedUser.name}? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteUser} className="bg-red-600 hover:bg-red-700">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   )
 }
 
 // User Table Component
-function UserTable({ users, onViewUser }: { users: UserData[]; onViewUser: (user: UserData) => void }) {
+function UserTable({
+  users,
+  onViewUser,
+  onEditUser,
+  onResetPassword,
+  onChangeRole,
+  onToggleStatus,
+  onDeleteUser,
+  loading,
+}: {
+  users: UserData[]
+  onViewUser: (user: UserData) => void
+  onEditUser: (user: UserData) => void
+  onResetPassword: (user: UserData) => void
+  onChangeRole: (user: UserData) => void
+  onToggleStatus: (user: UserData) => void
+  onDeleteUser: (user: UserData) => void
+  loading: boolean
+}) {
+  if (loading) {
+    return (
+      <Card className="p-8 text-center">
+        <div className="flex flex-col items-center justify-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-500">Loading users...</p>
+        </div>
+      </Card>
+    )
+  }
+
   if (users.length === 0) {
     return (
       <Card className="p-8 text-center">
@@ -820,20 +1011,40 @@ function UserTable({ users, onViewUser }: { users: UserData[]; onViewUser: (user
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>Edit User</DropdownMenuItem>
-                        <DropdownMenuItem>Reset Password</DropdownMenuItem>
-                        <DropdownMenuItem>Change Role</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onEditUser(user)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit User
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onResetPassword(user)}>
+                          <Key className="h-4 w-4 mr-2" />
+                          Reset Password
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onChangeRole(user)}>
+                          <UserCog className="h-4 w-4 mr-2" />
+                          Change Role
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         {user.status === "Active" ? (
-                          <DropdownMenuItem className="text-amber-600 dark:text-amber-400">
+                          <DropdownMenuItem
+                            onClick={() => onToggleStatus(user)}
+                            className="text-amber-600 dark:text-amber-400"
+                          >
+                            <AlertTriangle className="h-4 w-4 mr-2" />
                             Suspend User
                           </DropdownMenuItem>
                         ) : user.status === "Inactive" || user.status === "Suspended" ? (
-                          <DropdownMenuItem className="text-green-600 dark:text-green-400">
+                          <DropdownMenuItem
+                            onClick={() => onToggleStatus(user)}
+                            className="text-green-600 dark:text-green-400"
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
                             Activate User
                           </DropdownMenuItem>
                         ) : null}
-                        <DropdownMenuItem className="text-red-600 dark:text-red-400">Delete User</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onDeleteUser(user)} className="text-red-600 dark:text-red-400">
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete User
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -846,4 +1057,173 @@ function UserTable({ users, onViewUser }: { users: UserData[]; onViewUser: (user
     </Card>
   )
 }
+
+// Sample user data
+const sampleUsers: UserData[] = [
+  {
+    id: 1,
+    name: "Sarah Johnson",
+    email: "sarah@rapidventures.com",
+    company: "Rapid Ventures LLC",
+    role: "Client Admin",
+    status: "Active",
+    joinDate: "Jan 15, 2023",
+    lastActive: "Today at 10:23 AM",
+    phone: "(555) 123-4567",
+    address: "123 Business Ave, San Francisco, CA 94107",
+    subscriptionPlan: "Business Pro",
+    subscriptionStatus: "Active",
+    documents: [
+      { name: "Articles of Organization", status: "Verified", date: "Jan 15, 2023" },
+      { name: "Operating Agreement", status: "Verified", date: "Jan 15, 2023" },
+      { name: "EIN Confirmation", status: "Verified", date: "Jan 20, 2023" },
+    ],
+    activity: [
+      { action: "Login", date: "Today at 10:23 AM", details: "Logged in from San Francisco, CA" },
+      { action: "Document Upload", date: "Yesterday at 3:45 PM", details: "Uploaded Annual Report 2024" },
+      { action: "Profile Update", date: "Mar 5, 2025", details: "Updated company address" },
+    ],
+  },
+  {
+    id: 2,
+    name: "Michael Chen",
+    email: "michael@blueocean.com",
+    company: "Blue Ocean Inc",
+    role: "Client User",
+    status: "Active",
+    joinDate: "Feb 10, 2023",
+    lastActive: "Yesterday at 4:15 PM",
+    phone: "(555) 987-6543",
+    address: "456 Tech Blvd, Seattle, WA 98101",
+    subscriptionPlan: "Business Standard",
+    subscriptionStatus: "Active",
+    documents: [
+      { name: "Articles of Organization", status: "Verified", date: "Feb 10, 2023" },
+      { name: "Operating Agreement", status: "Verified", date: "Feb 10, 2023" },
+      { name: "Tax Filing Q1", status: "Pending", date: "Mar 5, 2025" },
+    ],
+    activity: [
+      { action: "Login", date: "Yesterday at 4:15 PM", details: "Logged in from Seattle, WA" },
+      { action: "Document Download", date: "Mar 6, 2025", details: "Downloaded Tax Filing Template" },
+      { action: "Support Request", date: "Mar 3, 2025", details: "Opened ticket #45678" },
+    ],
+  },
+  {
+    id: 3,
+    name: "Emily Rodriguez",
+    email: "emily@summitsolutions.com",
+    company: "Summit Solutions",
+    role: "Client Admin",
+    status: "Active",
+    joinDate: "Mar 5, 2023",
+    lastActive: "Mar 7, 2025 at 9:30 AM",
+    phone: "(555) 456-7890",
+    address: "789 Summit Ave, Denver, CO 80202",
+    subscriptionPlan: "Business Pro",
+    subscriptionStatus: "Active",
+    documents: [
+      { name: "Articles of Organization", status: "Verified", date: "Mar 5, 2023" },
+      { name: "Operating Agreement", status: "Verified", date: "Mar 5, 2023" },
+      { name: "Business License", status: "Verified", date: "Mar 10, 2023" },
+    ],
+    activity: [
+      { action: "Login", date: "Mar 7, 2025 at 9:30 AM", details: "Logged in from Denver, CO" },
+      { action: "Payment", date: "Mar 1, 2025", details: "Processed subscription renewal" },
+      { action: "User Invite", date: "Feb 25, 2025", details: "Invited team member john@summitsolutions.com" },
+    ],
+  },
+  {
+    id: 4,
+    name: "David Kim",
+    email: "david@horizongroup.com",
+    company: "Horizon Group",
+    role: "Client User",
+    status: "Inactive",
+    joinDate: "Apr 20, 2023",
+    lastActive: "Feb 15, 2025 at 2:45 PM",
+    phone: "(555) 789-0123",
+    address: "101 Horizon St, Austin, TX 78701",
+    subscriptionPlan: "Business Standard",
+    subscriptionStatus: "Expired",
+    documents: [
+      { name: "Articles of Organization", status: "Verified", date: "Apr 20, 2023" },
+      { name: "Operating Agreement", status: "Verified", date: "Apr 20, 2023" },
+    ],
+    activity: [
+      { action: "Login", date: "Feb 15, 2025 at 2:45 PM", details: "Logged in from Austin, TX" },
+      { action: "Subscription", date: "Feb 15, 2025", details: "Subscription expired" },
+      { action: "Document Access", date: "Feb 10, 2025", details: "Accessed Operating Agreement" },
+    ],
+  },
+  {
+    id: 5,
+    name: "Alex Thompson",
+    email: "alex@nexustech.com",
+    company: "Nexus Technologies",
+    role: "Client Admin",
+    status: "Pending",
+    joinDate: "Mar 7, 2025",
+    lastActive: "Mar 7, 2025 at 11:20 AM",
+    phone: "(555) 234-5678",
+    address: "222 Tech Park, Boston, MA 02110",
+    subscriptionPlan: "Business Pro",
+    subscriptionStatus: "Trial",
+    documents: [
+      { name: "ID Verification", status: "Verified", date: "Mar 7, 2025" },
+      { name: "Business License", status: "Pending", date: "Mar 7, 2025" },
+      { name: "Tax ID", status: "Verified", date: "Mar 7, 2025" },
+    ],
+    activity: [
+      { action: "Account Creation", date: "Mar 7, 2025 at 11:00 AM", details: "Account created" },
+      { action: "Document Upload", date: "Mar 7, 2025 at 11:15 AM", details: "Uploaded verification documents" },
+      { action: "Login", date: "Mar 7, 2025 at 11:20 AM", details: "First login from Boston, MA" },
+    ],
+  },
+  {
+    id: 6,
+    name: "Maria Garcia",
+    email: "maria@stellarinnovations.com",
+    company: "Stellar Innovations",
+    role: "Super Admin",
+    status: "Active",
+    joinDate: "Jan 5, 2023",
+    lastActive: "Today at 9:45 AM",
+    phone: "(555) 345-6789",
+    address: "333 Innovation Way, Chicago, IL 60601",
+    subscriptionPlan: "Enterprise",
+    subscriptionStatus: "Active",
+    documents: [
+      { name: "ID Verification", status: "Verified", date: "Jan 5, 2023" },
+      { name: "Employment Contract", status: "Verified", date: "Jan 5, 2023" },
+    ],
+    activity: [
+      { action: "Login", date: "Today at 9:45 AM", details: "Logged in from Chicago, IL" },
+      { action: "User Management", date: "Today at 10:15 AM", details: "Approved new user account" },
+      { action: "System Settings", date: "Yesterday at 2:30 PM", details: "Updated system configuration" },
+    ],
+  },
+  {
+    id: 7,
+    name: "James Wilson",
+    email: "james@pinnaclegroup.com",
+    company: "Pinnacle Group",
+    role: "Support Agent",
+    status: "Active",
+    joinDate: "Feb 15, 2023",
+    lastActive: "Today at 11:30 AM",
+    phone: "(555) 456-7890",
+    address: "444 Support Ave, Miami, FL 33101",
+    subscriptionPlan: "Internal",
+    subscriptionStatus: "Active",
+    documents: [
+      { name: "ID Verification", status: "Verified", date: "Feb 15, 2023" },
+      { name: "Employment Contract", status: "Verified", date: "Feb 15, 2023" },
+    ],
+    activity: [
+      { action: "Login", date: "Today at 11:30 AM", details: "Logged in from Miami, FL" },
+      { action: "Ticket Response", date: "Today at 11:45 AM", details: "Responded to ticket #45678" },
+      { action: "Document Review", date: "Yesterday at 3:15 PM", details: "Reviewed client documents" },
+    ],
+  },
+]
 
