@@ -100,6 +100,7 @@ interface UserData {
   subscriptionAmount?: number
   lastPasswordChange?: string
   isOnline?: boolean
+  invoices?: any[] // Add this line to store user invoices
 }
 
 export default function AllUsersPage() {
@@ -336,6 +337,40 @@ export default function AllUsersPage() {
         nextBillingDate: null,
       }
 
+      // Fetch invoices for this user
+      let userInvoices = []
+      try {
+        const invoicesResponse = await fetch(`/api/admin/invoices`)
+        if (invoicesResponse.ok) {
+          const invoicesData = await invoicesResponse.json()
+          // Filter invoices for this user
+          userInvoices = invoicesData.invoices.filter(
+            (invoice: any) => invoice.userId === userId || invoice.customerEmail === data.user.email,
+          )
+
+          // If we have invoices, use the most recent one for subscription data
+          if (userInvoices.length > 0) {
+            const latestInvoice = userInvoices.sort(
+              (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+            )[0]
+
+            // Get the package/item name from the invoice items
+            const packageName =
+              latestInvoice.items && latestInvoice.items.length > 0 ? latestInvoice.items[0].tier : "Standard"
+
+            subscriptionData = {
+              planName: packageName,
+              status: latestInvoice.status || "Inactive",
+              price: latestInvoice.amount || 0,
+              nextBillingDate: latestInvoice.paymentDate || latestInvoice.createdAt,
+            }
+          }
+        }
+      } catch (invoiceError) {
+        console.error("Error fetching invoice data:", invoiceError)
+        // Continue with default subscription data
+      }
+
       // If user has a business, try to get business data using your existing API
       if (data.user.businessId) {
         try {
@@ -348,11 +383,14 @@ export default function AllUsersPage() {
               const activeSubscription =
                 businessData.subscriptions.find((sub: any) => sub.status === "active") || businessData.subscriptions[0]
 
-              subscriptionData = {
-                planName: activeSubscription.planName || "None",
-                status: activeSubscription.status || "Inactive",
-                price: activeSubscription.price || 0,
-                nextBillingDate: activeSubscription.nextBillingDate || null,
+              // Only override if we didn't get data from invoices
+              if (userInvoices.length === 0) {
+                subscriptionData = {
+                  planName: activeSubscription.planName || "None",
+                  status: activeSubscription.status || "Inactive",
+                  price: activeSubscription.price || 0,
+                  nextBillingDate: activeSubscription.nextBillingDate || null,
+                }
               }
             }
           }
@@ -424,6 +462,7 @@ export default function AllUsersPage() {
         documents: data.user.business?.documents || [],
         activity: userActivity.length > 0 ? userActivity : [],
         isOnline: data.user.isOnline || false,
+        invoices: userInvoices || [],
       }
 
       setSelectedUser(userDetails)
@@ -828,6 +867,20 @@ export default function AllUsersPage() {
     }
   }
 
+  // Add this function near the other utility functions
+  const getInvoiceStatusColor = (status: string) => {
+    switch (status) {
+      case "paid":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+      case "cancelled":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+    }
+  }
+
   // If session is loading or user is not authenticated, show loading state
   if (sessionStatus === "loading" || !session) {
     return (
@@ -1070,46 +1123,93 @@ export default function AllUsersPage() {
                 </div>
 
                 <div className="md:w-2/3 space-y-6">
-                  {/* Subscription Info */}
                   <Card className="p-6">
                     <h3 className="text-lg font-medium mb-4">Subscription</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Plan</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Items/Packages</p>
                         <p className="font-medium">{selectedUser.subscriptionPlan || "None"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
                         <span
                           className={`px-2 py-1 text-xs rounded-full inline-flex items-center ${
-                            selectedUser.subscriptionStatus === "Active"
+                            selectedUser.subscriptionStatus === "paid" || selectedUser.subscriptionStatus === "Active"
                               ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                              : selectedUser.subscriptionStatus === "Trial"
+                              : selectedUser.subscriptionStatus === "pending" ||
+                                  selectedUser.subscriptionStatus === "Trial"
                                 ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
                                 : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
                           }`}
                         >
-                          {selectedUser.subscriptionStatus === "Active" ? (
+                          {selectedUser.subscriptionStatus === "paid" ||
+                          selectedUser.subscriptionStatus === "Active" ? (
                             <CheckCircle2 className="h-3 w-3 mr-1" />
-                          ) : selectedUser.subscriptionStatus === "Trial" ? (
+                          ) : selectedUser.subscriptionStatus === "pending" ||
+                            selectedUser.subscriptionStatus === "Trial" ? (
                             <Clock className="h-3 w-3 mr-1" />
                           ) : (
                             <XCircle className="h-3 w-3 mr-1" />
                           )}
-                          {selectedUser.subscriptionStatus || "Inactive"}
+                          {selectedUser.subscriptionStatus === "paid"
+                            ? "Paid"
+                            : selectedUser.subscriptionStatus === "pending"
+                              ? "Pending"
+                              : selectedUser.subscriptionStatus || "Inactive"}
                         </span>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Next Billing</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Payment Date</p>
                         <p className="font-medium">{selectedUser.nextBillingDate || "N/A"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Amount</p>
                         <p className="font-medium">
-                          {selectedUser.subscriptionAmount ? `$${selectedUser.subscriptionAmount}` : "N/A"}
+                          {selectedUser.subscriptionAmount ? `$${selectedUser.subscriptionAmount.toFixed(2)}` : "N/A"}
                         </p>
                       </div>
                     </div>
+
+                    {/* Add invoice history section */}
+                    {selectedUser.invoices && selectedUser.invoices.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium mb-2">Invoice History</h4>
+                        <div className="max-h-40 overflow-y-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left py-2">Invoice #</th>
+                                <th className="text-left py-2">Date</th>
+                                <th className="text-left py-2">Amount</th>
+                                <th className="text-left py-2">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedUser.invoices.map((invoice: any) => (
+                                <tr key={invoice.id} className="border-b">
+                                  <td className="py-2">{invoice.invoiceNumber}</td>
+                                  <td className="py-2">{new Date(invoice.createdAt).toLocaleDateString()}</td>
+                                  <td className="py-2">${invoice.amount.toFixed(2)}</td>
+                                  <td className="py-2">
+                                    <span
+                                      className={`px-1.5 py-0.5 text-xs rounded-full ${
+                                        invoice.status === "paid"
+                                          ? "bg-green-100 text-green-800"
+                                          : invoice.status === "pending"
+                                            ? "bg-yellow-100 text-yellow-800"
+                                            : "bg-red-100 text-red-800"
+                                      }`}
+                                    >
+                                      {invoice.status}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                   </Card>
 
                   {/* Security Info */}
