@@ -16,7 +16,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          console.log("Missing credentials")
+          console.log("NextAuth: Missing credentials")
           return null
         }
 
@@ -27,34 +27,37 @@ export const authOptions: NextAuthOptions = {
           })
 
           if (!user || !user.password) {
-            console.log("User not found or no password")
+            console.log("NextAuth: User not found or no password")
             return null
           }
 
+          console.log("NextAuth: User found:", user.id)
+          console.log("NextAuth: User password format:", user.password.substring(0, 10) + "...")
+
           // Check if email is verified, but allow login in development environment
           if (!user.emailVerified && process.env.NODE_ENV === "production") {
-            console.log("Email not verified")
+            console.log("NextAuth: Email not verified")
             throw new Error("Email not verified")
           }
 
           // Check if password matches using the verifyPassword function
-          console.log("Verifying password for:", credentials.email)
+          console.log("NextAuth: Verifying password for:", credentials.email)
           const passwordMatch = await verifyPassword(user.password, credentials.password)
 
           if (!passwordMatch) {
-            console.log("Password doesn't match")
+            console.log("NextAuth: Password doesn't match")
             return null
           }
 
-          console.log("Password verified successfully")
+          console.log("NextAuth: Password verified successfully")
 
           // Check if user has admin privileges
           if (user.role !== Role.ADMIN && user.role !== Role.SUPPORT) {
-            console.log("User doesn't have admin role")
+            console.log("NextAuth: User doesn't have admin role")
             return null
           }
 
-          console.log("User authorized successfully")
+          console.log("NextAuth: User authorized successfully")
           return {
             id: user.id,
             email: user.email,
@@ -62,7 +65,7 @@ export const authOptions: NextAuthOptions = {
             role: user.role,
           }
         } catch (error) {
-          console.error("Auth error:", error)
+          console.error("NextAuth: Auth error:", error)
           return null
         }
       },
@@ -91,7 +94,7 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
-  debug: process.env.NODE_ENV === "development",
+  debug: true, // Enable debug mode to see more detailed logs
 }
 
 const handler = NextAuth(authOptions)

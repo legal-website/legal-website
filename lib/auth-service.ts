@@ -55,7 +55,15 @@ export async function hashPassword(password: string): Promise<string> {
 // Verify password
 export async function verifyPassword(hashedPassword: string, plainPassword: string): Promise<boolean> {
   try {
-    return bcryptjs.compare(plainPassword, hashedPassword)
+    // Add debugging
+    console.log("Verifying password:")
+    console.log("Plain password length:", plainPassword.length)
+    console.log("Hashed password format:", hashedPassword.substring(0, 10) + "...")
+
+    // Use bcryptjs for consistent verification
+    const result = await bcryptjs.compare(plainPassword, hashedPassword)
+    console.log("Password verification result:", result)
+    return result
   } catch (error) {
     console.error("Password verification error:", error)
     return false
