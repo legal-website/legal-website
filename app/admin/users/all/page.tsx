@@ -125,6 +125,102 @@ export default function AllUsersPage() {
   const [processingAction, setProcessingAction] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Add this function at the beginning of your component
+  const fetchUsers = async () => {
+    if (sessionStatus !== "authenticated") return
+
+    try {
+      setLoading(true)
+      setError(null) // Clear any previous errors
+
+      console.log("Fetching users from API")
+
+      // Use your existing API endpoint to fetch users
+      const response = await fetch("/api/users", {
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      })
+
+      console.log("Response status:", response.status)
+
+      // Check if response is OK
+      if (!response.ok) {
+        // Try to parse error as JSON
+        let errorMessage = "Failed to fetch users"
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (parseError) {
+          // If parsing fails, get the text content
+          const textContent = await response.text()
+          console.error("Non-JSON response:", textContent)
+          errorMessage = "Server returned non-JSON response"
+        }
+
+        throw new Error(errorMessage)
+      }
+
+      // Try to parse the response as JSON
+      let data
+      try {
+        const text = await response.text()
+        console.log("Response text:", text.substring(0, 100) + "...") // Log first 100 chars
+        data = JSON.parse(text)
+      } catch (parseError) {
+        console.error("Error parsing JSON:", parseError)
+        throw new Error("Invalid JSON response from server")
+      }
+
+      if (!data.users || !Array.isArray(data.users)) {
+        console.error("Invalid response format:", data)
+        throw new Error("Invalid response format from server")
+      }
+
+      console.log(`Received ${data.users.length} users`)
+
+      // Format the user data for display
+      const formattedUsers = data.users.map((user: any) => ({
+        id: user.id,
+        name: user.name || "Unknown",
+        email: user.email,
+        company: user.company || "Not specified",
+        role: user.role || Role.CLIENT,
+        status: user.status || "Active",
+        joinDate: new Date(user.createdAt).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        }),
+        lastActive: user.lastActive
+          ? new Date(user.lastActive).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "Never",
+        phone: user.phone || "Not provided",
+        address: user.address || "Not provided",
+        profileImage: user.profileImage || null,
+      }))
+
+      setUsers(formattedUsers)
+    } catch (error) {
+      console.error("Error fetching users:", error)
+      setError((error as Error).message || "Failed to load users. Please try again.")
+      toast({
+        title: "Error",
+        description: "Failed to load users. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Check if user is authenticated and is an admin
   useEffect(() => {
     if (sessionStatus === "loading") return
@@ -145,72 +241,12 @@ export default function AllUsersPage() {
     }
   }, [session, sessionStatus, router, toast])
 
-  // Fetch users data
+  // Replace your existing useEffect with this:
   useEffect(() => {
-    const fetchUsers = async () => {
-      if (sessionStatus !== "authenticated") return
-
-      try {
-        setLoading(true)
-        setError(null) // Clear any previous errors
-
-        // Use your existing API endpoint to fetch users
-        const response = await fetch("/api/users")
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Failed to fetch users")
-        }
-
-        const data = await response.json()
-
-        if (!data.users || !Array.isArray(data.users)) {
-          throw new Error("Invalid response format from server")
-        }
-
-        // Format the user data for display
-        const formattedUsers = data.users.map((user: any) => ({
-          id: user.id,
-          name: user.name || "Unknown",
-          email: user.email,
-          company: user.company || "Not specified",
-          role: user.role || Role.CLIENT,
-          status: user.status || "Active",
-          joinDate: new Date(user.createdAt).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          }),
-          lastActive: user.lastActive
-            ? new Date(user.lastActive).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "Never",
-          phone: user.phone || "Not provided",
-          address: user.address || "Not provided",
-          profileImage: user.profileImage || null,
-        }))
-
-        setUsers(formattedUsers)
-      } catch (error) {
-        console.error("Error fetching users:", error)
-        setError((error as Error).message || "Failed to load users. Please try again.")
-        toast({
-          title: "Error",
-          description: "Failed to load users. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
+    if (sessionStatus === "authenticated" && (session?.user as any)?.role === Role.ADMIN) {
+      fetchUsers()
     }
-
-    fetchUsers()
-  }, [sessionStatus, toast])
+  }, [sessionStatus, session])
 
   // Filter users based on search query, tab, and role
   const filteredUsers = users.filter((user) => {

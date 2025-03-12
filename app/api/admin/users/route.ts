@@ -1,34 +1,31 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import prisma from "@/lib/prisma"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { db } from "@/lib/db"
 import { Role } from "@prisma/client"
 
-export async function GET(request: Request) {
+export async function GET(req: Request) {
   try {
+    console.log("API: Fetching users")
+
     // Check if user is authenticated
     const session = await getServerSession(authOptions)
+    console.log("API: Session", session ? "exists" : "does not exist")
 
-    if (!session) {
-      return NextResponse.json({ error: "You must be signed in to access this endpoint" }, { status: 401 })
+    if (!session?.user) {
+      console.log("API: Unauthorized - No session")
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     // Only allow admins to access all users
     if ((session.user as any).role !== Role.ADMIN) {
-      return NextResponse.json({ error: "You don't have permission to access this resource" }, { status: 403 })
+      console.log("API: Forbidden - Not admin")
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Get URL parameters for filtering
-    const url = new URL(request.url)
-    const role = url.searchParams.get("role")
-    const search = url.searchParams.get("search")
-
-    // Build the query
-    const query: any = {
-      where: {},
-      orderBy: {
-        createdAt: "desc",
-      },
+    // Fetch users from database
+    console.log("API: Fetching users from database")
+    const users = await db.user.findMany({
       select: {
         id: true,
         name: true,
@@ -39,22 +36,12 @@ export async function GET(request: Request) {
         emailVerified: true,
         image: true,
       },
-    }
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
 
-    // Add filters if provided
-    if (role && role !== "All Roles") {
-      query.where.role = role
-    }
-
-    if (search) {
-      query.where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { email: { contains: search, mode: "insensitive" } },
-      ]
-    }
-
-    // Fetch users from database
-    const users = await prisma.user.findMany(query)
+    console.log(`API: Found ${users.length} users`)
 
     // Format dates and add virtual fields for UI display
     const formattedUsers = users.map((user) => {
@@ -78,9 +65,11 @@ export async function GET(request: Request) {
       }
     })
 
+    // Return JSON response
+    console.log("API: Returning users")
     return NextResponse.json({ users: formattedUsers })
   } catch (error) {
-    console.error("Error fetching users:", error)
+    console.error("API Error fetching users:", error)
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 })
   }
 }

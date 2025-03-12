@@ -7,6 +7,11 @@ export async function middleware(request: NextRequest) {
   // Get the pathname
   const path = request.nextUrl.pathname
 
+  // Log all API requests for debugging
+  if (path.startsWith("/api/")) {
+    console.log(`API Request: ${path}`)
+  }
+
   // Check if the path is for admin routes
   const isAdminPath = path.startsWith("/admin")
 
@@ -30,6 +35,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/api/:path*"],
 }
 
