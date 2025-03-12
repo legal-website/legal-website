@@ -71,12 +71,14 @@ interface UserDocument {
   date: string
 }
 
+// Define the UserActivity interface
 interface UserActivity {
   action: string
   date: string
   details: string
 }
 
+// Update the UserData interface to include emailVerified
 interface UserData {
   id: string
   name: string
@@ -86,6 +88,7 @@ interface UserData {
   status: "Active" | "Pending" | "Inactive" | "Suspended"
   joinDate: string
   lastActive: string
+  emailVerified?: boolean
   documents?: UserDocument[]
   activity?: UserActivity[]
   profileImage?: string
@@ -124,6 +127,21 @@ export default function AllUsersPage() {
   const [newRole, setNewRole] = useState<Role | "">("")
   const [processingAction, setProcessingAction] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // First, add a state for the new user form data
+  // Add this near the other state declarations:
+
+  const [newUserData, setNewUserData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    phone: "",
+    company: "",
+    role: Role.CLIENT,
+    sendInvite: true,
+    notes: "",
+  })
 
   // Modify the fetchUsers function to try the test endpoint if the main one fails
 
@@ -204,6 +222,7 @@ export default function AllUsersPage() {
         company: user.company || "Not specified",
         role: user.role || Role.CLIENT,
         status: user.status || "Active",
+        emailVerified: user.emailVerified ?? true, // Default to true if not specified
         joinDate:
           user.joinDate ||
           (user.createdAt
@@ -213,7 +232,15 @@ export default function AllUsersPage() {
                 day: "numeric",
               })
             : "Unknown"),
-        lastActive: user.lastActive || "Never",
+        lastActive: user.lastActive
+          ? new Date(user.lastActive).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "Never",
         phone: user.phone || "Not provided",
         address: user.address || "Not provided",
         profileImage: user.profileImage || null,
@@ -269,7 +296,7 @@ export default function AllUsersPage() {
 
     const matchesTab =
       (activeTab === "active" && user.status === "Active") ||
-      (activeTab === "pending" && user.status === "Pending") ||
+      (activeTab === "pending" && (user.status === "Pending" || user.emailVerified === false)) ||
       (activeTab === "inactive" && (user.status === "Inactive" || user.status === "Suspended")) ||
       activeTab === "all"
 
@@ -414,6 +441,23 @@ export default function AllUsersPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  // Then update the handleNewUserInputChange function
+  const handleNewUserInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setNewUserData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  // Add a function to handle checkbox changes
+  const handleNewUserCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target
+    setNewUserData((prev) => ({ ...prev, [name]: checked }))
+  }
+
+  // Add a function to handle select changes
+  const handleNewUserSelectChange = (name: string, value: string) => {
+    setNewUserData((prev) => ({ ...prev, [name]: value }))
   }
 
   // Update the confirmDeleteUser function to use the correct API path
@@ -572,6 +616,68 @@ export default function AllUsersPage() {
       toast({
         title: "Error",
         description: "Failed to update user. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
+  // Add a function to create a new user
+  const createUser = async () => {
+    setProcessingAction(true)
+
+    try {
+      // Use the API endpoint to create a new user
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: `${newUserData.firstName} ${newUserData.lastName}`.trim(),
+          email: newUserData.email,
+          password: newUserData.password,
+          phone: newUserData.phone,
+          company: newUserData.company,
+          role: newUserData.role,
+          notes: newUserData.notes,
+          sendInvite: newUserData.sendInvite,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create user")
+      }
+
+      // Refresh the user list
+      fetchUsers()
+
+      setShowAddUserDialog(false)
+
+      // Reset the form
+      setNewUserData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        password: "",
+        phone: "",
+        company: "",
+        role: Role.CLIENT,
+        sendInvite: true,
+        notes: "",
+      })
+
+      toast({
+        title: "User Created",
+        description: "New user has been created successfully.",
+      })
+    } catch (error) {
+      console.error("Error creating user:", error)
+      toast({
+        title: "Error",
+        description: (error as Error).message || "Failed to create user. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -1019,32 +1125,75 @@ export default function AllUsersPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="firstName">First Name</Label>
-                <Input id="firstName" placeholder="First name" />
+                <Input
+                  id="firstName"
+                  name="firstName"
+                  value={newUserData.firstName}
+                  onChange={handleNewUserInputChange}
+                  placeholder="First name"
+                />
               </div>
               <div>
                 <Label htmlFor="lastName">Last Name</Label>
-                <Input id="lastName" placeholder="Last name" />
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  value={newUserData.lastName}
+                  onChange={handleNewUserInputChange}
+                  placeholder="Last name"
+                />
               </div>
             </div>
 
             <div>
               <Label htmlFor="email">Email Address</Label>
-              <Input id="email" type="email" placeholder="Email address" />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={newUserData.email}
+                onChange={handleNewUserInputChange}
+                placeholder="Email address"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                value={newUserData.password}
+                onChange={handleNewUserInputChange}
+                placeholder="Password"
+              />
             </div>
 
             <div>
               <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" placeholder="Phone number" />
+              <Input
+                id="phone"
+                name="phone"
+                value={newUserData.phone}
+                onChange={handleNewUserInputChange}
+                placeholder="Phone number"
+              />
             </div>
 
             <div>
               <Label htmlFor="company">Company</Label>
-              <Input id="company" placeholder="Company name" />
+              <Input
+                id="company"
+                name="company"
+                value={newUserData.company}
+                onChange={handleNewUserInputChange}
+                placeholder="Company name"
+              />
             </div>
 
             <div>
               <Label htmlFor="role">Role</Label>
-              <Select>
+              <Select value={newUserData.role} onValueChange={(value) => handleNewUserSelectChange("role", value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
@@ -1062,11 +1211,24 @@ export default function AllUsersPage() {
 
             <div>
               <Label htmlFor="notes">Notes (Optional)</Label>
-              <Textarea id="notes" placeholder="Additional notes about this user" />
+              <Textarea
+                id="notes"
+                name="notes"
+                value={newUserData.notes}
+                onChange={handleNewUserInputChange}
+                placeholder="Additional notes about this user"
+              />
             </div>
 
             <div className="flex items-center space-x-2">
-              <input type="checkbox" id="sendInvite" className="rounded border-gray-300" />
+              <input
+                type="checkbox"
+                id="sendInvite"
+                name="sendInvite"
+                checked={newUserData.sendInvite}
+                onChange={handleNewUserCheckboxChange}
+                className="rounded border-gray-300"
+              />
               <Label htmlFor="sendInvite">Send welcome email with login instructions</Label>
             </div>
           </div>
@@ -1075,17 +1237,8 @@ export default function AllUsersPage() {
             <Button variant="outline" onClick={() => setShowAddUserDialog(false)}>
               Cancel
             </Button>
-            <Button
-              className="bg-purple-600 hover:bg-purple-700"
-              onClick={() => {
-                setShowAddUserDialog(false)
-                toast({
-                  title: "User Created",
-                  description: "New user has been created successfully.",
-                })
-              }}
-            >
-              Create User
+            <Button className="bg-purple-600 hover:bg-purple-700" onClick={createUser} disabled={processingAction}>
+              {processingAction ? "Creating..." : "Create User"}
             </Button>
           </DialogFooter>
         </DialogContent>
