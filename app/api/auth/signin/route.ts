@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import prisma from "@/lib/prisma"
-import { verifyPassword } from "@/lib/auth-service"
+import * as bcryptjs from "bcryptjs"
 import { v4 as uuidv4 } from "uuid"
 
 export async function POST(req: Request) {
@@ -38,10 +38,15 @@ export async function POST(req: Request) {
       // In development, we'll continue anyway
     }
 
-    // Check password
-    console.log("Verifying password...")
-    const isPasswordValid = await verifyPassword(user.password, password)
-    console.log("Password valid:", isPasswordValid)
+    // Check password directly with bcryptjs
+    console.log("Verifying password with bcryptjs...")
+    let isPasswordValid = false
+    try {
+      isPasswordValid = await bcryptjs.compare(password, user.password)
+      console.log("Password valid:", isPasswordValid)
+    } catch (error) {
+      console.error("Password verification error:", error)
+    }
 
     if (!isPasswordValid) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
@@ -63,7 +68,7 @@ export async function POST(req: Request) {
 
     // Set session cookie
     const cookieStore = cookies()
-    ;(await cookieStore).set("session_token", session.token, {
+    cookieStore.set("session_token", session.token, {
       expires: expiresAt,
       httpOnly: true,
       path: "/",

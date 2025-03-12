@@ -2,7 +2,7 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaClient, Role } from "@prisma/client"
 import type { NextAuthOptions } from "next-auth"
-import { verifyPassword } from "@/lib/auth-service"
+import * as bcryptjs from "bcryptjs"
 
 const prisma = new PrismaClient()
 
@@ -40,9 +40,15 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Email not verified")
           }
 
-          // Check if password matches using the verifyPassword function
+          // Check if password matches using bcryptjs directly
           console.log("NextAuth: Verifying password for:", credentials.email)
-          const passwordMatch = await verifyPassword(user.password, credentials.password)
+          let passwordMatch = false
+          try {
+            passwordMatch = await bcryptjs.compare(credentials.password, user.password)
+            console.log("NextAuth: Password match result:", passwordMatch)
+          } catch (error) {
+            console.error("NextAuth: Password verification error:", error)
+          }
 
           if (!passwordMatch) {
             console.log("NextAuth: Password doesn't match")
