@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { Role } from "@prisma/client"
-import { hash } from "bcrypt"
+import { hash } from "bcryptjs"
 import { getAppUrl } from "@/lib/get-app-url"
 import { sendEmail } from "@/lib/email"
 
