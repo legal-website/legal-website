@@ -16,8 +16,6 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  ArrowUpDown,
-  CalendarIcon,
   FilterX,
   ChevronLeft,
   ChevronRight,
@@ -40,9 +38,6 @@ import { Role } from "@prisma/client"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { format } from "date-fns"
-import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 
 // Define the UserData interface
 interface UserData {
@@ -77,12 +72,9 @@ export default function UserRolesPage() {
 
   // Sorting and filtering states
   const [sortOrder, setSortOrder] = useState<SortOrder>("none")
-  const [dateRange, setDateRange] = useState<{
-    from: Date | undefined
-    to: Date | undefined
-  }>({
-    from: undefined,
-    to: undefined,
+  const [dateFilter, setDateFilter] = useState({
+    startDate: "",
+    endDate: "",
   })
 
   // Pagination states
@@ -213,7 +205,7 @@ export default function UserRolesPage() {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, activeTab, sortOrder, dateRange])
+  }, [searchQuery, activeTab, sortOrder, dateFilter])
 
   // Filter and sort users
   const filteredAndSortedUsers = React.useMemo(() => {
@@ -231,15 +223,25 @@ export default function UserRolesPage() {
         activeTab === "all"
 
       // Filter by date range if set
-      const matchesDateRange =
-        !dateRange.from ||
-        !dateRange.to ||
-        (user.joinDateObj &&
-          dateRange.from &&
-          dateRange.to &&
-          dateRange.from <= dateRange.to && // Only apply filter if range is valid
-          user.joinDateObj >= dateRange.from &&
-          user.joinDateObj <= dateRange.to)
+      let matchesDateRange = true
+      if (dateFilter.startDate && user.joinDateObj) {
+        const formationDate = user.joinDateObj
+        const startDate = new Date(dateFilter.startDate)
+
+        if (formationDate < startDate) {
+          matchesDateRange = false
+        }
+      }
+
+      if (dateFilter.endDate && user.joinDateObj) {
+        const formationDate = user.joinDateObj
+        const endDate = new Date(dateFilter.endDate)
+        endDate.setHours(23, 59, 59, 999) // Set to end of day
+
+        if (formationDate > endDate) {
+          matchesDateRange = false
+        }
+      }
 
       return matchesSearch && matchesTab && matchesDateRange
     })
@@ -256,7 +258,7 @@ export default function UserRolesPage() {
     }
 
     return result
-  }, [users, searchQuery, activeTab, sortOrder, dateRange])
+  }, [users, searchQuery, activeTab, sortOrder, dateFilter])
 
   // Paginate the filtered and sorted users
   const paginatedUsers = React.useMemo(() => {
@@ -349,7 +351,7 @@ export default function UserRolesPage() {
 
   const resetFilters = () => {
     setSortOrder("none")
-    setDateRange({ from: undefined, to: undefined })
+    setDateFilter({ startDate: "", endDate: "" })
   }
 
   // Pagination handlers
@@ -453,9 +455,8 @@ export default function UserRolesPage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {/* Search */}
-        <div className="relative">
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="relative md:max-w-md w-full">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="Search users..."
@@ -465,100 +466,94 @@ export default function UserRolesPage() {
           />
         </div>
 
-        {/* Sort Order */}
-        <div>
-          <Select value={sortOrder} onValueChange={handleSortChange}>
-            <SelectTrigger className="w-full">
-              <div className="flex items-center">
-                <ArrowUpDown className="mr-2 h-4 w-4" />
-                <span>
-                  {sortOrder === "newest"
-                    ? "Newest First"
-                    : sortOrder === "oldest"
-                      ? "Oldest First"
-                      : "Sort by Join Date"}
-                </span>
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No Sorting</SelectItem>
-              <SelectItem value="newest">Newest First</SelectItem>
-              <SelectItem value="oldest">Oldest First</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <Select value={sortOrder} onValueChange={handleSortChange}>
+              <SelectTrigger className="w-full md:w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No Sorting</SelectItem>
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        {/* Date Range Picker */}
-        <div>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start text-left font-normal">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateRange.from ? (
-                  dateRange.to ? (
-                    <>
-                      {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
-                    </>
-                  ) : (
-                    format(dateRange.from, "LLL dd, y")
-                  )
-                ) : (
-                  "Filter by Join Date"
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <div className="p-3 border-b">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">Date Range</h3>
-                  {(dateRange.from || dateRange.to) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2"
-                      onClick={() => setDateRange({ from: undefined, to: undefined })}
-                    >
-                      <FilterX className="h-4 w-4 mr-1" />
-                      Clear
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <CalendarComponent
-                initialFocus
-                mode="range"
-                defaultMonth={dateRange.from}
-                selected={{
-                  from: dateRange.from,
-                  to: dateRange.to,
-                }}
-                onSelect={(range) => {
-                  // Validate the date range
-                  if (range?.from && range?.to && range.from > range.to) {
-                    // If from date is after to date, show a toast error
+          <div className="flex gap-2">
+            <div>
+              <Input
+                type="date"
+                placeholder="Start Date"
+                value={dateFilter.startDate}
+                onChange={(e) => {
+                  const newStartDate = e.target.value
+                  // Validate that start date is before end date if both exist
+                  if (newStartDate && dateFilter.endDate && new Date(newStartDate) > new Date(dateFilter.endDate)) {
                     toast({
                       title: "Invalid Date Range",
                       description: "The start date must be before or equal to the end date.",
                       variant: "destructive",
                     })
-                    return // Don't update the state with invalid range
+                    return // Don't update with invalid range
                   }
-
-                  // Update with valid range
-                  setDateRange({
-                    from: range?.from,
-                    to: range?.to,
-                  })
+                  setDateFilter((prev) => ({ ...prev, startDate: newStartDate }))
                 }}
-                numberOfMonths={2}
+                className="w-full"
               />
-            </PopoverContent>
-          </Popover>
+            </div>
+            <div>
+              <Input
+                type="date"
+                placeholder="End Date"
+                value={dateFilter.endDate}
+                onChange={(e) => {
+                  const newEndDate = e.target.value
+                  // Validate that end date is after start date if both exist
+                  if (dateFilter.startDate && newEndDate && new Date(dateFilter.startDate) > new Date(newEndDate)) {
+                    toast({
+                      title: "Invalid Date Range",
+                      description: "The end date must be after or equal to the start date.",
+                      variant: "destructive",
+                    })
+                    return // Don't update with invalid range
+                  }
+                  setDateFilter((prev) => ({ ...prev, endDate: newEndDate }))
+                }}
+                className="w-full"
+              />
+            </div>
+            {(dateFilter.startDate || dateFilter.endDate) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDateFilter({ startDate: "", endDate: "" })}
+                className="shrink-0"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+                <span className="sr-only">Clear dates</span>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Active Filters */}
-      {(sortOrder !== "none" || dateRange.from || dateRange.to) && (
+      {(sortOrder !== "none" || dateFilter.startDate || dateFilter.endDate) && (
         <div className="flex items-center mb-4 p-2 bg-muted rounded-md">
           <div className="flex-1">
             <span className="text-sm font-medium mr-2">Active Filters:</span>
@@ -567,11 +562,14 @@ export default function UserRolesPage() {
                 {sortOrder === "newest" ? "Newest First" : "Oldest First"}
               </Badge>
             )}
-            {dateRange.from && (
+            {dateFilter.startDate && (
               <Badge variant="outline" className="mr-2">
-                {dateRange.to
-                  ? `${format(dateRange.from, "LLL dd, y")} - ${format(dateRange.to, "LLL dd, y")}`
-                  : `From ${format(dateRange.from, "LLL dd, y")}`}
+                {`From ${new Date(dateFilter.startDate).toLocaleDateString()}`}
+              </Badge>
+            )}
+            {dateFilter.endDate && (
+              <Badge variant="outline" className="mr-2">
+                {`To ${new Date(dateFilter.endDate).toLocaleDateString()}`}
               </Badge>
             )}
           </div>
@@ -595,7 +593,10 @@ export default function UserRolesPage() {
           {loading ? (
             <LoadingState />
           ) : filteredAndSortedUsers.length === 0 ? (
-            <EmptyState query={searchQuery} hasFilters={sortOrder !== "none" || !!dateRange.from} />
+            <EmptyState
+              query={searchQuery}
+              hasFilters={sortOrder !== "none" || !!dateFilter.startDate || !!dateFilter.endDate}
+            />
           ) : (
             <>
               <UserRolesGrid
@@ -624,7 +625,10 @@ export default function UserRolesPage() {
           {loading ? (
             <LoadingState />
           ) : filteredAndSortedUsers.length === 0 ? (
-            <EmptyState query={searchQuery} hasFilters={sortOrder !== "none" || !!dateRange.from} />
+            <EmptyState
+              query={searchQuery}
+              hasFilters={sortOrder !== "none" || !!dateFilter.startDate || !!dateFilter.endDate}
+            />
           ) : (
             <>
               <UserRolesGrid
@@ -653,7 +657,10 @@ export default function UserRolesPage() {
           {loading ? (
             <LoadingState />
           ) : filteredAndSortedUsers.length === 0 ? (
-            <EmptyState query={searchQuery} hasFilters={sortOrder !== "none" || !!dateRange.from} />
+            <EmptyState
+              query={searchQuery}
+              hasFilters={sortOrder !== "none" || !!dateFilter.startDate || !!dateFilter.endDate}
+            />
           ) : (
             <>
               <UserRolesGrid
@@ -682,7 +689,10 @@ export default function UserRolesPage() {
           {loading ? (
             <LoadingState />
           ) : filteredAndSortedUsers.length === 0 ? (
-            <EmptyState query={searchQuery} hasFilters={sortOrder !== "none" || !!dateRange.from} />
+            <EmptyState
+              query={searchQuery}
+              hasFilters={sortOrder !== "none" || !!dateFilter.startDate || !!dateFilter.endDate}
+            />
           ) : (
             <>
               <UserRolesGrid
