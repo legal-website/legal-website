@@ -27,7 +27,6 @@ import {
   AlertTriangle,
   Trash2,
   Edit,
-  AlertCircle,
 } from "lucide-react"
 import {
   Dialog,
@@ -63,6 +62,7 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import Image from "next/image"
 import { Role } from "@prisma/client" // Add this import
+import ErrorState from "./error-state"
 
 // Define types for our data
 interface UserDocument {
@@ -154,22 +154,26 @@ export default function AllUsersPage() {
           errorMessage = errorData.error || errorMessage
         } catch (parseError) {
           // If parsing fails, get the text content
-          const textContent = await response.text()
-          console.error("Non-JSON response:", textContent)
-          errorMessage = "Server returned non-JSON response"
+          console.error("Failed to parse error response as JSON")
+          errorMessage = "Server returned an error"
         }
 
         throw new Error(errorMessage)
       }
 
+      // Clone the response before reading it
+      const responseClone = response.clone()
+
       // Try to parse the response as JSON
       let data
       try {
-        const text = await response.text()
-        console.log("Response text:", text.substring(0, 100) + "...") // Log first 100 chars
-        data = JSON.parse(text)
+        data = await response.json()
       } catch (parseError) {
         console.error("Error parsing JSON:", parseError)
+
+        // If JSON parsing fails, try to get the text content from the cloned response
+        const textContent = await responseClone.text()
+        console.error("Non-JSON response:", textContent.substring(0, 200))
         throw new Error("Invalid JSON response from server")
       }
 
@@ -188,11 +192,13 @@ export default function AllUsersPage() {
         company: user.company || "Not specified",
         role: user.role || Role.CLIENT,
         status: user.status || "Active",
-        joinDate: new Date(user.createdAt).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        }),
+        joinDate: user.createdAt
+          ? new Date(user.createdAt).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })
+          : "Unknown",
         lastActive: user.lastActive
           ? new Date(user.lastActive).toLocaleDateString("en-US", {
               year: "numeric",
@@ -627,16 +633,7 @@ export default function AllUsersPage() {
   }
 
   if (error) {
-    return (
-      <Card className="p-8 text-center">
-        <div className="flex flex-col items-center justify-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-          <h3 className="text-lg font-medium mb-2">Error Loading Users</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>Try Again</Button>
-        </div>
-      </Card>
-    )
+    return <ErrorState error={error} onRetry={fetchUsers} />
   }
 
   // If user is not an admin, don't render the page
