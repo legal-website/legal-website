@@ -1,10 +1,8 @@
 import { PrismaClient, Role } from "@prisma/client"
 import { v4 as uuidv4 } from "uuid"
 import nodemailer from "nodemailer"
-import { scrypt, randomBytes } from "crypto"
-import { promisify } from "util"
+import * as bcryptjs from "bcryptjs"
 
-const scryptAsync = promisify(scrypt)
 const prisma = new PrismaClient()
 
 // Password strength validation
@@ -49,19 +47,15 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-// Hash password using scrypt (Node.js built-in)
+// Hash password using bcryptjs
 export async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16).toString("hex")
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer
-  return `${buf.toString("hex")}.${salt}`
+  return bcryptjs.hash(password, 10)
 }
 
 // Verify password
 export async function verifyPassword(hashedPassword: string, plainPassword: string): Promise<boolean> {
   try {
-    const [hashed, salt] = hashedPassword.split(".")
-    const buf = (await scryptAsync(plainPassword, salt, 64)) as Buffer
-    return buf.toString("hex") === hashed
+    return bcryptjs.compare(plainPassword, hashedPassword)
   } catch (error) {
     console.error("Password verification error:", error)
     return false
@@ -138,7 +132,13 @@ export async function loginUser(email: string, password: string) {
     throw new Error("Email not verified. Please check your email for verification link.")
   }
 
+  // For debugging
+  console.log("Attempting login for:", email)
+
   const isValid = await verifyPassword(user.password, password)
+
+  // For debugging
+  console.log("Password valid:", isValid)
 
   if (!isValid) {
     return null
@@ -419,5 +419,20 @@ async function sendPasswordResetEmail(email: string, name: string, token: string
   }
 
   return transporter.sendMail(mailOptions)
+}
+
+// Helper function for randomBytes (used in OAuth)
+function randomBytes(size: number): { toString: (encoding: string) => string } {
+  return {
+    toString: (encoding: string) => {
+      let result = ""
+      const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+      const charactersLength = characters.length
+      for (let i = 0; i < size * 2; i++) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength))
+      }
+      return result
+    },
+  }
 }
 

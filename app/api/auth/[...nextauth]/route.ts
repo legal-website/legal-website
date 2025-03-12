@@ -1,7 +1,8 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, Role } from "@prisma/client"
 import type { NextAuthOptions } from "next-auth"
+import { verifyPassword } from "@/lib/auth-service"
 
 const prisma = new PrismaClient()
 
@@ -15,6 +16,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
+          console.log("Missing credentials")
           return null
         }
 
@@ -24,20 +26,35 @@ export const authOptions: NextAuthOptions = {
             where: { email: credentials.email },
           })
 
-          if (!user) {
+          if (!user || !user.password) {
+            console.log("User not found or no password")
             return null
           }
 
-          // Check if password matches
-          if (user.password !== credentials.password) {
+          // Check if email is verified, but allow login in development environment
+          if (!user.emailVerified && process.env.NODE_ENV === "production") {
+            console.log("Email not verified")
+            throw new Error("Email not verified")
+          }
+
+          // Check if password matches using the verifyPassword function
+          console.log("Verifying password for:", credentials.email)
+          const passwordMatch = await verifyPassword(user.password, credentials.password)
+
+          if (!passwordMatch) {
+            console.log("Password doesn't match")
             return null
           }
 
-          // Check if user is an admin
-          if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+          console.log("Password verified successfully")
+
+          // Check if user has admin privileges
+          if (user.role !== Role.ADMIN && user.role !== Role.SUPPORT) {
+            console.log("User doesn't have admin role")
             return null
           }
 
+          console.log("User authorized successfully")
           return {
             id: user.id,
             email: user.email,
@@ -74,6 +91,7 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
+  debug: process.env.NODE_ENV === "development",
 }
 
 const handler = NextAuth(authOptions)
