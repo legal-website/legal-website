@@ -15,106 +15,63 @@ import {
   User,
   Calendar,
   CheckCircle,
+  Copy,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-
-interface BusinessData {
-  name: string
-  businessId: string
-  formationDate: string
-  ein: string
-  email: string
-  phone: string
-  address: string
-  website: string
-  industry: string
-  // Custom fields for UI display
-  serviceStatus: string
-  llcProgress: number
-  llcStatusMessage: string
-}
+import { useToast } from "@/components/ui/use-toast"
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(true)
-  const [businessData, setBusinessData] = useState<BusinessData>({
+  const [businessData, setBusinessData] = useState({
     name: "",
     businessId: "",
     formationDate: "",
     ein: "",
-    email: "",
-    phone: "",
-    address: "",
-    website: "",
-    industry: "",
-    // Default values for UI display
     serviceStatus: "Pending",
-    llcProgress: 10,
+    llcStatus: "In Progress",
+    llcProgress: 0,
     llcStatusMessage: "LLC formation initiated",
   })
 
-  // Redirect to login if not authenticated
   useEffect(() => {
+    // Redirect to login if not authenticated
     if (status === "unauthenticated") {
       router.push("/login")
     }
   }, [status, router])
 
-  // Fetch business data
   useEffect(() => {
-    if (status === "authenticated" && session?.user) {
+    if (session) {
       fetchBusinessData()
+    } else {
+      setLoading(false)
     }
-  }, [status, session])
+  }, [session])
 
   const fetchBusinessData = async () => {
     try {
-      setLoading(true)
       const response = await fetch("/api/user/business")
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch business data")
-      }
-
-      const data = await response.json()
-
-      if (data.business) {
-        setBusinessData({
-          name: data.business.name || "Your Business LLC",
-          businessId: data.business.businessId || "10724418",
-          formationDate: data.business.formationDate
-            ? new Date(data.business.formationDate).toLocaleDateString()
-            : new Date().toLocaleDateString(),
-          ein: data.business.ein || "93-4327510",
-          email: data.business.email || "",
-          phone: data.business.phone || "",
-          address: data.business.address || "",
-          website: data.business.website || "",
-          industry: data.business.industry || "",
-          // For UI display - these would come from a different API in a real app
-          serviceStatus: "Active",
-          llcProgress: 70,
-          llcStatusMessage: "LLC formation in progress",
-        })
-      } else {
-        // Set default values if no business data exists
-        setBusinessData({
-          name: "Your Business LLC",
-          businessId: "10724418",
-          formationDate: new Date().toLocaleDateString(),
-          ein: "93-4327510",
-          email: "",
-          phone: "",
-          address: "",
-          website: "",
-          industry: "",
-          serviceStatus: "Active",
-          llcProgress: 70,
-          llcStatusMessage: "LLC formation in progress",
-        })
+      if (response.ok) {
+        const data = await response.json()
+        if (data.business) {
+          setBusinessData({
+            name: data.business.name || "Your Business LLC",
+            businessId: data.business.businessId || "Pending",
+            formationDate: data.business.formationDate
+              ? new Date(data.business.formationDate).toLocaleDateString()
+              : "Pending",
+            ein: data.business.ein || "Pending",
+            serviceStatus: data.business.serviceStatus || "Pending",
+            llcStatus: data.business.llcStatus || "In Progress",
+            llcProgress: data.business.llcProgress || 0,
+            llcStatusMessage: data.business.llcStatusMessage || "LLC formation initiated",
+          })
+        }
       }
     } catch (error) {
       console.error("Error fetching business data:", error)
@@ -123,38 +80,67 @@ export default function DashboardPage() {
     }
   }
 
-  if (status === "loading" || loading) {
-    return (
-      <div className="p-8 flex justify-center items-center min-h-screen">
-        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
+  const userName = session?.user?.name || "Client"
+
+  // Function to determine the color of the progress bar
+  const getProgressBarColor = (progress: number) => {
+    if (progress >= 100) return "bg-green-500"
+    if (progress >= 70) return "bg-green-400"
+    return "bg-blue-500"
+  }
+
+  // Function to determine the status icon
+  const getStatusIcon = (progress: number) => {
+    if (progress >= 100) return <CheckCircle className="h-5 w-5 text-green-500" />
+    return null
+  }
+
+  // Function to copy text to clipboard
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(
+      () => {
+        toast({
+          title: "Copied!",
+          description: `${label} copied to clipboard`,
+        })
+      },
+      (err) => {
+        console.error("Could not copy text: ", err)
+        toast({
+          title: "Error",
+          description: "Failed to copy to clipboard",
+          variant: "destructive",
+        })
+      },
     )
   }
 
-  if (status === "unauthenticated") {
-    return null // Will redirect to login
+  if (loading) {
+    return (
+      <div className="p-8 flex justify-center items-center min-h-screen">
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
   }
 
   return (
     <div className="p-8 mb-40">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Hello, {session?.user?.name || "Client"}</h1>
+        <h1 className="text-4xl font-bold mb-2">Hello, {userName}</h1>
         <p className="text-gray-600">All of us at Orizen wish you great success with {businessData.name}</p>
       </div>
 
-      {/* Business Information Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {/* Business Information Cards - 5 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
         <Card className="p-6">
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center">
               <Flag className="w-5 h-5 text-[#22c984] mr-2" />
               <span className="text-sm text-gray-600">Business Name</span>
             </div>
-            <Button variant="ghost" size="icon">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-              </svg>
+            <Button variant="ghost" size="icon" onClick={() => copyToClipboard(businessData.name, "Business name")}>
+              <Copy className="w-4 h-4" />
             </Button>
           </div>
           <p className="text-lg font-semibold">{businessData.name}</p>
@@ -166,10 +152,8 @@ export default function DashboardPage() {
               <Building2 className="w-5 h-5 text-[#22c984] mr-2" />
               <span className="text-sm text-gray-600">Business ID</span>
             </div>
-            <Button variant="ghost" size="icon">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-              </svg>
+            <Button variant="ghost" size="icon" onClick={() => copyToClipboard(businessData.businessId, "Business ID")}>
+              <Copy className="w-4 h-4" />
             </Button>
           </div>
           <p className="text-lg font-semibold">{businessData.businessId}</p>
@@ -181,10 +165,8 @@ export default function DashboardPage() {
               <Hash className="w-5 h-5 text-[#22c984] mr-2" />
               <span className="text-sm text-gray-600">EIN</span>
             </div>
-            <Button variant="ghost" size="icon">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-              </svg>
+            <Button variant="ghost" size="icon" onClick={() => copyToClipboard(businessData.ein, "EIN")}>
+              <Copy className="w-4 h-4" />
             </Button>
           </div>
           <p className="text-lg font-semibold">{businessData.ein}</p>
@@ -196,16 +178,18 @@ export default function DashboardPage() {
               <Bell className="w-5 h-5 text-[#22c984] mr-2" />
               <span className="text-sm text-gray-600">Service Status</span>
             </div>
-            <Button variant="ghost" size="icon">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-              </svg>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => copyToClipboard(businessData.serviceStatus, "Service status")}
+            >
+              <Copy className="w-4 h-4" />
             </Button>
           </div>
           <div className="flex items-center">
             <div
               className={`w-2 h-2 rounded-full ${
-                businessData.serviceStatus === "Active"
+                businessData.serviceStatus === "Approved"
                   ? "bg-green-500"
                   : businessData.serviceStatus === "Pending"
                     ? "bg-yellow-500"
@@ -215,55 +199,51 @@ export default function DashboardPage() {
             <p className="text-lg font-semibold">{businessData.serviceStatus}</p>
           </div>
         </Card>
-      </div>
 
-      {/* Formation Date Card */}
-      <Card className="mb-8 p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div className="flex items-center">
-            <Calendar className="w-5 h-5 text-[#22c984] mr-2" />
-            <span className="text-sm text-gray-600">Formation Date</span>
+        <Card className="p-6">
+          <div className="flex justify-between items-start mb-4">
+            <div className="flex items-center">
+              <Calendar className="w-5 h-5 text-[#22c984] mr-2" />
+              <span className="text-sm text-gray-600">Formation Date</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => copyToClipboard(businessData.formationDate, "Formation date")}
+            >
+              <Copy className="w-4 h-4" />
+            </Button>
           </div>
-          <Button variant="ghost" size="icon">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-            </svg>
-          </Button>
-        </div>
-        <p className="text-lg font-semibold">{businessData.formationDate}</p>
-      </Card>
+          <p className="text-lg font-semibold">{businessData.formationDate}</p>
+        </Card>
+      </div>
 
       {/* LLC Status Card */}
       <Card className="mb-8 p-6">
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center">
-            <CheckCircle className="w-5 h-5 text-[#22c984] mr-2" />
+            <Building2 className="w-5 h-5 text-[#22c984] mr-2" />
             <span className="text-sm text-gray-600">LLC Status</span>
           </div>
-          <Button variant="ghost" size="icon">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-            </svg>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => copyToClipboard(businessData.llcStatusMessage, "LLC status")}
+          >
+            <Copy className="w-4 h-4" />
           </Button>
         </div>
-        <p className="text-md mb-2">{businessData.llcStatusMessage}</p>
+        <div className="mb-2 flex items-center">
+          <p className="text-lg font-semibold mr-2">{businessData.llcStatusMessage}</p>
+          {getStatusIcon(businessData.llcProgress)}
+        </div>
         <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full ${businessData.llcProgress >= 70 ? "bg-green-500" : "bg-blue-500"} ${
-              businessData.llcProgress === 100 ? "flex items-center justify-end pr-1" : ""
-            }`}
+            className={`h-full ${getProgressBarColor(businessData.llcProgress)} rounded-full`}
             style={{ width: `${businessData.llcProgress}%` }}
-          >
-            {businessData.llcProgress === 100 && <CheckCircle className="w-4 h-4 text-white" />}
-          </div>
+          ></div>
         </div>
-        <div className="flex justify-between mt-1 text-xs text-gray-500">
-          <span>Application</span>
-          <span>Processing</span>
-          <span>Approval</span>
-          <span>Filing</span>
-          <span>Complete</span>
-        </div>
+        <p className="text-sm text-gray-500 mt-1">{businessData.llcProgress}% Complete</p>
       </Card>
 
       {/* Next Payment Card */}
@@ -285,11 +265,13 @@ export default function DashboardPage() {
       {/* Address Section */}
       <Card className="mb-8 p-6">
         <div className="flex justify-between items-center mb-4">
-          <p className="text-lg">{businessData.address || "100 Ambition Parkway, New York, NY 10001, USA"}</p>
-          <Button variant="ghost" size="icon">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
+          <p className="text-lg">100 Ambition Parkway, New York, NY 10001, USA</p>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => copyToClipboard("100 Ambition Parkway, New York, NY 10001, USA", "Address")}
+          >
+            <Copy className="w-4 h-4" />
           </Button>
         </div>
       </Card>
@@ -343,7 +325,7 @@ export default function DashboardPage() {
                 </td>
                 <td className="py-4">
                   <Button variant="ghost" size="icon">
-                    <Download className="w-4 w-4" />
+                    <Download className="w-4 h-4" />
                   </Button>
                 </td>
               </tr>

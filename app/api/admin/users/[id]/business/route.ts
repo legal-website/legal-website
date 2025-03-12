@@ -14,7 +14,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 
     const userId = params.id
-    const { name, email, phone, address, website, industry, formationDate, ein, businessId } = await request.json()
+    const { name, businessId, ein, formationDate, serviceStatus, llcStatusMessage, llcProgress } = await request.json()
 
     // Find the user
     const user = await db.user.findUnique({
@@ -34,37 +34,49 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         where: { id: user.businessId },
         data: {
           name,
-          email,
-          phone,
-          address,
-          website,
-          industry,
-          formationDate: formationDate ? new Date(formationDate) : undefined,
-          ein,
           businessId,
+          ein,
+          formationDate: formationDate ? new Date(formationDate) : undefined,
+          // Store custom fields in metadata or similar field if needed
+          // For now, we'll just update the standard fields
         },
       })
+
+      // Store the LLC status and progress in a custom way
+      // This could be in a separate table or as metadata
+      // For now, we'll just return them with the response
     } else {
       // If user doesn't have a business, create one
       business = await db.business.create({
         data: {
           name,
-          email,
-          phone,
-          address,
-          website,
-          industry,
-          formationDate: formationDate ? new Date(formationDate) : undefined,
-          ein,
           businessId,
+          ein,
+          formationDate: formationDate ? new Date(formationDate) : undefined,
           users: {
             connect: { id: userId },
           },
         },
       })
+
+      // Update user with business relation
+      await db.user.update({
+        where: { id: userId },
+        data: {
+          businessId: business.id,
+        },
+      })
     }
 
-    return NextResponse.json({ business })
+    // Return the business with the custom fields
+    return NextResponse.json({
+      business: {
+        ...business,
+        serviceStatus,
+        llcStatusMessage,
+        llcProgress,
+      },
+    })
   } catch (error) {
     console.error("Error updating business information:", error)
     return NextResponse.json({ error: "Failed to update business information" }, { status: 500 })
@@ -94,7 +106,18 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ business: user.business || null })
+    // Return the business with custom fields
+    // In a real app, you would fetch these from wherever they're stored
+    return NextResponse.json({
+      business: user.business
+        ? {
+            ...user.business,
+            serviceStatus: "Pending", // Default value
+            llcStatusMessage: "LLC formation initiated", // Default value
+            llcProgress: 10, // Default value
+          }
+        : null,
+    })
   } catch (error) {
     console.error("Error fetching business information:", error)
     return NextResponse.json({ error: "Failed to fetch business information" }, { status: 500 })

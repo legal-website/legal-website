@@ -26,7 +26,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ business: user.business || null })
+    // Return the business with custom fields
+    // In a real app, you would fetch these from wherever they're stored
+    return NextResponse.json({
+      business: user.business
+        ? {
+            ...user.business,
+            serviceStatus: "Pending", // Default value or fetch from metadata
+            llcStatusMessage: "LLC formation initiated", // Default value or fetch from metadata
+            llcProgress: 10, // Default value or fetch from metadata
+          }
+        : null,
+    })
   } catch (error) {
     console.error("Error fetching business information:", error)
     return NextResponse.json({ error: "Failed to fetch business information" }, { status: 500 })
