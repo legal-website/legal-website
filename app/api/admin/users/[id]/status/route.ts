@@ -57,7 +57,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       success: true,
       user: {
         ...updatedUser,
-        status: body.status,
+        status: body.status, // Return the requested status as a virtual field
       },
     })
   } catch (error) {

@@ -20,6 +20,7 @@ import {
   Calendar,
   User,
   FileText,
+  MoreHorizontal,
 } from "lucide-react"
 import {
   Dialog,
@@ -50,6 +51,14 @@ import { Role } from "@prisma/client" // Add this import
 import ErrorState from "./error-state"
 import { OnlineStatusTracker } from "@/components/online-status-tracker"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 // Define types for our data
 interface UserDocument {
@@ -931,7 +940,6 @@ export default function AllUsersPage() {
             loading={loading}
             formatDate={formatDate}
             getStatusColor={getStatusColor}
-            router={router}
           />
         </TabsContent>
 
@@ -947,7 +955,6 @@ export default function AllUsersPage() {
             loading={loading}
             formatDate={formatDate}
             getStatusColor={getStatusColor}
-            router={router}
           />
         </TabsContent>
 
@@ -963,7 +970,6 @@ export default function AllUsersPage() {
             loading={loading}
             formatDate={formatDate}
             getStatusColor={getStatusColor}
-            router={router}
           />
         </TabsContent>
 
@@ -978,11 +984,7 @@ export default function AllUsersPage() {
             onDeleteUser={handleDeleteUser}
             loading={loading}
             formatDate={formatDate}
-            getStatusColor
-            loading={loading}
-            formatDate={formatDate}
             getStatusColor={getStatusColor}
-            router={router}
           />
         </TabsContent>
 
@@ -998,7 +1000,6 @@ export default function AllUsersPage() {
             loading={loading}
             formatDate={formatDate}
             getStatusColor={getStatusColor}
-            router={router}
           />
         </TabsContent>
       </Tabs>
@@ -1513,7 +1514,6 @@ function UserTable({
   loading,
   formatDate,
   getStatusColor,
-  router,
 }: {
   users: UserData[]
   onViewUser: (user: UserData) => void
@@ -1525,7 +1525,6 @@ function UserTable({
   loading: boolean
   formatDate: (dateString: string) => string
   getStatusColor: (status: string) => string
-  router: any
 }) {
   if (loading) {
     return (
@@ -1595,9 +1594,34 @@ function UserTable({
                   )}
                 </td>
                 <td className="p-4">
-                  <Button variant="outline" size="sm" onClick={() => router.push(`/admin/users/${user.id}`)}>
-                    View
-                  </Button>
+                  <div className="flex items-center space-x-2">
+                    <Button variant="outline" size="sm" onClick={() => onViewUser(user)}>
+                      View
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => onEditUser(user)}>Edit Profile</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onResetPassword(user)}>Reset Password</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onChangeRole(user)}>Change Role</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => onToggleStatus(user)}>
+                          {user.status === "Active" ? "Suspend Account" : "Activate Account"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-red-600 focus:text-red-600"
+                          onClick={() => onDeleteUser(user)}
+                        >
+                          Delete Account
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </td>
               </tr>
             ))}
