@@ -309,7 +309,8 @@ export default function PendingUsersPage() {
     const matchesTab =
       activeTab === "all" ||
       (activeTab === "pending" && user.business?.serviceStatus === "Pending") ||
-      (activeTab === "approved" && user.business?.serviceStatus === "Approved")
+      (activeTab === "approved" && user.business?.serviceStatus === "Approved") ||
+      (activeTab === "rejected" && user.business?.serviceStatus === "Rejected")
 
     return matchesSearch && matchesTab
   })
@@ -359,6 +360,7 @@ export default function PendingUsersPage() {
   // Count users by service status
   const pendingCount = pendingUsers.filter((user) => user.business?.serviceStatus === "Pending").length
   const approvedCount = pendingUsers.filter((user) => user.business?.serviceStatus === "Approved").length
+  const rejectedCount = pendingUsers.filter((user) => user.business?.serviceStatus === "Rejected").length
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto mb-40">
@@ -393,6 +395,7 @@ export default function PendingUsersPage() {
           <TabsTrigger value="all">All Users ({pendingUsers.length})</TabsTrigger>
           <TabsTrigger value="pending">Pending LLC ({pendingCount})</TabsTrigger>
           <TabsTrigger value="approved">Approved LLC ({approvedCount})</TabsTrigger>
+          <TabsTrigger value="rejected">Rejected LLC ({rejectedCount})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all">
@@ -404,6 +407,10 @@ export default function PendingUsersPage() {
         </TabsContent>
 
         <TabsContent value="approved">
+          <UserList users={filteredUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+        </TabsContent>
+
+        <TabsContent value="rejected">
           <UserList users={filteredUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
         </TabsContent>
       </Tabs>
