@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Role } from "@prisma/client"
 
 // Define interfaces for type safety
@@ -43,13 +43,16 @@ interface PendingUser {
 export default function PendingUsersPage() {
   const { data: session, status: sessionStatus } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedUser, setSelectedUser] = useState<PendingUser | null>(null)
   const [showUserDialog, setShowUserDialog] = useState(false)
   const [loading, setLoading] = useState(true)
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
-  const [activeTab, setActiveTab] = useState("all")
+  // Get the tab from URL or default to "all"
+  const initialTab = searchParams?.get("tab") || "all"
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [businessFormData, setBusinessFormData] = useState({
     name: "",
     businessId: "",
@@ -61,10 +64,17 @@ export default function PendingUsersPage() {
   })
   const [processingAction, setProcessingAction] = useState(false)
 
-  // Fetch pending users
+  // Update URL when tab changes
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    url.searchParams.set("tab", activeTab)
+    window.history.pushState({}, "", url.toString())
+  }, [activeTab])
+
+  // Fetch users
   useEffect(() => {
     if (sessionStatus === "authenticated" && (session?.user as any)?.role === Role.ADMIN) {
-      fetchPendingUsers()
+      fetchUsers()
     } else if (sessionStatus === "authenticated" && (session?.user as any)?.role !== Role.ADMIN) {
       router.push("/dashboard")
       toast({
@@ -75,18 +85,38 @@ export default function PendingUsersPage() {
     }
   }, [sessionStatus, session, router, toast])
 
-  const fetchPendingUsers = async () => {
+  const fetchUsers = async () => {
     try {
       setLoading(true)
       // Fetch all users regardless of status to populate all tabs
-      const response = await fetch("/api/admin/users")
+      const response = await fetch("/api/admin/users", {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      })
 
       if (!response.ok) {
         throw new Error("Failed to fetch users")
       }
 
       const data = await response.json()
-      setPendingUsers(data.users)
+
+      // Process the users to extract business data
+      const processedUsers = await Promise.all(
+        data.users.map(async (user: any) => {
+          // Fetch business data for each user
+          const businessData = await fetchUserBusinessData(user.id)
+          return {
+            id: user.id,
+            name: user.name || "Unknown",
+            email: user.email || "",
+            business: businessData || undefined,
+          }
+        }),
+      )
+
+      setPendingUsers(processedUsers)
     } catch (error) {
       console.error("Error fetching users:", error)
       toast({
@@ -101,12 +131,18 @@ export default function PendingUsersPage() {
 
   const fetchUserBusinessData = async (userId: string) => {
     try {
-      const response = await fetch(`/api/admin/users/${userId}/business`)
+      const response = await fetch(`/api/admin/users/${userId}/business`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      })
 
       if (response.ok) {
         const data = await response.json()
         if (data.business) {
           return {
+            id: data.business.id,
             name: data.business.name || "",
             businessId: data.business.businessId || generateBusinessId(),
             ein: data.business.ein || "",
@@ -142,11 +178,35 @@ export default function PendingUsersPage() {
 
   const viewUserDetails = async (user: PendingUser) => {
     try {
-      const businessData = await fetchUserBusinessData(user.id)
-      if (businessData) {
-        setBusinessFormData(businessData)
+      // Use the business data we already have
+      if (user.business) {
+        setBusinessFormData({
+          name: user.business.name || "",
+          businessId: user.business.businessId || generateBusinessId(),
+          ein: user.business.ein || "",
+          formationDate: user.business.formationDate || new Date().toISOString().split("T")[0],
+          serviceStatus: user.business.serviceStatus || "Pending",
+          llcStatusMessage: user.business.llcStatusMessage || "LLC formation initiated",
+          llcProgress: user.business.llcProgress || 10,
+        })
         setSelectedUser(user)
         setShowUserDialog(true)
+      } else {
+        // Fetch fresh data if we don't have it
+        const businessData = await fetchUserBusinessData(user.id)
+        if (businessData) {
+          setBusinessFormData({
+            name: businessData.name || "",
+            businessId: businessData.businessId || generateBusinessId(),
+            ein: businessData.ein || "",
+            formationDate: businessData.formationDate || new Date().toISOString().split("T")[0],
+            serviceStatus: businessData.serviceStatus || "Pending",
+            llcStatusMessage: businessData.llcStatusMessage || "LLC formation initiated",
+            llcProgress: businessData.llcProgress || 10,
+          })
+          setSelectedUser(user)
+          setShowUserDialog(true)
+        }
       }
     } catch (error) {
       console.error("Error fetching user details:", error)
@@ -185,6 +245,7 @@ export default function PendingUsersPage() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
         },
         body: JSON.stringify(businessFormData),
       })
@@ -198,7 +259,7 @@ export default function PendingUsersPage() {
         description: "Business information updated successfully.",
       })
 
-      // Update the user in the list
+      // Update the user in the local state
       setPendingUsers((prev) =>
         prev.map((user) => {
           if (user.id === selectedUser.id) {
@@ -221,6 +282,9 @@ export default function PendingUsersPage() {
       )
 
       setShowUserDialog(false)
+
+      // Refresh the data to ensure we have the latest
+      fetchUsers()
     } catch (error) {
       console.error("Error updating business information:", error)
       toast({
@@ -305,9 +369,9 @@ export default function PendingUsersPage() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage business information and LLC status</p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <Button variant="outline" size="sm" className="flex items-center">
+          <Button variant="outline" size="sm" className="flex items-center" onClick={fetchUsers}>
             <Filter className="mr-2 h-4 w-4" />
-            Filter
+            Refresh Data
           </Button>
         </div>
       </div>

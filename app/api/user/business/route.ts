@@ -29,7 +29,7 @@ export async function GET() {
 
     if (user.business?.industry) {
       try {
-        const parsedData = JSON.parse(user.business.industry)
+        const parsedData = JSON.parse(user.business.industry as string)
         customData = { ...customData, ...parsedData }
       } catch (e) {
         console.error("Error parsing custom data:", e)
