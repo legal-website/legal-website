@@ -16,14 +16,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     const userId = params.id
 
-    // Fetch user with business data
+    // Modify the user query to include sessions with proper ordering
+    // Use the correct field names from your schema
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
         business: true,
         sessions: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
+          orderBy: {
+            expiresAt: "desc", // Use expiresAt instead of expires
+          },
+          take: 5, // Get more sessions to ensure we have valid ones
         },
       },
     })
@@ -32,8 +35,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Calculate last active time from sessions
-    const lastActive = user.sessions.length > 0 ? user.sessions[0].createdAt : null
+    // Update the lastActive calculation to handle the session data correctly
+    // Find the most recent valid session
+    const lastActiveSession = user.sessions?.find(
+      (session) => session.expiresAt && new Date(session.expiresAt) > new Date(),
+    )
+
+    // Calculate last active time from sessions or use updatedAt as fallback
+    const lastActive = lastActiveSession ? lastActiveSession.expiresAt : user?.updatedAt || user?.createdAt
 
     // Format user data
     const formattedUser = {

@@ -383,6 +383,7 @@ export default function AllUsersPage() {
           month: "short",
           day: "numeric",
         }),
+        // Update the lastActive display in the fetchUserDetails function
         lastActive: data.user.lastActive
           ? new Date(data.user.lastActive).toLocaleDateString("en-US", {
               year: "numeric",

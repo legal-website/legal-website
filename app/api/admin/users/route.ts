@@ -16,8 +16,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get all users with fields that exist in the schema
+    const { searchParams } = new URL(req.url)
+    const page = Number.parseInt(searchParams.get("page") || "1")
+    const limit = Number.parseInt(searchParams.get("limit") || "10")
+
+    // Update the GET function to include last active time in the user list
+
+    // Inside the GET function, update the user query to include sessions
     const users = await db.user.findMany({
+      skip: (page - 1) * limit,
+      take: limit,
       select: {
         id: true,
         name: true,
@@ -34,29 +42,43 @@ export async function GET(req: NextRequest) {
             address: true,
           },
         },
+        sessions: {
+          orderBy: {
+            expiresAt: "desc", // Use expiresAt instead of expires
+          },
+          take: 1,
+        },
       },
       orderBy: {
         createdAt: "desc",
       },
     })
 
-    // Format the users to include virtual fields for the UI
-    const formattedUsers = users.map((user) => ({
-      id: user.id,
-      name: user.name || "Unknown",
-      email: user.email,
-      role: user.role,
-      emailVerified: user.emailVerified,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      image: user.image,
-      // Add virtual fields from business or with default values
-      company: user.business?.name || "Not specified",
-      phone: user.business?.phone || "Not provided",
-      address: user.business?.address || "Not provided",
-      status: "Active", // Virtual field
-      lastActive: "Never", // Virtual field
-    }))
+    // When formatting users, update the lastActive calculation
+    const formattedUsers = users.map((user) => {
+      // Find the most recent valid session
+      const lastActiveSession = user.sessions?.find(
+        (session) => session.expiresAt && new Date(session.expiresAt) > new Date(),
+      )
+
+      // Calculate last active time from sessions or use updatedAt as fallback
+      const lastActive = lastActiveSession ? lastActiveSession.expiresAt : user.updatedAt || user.createdAt
+
+      return {
+        id: user.id,
+        name: user.name || "Unknown",
+        email: user.email,
+        role: user.role,
+        status: user.emailVerified ? "Active" : "Pending",
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+        lastActive: lastActive,
+        image: user.image,
+        company: user.business?.name || "Not specified",
+        phone: user.business?.phone || "Not provided",
+        address: user.business?.address || "Not provided",
+      }
+    })
 
     return NextResponse.json({ users: formattedUsers })
   } catch (error) {
