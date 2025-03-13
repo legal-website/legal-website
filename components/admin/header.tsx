@@ -1,59 +1,162 @@
 "use client"
 
-import { useState } from "react"
-import { Bell, Search, Moon, Sun, MessageSquare, HelpCircle } from "lucide-react"
+import type React from "react"
+
+import { useState, useEffect } from "react"
+import { Bell, Moon, Sun, MessageSquare, HelpCircle, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
 import { useTheme } from "@/context/theme-context"
+import { useToast } from "@/components/ui/use-toast"
 
-export default function AdminHeader() {
-  const [notifications, setNotifications] = useState([
+// Define the notification interface
+export interface Notification {
+  id: number
+  title: string
+  description: string
+  time: string
+  read: boolean
+  source: "users" | "pending" | "roles" | "system"
+}
+
+// Create a context for notifications that can be used across the app
+import { createContext, useContext } from "react"
+
+interface NotificationContextType {
+  notifications: Notification[]
+  addNotification: (notification: Omit<Notification, "id" | "time" | "read">) => void
+  markAsRead: (id: number) => void
+  clearNotifications: () => void
+  clearAllRead: () => void
+}
+
+export const NotificationContext = createContext<NotificationContextType>({
+  notifications: [],
+  addNotification: () => {},
+  markAsRead: () => {},
+  clearNotifications: () => {},
+  clearAllRead: () => {},
+})
+
+export const useNotifications = () => useContext(NotificationContext)
+
+export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [notifications, setNotifications] = useState<Notification[]>([
     {
       id: 1,
       title: "New user registered",
       description: "John Smith just created an account",
       time: "5 minutes ago",
       read: false,
+      source: "users",
     },
     {
       id: 2,
-      title: "Compliance alert",
-      description: "5 users have pending document submissions",
+      title: "Email verified",
+      description: "User john@example.com has verified their email",
       time: "1 hour ago",
       read: false,
+      source: "users",
     },
     {
       id: 3,
-      title: "System update",
-      description: "New features will be deployed tonight",
+      title: "LLC status updated",
+      description: "Business 'Acme Inc' has been approved",
       time: "3 hours ago",
       read: true,
+      source: "pending",
     },
   ])
 
-  const { theme, setTheme } = useTheme()
+  // Load notifications from localStorage on component mount
+  useEffect(() => {
+    const savedNotifications = localStorage.getItem("adminNotifications")
+    if (savedNotifications) {
+      try {
+        setNotifications(JSON.parse(savedNotifications))
+      } catch (e) {
+        console.error("Failed to parse saved notifications", e)
+      }
+    }
+  }, [])
+
+  // Save notifications to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem("adminNotifications", JSON.stringify(notifications))
+  }, [notifications])
+
+  const addNotification = (notification: Omit<Notification, "id" | "time" | "read">) => {
+    const newNotification: Notification = {
+      ...notification,
+      id: Date.now(),
+      time: "Just now",
+      read: false,
+    }
+
+    setNotifications((prev) => [newNotification, ...prev])
+  }
 
   const markAsRead = (id: number) => {
-    setNotifications(
-      notifications.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
+    setNotifications((prev) =>
+      prev.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
     )
   }
 
+  const clearNotifications = () => {
+    setNotifications([])
+  }
+
+  const clearAllRead = () => {
+    setNotifications((prev) => prev.filter((notification) => !notification.read))
+  }
+
+  return (
+    <NotificationContext.Provider
+      value={{
+        notifications,
+        addNotification,
+        markAsRead,
+        clearNotifications,
+        clearAllRead,
+      }}
+    >
+      {children}
+    </NotificationContext.Provider>
+  )
+}
+
+export default function AdminHeader() {
+  const { notifications, markAsRead, clearAllRead } = useNotifications()
+  const { theme, setTheme } = useTheme()
+  const { toast } = useToast()
+
   const unreadCount = notifications.filter((notification) => !notification.read).length
+
+  const handleClearAllRead = () => {
+    clearAllRead()
+    toast({
+      title: "Notifications cleared",
+      description: "All read notifications have been cleared",
+    })
+  }
+
+  const getSourceIcon = (source: string) => {
+    switch (source) {
+      case "users":
+        return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-blue-500" />
+      case "pending":
+        return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-yellow-500" />
+      case "roles":
+        return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-[#22c984]" />
+      default:
+        return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-gray-500" />
+    }
+  }
 
   return (
     <header className="border-b px-6 py-3 bg-white dark:bg-gray-900 dark:border-gray-800">
       <div className="flex items-center justify-between">
-        <div className="flex items-center w-1/3">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Search..."
-              className="pl-10 bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700 w-full"
-            />
-          </div>
-        </div>
+        <div className="flex-1">{/* Logo or title could go here */}</div>
 
         <div className="flex items-center space-x-4">
           <Button variant="ghost" size="icon" title="Help">
@@ -76,36 +179,46 @@ export default function AdminHeader() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
-              <div className="p-2 border-b">
+              <div className="p-2 border-b flex justify-between items-center">
                 <h3 className="font-medium">Notifications</h3>
+                {notifications.length > 0 && (
+                  <Button variant="ghost" size="sm" className="h-8 px-2" onClick={handleClearAllRead}>
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Clear Read
+                  </Button>
+                )}
               </div>
               <div className="max-h-80 overflow-y-auto">
-                {notifications.map((notification) => (
-                  <DropdownMenuItem
-                    key={notification.id}
-                    className={`p-3 cursor-pointer ${!notification.read ? "bg-gray-50 dark:bg-gray-800" : ""}`}
-                    onClick={() => markAsRead(notification.id)}
-                  >
-                    <div className="flex items-start">
-                      <div
-                        className={`w-2 h-2 mt-1.5 rounded-full mr-2 ${
-                          !notification.read ? "bg-purple-500" : "bg-gray-300 dark:bg-gray-600"
-                        }`}
-                      />
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{notification.title}</p>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">{notification.description}</p>
-                        <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{notification.time}</p>
+                {notifications.length > 0 ? (
+                  notifications.map((notification) => (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      className={`p-3 cursor-pointer ${!notification.read ? "bg-gray-50 dark:bg-gray-800" : ""}`}
+                      onClick={() => markAsRead(notification.id)}
+                    >
+                      <div className="flex items-start">
+                        {getSourceIcon(notification.source)}
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{notification.title}</p>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">{notification.description}</p>
+                          <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{notification.time}</p>
+                        </div>
                       </div>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
+                    </DropdownMenuItem>
+                  ))
+                ) : (
+                  <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                    <p>No notifications</p>
+                  </div>
+                )}
               </div>
-              <div className="p-2 border-t">
-                <Button variant="ghost" size="sm" className="w-full">
-                  View all notifications
-                </Button>
-              </div>
+              {notifications.length > 0 && (
+                <div className="p-2 border-t">
+                  <Button variant="ghost" size="sm" className="w-full">
+                    View all notifications
+                  </Button>
+                </div>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 

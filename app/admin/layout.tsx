@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import AdminSidebar from "@/components/admin/sidebar"
-import AdminHeader from "@/components/admin/header"
+import AdminHeader, { NotificationProvider } from "@/components/admin/header"
 import { ThemeProvider } from "@/context/theme-context"
 import { Role } from "@prisma/client"
 
@@ -25,13 +25,15 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
     return (
       <ThemeProvider>
-        <div className="flex h-screen overflow-hidden">
-          <AdminSidebar />
-          <div className="flex flex-col flex-1 overflow-hidden">
-            <AdminHeader />
-            <div className="flex-1 overflow-y-auto">{children}</div>
+        <NotificationProvider>
+          <div className="flex h-screen overflow-hidden">
+            <AdminSidebar />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <AdminHeader />
+              <div className="flex-1 overflow-y-auto">{children}</div>
+            </div>
           </div>
-        </div>
+        </NotificationProvider>
       </ThemeProvider>
     )
   } catch (error) {
