@@ -23,9 +23,21 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         business: true,
         sessions: {
           orderBy: {
-            createdAt: "desc", // Order by creation time
+            // Use expiresAt instead of expires for ordering sessions
+            expiresAt: "desc",
           },
           take: 5,
+        },
+        // Include verification tokens to track password reset history
+        verificationTokens: {
+          where: {
+            identifier: { contains: userId },
+            token: { contains: "reset-password" },
+          },
+          orderBy: {
+            expires: "desc",
+          },
+          take: 1,
         },
       },
     })
@@ -34,16 +46,26 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Use the most recent session's creation time as the last active time
+    // Use type assertions to avoid TypeScript errors
+    const userWithSessions = user as any
+
+    // Use the most recent session's expiration time as the last active time
     const lastActive =
-      user.sessions && user.sessions.length > 0
-        ? user.sessions[0].createdAt // Use createdAt for last active time
+      userWithSessions.sessions && userWithSessions.sessions.length > 0
+        ? userWithSessions.sessions[0].expiresAt // Use expiresAt for last active time
         : user?.updatedAt || user?.createdAt
+
+    // Get the last password reset time from verification tokens
+    const lastPasswordReset =
+      userWithSessions.verificationTokens && userWithSessions.verificationTokens.length > 0
+        ? userWithSessions.verificationTokens[0].expires
+        : null
 
     // Format user data
     const formattedUser = {
       ...user,
       lastActive,
+      lastPasswordReset,
       // Don't expose password
       password: undefined,
     }

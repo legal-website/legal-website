@@ -6,8 +6,8 @@ import { db } from "@/lib/db"
 // Simple in-memory store for online users
 const onlineUsers = new Map<string, Date>()
 
-// Set a shorter timeout for detecting when users go offline (3 minutes)
-const ONLINE_TIMEOUT_MS = 3 * 60 * 1000
+// Set a shorter timeout for detecting when users go offline (2 minutes)
+const ONLINE_TIMEOUT_MS = 2 * 60 * 1000
 
 export async function POST() {
   try {
@@ -27,10 +27,12 @@ export async function POST() {
     // Update the user's online status in memory
     onlineUsers.set(userId, new Date())
 
-    // Update the user's updatedAt timestamp
+    // Update the user's updatedAt timestamp in the database
     await db.user.update({
       where: { id: userId },
-      data: {}, // Empty data will trigger Prisma to update the updatedAt field
+      data: {
+        updatedAt: new Date(), // Explicitly set updatedAt to now
+      },
     })
 
     return NextResponse.json({ success: true })
@@ -49,7 +51,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Clean up users who haven't been active in the last 3 minutes
+    // Clean up users who haven't been active in the last 2 minutes
     const now = new Date()
     for (const [userId, lastSeen] of onlineUsers.entries()) {
       if (now.getTime() - lastSeen.getTime() > ONLINE_TIMEOUT_MS) {

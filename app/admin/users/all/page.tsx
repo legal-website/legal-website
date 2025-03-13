@@ -269,6 +269,28 @@ export default function AllUsersPage() {
           // Check if user is online
           const isOnline = onlineUserIds.includes(user.id)
 
+          // Format the last active time - use updatedAt if available, otherwise use createdAt
+          let lastActiveTime = "Never"
+          if (isOnline) {
+            lastActiveTime = "Online now"
+          } else if (user.updatedAt) {
+            lastActiveTime = new Date(user.updatedAt).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          } else if (user.createdAt) {
+            lastActiveTime = new Date(user.createdAt).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          }
+
           return {
             id: user.id,
             name: user.name || "Unknown",
@@ -286,18 +308,8 @@ export default function AllUsersPage() {
                     day: "numeric",
                   })
                 : "Unknown"),
-            // Fix the lastActive date formatting - show "Online now" if user is online
-            lastActive: isOnline
-              ? "Online now"
-              : user.updatedAt
-                ? new Date(user.updatedAt).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : "Never",
+            // Use the formatted lastActiveTime
+            lastActive: lastActiveTime,
             phone: user.phone || "Not provided",
             address: user.address || "Not provided",
             profileImage: user.profileImage || null,
@@ -639,6 +651,28 @@ export default function AllUsersPage() {
         console.error(`Error finding latest token for user ${userId}:`, error)
       }
 
+      // Format the last active time - use updatedAt if available, otherwise use createdAt
+      let lastActiveTime = "Never"
+      if (isOnline) {
+        lastActiveTime = "Online now"
+      } else if (data.user.updatedAt) {
+        lastActiveTime = new Date(data.user.updatedAt).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      } else if (data.user.createdAt) {
+        lastActiveTime = new Date(data.user.createdAt).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      }
+
       // Format the user data for display
       const userDetails: UserData = {
         id: data.user.id,
@@ -652,18 +686,8 @@ export default function AllUsersPage() {
           month: "short",
           day: "numeric",
         }),
-        // Update the lastActive display in the fetchUserDetails function
-        lastActive: isOnline
-          ? "Online now"
-          : data.user.updatedAt
-            ? new Date(data.user.updatedAt).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "Never",
+        // Use the formatted lastActiveTime
+        lastActive: lastActiveTime,
         phone: customerPhone,
         address: customerAddress,
         profileImage: data.user.image || null,
@@ -863,11 +887,11 @@ export default function AllUsersPage() {
 
       const data = await response.json()
 
-      // Get the current time for display
-      const resetTime = new Date().toISOString()
-
       // Update the user in the list with the new reset count and time
       if (data.resetCount) {
+        // Use the resetTime from the API response if available
+        const resetTime = data.resetTime || new Date().toISOString()
+
         setUsers((prevUsers) =>
           prevUsers.map((user) =>
             user.id === selectedUser.id
