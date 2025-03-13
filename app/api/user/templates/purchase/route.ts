@@ -19,14 +19,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Template ID is required" }, { status: 400 })
     }
 
-    // Get the user with their business
+    // Get the user
     const user = await db.user.findUnique({
       where: { id: userId },
-      include: { business: true },
     })
 
-    if (!user || !user.business) {
-      return NextResponse.json({ error: "User or business not found" }, { status: 404 })
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     // Get the template
@@ -41,6 +40,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Template not found" }, { status: 404 })
     }
 
+    // Parse template metadata to get price and name
+    let templateName = template.name
+    let templatePrice = data.price || 0
+
+    try {
+      // Try to extract metadata from name (format: "name|price|tier|count|status")
+      const parts = template.name.split("|")
+      if (parts && parts.length > 1) {
+        templateName = parts[0]
+        templatePrice = Number.parseFloat(parts[1]) || data.price || 0
+      }
+    } catch (e) {
+      console.error("Error parsing template metadata:", e)
+    }
+
     // Generate a unique invoice number
     const invoiceNumber = `TEMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`
 
@@ -50,14 +64,16 @@ export async function POST(req: NextRequest) {
         invoiceNumber,
         customerName: user.name || "Customer",
         customerEmail: user.email,
-        amount: data.price || 0, // Use provided price or default to 0
+        amount: templatePrice,
         status: "pending",
         items: JSON.stringify([
           {
             type: "template",
             templateId: template.id,
-            name: template.name,
-            price: data.price || 0,
+            name: templateName,
+            description: `${templateName} template`,
+            price: templatePrice,
+            tier: "Template",
           },
         ]),
         userId: userId,

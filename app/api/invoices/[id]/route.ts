@@ -66,3 +66,32 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
+// Add PATCH method to update invoice with receipt URL
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const invoiceId = params.id
+    const data = await req.json()
+
+    // Validate the request
+    if (!data.paymentReceipt) {
+      return NextResponse.json({ error: "Payment receipt URL is required" }, { status: 400 })
+    }
+
+    // Update the invoice with the receipt URL
+    const updatedInvoice = await db.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        paymentReceipt: data.paymentReceipt,
+      },
+    })
+
+    return NextResponse.json({
+      success: true,
+      invoice: updatedInvoice,
+    })
+  } catch (error: any) {
+    console.error("API: Error updating invoice:", error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+

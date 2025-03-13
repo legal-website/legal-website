@@ -17,8 +17,9 @@ interface Template {
   category: string
   price: number
   pricingTier: string
-  isPurchased: boolean
-  isPending: boolean
+  purchased: boolean
+  fileUrl?: string
+  isPending?: boolean
   invoiceId?: string
 }
 
@@ -48,45 +49,31 @@ export default function DocumentTemplatesPage() {
         throw new Error("Failed to fetch templates")
       }
       const data = await response.json()
-      console.log("Templates data:", data) // Debug log
+      console.log("Templates data:", data)
 
-      // If templates is empty, create some mock data for testing
       if (!data.templates || data.templates.length === 0) {
-        const mockTemplates = [
-          {
-            id: "1",
-            name: "LLC Formation",
-            description: "Complete LLC formation document package",
-            category: "Business Formation",
-            price: 49.99,
-            pricingTier: "Standard",
-            isPurchased: false,
-            isPending: false,
-          },
-          {
-            id: "2",
-            name: "Employment Agreement",
-            description: "Standard employment agreement template",
-            category: "Contracts",
-            price: 29.99,
-            pricingTier: "Basic",
-            isPurchased: false,
-            isPending: false,
-          },
-          {
-            id: "3",
-            name: "Privacy Policy",
-            description: "Website privacy policy template",
-            category: "Compliance",
-            price: 0,
-            pricingTier: "Free",
-            isPurchased: true,
-            isPending: false,
-          },
-        ]
-        setTemplates(mockTemplates)
+        toast({
+          title: "No templates found",
+          description: "There are currently no templates available.",
+          variant: "destructive",
+        })
+        setTemplates([])
       } else {
-        setTemplates(data.templates)
+        // Transform the API response to match our Template interface
+        const formattedTemplates = data.templates.map((template: any) => ({
+          id: template.id,
+          name: template.name,
+          description: template.description || `${template.pricingTier} template for ${template.category}`,
+          category: template.category,
+          price: template.price || 0,
+          pricingTier: template.pricingTier,
+          purchased: template.purchased || false,
+          fileUrl: template.fileUrl,
+          isPending: template.isPending || false,
+          invoiceId: template.invoiceId,
+        }))
+
+        setTemplates(formattedTemplates)
       }
     } catch (error) {
       console.error("Error fetching templates:", error)
@@ -95,41 +82,7 @@ export default function DocumentTemplatesPage() {
         description: "Failed to load templates. Please try again.",
         variant: "destructive",
       })
-
-      // Set mock data for testing if API fails
-      const mockTemplates = [
-        {
-          id: "1",
-          name: "LLC Formation",
-          description: "Complete LLC formation document package",
-          category: "Business Formation",
-          price: 49.99,
-          pricingTier: "Standard",
-          isPurchased: false,
-          isPending: false,
-        },
-        {
-          id: "2",
-          name: "Employment Agreement",
-          description: "Standard employment agreement template",
-          category: "Contracts",
-          price: 29.99,
-          pricingTier: "Basic",
-          isPurchased: false,
-          isPending: false,
-        },
-        {
-          id: "3",
-          name: "Privacy Policy",
-          description: "Website privacy policy template",
-          category: "Compliance",
-          price: 0,
-          pricingTier: "Free",
-          isPurchased: true,
-          isPending: false,
-        },
-      ]
-      setTemplates(mockTemplates)
+      setTemplates([])
     } finally {
       setLoading(false)
     }
@@ -155,7 +108,10 @@ export default function DocumentTemplatesPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ templateId: template.id }),
+        body: JSON.stringify({
+          templateId: template.id,
+          price: template.price,
+        }),
       })
 
       if (!response.ok) {
@@ -194,16 +150,33 @@ export default function DocumentTemplatesPage() {
       setUploading(true)
 
       const formData = new FormData()
-      formData.append("file", uploadFile)
+      formData.append("receipt", uploadFile)
       formData.append("invoiceId", selectedInvoice.id)
 
-      const response = await fetch("/api/user/templates/upload-receipt", {
+      const response = await fetch("/api/upload-receipt", {
         method: "POST",
         body: formData,
       })
 
       if (!response.ok) {
         throw new Error("Failed to upload receipt")
+      }
+
+      const data = await response.json()
+
+      // Update the invoice with the receipt URL
+      const updateResponse = await fetch(`/api/invoices/${selectedInvoice.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          paymentReceipt: data.url,
+        }),
+      })
+
+      if (!updateResponse.ok) {
+        throw new Error("Failed to update invoice with receipt")
       }
 
       toast({
@@ -224,6 +197,20 @@ export default function DocumentTemplatesPage() {
     } finally {
       setUploading(false)
     }
+  }
+
+  const handleDownload = async (template: Template) => {
+    if (!template.fileUrl) {
+      toast({
+        title: "Error",
+        description: "Template file not available.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Open the file URL in a new tab
+    window.open(template.fileUrl, "_blank")
   }
 
   if (loading) {
@@ -297,8 +284,8 @@ export default function DocumentTemplatesPage() {
 
                     <div className="flex items-center justify-between">
                       <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">{template.category}</span>
-                      {template.isPurchased ? (
-                        <Button size="sm" variant="outline">
+                      {template.purchased ? (
+                        <Button size="sm" variant="outline" onClick={() => handleDownload(template)}>
                           <Check className="h-3.5 w-3.5 mr-1.5" />
                           Download
                         </Button>
@@ -316,7 +303,7 @@ export default function DocumentTemplatesPage() {
                     </div>
 
                     {/* Blur overlay for unpurchased templates */}
-                    {!template.isPurchased && !template.isPending && (
+                    {!template.purchased && !template.isPending && (
                       <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
                         <div className="text-center">
                           <Lock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
@@ -344,6 +331,14 @@ export default function DocumentTemplatesPage() {
                                 .then((data) => {
                                   setSelectedInvoice(data.invoice)
                                   setShowUploadDialog(true)
+                                })
+                                .catch((err) => {
+                                  console.error("Error fetching invoice:", err)
+                                  toast({
+                                    title: "Error",
+                                    description: "Could not fetch invoice details.",
+                                    variant: "destructive",
+                                  })
                                 })
                             }}
                           >

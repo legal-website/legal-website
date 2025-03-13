@@ -82,6 +82,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       console.log("Approval email sent")
     } catch (emailError) {
       console.error("Error sending approval email:", emailError)
+      // Continue even if email fails  {
+      console.error("Error sending approval email:", emailError)
       // Continue even if email fails
     }
 
