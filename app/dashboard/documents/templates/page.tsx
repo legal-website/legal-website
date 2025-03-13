@@ -44,44 +44,50 @@ export default function DocumentTemplatesPage() {
   const fetchTemplates = async () => {
     try {
       setLoading(true)
+      console.log("Fetching templates...")
+
       const response = await fetch("/api/user/templates")
+      console.log("API response status:", response.status)
+
       if (!response.ok) {
-        throw new Error("Failed to fetch templates")
+        const errorText = await response.text()
+        console.error("API error response:", errorText)
+        throw new Error(`Failed to fetch templates: ${response.status} ${errorText}`)
       }
+
       const data = await response.json()
       console.log("Templates data:", data)
 
-      if (!data.templates || data.templates.length === 0) {
-        toast({
-          title: "No templates found",
-          description: "There are currently no templates available.",
-          variant: "destructive",
-        })
-        setTemplates([])
-      } else {
-        // Transform the API response to match our Template interface
-        const formattedTemplates = data.templates.map((template: any) => ({
-          id: template.id,
-          name: template.name,
-          description: template.description || `${template.pricingTier} template for ${template.category}`,
-          category: template.category,
-          price: template.price || 0,
-          pricingTier: template.pricingTier,
-          purchased: template.purchased || false,
-          fileUrl: template.fileUrl,
-          isPending: template.isPending || false,
-          invoiceId: template.invoiceId,
-        }))
-
-        setTemplates(formattedTemplates)
+      if (!data.templates) {
+        console.error("No templates array in response:", data)
+        throw new Error("Invalid response format: missing templates array")
       }
+
+      // Transform the API response to match our Template interface
+      const formattedTemplates = data.templates.map((template: any) => ({
+        id: template.id,
+        name: template.name,
+        description: template.description || `${template.pricingTier} template for ${template.category}`,
+        category: template.category,
+        price: template.price || 0,
+        pricingTier: template.pricingTier,
+        purchased: template.purchased || false,
+        fileUrl: template.fileUrl,
+        isPending: template.isPending || false,
+        invoiceId: template.invoiceId,
+      }))
+
+      console.log("Formatted templates:", formattedTemplates)
+      setTemplates(formattedTemplates)
     } catch (error) {
       console.error("Error fetching templates:", error)
       toast({
         title: "Error",
-        description: "Failed to load templates. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to load templates. Please try again.",
         variant: "destructive",
       })
+
+      // Set empty array instead of mock data for now to help debug the issue
       setTemplates([])
     } finally {
       setLoading(false)

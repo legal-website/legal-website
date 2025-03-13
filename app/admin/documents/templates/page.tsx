@@ -321,6 +321,7 @@ export default function TemplatesPage() {
           fileUrl: fileUrl,
           businessId: businessId,
           type: "template",
+          templateType: "template_master", // Changed from category to templateType
           status: "active",
         }),
       })
@@ -409,6 +410,7 @@ export default function TemplatesPage() {
           fileUrl: fileUrl,
           businessId: businessId,
           type: "template",
+          templateType: "template_master", // Changed from category to templateType
           status: "active",
         }),
       })
