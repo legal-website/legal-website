@@ -222,12 +222,18 @@ export default function DocumentTemplatesPage() {
         return
       }
 
+      // Log the template price to verify it's correct
+      console.log(`Purchasing template: ${template.name} with price: $${template.price}`)
+
       const response = await fetch("/api/user/templates/purchase", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ templateId: template.id }),
+        body: JSON.stringify({
+          templateId: template.id,
+          price: template.price, // Explicitly send the price to ensure it's used
+        }),
       })
 
       if (!response.ok) {
@@ -235,6 +241,7 @@ export default function DocumentTemplatesPage() {
       }
 
       const data = await response.json()
+      console.log("Purchase response:", data) // Debug log
 
       // Update the template in the local state
       setTemplates((prevTemplates) =>

@@ -42,16 +42,17 @@ export async function POST(req: Request) {
     const invoiceNumber = `INV-${year}${month}-${Math.floor(1000 + Math.random() * 9000)}`
 
     // Process items to ensure they're in the correct format
+    // IMPORTANT: Preserve the original price from the items
     const safeItems = items.map((item: any) => ({
       id: item.id || `item-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       tier: item.tier || "STANDARD",
-      price: Number(item.price) || 0,
+      price: Number(item.price) || 0, // Ensure we're using the actual price from the item
       stateFee: item.stateFee ? Number(item.stateFee) : null,
       state: item.state || null,
       discount: item.discount ? Number(item.discount) : null,
     }))
 
-    // Convert amount to a number
+    // Convert amount to a number - use the provided total which should match the template price
     const amount = typeof total === "string" ? Number.parseFloat(total) : Number(total)
 
     // Create the invoice
@@ -60,9 +61,9 @@ export async function POST(req: Request) {
         invoiceNumber,
         customerName: customer.name,
         customerEmail: customer.email,
-        amount,
+        amount, // Use the correct amount from the request
         status: "pending",
-        items: JSON.stringify(safeItems),
+        items: JSON.stringify(safeItems), // Store the items with correct prices
         paymentReceipt: paymentReceipt,
         // Add optional fields only if they exist
         ...(customer.phone && { customerPhone: customer.phone }),
