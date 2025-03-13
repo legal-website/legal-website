@@ -84,7 +84,6 @@ export default function InvoicesAdminPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
   const { data: session, status } = useSession()
@@ -298,37 +297,15 @@ export default function InvoicesAdminPage() {
 
   const approvePayment = async (invoiceId: string) => {
     try {
-      setIsProcessing(true)
       const invoice = invoices.find((inv) => inv.id === invoiceId)
       if (!invoice) return
 
-      console.log(`Approving invoice ${invoiceId}...`)
-
-      // Try both API paths to ensure compatibility
-      let response
-      try {
-        response = await fetch(`/api/admin/invoices/${invoiceId}/approve`, {
-          method: "POST",
-        })
-
-        if (!response.ok) {
-          console.log(`First approval attempt failed, trying alternate path...`)
-          response = await fetch(`/api/invoices/${invoiceId}/approve`, {
-            method: "POST",
-          })
-        }
-      } catch (error) {
-        console.error("First approval attempt error:", error)
-        // Try alternate path if first one fails
-        response = await fetch(`/api/invoices/${invoiceId}/approve`, {
-          method: "POST",
-        })
-      }
+      const response = await fetch(`/api/admin/invoices/${invoiceId}/approve`, {
+        method: "POST",
+      })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("Approval error response:", errorData)
-        throw new Error(errorData.error || "Failed to approve payment")
+        throw new Error("Failed to approve payment")
       }
 
       // Update the invoice in the local state
@@ -354,57 +331,26 @@ export default function InvoicesAdminPage() {
         title: "Payment approved",
         description: "The payment has been approved successfully.",
       })
-
-      // Close the dialog if it's open
-      setShowInvoiceDialog(false)
-
-      // Refresh the invoices list
-      fetchInvoices()
-    } catch (error: any) {
-      console.error("Error approving payment:", error)
+    } catch (error) {
       toast({
         title: "Error",
-        description: `Failed to approve payment: ${error.message || "Unknown error"}`,
+        description: "Failed to approve payment. Please try again.",
         variant: "destructive",
       })
-    } finally {
-      setIsProcessing(false)
     }
   }
 
   const rejectPayment = async (invoiceId: string) => {
     try {
-      setIsProcessing(true)
       const invoice = invoices.find((inv) => inv.id === invoiceId)
       if (!invoice) return
 
-      console.log(`Rejecting invoice ${invoiceId}...`)
-
-      // Try both API paths to ensure compatibility
-      let response
-      try {
-        response = await fetch(`/api/admin/invoices/${invoiceId}/reject`, {
-          method: "POST",
-        })
-
-        if (!response.ok) {
-          console.log(`First rejection attempt failed, trying alternate path...`)
-          response = await fetch(`/api/invoices/${invoiceId}/reject`, {
-            method: "POST",
-          })
-        }
-      } catch (error) {
-        console.error("First rejection attempt error:", error)
-        // Try alternate path if first one fails
-        response = await fetch(`/api/invoices/${invoiceId}/reject`, {
-          method: "POST",
-        })
-      }
+      const response = await fetch(`/api/admin/invoices/${invoiceId}/reject`, {
+        method: "POST",
+      })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("Rejection error response:", errorData)
-        throw new Error(errorData.error || "Failed to reject payment")
+        throw new Error("Failed to reject payment")
       }
 
       // Update the invoice in the local state
@@ -427,21 +373,12 @@ export default function InvoicesAdminPage() {
         title: "Payment rejected",
         description: "The payment has been rejected.",
       })
-
-      // Close the dialog if it's open
-      setShowInvoiceDialog(false)
-
-      // Refresh the invoices list
-      fetchInvoices()
-    } catch (error: any) {
-      console.error("Error rejecting payment:", error)
+    } catch (error) {
       toast({
         title: "Error",
-        description: `Failed to reject payment: ${error.message || "Unknown error"}`,
+        description: "Failed to reject payment. Please try again.",
         variant: "destructive",
       })
-    } finally {
-      setIsProcessing(false)
     }
   }
 
@@ -668,7 +605,6 @@ export default function InvoicesAdminPage() {
                               size="sm"
                               className="text-green-600 hover:text-green-700"
                               onClick={() => approvePayment(invoice.id)}
-                              disabled={isProcessing}
                             >
                               <CheckCircle className="h-4 w-4 mr-2" />
                               Approve
@@ -679,7 +615,6 @@ export default function InvoicesAdminPage() {
                               size="sm"
                               className="text-red-600 hover:text-red-700"
                               onClick={() => rejectPayment(invoice.id)}
-                              disabled={isProcessing}
                             >
                               <X className="h-4 w-4 mr-2" />
                               Reject
@@ -831,38 +766,18 @@ export default function InvoicesAdminPage() {
                   <Button
                     onClick={() => approvePayment(selectedInvoice.id)}
                     className="bg-green-600 hover:bg-green-700 text-white"
-                    disabled={isProcessing}
                   >
-                    {isProcessing ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Approve Payment
-                      </>
-                    )}
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Approve Payment
                   </Button>
 
                   <Button
                     variant="outline"
                     className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
                     onClick={() => rejectPayment(selectedInvoice.id)}
-                    disabled={isProcessing}
                   >
-                    {isProcessing ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2"></div>
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <X className="h-4 w-4 mr-2" />
-                        Reject Payment
-                      </>
-                    )}
+                    <X className="h-4 w-4 mr-2" />
+                    Reject Payment
                   </Button>
                 </div>
               )}
