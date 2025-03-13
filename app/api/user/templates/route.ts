@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
     console.log("Business ID:", businessId || "None")
 
     // Get all master templates (documents with category "template_master")
+    console.log("Fetching master templates with category 'template_master'")
     const masterTemplates = await db.document.findMany({
       where: {
         category: "template_master",
@@ -44,7 +45,15 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { createdAt: "desc" },
     })
-    console.log(`Found ${masterTemplates.length} master templates`)
+    console.log(`Found ${masterTemplates.length} master templates:`, masterTemplates)
+
+    // If no templates found, check if there are any documents at all
+    if (masterTemplates.length === 0) {
+      const allDocuments = await db.document.findMany({
+        take: 5, // Just get a few to check
+      })
+      console.log("No templates found. Sample of all documents:", allDocuments)
+    }
 
     // Get user's purchased templates (if business exists)
     let userTemplates: Document[] = []
@@ -61,8 +70,7 @@ export async function GET(req: NextRequest) {
       console.log(`Found ${userTemplates.length} purchased templates`)
     }
 
-    // IMPORTANT: Use raw SQL query to avoid Prisma schema issues
-    // Get pending invoices for the user without using templateId relation
+    // Get pending invoices for the user
     const pendingInvoices = await db.$queryRaw`
       SELECT id, items, status 
       FROM Invoice 
@@ -121,15 +129,19 @@ export async function GET(req: NextRequest) {
       let price = 0
       let pricingTier = "Free"
       let displayName = template.name
+      let category = "Uncategorized"
+      let description = ""
 
       try {
-        // Try to extract metadata from name (format: "name|price|tier|count|status")
+        // Try to extract metadata from name (format: "name|price|category|description")
         const parts = template.name.split("|")
 
         if (parts && parts.length > 1) {
           displayName = parts[0]
           price = Number.parseFloat(parts[1]) || 0
-          pricingTier = parts[2] || "Free"
+          category = parts[2] || "Uncategorized"
+          description = parts[3] || ""
+          pricingTier = price === 0 ? "Free" : price < 30 ? "Basic" : "Premium"
         }
       } catch (e) {
         console.error("Error parsing template metadata:", e)
@@ -142,7 +154,7 @@ export async function GET(req: NextRequest) {
       return {
         id: template.id,
         name: displayName,
-        category: template.category,
+        category: category,
         updatedAt: template.updatedAt.toISOString(),
         price: price,
         pricingTier: pricingTier,
@@ -150,7 +162,7 @@ export async function GET(req: NextRequest) {
         isPending: isPending,
         invoiceId: invoiceId,
         fileUrl: isPurchased ? template.fileUrl : undefined,
-        description: `${pricingTier} template for ${template.category}`,
+        description: description || `${pricingTier} template for ${category}`,
       }
     })
 

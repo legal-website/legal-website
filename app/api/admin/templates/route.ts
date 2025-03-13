@@ -2,115 +2,147 @@ import { NextResponse, type NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import { uploadToCloudinary } from "@/lib/cloudinary"
 
-// GET - Fetch all templates (admin)
-export async function GET(req: NextRequest) {
-  try {
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session || (session.user as any).role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Get all documents with type "template"
-    const documents = await db.document.findMany({
-      where: { type: "template" },
-      orderBy: { createdAt: "desc" },
-    })
-
-    // Transform documents to template format
-    const templates = documents.map((doc) => {
-      // Parse metadata from name if available
-      let price = 0
-      let pricingTier = "Free"
-      let usageCount = 0
-      let status = "active"
-      let displayName = doc.name
-
-      try {
-        // Try to extract metadata from name (format: "name|price|tier|count|status")
-        const parts = doc.name.split("|")
-
-        if (parts && parts.length > 1) {
-          displayName = parts[0]
-          price = Number.parseFloat(parts[1]) || 0
-          pricingTier = parts[2] || "Free"
-          usageCount = Number.parseInt(parts[3]) || 0
-          status = parts[4] || "active"
-        }
-      } catch (e) {
-        // If parsing fails, use defaults
-        console.error("Error parsing template metadata:", e)
-      }
-
-      return {
-        id: doc.id,
-        name: displayName,
-        category: doc.category,
-        updatedAt: doc.updatedAt.toISOString(),
-        status: status,
-        usageCount: usageCount,
-        price: price,
-        pricingTier: pricingTier as any,
-        description: doc.type,
-        fileUrl: doc.fileUrl,
-      }
-    })
-
-    return NextResponse.json({ templates })
-  } catch (error: any) {
-    console.error("Error fetching templates:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-}
-
-// POST - Create a new template (admin)
+// POST - Create a new template
 export async function POST(req: NextRequest) {
   try {
     // Check authentication
     const session = await getServerSession(authOptions)
-    if (!session || (session.user as any).role !== "ADMIN") {
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const data = await req.json()
+    // Check if user is admin
+    const user = session.user as any
+    if (user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
-    // Validate required fields
-    if (!data.name || !data.fileUrl || !data.businessId) {
+    const formData = await req.formData()
+
+    const name = formData.get("name") as string
+    const category = formData.get("category") as string
+    const price = Number.parseFloat(formData.get("price") as string)
+    const file = formData.get("file") as File
+    const thumbnail = (formData.get("thumbnail") as File) || null
+
+    if (!name || !category || isNaN(price) || !file) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Store metadata in name field (format: "name|price|tier|count|status")
-    const metadataName = `${data.name}|${data.price || 0}|${data.pricingTier || "Free"}|0|active`
+    // Upload file to Cloudinary
+    const fileBuffer = Buffer.from(await file.arrayBuffer())
+    const fileUrl = await uploadToCloudinary(fileBuffer, file.name)
 
-    // Create the template as a document
+    // Upload thumbnail if provided
+    let thumbnailUrl = null
+    if (thumbnail) {
+      const thumbnailBuffer = Buffer.from(await thumbnail.arrayBuffer())
+      thumbnailUrl = await uploadToCloudinary(thumbnailBuffer, thumbnail.name)
+    }
+
+    // Store description in the name field with other metadata
+    // Format: name|price|category|description
+    const metadataName = `${name}|${price}|${category}|${formData.get("description") || ""}`
+
+    // Create template in database as a Document with category "template_master"
     const template = await db.document.create({
       data: {
-        name: metadataName,
-        category: data.category,
-        businessId: data.businessId,
-        fileUrl: data.fileUrl,
+        name: metadataName, // Store metadata in name
+        category: "template_master", // Important: This identifies it as a master template
         type: "template",
+        fileUrl: fileUrl,
+        businessId: "system", // Use a special ID for system templates
       },
     })
 
-    // Transform to template format for response
-    const templateResponse = {
-      id: template.id,
-      name: data.name,
-      category: data.category,
-      updatedAt: template.updatedAt.toISOString(),
-      status: "active",
-      usageCount: 0,
-      price: data.price || 0,
-      pricingTier: data.pricingTier || "Free",
-      description: data.description || "",
-      fileUrl: template.fileUrl,
-    }
+    // Parse the metadata back for the response
+    const parts = template.name.split("|")
+    const displayName = parts[0]
+    const templatePrice = Number.parseFloat(parts[1]) || 0
+    const templateCategory = parts[2] || "Uncategorized"
+    const description = parts[3] || ""
 
-    return NextResponse.json({ template: templateResponse }, { status: 201 })
+    return NextResponse.json({
+      template: {
+        id: template.id,
+        name: displayName,
+        category: templateCategory,
+        price: templatePrice,
+        description: description,
+        fileUrl: template.fileUrl,
+        createdAt: template.createdAt,
+        updatedAt: template.updatedAt,
+      },
+    })
   } catch (error: any) {
     console.error("Error creating template:", error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// GET - Fetch all templates
+export async function GET(req: NextRequest) {
+  try {
+    // Check authentication
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check if user is admin
+    const user = session.user as any
+    if (user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    // Fetch all templates
+    const templates = await db.document.findMany({
+      where: {
+        category: "template_master",
+        type: "template",
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
+    // Format templates for display
+    const formattedTemplates = templates.map((template) => {
+      // Parse metadata from name
+      let displayName = template.name
+      let price = 0
+      let category = "Uncategorized"
+      let description = ""
+
+      try {
+        const parts = template.name.split("|")
+        if (parts.length > 1) {
+          displayName = parts[0]
+          price = Number.parseFloat(parts[1]) || 0
+          category = parts[2] || "Uncategorized"
+          description = parts[3] || ""
+        }
+      } catch (e) {
+        console.error("Error parsing template name:", e)
+      }
+
+      return {
+        id: template.id,
+        name: displayName,
+        description: description,
+        category: category,
+        price: price,
+        fileUrl: template.fileUrl,
+        createdAt: template.createdAt,
+        updatedAt: template.updatedAt,
+      }
+    })
+
+    return NextResponse.json({ templates: formattedTemplates })
+  } catch (error: any) {
+    console.error("Error fetching templates:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
