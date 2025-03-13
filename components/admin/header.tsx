@@ -16,7 +16,7 @@ export interface Notification {
   description: string
   time: string
   read: boolean
-  source: "users" | "pending" | "roles" | "system"
+  source: "invoices" | "system"
 }
 
 // Create a context for notifications that can be used across the app
@@ -41,32 +41,7 @@ export const NotificationContext = createContext<NotificationContextType>({
 export const useNotifications = () => useContext(NotificationContext)
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: 1,
-      title: "New user registered",
-      description: "John Smith just created an account",
-      time: "5 minutes ago",
-      read: false,
-      source: "users",
-    },
-    {
-      id: 2,
-      title: "Email verified",
-      description: "User john@example.com has verified their email",
-      time: "1 hour ago",
-      read: false,
-      source: "users",
-    },
-    {
-      id: 3,
-      title: "LLC status updated",
-      description: "Business 'Acme Inc' has been approved",
-      time: "3 hours ago",
-      read: true,
-      source: "pending",
-    },
-  ])
+  const [notifications, setNotifications] = useState<Notification[]>([])
 
   // Load notifications from localStorage on component mount
   useEffect(() => {
@@ -84,6 +59,31 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     localStorage.setItem("adminNotifications", JSON.stringify(notifications))
   }, [notifications])
+
+  // Check for pending notifications
+  useEffect(() => {
+    const pendingNotifications = localStorage.getItem("pendingNotifications")
+    if (pendingNotifications) {
+      try {
+        const parsedNotifications = JSON.parse(pendingNotifications)
+        parsedNotifications.forEach((notification: any) => {
+          const newNotification: Notification = {
+            id: Date.now() + Math.random(), // Ensure unique ID
+            title: notification.title,
+            description: notification.description,
+            time: "Just now",
+            read: false,
+            source: notification.source || "system",
+          }
+          setNotifications((prev) => [newNotification, ...prev])
+        })
+        // Clear pending notifications
+        localStorage.removeItem("pendingNotifications")
+      } catch (e) {
+        console.error("Failed to process pending notifications", e)
+      }
+    }
+  }, [])
 
   const addNotification = (notification: Omit<Notification, "id" | "time" | "read">) => {
     const newNotification: Notification = {
@@ -142,11 +142,7 @@ export default function AdminHeader() {
 
   const getSourceIcon = (source: string) => {
     switch (source) {
-      case "users":
-        return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-blue-500" />
-      case "pending":
-        return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-yellow-500" />
-      case "roles":
+      case "invoices":
         return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-[#22c984]" />
       default:
         return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-gray-500" />

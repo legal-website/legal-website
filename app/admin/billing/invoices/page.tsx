@@ -35,6 +35,8 @@ import { format } from "date-fns"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
+import { useNotifications } from "@/components/admin/header"
+import { invoiceEvents } from "@/lib/invoice-notifications"
 
 // First, let's define a proper interface for the invoice item
 interface InvoiceItem {
@@ -84,6 +86,7 @@ export default function InvoicesAdminPage() {
   const { toast } = useToast()
   const router = useRouter()
   const { data: session, status } = useSession()
+  const { addNotification } = useNotifications()
 
   useEffect(() => {
     // Check if user is authenticated and has admin role
@@ -245,6 +248,9 @@ export default function InvoicesAdminPage() {
       // Remove the invoice from the local state
       setInvoices((prevInvoices) => prevInvoices.filter((inv) => inv.id !== invoiceToDelete.id))
 
+      // Add notification
+      addNotification(invoiceEvents.invoiceDeleted(invoiceToDelete.invoiceNumber))
+
       toast({
         title: "Invoice deleted",
         description: `Invoice ${invoiceToDelete.invoiceNumber} has been deleted successfully.`,
@@ -271,6 +277,9 @@ export default function InvoicesAdminPage() {
 
   const approvePayment = async (invoiceId: string) => {
     try {
+      const invoice = invoices.find((inv) => inv.id === invoiceId)
+      if (!invoice) return
+
       const response = await fetch(`/api/admin/invoices/${invoiceId}/approve`, {
         method: "POST",
       })
@@ -281,8 +290,8 @@ export default function InvoicesAdminPage() {
 
       // Update the invoice in the local state
       setInvoices((prevInvoices) =>
-        prevInvoices.map((invoice) =>
-          invoice.id === invoiceId ? { ...invoice, status: "paid", paymentDate: new Date().toISOString() } : invoice,
+        prevInvoices.map((inv) =>
+          inv.id === invoiceId ? { ...inv, status: "paid", paymentDate: new Date().toISOString() } : inv,
         ),
       )
 
@@ -294,6 +303,9 @@ export default function InvoicesAdminPage() {
           paymentDate: new Date().toISOString(),
         })
       }
+
+      // Add notification
+      addNotification(invoiceEvents.paymentApproved(invoice.invoiceNumber, invoice.customerName))
 
       toast({
         title: "Payment approved",
@@ -310,6 +322,9 @@ export default function InvoicesAdminPage() {
 
   const rejectPayment = async (invoiceId: string) => {
     try {
+      const invoice = invoices.find((inv) => inv.id === invoiceId)
+      if (!invoice) return
+
       const response = await fetch(`/api/admin/invoices/${invoiceId}/reject`, {
         method: "POST",
       })
@@ -320,7 +335,7 @@ export default function InvoicesAdminPage() {
 
       // Update the invoice in the local state
       setInvoices((prevInvoices) =>
-        prevInvoices.map((invoice) => (invoice.id === invoiceId ? { ...invoice, status: "cancelled" } : invoice)),
+        prevInvoices.map((inv) => (inv.id === invoiceId ? { ...inv, status: "cancelled" } : inv)),
       )
 
       // Update the selected invoice if it's open
@@ -331,6 +346,9 @@ export default function InvoicesAdminPage() {
         })
       }
 
+      // Add notification
+      addNotification(invoiceEvents.paymentRejected(invoice.invoiceNumber, invoice.customerName))
+
       toast({
         title: "Payment rejected",
         description: "The payment has been rejected.",
@@ -339,6 +357,35 @@ export default function InvoicesAdminPage() {
       toast({
         title: "Error",
         description: "Failed to reject payment. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const sendEmail = async (invoiceId: string) => {
+    try {
+      const invoice = invoices.find((inv) => inv.id === invoiceId)
+      if (!invoice) return
+
+      const response = await fetch(`/api/admin/invoices/${invoiceId}/send-email`, {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to send email")
+      }
+
+      // Add notification
+      addNotification(invoiceEvents.emailSent(invoice.invoiceNumber, invoice.customerEmail))
+
+      toast({
+        title: "Email sent",
+        description: `Invoice has been sent to ${invoice.customerEmail}.`,
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send email. Please try again.",
         variant: "destructive",
       })
     }
@@ -363,6 +410,13 @@ export default function InvoicesAdminPage() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+
+    // Add notification
+    addNotification({
+      title: "Invoices Exported",
+      description: `${filteredInvoices.length} invoices exported to CSV`,
+      source: "invoices",
+    })
   }
 
   if (loading) {
@@ -717,7 +771,7 @@ export default function InvoicesAdminPage() {
                 <Download className="h-4 w-4 mr-2" />
                 Download PDF
               </Button>
-              <Button variant="outline">
+              <Button variant="outline" onClick={() => sendEmail(selectedInvoice.id)}>
                 <Mail className="h-4 w-4 mr-2" />
                 Email Customer
               </Button>

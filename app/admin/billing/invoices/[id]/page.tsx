@@ -18,6 +18,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useNotifications } from "@/components/admin/header"
+import { invoiceEvents } from "@/lib/invoice-notifications"
 
 interface InvoiceItem {
   id: string
@@ -60,6 +62,7 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
   const [approveDialogOpen, setApproveDialogOpen] = useState(false)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   const [processingAction, setProcessingAction] = useState(false)
+  const { addNotification } = useNotifications()
 
   useEffect(() => {
     // Check if user is authenticated and is an admin
@@ -127,6 +130,9 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
         }
       })
 
+      // Add notification
+      addNotification(invoiceEvents.invoiceStatusUpdated(invoice.invoiceNumber, newStatus))
+
       setStatusDialogOpen(false)
       toast({
         title: "Status Updated",
@@ -156,6 +162,9 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
         const errorData = await response.json()
         throw new Error(errorData.error || "Failed to send email")
       }
+
+      // Add notification
+      addNotification(invoiceEvents.emailSent(invoice.invoiceNumber, invoice.customerEmail))
 
       toast({
         title: "Email Sent",
@@ -210,6 +219,9 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
         }
       })
 
+      // Add notification
+      addNotification(invoiceEvents.paymentApproved(invoice.invoiceNumber, invoice.customerName))
+
       setApproveDialogOpen(false)
       toast({
         title: "Payment Approved",
@@ -249,6 +261,9 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
           status: "cancelled",
         }
       })
+
+      // Add notification
+      addNotification(invoiceEvents.paymentRejected(invoice.invoiceNumber, invoice.customerName))
 
       setRejectDialogOpen(false)
       toast({
