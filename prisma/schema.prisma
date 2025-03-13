@@ -27,6 +27,7 @@ model User {
   tickets            Ticket[]            @relation("TicketCreator")
   business           Business?           @relation(fields: [businessId], references: [id])
   verificationTokens VerificationToken[]
+  phoneRequest       PhoneNumberRequest?
 
   @@index([businessId], map: "User_businessId_fkey")
 }
@@ -205,8 +206,21 @@ model Invoice {
   @@index([userId], map: "Invoice_userId_fkey")
 }
 
+model PhoneNumberRequest {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  phoneNumber String?
+  status      String   @default("requested") // requested, pending, approved, rejected
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "PhoneNumberRequest_userId_fkey")
+}
+
 enum Role {
   ADMIN
   SUPPORT
   CLIENT
 }
+

@@ -8,7 +8,6 @@ import {
   Hash,
   Bell,
   FileText,
-  Download,
   Phone,
   Eye,
   MessageSquare,
@@ -41,11 +40,21 @@ interface Invoice {
   userId?: string
 }
 
+interface PhoneNumberRequest {
+  id?: string
+  status: "requested" | "pending" | "approved" | "rejected"
+  phoneNumber?: string
+  userId: string
+  createdAt?: string
+  updatedAt?: string
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
+  const [requestingPhone, setRequestingPhone] = useState(false)
   const [businessData, setBusinessData] = useState({
     name: "",
     businessId: "",
@@ -67,6 +76,7 @@ export default function DashboardPage() {
     customerZip: "",
     customerCountry: "",
   })
+  const [phoneNumberRequest, setPhoneNumberRequest] = useState<PhoneNumberRequest | null>(null)
 
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -79,6 +89,7 @@ export default function DashboardPage() {
     if (session) {
       fetchBusinessData()
       fetchUserInvoices()
+      fetchPhoneNumberRequest()
     } else {
       setLoading(false)
     }
@@ -153,6 +164,21 @@ export default function DashboardPage() {
     }
   }
 
+  // Fetch phone number request status
+  const fetchPhoneNumberRequest = async () => {
+    try {
+      const response = await fetch("/api/user/phone-request")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.request) {
+          setPhoneNumberRequest(data.request)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching phone number request:", error)
+    }
+  }
+
   // Format address from invoice data
   const formatAddress = (invoice: Invoice): string => {
     const parts = []
@@ -168,6 +194,45 @@ export default function DashboardPage() {
     if (invoice.customerCountry) parts.push(invoice.customerCountry)
 
     return parts.join(", ") || "100 Ambition Parkway, New York, NY 10001, USA" // Fallback to default
+  }
+
+  const handleRequestPhoneNumber = async () => {
+    if (!session?.user?.id) return
+
+    setRequestingPhone(true)
+    try {
+      const response = await fetch("/api/user/phone-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: session.user.id,
+          status: "requested",
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to request phone number")
+      }
+
+      const data = await response.json()
+      setPhoneNumberRequest(data.request)
+
+      toast({
+        title: "Request Submitted",
+        description: "Your US phone number request has been submitted successfully.",
+      })
+    } catch (error) {
+      console.error("Error requesting phone number:", error)
+      toast({
+        title: "Request Failed",
+        description: "Failed to submit your phone number request. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setRequestingPhone(false)
+    }
   }
 
   const userName = session?.user?.name || "Client"
@@ -267,6 +332,71 @@ export default function DashboardPage() {
 
     // Ensure percentage is between 0 and 100
     return Math.min(100, Math.max(0, percentage))
+  }
+
+  // Function to render the phone number button based on request status
+  const renderPhoneNumberButton = () => {
+    if (!phoneNumberRequest) {
+      return (
+        <Button
+          variant="outline"
+          className="flex items-center justify-between p-6 h-auto w-full"
+          onClick={handleRequestPhoneNumber}
+          disabled={requestingPhone}
+        >
+          <div className="flex items-center">
+            <Phone className="w-5 h-5 mr-2" />
+            <span>{requestingPhone ? "Submitting request..." : "Claim your FREE US phone number"}</span>
+          </div>
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path d="M9 5l7 7-7 7" />
+          </svg>
+        </Button>
+      )
+    }
+
+    // If we have a phone number, show it with copy button
+    if (phoneNumberRequest.phoneNumber) {
+      return (
+        <Button variant="outline" className="flex items-center justify-between p-6 h-auto w-full">
+          <div className="flex items-center">
+            <Phone className="w-5 h-5 mr-2 text-green-500" />
+            <span>Your US Phone Number: {phoneNumberRequest.phoneNumber}</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => copyToClipboard(phoneNumberRequest.phoneNumber || "", "Phone number")}
+          >
+            <Copy className="w-4 h-4" />
+          </Button>
+        </Button>
+      )
+    }
+
+    // Otherwise show the status
+    const statusText = {
+      requested: "US phone number requested",
+      pending: "US phone number request pending",
+      approved: "US phone number approved (awaiting number)",
+      rejected: "US phone number request rejected",
+    }
+
+    const statusClass = {
+      requested: "text-blue-500",
+      pending: "text-yellow-500",
+      approved: "text-green-500",
+      rejected: "text-red-500",
+    }
+
+    return (
+      <Button variant="outline" className="flex items-center justify-between p-6 h-auto w-full" disabled>
+        <div className="flex items-center">
+          <Phone className={`w-5 h-5 mr-2 ${statusClass[phoneNumberRequest.status]}`} />
+          <span className={statusClass[phoneNumberRequest.status]}>{statusText[phoneNumberRequest.status]}</span>
+        </div>
+      </Button>
+    )
   }
 
   if (loading) {
@@ -435,28 +565,8 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      {/* Action Buttons */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <Button variant="outline" className="flex items-center justify-between p-6 h-auto">
-          <div className="flex items-center">
-            <Download className="w-5 h-5 mr-2" />
-            <span>Download your FREE company logos</span>
-          </div>
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path d="M9 5l7 7-7 7" />
-          </svg>
-        </Button>
-
-        <Button variant="outline" className="flex items-center justify-between p-6 h-auto">
-          <div className="flex items-center">
-            <Phone className="w-5 h-5 mr-2" />
-            <span>Claim your FREE US phone number</span>
-          </div>
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path d="M9 5l7 7-7 7" />
-          </svg>
-        </Button>
-      </div>
+      {/* Action Buttons - Removed logo button, updated phone button */}
+      <div className="mb-8">{renderPhoneNumberButton()}</div>
 
       {/* Documents Section */}
       <Card className="mb-8">
@@ -484,7 +594,7 @@ export default function DashboardPage() {
                 </td>
                 <td className="py-4">
                   <Button variant="ghost" size="icon">
-                    <Download className="w-4 h-4" />
+                    <FileText className="w-4 h-4" />
                   </Button>
                 </td>
               </tr>
@@ -498,7 +608,7 @@ export default function DashboardPage() {
                 </td>
                 <td className="py-4">
                   <Button variant="ghost" size="icon">
-                    <Download className="w-4 h-4" />
+                    <FileText className="w-4 h-4" />
                   </Button>
                 </td>
               </tr>
@@ -512,7 +622,7 @@ export default function DashboardPage() {
                 </td>
                 <td className="py-4">
                   <Button variant="ghost" size="icon">
-                    <Download className="w-4 h-4" />
+                    <FileText className="w-4 h-4" />
                   </Button>
                 </td>
               </tr>

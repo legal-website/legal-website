@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, Eye, Copy, ChevronLeft, ChevronRight } from "lucide-react"
+import { Search, Filter, Eye, Copy, ChevronLeft, ChevronRight, Phone } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,16 @@ interface PendingUser {
     annualReportFee?: number
     annualReportFrequency?: number
   }
+  phoneRequest?: PhoneNumberRequest
+}
+
+interface PhoneNumberRequest {
+  id?: string
+  status: "requested" | "pending" | "approved" | "rejected"
+  phoneNumber?: string
+  userId: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export default function PendingUsersPage() {
@@ -50,6 +60,7 @@ export default function PendingUsersPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedUser, setSelectedUser] = useState<PendingUser | null>(null)
   const [showUserDialog, setShowUserDialog] = useState(false)
+  const [showPhoneDialog, setShowPhoneDialog] = useState(false)
   const [loading, setLoading] = useState(true)
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
   // Get the tab from URL or default to "all"
@@ -66,7 +77,12 @@ export default function PendingUsersPage() {
     annualReportFee: 100,
     annualReportFrequency: 1,
   })
+  const [phoneFormData, setPhoneFormData] = useState({
+    phoneNumber: "",
+    status: "pending" as "requested" | "pending" | "approved" | "rejected",
+  })
   const [processingAction, setProcessingAction] = useState(false)
+  const [processingPhoneAction, setProcessingPhoneAction] = useState(false)
 
   // Add these new state variables after the existing state declarations
   const [sortOrder, setSortOrder] = useState("newest")
@@ -129,11 +145,15 @@ export default function PendingUsersPage() {
         data.users.map(async (user: any) => {
           // Fetch business data for each user
           const businessData = await fetchUserBusinessData(user.id)
+          // Fetch phone request data for each user
+          const phoneRequestData = await fetchUserPhoneRequest(user.id)
+
           return {
             id: user.id,
             name: user.name || "Unknown",
             email: user.email || "",
             business: businessData || undefined,
+            phoneRequest: phoneRequestData || undefined,
           }
         }),
       )
@@ -151,7 +171,6 @@ export default function PendingUsersPage() {
     }
   }
 
-  // Update the fetchUserBusinessData function to properly handle annual report fields
   const fetchUserBusinessData = async (userId: string) => {
     try {
       const response = await fetch(`/api/admin/users/${userId}/business`, {
@@ -195,6 +214,28 @@ export default function PendingUsersPage() {
       }
     } catch (error) {
       console.error("Error fetching business data:", error)
+      return null
+    }
+  }
+
+  const fetchUserPhoneRequest = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/phone-request`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.request) {
+          return data.request
+        }
+      }
+      return null
+    } catch (error) {
+      console.error("Error fetching phone request data:", error)
       return null
     }
   }
@@ -249,6 +290,26 @@ export default function PendingUsersPage() {
     }
   }
 
+  const viewPhoneRequest = async (user: PendingUser) => {
+    setSelectedUser(user)
+
+    // Initialize form data with existing phone request if available
+    if (user.phoneRequest) {
+      setPhoneFormData({
+        phoneNumber: user.phoneRequest.phoneNumber || "",
+        status: user.phoneRequest.status,
+      })
+    } else {
+      // Reset form if no existing request
+      setPhoneFormData({
+        phoneNumber: "",
+        status: "pending",
+      })
+    }
+
+    setShowPhoneDialog(true)
+  }
+
   // Update the handleInputChange function to handle numeric values
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -266,6 +327,12 @@ export default function PendingUsersPage() {
     }
   }
 
+  // Handle phone form input changes
+  const handlePhoneInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setPhoneFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
   // Update the handleSelectChange function to handle numeric values
   const handleSelectChange = (name: string, value: string) => {
     if (name === "annualReportFrequency") {
@@ -276,6 +343,14 @@ export default function PendingUsersPage() {
     } else {
       setBusinessFormData((prev) => ({ ...prev, [name]: value }))
     }
+  }
+
+  // Handle phone status select change
+  const handlePhoneStatusChange = (value: string) => {
+    setPhoneFormData((prev) => ({
+      ...prev,
+      status: value as "requested" | "pending" | "approved" | "rejected",
+    }))
   }
 
   const handleProgressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -344,6 +419,60 @@ export default function PendingUsersPage() {
       })
     } finally {
       setProcessingAction(false)
+    }
+  }
+
+  const savePhoneRequestData = async () => {
+    if (!selectedUser) return
+
+    setProcessingPhoneAction(true)
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/phone-request`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+        body: JSON.stringify(phoneFormData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update phone request information")
+      }
+
+      toast({
+        title: "Success",
+        description: "Phone request information updated successfully.",
+      })
+
+      // Update the local state
+      setPendingUsers((prev) =>
+        prev.map((user) => {
+          if (user.id === selectedUser.id) {
+            return {
+              ...user,
+              phoneRequest: {
+                ...(user.phoneRequest || { userId: user.id }),
+                phoneNumber: phoneFormData.phoneNumber,
+                status: phoneFormData.status,
+              },
+            }
+          }
+          return user
+        }),
+      )
+
+      setShowPhoneDialog(false)
+    } catch (error) {
+      console.error("Error updating phone request information:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update phone request information. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingPhoneAction(false)
     }
   }
 
@@ -439,6 +568,19 @@ export default function PendingUsersPage() {
         })
       },
     )
+  }
+
+  // Get phone request button text
+  const getPhoneRequestButtonText = (user: PendingUser) => {
+    if (!user.phoneRequest) {
+      return "US Phone Number Request"
+    }
+
+    if (user.phoneRequest.phoneNumber) {
+      return "View Client US Number"
+    }
+
+    return "US Phone Number Request"
   }
 
   if (sessionStatus === "loading" || !session) {
@@ -593,7 +735,12 @@ export default function PendingUsersPage() {
         </TabsList>
 
         <TabsContent value="all">
-          <UserList users={paginatedUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+          <UserList
+            users={paginatedUsers}
+            onViewDetails={viewUserDetails}
+            onViewPhoneRequest={viewPhoneRequest}
+            copyToClipboard={copyToClipboard}
+          />
           {totalPages > 1 && (
             <Pagination
               currentPage={currentPage}
@@ -606,7 +753,12 @@ export default function PendingUsersPage() {
         </TabsContent>
 
         <TabsContent value="pending">
-          <UserList users={paginatedUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+          <UserList
+            users={paginatedUsers}
+            onViewDetails={viewUserDetails}
+            onViewPhoneRequest={viewPhoneRequest}
+            copyToClipboard={copyToClipboard}
+          />
           {totalPages > 1 && (
             <Pagination
               currentPage={currentPage}
@@ -619,7 +771,12 @@ export default function PendingUsersPage() {
         </TabsContent>
 
         <TabsContent value="approved">
-          <UserList users={paginatedUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+          <UserList
+            users={paginatedUsers}
+            onViewDetails={viewUserDetails}
+            onViewPhoneRequest={viewPhoneRequest}
+            copyToClipboard={copyToClipboard}
+          />
           {totalPages > 1 && (
             <Pagination
               currentPage={currentPage}
@@ -632,7 +789,12 @@ export default function PendingUsersPage() {
         </TabsContent>
 
         <TabsContent value="rejected">
-          <UserList users={paginatedUsers} onViewDetails={viewUserDetails} copyToClipboard={copyToClipboard} />
+          <UserList
+            users={paginatedUsers}
+            onViewDetails={viewUserDetails}
+            onViewPhoneRequest={viewPhoneRequest}
+            copyToClipboard={copyToClipboard}
+          />
           {totalPages > 1 && (
             <Pagination
               currentPage={currentPage}
@@ -833,6 +995,89 @@ export default function PendingUsersPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Phone Number Request Dialog */}
+      {selectedUser && (
+        <Dialog open={showPhoneDialog} onOpenChange={setShowPhoneDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>US Phone Number Request</DialogTitle>
+              <DialogDescription>
+                {selectedUser.phoneRequest
+                  ? "Update the client's US phone number request status"
+                  : "This client has not requested a US phone number yet"}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Client Information</h3>
+                <Card className="p-4">
+                  <div className="space-y-2">
+                    <p className="font-medium">{selectedUser.name}</p>
+                    <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                    {selectedUser.phoneRequest && (
+                      <div className="mt-2 pt-2 border-t">
+                        <p className="text-sm text-gray-500">
+                          Request Status:{" "}
+                          <span className="font-medium capitalize">{selectedUser.phoneRequest.status}</span>
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Requested:{" "}
+                          {selectedUser.phoneRequest.createdAt
+                            ? new Date(selectedUser.phoneRequest.createdAt).toLocaleDateString()
+                            : "Unknown date"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="phoneNumber">US Phone Number</Label>
+                  <Input
+                    id="phoneNumber"
+                    name="phoneNumber"
+                    placeholder="e.g. +1 (555) 123-4567"
+                    value={phoneFormData.phoneNumber}
+                    onChange={handlePhoneInputChange}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="status">Request Status</Label>
+                  <Select value={phoneFormData.status} onValueChange={handlePhoneStatusChange}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="requested">Requested</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowPhoneDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={savePhoneRequestData} disabled={processingPhoneAction}>
+                {processingPhoneAction ? "Saving..." : "Save Phone Request"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Pagination component */}
+      {/* ... (pagination component remains the same) */}
     </div>
   )
 }
@@ -968,10 +1213,12 @@ function Pagination({
 function UserList({
   users,
   onViewDetails,
+  onViewPhoneRequest,
   copyToClipboard,
 }: {
   users: PendingUser[]
   onViewDetails: (user: PendingUser) => void
+  onViewPhoneRequest: (user: PendingUser) => void
   copyToClipboard: (text: string, label: string) => void
 }) {
   if (users.length === 0) {
@@ -980,6 +1227,19 @@ function UserList({
         <p>No users found</p>
       </Card>
     )
+  }
+
+  // Get phone request button text
+  const getPhoneRequestButtonText = (user: PendingUser) => {
+    if (!user.phoneRequest) {
+      return "US Phone Number Request"
+    }
+
+    if (user.phoneRequest.phoneNumber) {
+      return "View Client US Number"
+    }
+
+    return "US Phone Number Request"
   }
 
   return (
@@ -1027,6 +1287,15 @@ function UserList({
               <Button variant="outline" size="sm" onClick={() => onViewDetails(user)}>
                 <Eye className="h-4 w-4 mr-2" />
                 Manage LLC
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onViewPhoneRequest(user)}
+                className={user.phoneRequest?.status === "requested" ? "border-blue-300 text-blue-600" : ""}
+              >
+                <Phone className="h-4 w-4 mr-2" />
+                {getPhoneRequestButtonText(user)}
               </Button>
             </div>
           </div>
