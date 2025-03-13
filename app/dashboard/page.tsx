@@ -22,6 +22,25 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 
+interface Invoice {
+  id: string
+  invoiceNumber: string
+  customerName: string
+  customerEmail: string
+  customerPhone?: string
+  customerCompany?: string
+  customerAddress?: string
+  customerCity?: string
+  customerState?: string
+  customerZip?: string
+  customerCountry?: string
+  amount: number
+  status: string
+  createdAt: string
+  updatedAt: string
+  userId?: string
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -40,6 +59,14 @@ export default function DashboardPage() {
     annualReportFrequency: 1, // in years
     annualReportDueDate: "", // will be calculated based on formation date
   })
+  const [userAddress, setUserAddress] = useState({
+    address: "100 Ambition Parkway, New York, NY 10001, USA", // Default address
+    customerAddress: "",
+    customerCity: "",
+    customerState: "",
+    customerZip: "",
+    customerCountry: "",
+  })
 
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -51,12 +78,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (session) {
       fetchBusinessData()
+      fetchUserInvoices()
     } else {
       setLoading(false)
     }
   }, [session])
 
-  // Update the fetchBusinessData function to properly set the annual report fields
   const fetchBusinessData = async () => {
     try {
       const response = await fetch("/api/user/business")
@@ -85,6 +112,62 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Fetch user invoices to get address information
+  const fetchUserInvoices = async () => {
+    try {
+      // We'll need to create a new API endpoint to fetch user's invoices
+      const response = await fetch("/api/user/invoices")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.invoices && data.invoices.length > 0) {
+          // Get the most recent invoice with address information
+          const invoicesWithAddress = data.invoices.filter(
+            (invoice: Invoice) => invoice.customerAddress && invoice.customerCity,
+          )
+
+          if (invoicesWithAddress.length > 0) {
+            // Sort by date (newest first) and get the first one
+            const latestInvoice = invoicesWithAddress.sort(
+              (a: Invoice, b: Invoice) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+            )[0]
+
+            // Format the address
+            const formattedAddress = formatAddress(latestInvoice)
+
+            setUserAddress({
+              address: formattedAddress,
+              customerAddress: latestInvoice.customerAddress || "",
+              customerCity: latestInvoice.customerCity || "",
+              customerState: latestInvoice.customerState || "",
+              customerZip: latestInvoice.customerZip || "",
+              customerCountry: latestInvoice.customerCountry || "",
+            })
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user invoices:", error)
+      // Keep the default address if there's an error
+    }
+  }
+
+  // Format address from invoice data
+  const formatAddress = (invoice: Invoice): string => {
+    const parts = []
+
+    if (invoice.customerAddress) parts.push(invoice.customerAddress)
+
+    let cityStateZip = ""
+    if (invoice.customerCity) cityStateZip += invoice.customerCity
+    if (invoice.customerState) cityStateZip += cityStateZip ? `, ${invoice.customerState}` : invoice.customerState
+    if (invoice.customerZip) cityStateZip += cityStateZip ? ` ${invoice.customerZip}` : invoice.customerZip
+
+    if (cityStateZip) parts.push(cityStateZip)
+    if (invoice.customerCountry) parts.push(invoice.customerCountry)
+
+    return parts.join(", ") || "100 Ambition Parkway, New York, NY 10001, USA" // Fallback to default
   }
 
   const userName = session?.user?.name || "Client"
@@ -342,15 +425,11 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      {/* Address Section */}
+      {/* Address Section - Now using the address from invoices */}
       <Card className="mb-8 p-6">
         <div className="flex justify-between items-center mb-4">
-          <p className="text-lg">100 Ambition Parkway, New York, NY 10001, USA</p>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => copyToClipboard("100 Ambition Parkway, New York, NY 10001, USA", "Address")}
-          >
+          <p className="text-lg">{userAddress.address}</p>
+          <Button variant="ghost" size="icon" onClick={() => copyToClipboard(userAddress.address, "Address")}>
             <Copy className="w-4 h-4" />
           </Button>
         </div>
