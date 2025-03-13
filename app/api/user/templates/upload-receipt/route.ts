@@ -12,51 +12,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = (session.user as any).id
-
-    // Parse form data
     const formData = await req.formData()
-    const file = formData.get("file") as File
     const invoiceId = formData.get("invoiceId") as string
-
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
-    }
+    const file = formData.get("file") as File
 
     if (!invoiceId) {
       return NextResponse.json({ error: "Invoice ID is required" }, { status: 400 })
     }
 
-    // Verify the invoice belongs to the user
+    if (!file) {
+      return NextResponse.json({ error: "Receipt file is required" }, { status: 400 })
+    }
+
+    // Check if invoice exists and belongs to user
     const invoice = await db.invoice.findUnique({
-      where: {
-        id: invoiceId,
-        userId: userId,
-      },
+      where: { id: invoiceId },
     })
 
     if (!invoice) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
     }
 
-    // Upload the file to Cloudinary
+    if (invoice.customerEmail !== (session.user as any).email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Upload receipt to Cloudinary
     const receiptUrl = await uploadToCloudinary(file)
 
-    // Update the invoice with the receipt URL
-    await db.invoice.update({
-      where: {
-        id: invoiceId,
-      },
+    // Update invoice with receipt URL - only update the receipt and status, not the amount
+    const updatedInvoice = await db.invoice.update({
+      where: { id: invoiceId },
       data: {
         paymentReceipt: receiptUrl,
         status: "pending_approval", // Change status to pending approval
+        // We're not modifying the amount or items here, preserving the original values
       },
     })
 
     return NextResponse.json({
       success: true,
-      message: "Receipt uploaded successfully",
-      receiptUrl: receiptUrl,
+      invoice: updatedInvoice,
     })
   } catch (error: any) {
     console.error("Error uploading receipt:", error)
