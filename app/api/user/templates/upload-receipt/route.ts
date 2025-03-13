@@ -13,43 +13,51 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = (session.user as any).id
+
+    // Parse form data
     const formData = await req.formData()
-    const invoiceId = formData.get("invoiceId") as string
     const file = formData.get("file") as File
+    const invoiceId = formData.get("invoiceId") as string
+
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+    }
 
     if (!invoiceId) {
       return NextResponse.json({ error: "Invoice ID is required" }, { status: 400 })
     }
 
-    if (!file) {
-      return NextResponse.json({ error: "Receipt file is required" }, { status: 400 })
-    }
-
-    // Check if invoice exists and belongs to the user
-    const invoice = await db.invoice.findFirst({
+    // Verify the invoice belongs to the user
+    const invoice = await db.invoice.findUnique({
       where: {
         id: invoiceId,
-        userId,
+        userId: userId,
       },
     })
 
     if (!invoice) {
-      return NextResponse.json({ error: "Invoice not found or does not belong to you" }, { status: 404 })
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
     }
 
-    // Upload receipt to Cloudinary
+    // Upload the file to Cloudinary
     const receiptUrl = await uploadToCloudinary(file)
 
-    // Update invoice with receipt URL
-    const updatedInvoice = await db.invoice.update({
-      where: { id: invoiceId },
+    // Update the invoice with the receipt URL
+    await db.invoice.update({
+      where: {
+        id: invoiceId,
+      },
       data: {
         paymentReceipt: receiptUrl,
-        status: "awaiting_approval",
+        status: "pending_approval", // Change status to pending approval
       },
     })
 
-    return NextResponse.json({ success: true, invoice: updatedInvoice })
+    return NextResponse.json({
+      success: true,
+      message: "Receipt uploaded successfully",
+      receiptUrl: receiptUrl,
+    })
   } catch (error: any) {
     console.error("Error uploading receipt:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })

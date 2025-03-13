@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import type { Document, Invoice } from "@prisma/client"
+import type { Document } from "@prisma/client"
 
 // GET - Fetch templates available to users
 export async function GET(req: NextRequest) {
@@ -48,7 +48,6 @@ export async function GET(req: NextRequest) {
 
     // Get user's purchased templates (if business exists)
     let userTemplates: Document[] = []
-    let pendingTemplates: { templateId: string; invoiceId: string }[] = []
 
     if (businessId) {
       // Get templates the user has already purchased
@@ -62,37 +61,37 @@ export async function GET(req: NextRequest) {
       console.log(`Found ${userTemplates.length} purchased templates`)
     }
 
-    // Instead of trying to use the templateId field which doesn't exist,
-    // let's modify our approach to check pending invoices
+    // IMPORTANT: Use raw SQL query to avoid Prisma schema issues
+    // Get pending invoices for the user without using templateId relation
+    const pendingInvoices = await db.$queryRaw`
+      SELECT id, items, status 
+      FROM Invoice 
+      WHERE userId = ${userId} AND status = 'pending'
+    `
+    console.log(`Found ${Array.isArray(pendingInvoices) ? pendingInvoices.length : 0} pending invoices`)
 
-    // Get pending invoices for the user
-    const pendingInvoices: Invoice[] = await db.invoice.findMany({
-      where: {
-        userId: userId,
-        status: "pending",
-      },
-    })
-    console.log(`Found ${pendingInvoices.length} pending invoices`)
+    // Extract template IDs from pending invoices
+    const pendingTemplates: { templateId: string; invoiceId: string }[] = []
 
-    // We'll parse the items field to find template purchases
-    pendingTemplates = []
-    for (const invoice of pendingInvoices) {
-      try {
-        if (invoice.items) {
-          const items = JSON.parse(invoice.items)
-          const templateItems = items.filter((item: any) => item.type === "template")
+    if (Array.isArray(pendingInvoices)) {
+      for (const invoice of pendingInvoices) {
+        try {
+          if (invoice.items) {
+            const items = JSON.parse(invoice.items.toString())
+            const templateItems = items.filter((item: any) => item.type === "template")
 
-          for (const item of templateItems) {
-            if (item.templateId) {
-              pendingTemplates.push({
-                templateId: item.templateId,
-                invoiceId: invoice.id,
-              })
+            for (const item of templateItems) {
+              if (item.templateId) {
+                pendingTemplates.push({
+                  templateId: item.templateId,
+                  invoiceId: invoice.id,
+                })
+              }
             }
           }
+        } catch (e) {
+          console.error("Error parsing invoice items:", e)
         }
-      } catch (e) {
-        console.error("Error parsing invoice items:", e)
       }
     }
     console.log(`Found ${pendingTemplates.length} pending template purchases`)
