@@ -1,35 +1,32 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { randomBytes } from "crypto"
-import { sendEmail } from "@/lib/email"
 import { getAppUrl } from "@/lib/get-app-url"
+import { sendEmail } from "@/lib/email"
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const { email } = await req.json()
 
-    // Check if user is authenticated and is an admin
-    if (!session?.user || (session.user as any).role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!email) {
+      return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
 
-    const userId = params.id
-
-    // Get user details
+    // Find the user
     const user = await db.user.findUnique({
-      where: { id: userId },
+      where: { email },
     })
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      // For security reasons, don't reveal that the user doesn't exist
+      return NextResponse.json({ success: true })
     }
 
     // Generate a secure token
     const token = randomBytes(32).toString("hex")
 
     // Store the token in the database
+    // This will serve as our record of when the password reset was requested
     await db.verificationToken.create({
       data: {
         identifier: user.email,
@@ -39,22 +36,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
     })
 
-    // Get the app URL
+    // Get the app URL with a fallback to the Vercel deployment URL
     const appUrl = getAppUrl() || "https://legal-website-five.vercel.app"
 
     // Create reset password URL
     const resetUrl = `${appUrl}/reset-password?token=${token}`
 
     // Send the email
-    await sendEmail({
+    const emailResult = await sendEmail({
       to: user.email,
       subject: "Reset Your Password",
-      text: `Your password has been reset by an administrator. Please click this link to set a new password: ${resetUrl}`,
+      text: `You requested a password reset. Please click this link to reset your password: ${resetUrl}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #22c984;">Reset Your Password</h1>
           <p>Hello ${user.name || "there"},</p>
-          <p>An administrator has requested to reset your password.</p>
+          <p>You (or someone else) requested to reset your password.</p>
           <p>Click the button below to set a new password:</p>
           <a href="${resetUrl}" style="display: inline-block; background-color: #22c984; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 20px 0;">
             Reset Password
@@ -62,21 +59,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
           <p style="word-break: break-all;">${resetUrl}</p>
           <p>This link will expire in 24 hours.</p>
+          <p>If you didn't request this, you can safely ignore this email.</p>
         </div>
       `,
     })
 
-    // Create a notification for the admin panel
-    const notification = {
-      title: "Password Reset Sent",
-      description: `Password reset email sent to ${user.email}`,
-      source: "password-reset",
+    if (!emailResult.success) {
+      console.error("Failed to send reset password email:", emailResult.error)
+      return NextResponse.json({ error: "Failed to send reset password email" }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, notification })
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error resetting password:", error)
-    return NextResponse.json({ error: "Failed to reset password" }, { status: 500 })
+    console.error("Error in reset password:", error)
+    return NextResponse.json({ error: "An error occurred" }, { status: 500 })
   }
 }
 

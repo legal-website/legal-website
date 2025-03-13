@@ -65,6 +65,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { format } from "date-fns"
+import { db } from "@/lib/db"
 
 // Define types for our data
 interface UserDocument {
@@ -257,8 +258,8 @@ export default function AllUsersPage() {
                 day: "numeric",
               })
             : "Unknown"),
-        lastActive: user.lastActive
-          ? new Date(user.lastActive).toLocaleDateString("en-US", {
+        lastActive: user.updatedAt
+          ? new Date(user.updatedAt).toLocaleDateString("en-US", {
               year: "numeric",
               month: "short",
               day: "numeric",
@@ -414,6 +415,22 @@ export default function AllUsersPage() {
     }
   }
 
+  // Add this function before the fetchUserDetails function:
+  const getPasswordResetCount = async (userId: string) => {
+    try {
+      // Count the number of verification tokens created for password resets
+      const count = await db.verificationToken.count({
+        where: {
+          userId: userId,
+        },
+      })
+      return count
+    } catch (error) {
+      console.error("Error counting password reset requests:", error)
+      return 0
+    }
+  }
+
   // Update the fetchUserDetails function to fetch more user data
   const fetchUserDetails = async (userId: string) => {
     try {
@@ -560,8 +577,8 @@ export default function AllUsersPage() {
           day: "numeric",
         }),
         // Update the lastActive display in the fetchUserDetails function
-        lastActive: data.user.lastActive
-          ? new Date(data.user.lastActive).toLocaleDateString("en-US", {
+        lastActive: data.user.updatedAt
+          ? new Date(data.user.updatedAt).toLocaleDateString("en-US", {
               year: "numeric",
               month: "short",
               day: "numeric",
@@ -598,12 +615,7 @@ export default function AllUsersPage() {
         invoices: userInvoices || [],
         // Add password reset count - extract from user activity or set a default
         // Find this code:
-        passwordResetCount:
-          userActivity.filter(
-            (act: { action: string; details: string }) =>
-              act.action.toLowerCase().includes("password reset") ||
-              act.details.toLowerCase().includes("password reset"),
-          ).length || 0,
+        passwordResetCount: await getPasswordResetCount(userId),
         // Replace it with:
       }
 

@@ -1,11 +1,16 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { useSession } from "next-auth/react"
 
 export function OnlineStatusTracker() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const { data: session } = useSession()
 
   useEffect(() => {
+    // Only track online status if user is logged in
+    if (!session?.user) return
+
     // Function to ping the server and update online status
     const updateOnlineStatus = async () => {
       try {
@@ -42,7 +47,7 @@ export function OnlineStatusTracker() {
       }
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
-  }, [])
+  }, [session])
 
   // This component doesn't render anything visible
   return null
