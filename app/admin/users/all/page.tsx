@@ -2363,7 +2363,6 @@ function UserTable({
               <th className="text-left p-4 font-medium">Role</th>
               <th className="text-left p-4 font-medium">Company</th>
               <th className="text-left p-4 font-medium">Last Active</th>
-              <th className="text-left p-4 font-medium">Last Password Reset</th>
               <th className="text-left p-4 font-medium">Actions</th>
             </tr>
           </thead>
@@ -2389,16 +2388,6 @@ function UserTable({
                 <td className="p-4">{user.company}</td>
                 <td className="p-4">
                   {user.isOnline ? <span className="text-green-600 font-medium">Online</span> : <span>Offline</span>}
-                </td>
-                <td className="p-4">
-                  <div className="flex items-center gap-2">
-                    {user.lastPasswordChange !== "Never" ? user.lastPasswordChange : "Never"}
-                    {user.passwordResetCount && user.passwordResetCount > 0 && (
-                      <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
-                        {user.passwordResetCount}
-                      </Badge>
-                    )}
-                  </div>
                 </td>
                 <td className="p-4">
                   <div className="flex items-center space-x-2">

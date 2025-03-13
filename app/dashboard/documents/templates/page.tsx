@@ -1,69 +1,67 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { AlertCircle, CreditCard, FileText, Lock, Search, ShoppingCart } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { AlertCircle, FileText, Lock, Search, ShoppingCart, Upload, Check, Clock } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 
 interface Template {
   id: string
   name: string
   description: string
   category: string
+  price: number
+  pricingTier: string
   isPurchased: boolean
+  isPending: boolean
+  invoiceId?: string
 }
 
 export default function DocumentTemplatesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
-  const [templates, setTemplates] = useState<Template[]>([
-    {
-      id: "1",
-      name: "Operating Agreement",
-      description: "Comprehensive operating agreement template for LLCs",
-      category: "Formation",
-      isPurchased: true,
-    },
-    {
-      id: "2",
-      name: "Employment Agreement",
-      description: "Standard employment agreement for hiring employees",
-      category: "HR",
-      isPurchased: false,
-    },
-    {
-      id: "3",
-      name: "Non-Disclosure Agreement",
-      description: "Protect your business information with this NDA template",
-      category: "Legal",
-      isPurchased: false,
-    },
-    {
-      id: "4",
-      name: "Independent Contractor Agreement",
-      description: "Agreement for hiring contractors and freelancers",
-      category: "HR",
-      isPurchased: false,
-    },
-    {
-      id: "5",
-      name: "Business Plan Template",
-      description: "Comprehensive business plan template with financial projections",
-      category: "Planning",
-      isPurchased: false,
-    },
-    {
-      id: "6",
-      name: "Invoice Template",
-      description: "Professional invoice template for your business",
-      category: "Finance",
-      isPurchased: true,
-    },
-  ])
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
+  const [showUploadDialog, setShowUploadDialog] = useState(false)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const { toast } = useToast()
+  const { data: session } = useSession()
+  const router = useRouter()
 
-  const categories = ["All", "Formation", "HR", "Legal", "Planning", "Finance"]
+  useEffect(() => {
+    fetchTemplates()
+  }, [])
+
+  const fetchTemplates = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/user/templates")
+      if (!response.ok) {
+        throw new Error("Failed to fetch templates")
+      }
+      const data = await response.json()
+      setTemplates(data.templates)
+    } catch (error) {
+      console.error("Error fetching templates:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load templates. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const categories = ["All", ...new Set(templates.map((template) => template.category))]
 
   const filteredTemplates = templates.filter((template) => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -71,13 +69,99 @@ export default function DocumentTemplatesPage() {
     return matchesSearch && matchesCategory
   })
 
-  const handlePurchase = (id: string) => {
-    // In a real app, this would handle payment processing
-    setTemplates(templates.map((template) => (template.id === id ? { ...template, isPurchased: true } : template)))
+  const handlePurchase = async (template: Template) => {
+    try {
+      if (!session) {
+        router.push("/login?callbackUrl=/dashboard/documents/templates")
+        return
+      }
+
+      const response = await fetch("/api/user/templates/purchase", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ templateId: template.id }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to purchase template")
+      }
+
+      const data = await response.json()
+
+      // Update the template in the local state
+      setTemplates((prevTemplates) =>
+        prevTemplates.map((t) => (t.id === template.id ? { ...t, isPending: true, invoiceId: data.invoice.id } : t)),
+      )
+
+      setSelectedInvoice(data.invoice)
+      setSelectedTemplate(template)
+      setShowUploadDialog(true)
+
+      toast({
+        title: "Purchase initiated",
+        description: "Please upload your payment receipt to complete the purchase.",
+      })
+    } catch (error) {
+      console.error("Error purchasing template:", error)
+      toast({
+        title: "Error",
+        description: "Failed to purchase template. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleUploadReceipt = async () => {
+    if (!uploadFile || !selectedInvoice) return
+
+    try {
+      setUploading(true)
+
+      const formData = new FormData()
+      formData.append("file", uploadFile)
+      formData.append("invoiceId", selectedInvoice.id)
+
+      const response = await fetch("/api/user/templates/upload-receipt", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to upload receipt")
+      }
+
+      toast({
+        title: "Receipt uploaded",
+        description: "Your receipt has been uploaded and is pending approval.",
+      })
+
+      setShowUploadDialog(false)
+      setUploadFile(null)
+      fetchTemplates() // Refresh templates
+    } catch (error) {
+      console.error("Error uploading receipt:", error)
+      toast({
+        title: "Error",
+        description: "Failed to upload receipt. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="p-8 flex justify-center items-center">
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
   }
 
   return (
-    <div className="p-8 -mb-40">
+    <div className="p-8 mb-48">
       <h1 className="text-3xl font-bold mb-6">Document Templates</h1>
 
       <Card className="mb-8">
@@ -140,69 +224,55 @@ export default function DocumentTemplatesPage() {
                     <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">{template.category}</span>
                     {template.isPurchased ? (
                       <Button size="sm" variant="outline">
+                        <Check className="h-3.5 w-3.5 mr-1.5" />
                         Download
                       </Button>
+                    ) : template.isPending ? (
+                      <Button size="sm" variant="outline" disabled>
+                        <Clock className="h-3.5 w-3.5 mr-1.5" />
+                        Pending
+                      </Button>
                     ) : (
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button size="sm">
-                            <Lock className="h-3.5 w-3.5 mr-1.5" />
-                            Unlock $19
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Purchase Template</DialogTitle>
-                          </DialogHeader>
-                          <div className="mt-4 space-y-4">
-                            <div className="p-4 border rounded-lg">
-                              <div className="flex items-center gap-3 mb-2">
-                                <FileText className="h-5 w-5 text-blue-600" />
-                                <h3 className="font-semibold">{template.name}</h3>
-                              </div>
-                              <p className="text-sm text-gray-600">{template.description}</p>
-                            </div>
-
-                            <div className="space-y-4">
-                              <div>
-                                <label className="text-sm font-medium">Card Information</label>
-                                <div className="mt-1 relative">
-                                  <Input placeholder="Card number" />
-                                  <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-4">
-                                <Input placeholder="MM/YY" />
-                                <Input placeholder="CVC" />
-                              </div>
-
-                              <Button
-                                className="w-full"
-                                onClick={() => {
-                                  handlePurchase(template.id)
-                                }}
-                              >
-                                Pay $19
-                              </Button>
-
-                              <p className="text-xs text-center text-gray-500">
-                                Or unlock all templates for $99 and save
-                              </p>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
+                      <Button size="sm" onClick={() => handlePurchase(template)}>
+                        <Lock className="h-3.5 w-3.5 mr-1.5" />
+                        Unlock ${template.price}
+                      </Button>
                     )}
                   </div>
 
                   {/* Blur overlay for unpurchased templates */}
-                  {!template.isPurchased && (
+                  {!template.isPurchased && !template.isPending && (
                     <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
                       <div className="text-center">
                         <Lock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                        <Button size="sm" onClick={() => handlePurchase(template.id)}>
-                          Unlock for $19
+                        <Button size="sm" onClick={() => handlePurchase(template)}>
+                          Unlock for ${template.price}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pending overlay */}
+                  {template.isPending && (
+                    <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                      <div className="text-center">
+                        <Clock className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                        <p className="text-sm text-gray-600 mb-2">Payment pending approval</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedTemplate(template)
+                            // Fetch invoice details
+                            fetch(`/api/invoices/${template.invoiceId}`)
+                              .then((res) => res.json())
+                              .then((data) => {
+                                setSelectedInvoice(data.invoice)
+                                setShowUploadDialog(true)
+                              })
+                          }}
+                        >
+                          Upload Receipt
                         </Button>
                       </div>
                     </div>
@@ -267,6 +337,61 @@ export default function DocumentTemplatesPage() {
           </div>
         </div>
       </Card>
+
+      {/* Upload Receipt Dialog */}
+      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Payment Receipt</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {selectedTemplate && (
+              <div className="p-4 border rounded-lg">
+                <div className="flex items-center gap-3 mb-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  <h3 className="font-semibold">{selectedTemplate.name}</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{selectedTemplate.description}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Price:</span>
+                  <span className="font-bold">${selectedTemplate.price}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Upload Receipt</label>
+              <Input
+                type="file"
+                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                accept="image/*,application/pdf"
+              />
+              <p className="text-xs text-gray-500">
+                Please upload a receipt or proof of payment. Accepted formats: JPG, PNG, PDF.
+              </p>
+            </div>
+
+            <div className="pt-4 flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowUploadDialog(false)} disabled={uploading}>
+                Cancel
+              </Button>
+              <Button onClick={handleUploadReceipt} disabled={!uploadFile || uploading}>
+                {uploading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Receipt
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
