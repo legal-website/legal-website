@@ -151,6 +151,7 @@ export default function PendingUsersPage() {
     }
   }
 
+  // Update the fetchUserBusinessData function to properly handle annual report fields
   const fetchUserBusinessData = async (userId: string) => {
     try {
       const response = await fetch(`/api/admin/users/${userId}/business`, {
@@ -306,7 +307,7 @@ export default function PendingUsersPage() {
         description: "Business information updated successfully.",
       })
 
-      // Update the user in the local state
+      // Update the saveBusinessData function to include annual report fields in the local state update
       setPendingUsers((prev) =>
         prev.map((user) => {
           if (user.id === selectedUser.id) {
@@ -321,6 +322,8 @@ export default function PendingUsersPage() {
                 serviceStatus: businessFormData.serviceStatus,
                 llcStatusMessage: businessFormData.llcStatusMessage,
                 llcProgress: businessFormData.llcProgress,
+                annualReportFee: businessFormData.annualReportFee,
+                annualReportFrequency: businessFormData.annualReportFrequency,
               },
             }
           }

@@ -14,7 +14,17 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 
     const userId = params.id
-    const { name, businessId, ein, formationDate, serviceStatus, llcStatusMessage, llcProgress } = await request.json()
+    const {
+      name,
+      businessId,
+      ein,
+      formationDate,
+      serviceStatus,
+      llcStatusMessage,
+      llcProgress,
+      annualReportFee,
+      annualReportFrequency,
+    } = await request.json()
 
     // Find the user
     const user = await db.user.findUnique({
@@ -33,6 +43,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       serviceStatus,
       llcStatusMessage,
       llcProgress,
+      annualReportFee,
+      annualReportFrequency,
     })
 
     // If user already has a business, update it
@@ -79,6 +91,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         serviceStatus,
         llcStatusMessage,
         llcProgress,
+        annualReportFee,
+        annualReportFrequency,
       },
     })
   } catch (error) {
@@ -115,6 +129,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
       serviceStatus: "Pending",
       llcStatusMessage: "LLC formation initiated",
       llcProgress: 10,
+      annualReportFee: 100,
+      annualReportFrequency: 1,
     }
 
     if (user.business?.industry) {
@@ -134,6 +150,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
             serviceStatus: customData.serviceStatus,
             llcStatusMessage: customData.llcStatusMessage,
             llcProgress: customData.llcProgress,
+            annualReportFee: customData.annualReportFee,
+            annualReportFrequency: customData.annualReportFrequency,
           }
         : null,
     })

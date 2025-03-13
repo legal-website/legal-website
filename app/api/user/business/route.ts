@@ -25,6 +25,8 @@ export async function GET() {
       serviceStatus: "Pending",
       llcStatusMessage: "LLC formation initiated",
       llcProgress: 10,
+      annualReportFee: 100,
+      annualReportFrequency: 1,
     }
 
     if (user.business?.industry) {
@@ -43,6 +45,8 @@ export async function GET() {
             serviceStatus: customData.serviceStatus,
             llcStatusMessage: customData.llcStatusMessage,
             llcProgress: customData.llcProgress,
+            annualReportFee: customData.annualReportFee,
+            annualReportFrequency: customData.annualReportFrequency,
           }
         : null,
     })

@@ -56,6 +56,7 @@ export default function DashboardPage() {
     }
   }, [session])
 
+  // Update the fetchBusinessData function to properly set the annual report fields
   const fetchBusinessData = async () => {
     try {
       const response = await fetch("/api/user/business")
