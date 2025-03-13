@@ -179,6 +179,7 @@ export default function InvoicesAdminPage() {
       updateLastSeenInvoices(currentInvoiceIds)
 
       setInvoices(data.invoices)
+      console.log("Invoices data structure:", JSON.stringify(data.invoices.slice(0, 2), null, 2))
     } catch (error: any) {
       console.error("Error in fetchInvoices:", error)
       setError(error.message || "Failed to load invoices")
@@ -597,30 +598,29 @@ export default function InvoicesAdminPage() {
                           View
                         </Button>
 
-                        {invoice.status === "pending" &&
-                          (invoice.paymentReceipt || invoice.items?.some((item) => item.tier === "Template")) && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-green-600 hover:text-green-700"
-                                onClick={() => approvePayment(invoice.id)}
-                              >
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Approve
-                              </Button>
+                        {invoice.status === "pending" && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-green-600 hover:text-green-700"
+                              onClick={() => approvePayment(invoice.id)}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Approve
+                            </Button>
 
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-red-600 hover:text-red-700"
-                                onClick={() => rejectPayment(invoice.id)}
-                              >
-                                <X className="h-4 w-4 mr-2" />
-                                Reject
-                              </Button>
-                            </>
-                          )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => rejectPayment(invoice.id)}
+                            >
+                              <X className="h-4 w-4 mr-2" />
+                              Reject
+                            </Button>
+                          </>
+                        )}
 
                         <Button
                           variant="ghost"
@@ -761,27 +761,26 @@ export default function InvoicesAdminPage() {
               )}
 
               {/* Payment Actions */}
-              {selectedInvoice.status === "pending" &&
-                (selectedInvoice.paymentReceipt || selectedInvoice.items?.some((item) => item.tier === "Template")) && (
-                  <div className="flex space-x-3 mt-4">
-                    <Button
-                      onClick={() => approvePayment(selectedInvoice.id)}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Approve Payment
-                    </Button>
+              {selectedInvoice.status === "pending" && (
+                <div className="flex space-x-3 mt-4">
+                  <Button
+                    onClick={() => approvePayment(selectedInvoice.id)}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Approve Payment
+                  </Button>
 
-                    <Button
-                      variant="outline"
-                      className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-                      onClick={() => rejectPayment(selectedInvoice.id)}
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      Reject Payment
-                    </Button>
-                  </div>
-                )}
+                  <Button
+                    variant="outline"
+                    className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                    onClick={() => rejectPayment(selectedInvoice.id)}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Reject Payment
+                  </Button>
+                </div>
+              )}
             </div>
 
             <DialogFooter className="flex flex-wrap gap-2">

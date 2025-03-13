@@ -1,9 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
+import { db } from "@/lib/db"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-
-const prisma = new PrismaClient()
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -19,7 +17,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const invoiceId = params.id
 
     // Get the invoice
-    const invoice = await prisma.invoice.findUnique({
+    const invoice = await db.invoice.findUnique({
       where: { id: invoiceId },
     })
 
@@ -31,12 +29,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     console.log("Found invoice:", invoice.invoiceNumber)
 
     // Update invoice status to cancelled
-    const updatedInvoice = await prisma.invoice.update({
+    const updatedInvoice = await db.invoice.update({
       where: { id: invoiceId },
       data: { status: "cancelled" },
     })
 
     console.log("Invoice rejected successfully")
+
+    // You could add email notification here if needed
+    // try {
+    //   await sendPaymentRejectionEmail(invoice.customerEmail, invoice.customerName, invoiceId)
+    //   console.log("Rejection email sent")
+    // } catch (emailError) {
+    //   console.error("Error sending rejection email:", emailError)
+    // }
 
     return NextResponse.json({ success: true, invoice: updatedInvoice })
   } catch (error: any) {
