@@ -256,11 +256,11 @@ export default function AllUsersPage() {
                 userId: user.id,
               },
               orderBy: {
-                createdAt: "desc",
+                expires: "desc", // Using 'expires' field instead of 'createdAt'
               },
             })
             if (latestToken) {
-              lastPasswordReset = latestToken.createdAt
+              lastPasswordReset = latestToken.expires
             }
           } catch (error) {
             console.error(`Error finding latest token for user ${user.id}:`, error)
@@ -818,14 +818,18 @@ export default function AllUsersPage() {
       const data = await response.json()
 
       // Update the user in the list with the new reset count and time
-      if (data.resetCount && data.resetTime) {
+      // In the confirmResetPassword function, find the code that updates the UI with the reset time
+      // Replace this:
+      if (data.resetCount) {
+        const resetTime = new Date().toISOString() // Use current time instead of data.resetTime
+
         setUsers((prevUsers) =>
           prevUsers.map((user) =>
             user.id === selectedUser.id
               ? {
                   ...user,
                   passwordResetCount: data.resetCount,
-                  lastPasswordChange: new Date(data.resetTime).toLocaleDateString("en-US", {
+                  lastPasswordChange: new Date(resetTime).toLocaleDateString("en-US", {
                     year: "numeric",
                     month: "short",
                     day: "numeric",
@@ -842,7 +846,7 @@ export default function AllUsersPage() {
           setSelectedUser({
             ...selectedUser,
             passwordResetCount: data.resetCount,
-            lastPasswordChange: new Date(data.resetTime).toLocaleDateString("en-US", {
+            lastPasswordChange: new Date(resetTime).toLocaleDateString("en-US", {
               year: "numeric",
               month: "short",
               day: "numeric",

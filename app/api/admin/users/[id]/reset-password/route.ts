@@ -90,7 +90,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       success: true,
       notification,
       resetCount,
-      resetTime: new Date().toISOString(),
     })
   } catch (error) {
     console.error("Error in admin reset password:", error)
