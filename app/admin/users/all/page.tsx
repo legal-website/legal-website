@@ -446,6 +446,40 @@ export default function AllUsersPage() {
         // Continue with default subscription data
       }
 
+      // Extract customer contact information from invoices if not available in user data
+      let customerPhone = data.user.business?.phone || "Not provided"
+      let customerAddress = data.user.business?.address || "Not provided"
+
+      // If we have invoices and the user doesn't have phone/address, try to get it from the most recent invoice
+      if (userInvoices.length > 0 && (customerPhone === "Not provided" || customerAddress === "Not provided")) {
+        // Sort invoices by date (newest first)
+        const sortedInvoices = userInvoices.sort(
+          (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )
+
+        // Get the most recent invoice
+        const latestInvoice = sortedInvoices[0]
+
+        // Update phone if available in invoice and not in user data
+        if (customerPhone === "Not provided" && latestInvoice.customerPhone) {
+          customerPhone = latestInvoice.customerPhone
+        }
+
+        // Update address if available in invoice and not in user data
+        if (customerAddress === "Not provided" && latestInvoice.customerAddress) {
+          customerAddress = latestInvoice.customerAddress
+
+          // If we have city/state/zip, append them to make a complete address
+          if (latestInvoice.customerCity || latestInvoice.customerState || latestInvoice.customerZip) {
+            customerAddress += ", "
+            if (latestInvoice.customerCity) customerAddress += latestInvoice.customerCity
+            if (latestInvoice.customerState)
+              customerAddress += latestInvoice.customerState ? `, ${latestInvoice.customerState}` : ""
+            if (latestInvoice.customerZip) customerAddress += ` ${latestInvoice.customerZip}`
+          }
+        }
+      }
+
       // If user has a business, try to get business data using your existing API
       if (data.user.businessId) {
         try {
@@ -511,8 +545,8 @@ export default function AllUsersPage() {
               minute: "2-digit",
             })
           : "Never",
-        phone: data.user.business?.phone || "Not provided",
-        address: data.user.business?.address || "Not provided",
+        phone: customerPhone,
+        address: customerAddress,
         profileImage: data.user.image || null,
         notes: data.user.notes || "",
         businessId: data.user.businessId || null,
@@ -685,8 +719,9 @@ export default function AllUsersPage() {
     }
   }
 
-  // Update the confirmResetPassword function to use the correct API path
+  // Find the confirmResetPassword function and update it to handle notifications
 
+  // Update the confirmResetPassword function to use the correct API path
   const confirmResetPassword = async () => {
     if (!selectedUser) return
 
@@ -700,6 +735,25 @@ export default function AllUsersPage() {
 
       if (!response.ok) {
         throw new Error("Failed to reset password")
+      }
+
+      const data = await response.json()
+
+      // If the API returned a notification, add it to our notification system
+      if (data.notification) {
+        // Store the notification in localStorage so it can be picked up by the header
+        const pendingNotifications = JSON.parse(localStorage.getItem("pendingNotifications") || "[]")
+        pendingNotifications.push({
+          title: data.notification.title,
+          description: data.notification.description,
+          source: data.notification.source,
+        })
+        localStorage.setItem("pendingNotifications", JSON.stringify(pendingNotifications))
+
+        // Force a refresh of the page to show the notification
+        // This is a simple way to ensure the notification appears
+        // In a more sophisticated app, you'd use a state management solution
+        window.location.reload()
       }
 
       setShowResetPasswordDialog(false)
@@ -2080,12 +2134,12 @@ function UserTable({
   getStatusColor,
 }: {
   users: UserData[]
-  onViewUser: (user: UserData) => void
-  onEditUser: (user: UserData) => void
-  onResetPassword: (user: UserData) => void
-  onChangeRole: (user: UserData) => void
-  onToggleStatus: (user: UserData) => void
-  onDeleteUser: (user: UserData) => void
+  onViewUser: (userData: UserData) => void
+  onEditUser: (userData: UserData) => void
+  onResetPassword: (userData: UserData) => void
+  onChangeRole: (userData: UserData) => void
+  onToggleStatus: (userData: UserData) => void
+  onDeleteUser: (userData: UserData) => void
   loading: boolean
   formatDate: (dateString: string) => string
   getStatusColor: (status: string) => string
