@@ -8,54 +8,37 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET || "",
 })
 
-
-/**
- * Upload a file to Cloudinary
- * @param buffer The file buffer to upload
- * @param filename Optional filename to use
- * @returns The URL of the uploaded file
- */
-export async function uploadToCloudinary(buffer: Buffer, filename?: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const uploadOptions: any = {
-      resource_type: "auto",
-      folder: "legal-templates",
-    }
-
-    if (filename) {
-      // Use the filename as the public_id but remove the extension
-      const publicId = filename.split(".")[0]
-      uploadOptions.public_id = publicId
-    }
-
-    // Convert buffer to base64 string for Cloudinary
-    const base64String = buffer.toString("base64")
-    const dataURI = `data:application/octet-stream;base64,${base64String}`
-
-    cloudinary.uploader.upload(dataURI, uploadOptions, (error, result) => {
-      if (error) {
-        console.error("Cloudinary upload error:", error)
-        reject(error)
-      } else {
-        resolve(result?.secure_url || "")
-      }
-    })
-  })
-}
-
-/**
- * Delete a file from Cloudinary
- * @param url The URL of the file to delete
- */
-export async function deleteFromCloudinary(url: string): Promise<void> {
+export async function uploadToCloudinary(file: File): Promise<string> {
   try {
-    // Extract the public ID from the URL
-    const publicId = url.split("/").pop()?.split(".")[0]
-    if (!publicId) return
+    // Convert file to base64
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const base64Data = buffer.toString("base64")
+    const fileType = file.type
+    const dataURI = `data:${fileType};base64,${base64Data}`
 
-    await cloudinary.uploader.destroy(publicId)
+    // Upload to Cloudinary
+    const result = await new Promise<any>((resolve, reject) => {
+      cloudinary.uploader.upload(
+        dataURI,
+        {
+          folder: "receipts",
+          resource_type: "auto",
+        },
+        (error: any, result: any) => {
+          if (error) {
+            reject(error)
+          } else {
+            resolve(result)
+          }
+        },
+      )
+    })
+
+    return result.secure_url
   } catch (error) {
-    console.error("Cloudinary delete error:", error)
+    console.error("Cloudinary upload error:", error)
+    throw new Error("Failed to upload file to Cloudinary")
   }
 }
 

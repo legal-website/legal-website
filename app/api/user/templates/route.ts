@@ -129,8 +129,8 @@ export async function GET(req: NextRequest) {
       let price = 0
       let pricingTier = "Free"
       let displayName = template.name
-      let category = "Uncategorized"
-      let description = ""
+      let category = template.category || "Uncategorized"
+      let templateDescription = ""
 
       try {
         // Try to extract metadata from name (format: "name|price|category|description")
@@ -139,8 +139,8 @@ export async function GET(req: NextRequest) {
         if (parts && parts.length > 1) {
           displayName = parts[0]
           price = Number.parseFloat(parts[1]) || 0
-          category = parts[2] || "Uncategorized"
-          description = parts[3] || ""
+          category = parts[2] || category
+          templateDescription = parts[3] || ""
           pricingTier = price === 0 ? "Free" : price < 30 ? "Basic" : "Premium"
         }
       } catch (e) {
@@ -162,7 +162,7 @@ export async function GET(req: NextRequest) {
         isPending: isPending,
         invoiceId: invoiceId,
         fileUrl: isPurchased ? template.fileUrl : undefined,
-        description: description || `${pricingTier} template for ${category}`,
+        description: templateDescription || `${pricingTier} template for ${category}`,
       }
     })
 
