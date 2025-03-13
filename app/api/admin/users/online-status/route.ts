@@ -6,6 +6,9 @@ import { db } from "@/lib/db"
 // Simple in-memory store for online users
 const onlineUsers = new Map<string, Date>()
 
+// Set a shorter timeout for detecting when users go offline (3 minutes)
+const ONLINE_TIMEOUT_MS = 3 * 60 * 1000
+
 export async function POST() {
   try {
     const session = await getServerSession(authOptions)
@@ -46,10 +49,10 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Clean up users who haven't been active in the last 5 minutes
+    // Clean up users who haven't been active in the last 3 minutes
     const now = new Date()
     for (const [userId, lastSeen] of onlineUsers.entries()) {
-      if (now.getTime() - lastSeen.getTime() > 5 * 60 * 1000) {
+      if (now.getTime() - lastSeen.getTime() > ONLINE_TIMEOUT_MS) {
         onlineUsers.delete(userId)
       }
     }

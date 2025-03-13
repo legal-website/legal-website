@@ -29,8 +29,8 @@ export function OnlineStatusTracker() {
     // Update status immediately when component mounts
     updateOnlineStatus()
 
-    // Set up interval to update status periodically
-    const interval = setInterval(updateOnlineStatus, 60000) // Every minute
+    // Set up interval to update status periodically (every 30 seconds)
+    const interval = setInterval(updateOnlineStatus, 30000)
 
     // Set up event listeners for user activity
     const activityEvents = ["mousedown", "keydown", "touchstart", "scroll"]

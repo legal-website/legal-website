@@ -256,7 +256,7 @@ export default function AllUsersPage() {
                 userId: user.id,
               },
               orderBy: {
-                expires: "desc", // Using 'expires' field instead of 'createdAt'
+                expires: "desc",
               },
             })
             if (latestToken) {
@@ -265,6 +265,9 @@ export default function AllUsersPage() {
           } catch (error) {
             console.error(`Error finding latest token for user ${user.id}:`, error)
           }
+
+          // Check if user is online
+          const isOnline = onlineUserIds.includes(user.id)
 
           return {
             id: user.id,
@@ -283,22 +286,24 @@ export default function AllUsersPage() {
                     day: "numeric",
                   })
                 : "Unknown"),
-            // Fix the lastActive date formatting
-            lastActive: user.updatedAt
-              ? new Date(user.updatedAt).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "Never",
+            // Fix the lastActive date formatting - show "Online now" if user is online
+            lastActive: isOnline
+              ? "Online now"
+              : user.updatedAt
+                ? new Date(user.updatedAt).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "Never",
             phone: user.phone || "Not provided",
             address: user.address || "Not provided",
             profileImage: user.profileImage || null,
-            isOnline: onlineUserIds.includes(user.id),
+            isOnline: isOnline,
             passwordResetCount: resetCount,
-            // Add lastPasswordChange field
+            // Add lastPasswordChange field with actual date
             lastPasswordChange: lastPasswordReset
               ? new Date(lastPasswordReset).toLocaleDateString("en-US", {
                   year: "numeric",
@@ -601,7 +606,38 @@ export default function AllUsersPage() {
         // Continue with empty activity array
       }
 
-      // Find the fetchUserDetails function and update it to handle missing fields:
+      // Get online status
+      let isOnline = false
+      try {
+        const onlineResponse = await fetch("/api/admin/users/online-status")
+        if (onlineResponse.ok) {
+          const onlineData = await onlineResponse.json()
+          isOnline = onlineData.onlineUsers?.includes(userId) || false
+        }
+      } catch (error) {
+        console.error("Error fetching online status:", error)
+      }
+
+      // Get password reset count
+      const resetCount = await getPasswordResetCount(userId)
+
+      // Get the most recent verification token for this user (for last password reset)
+      let lastPasswordReset = null
+      try {
+        const latestToken = await db.verificationToken.findFirst({
+          where: {
+            userId: userId,
+          },
+          orderBy: {
+            expires: "desc",
+          },
+        })
+        if (latestToken) {
+          lastPasswordReset = latestToken.expires
+        }
+      } catch (error) {
+        console.error(`Error finding latest token for user ${userId}:`, error)
+      }
 
       // Format the user data for display
       const userDetails: UserData = {
@@ -617,15 +653,17 @@ export default function AllUsersPage() {
           day: "numeric",
         }),
         // Update the lastActive display in the fetchUserDetails function
-        lastActive: data.user.updatedAt
-          ? new Date(data.user.updatedAt).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : "Never",
+        lastActive: isOnline
+          ? "Online now"
+          : data.user.updatedAt
+            ? new Date(data.user.updatedAt).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "Never",
         phone: customerPhone,
         address: customerAddress,
         profileImage: data.user.image || null,
@@ -641,15 +679,23 @@ export default function AllUsersPage() {
               day: "numeric",
             })
           : "N/A",
-        // Since lastPasswordChange doesn't exist in the schema, we'll use the most recent verification token
-        lastPasswordChange: "See password reset count",
+        // Update lastPasswordChange to show the actual date if available
+        lastPasswordChange: lastPasswordReset
+          ? new Date(lastPasswordReset).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "Never",
         // Add placeholder data for documents and activity if not available
         documents: data.user.business?.documents || [],
         activity: userActivity.length > 0 ? userActivity : [],
-        isOnline: false, // Since isOnline doesn't exist in the schema, we'll use the in-memory store
+        isOnline: isOnline,
         invoices: userInvoices || [],
-        // Add password reset count - extract from user activity or set a default
-        passwordResetCount: await getPasswordResetCount(userId),
+        // Add password reset count
+        passwordResetCount: resetCount,
       }
 
       setSelectedUser(userDetails)
@@ -817,12 +863,11 @@ export default function AllUsersPage() {
 
       const data = await response.json()
 
-      // Update the user in the list with the new reset count and time
-      // In the confirmResetPassword function, find the code that updates the UI with the reset time
-      // Replace this:
-      if (data.resetCount) {
-        const resetTime = new Date().toISOString() // Use current time instead of data.resetTime
+      // Get the current time for display
+      const resetTime = new Date().toISOString()
 
+      // Update the user in the list with the new reset count and time
+      if (data.resetCount) {
         setUsers((prevUsers) =>
           prevUsers.map((user) =>
             user.id === selectedUser.id
@@ -875,6 +920,9 @@ export default function AllUsersPage() {
         title: "Password Reset",
         description: `Password reset email has been sent to ${selectedUser.email}.`,
       })
+
+      // Refresh the user data to ensure we have the latest information
+      fetchUsers()
     } catch (error) {
       console.error("Error resetting password:", error)
       toast({
