@@ -12,10 +12,9 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = (session.user as any).id
-    const data = await req.json()
+    const { templateId, price } = await req.json()
 
-    // Validate required fields
-    if (!data.templateId) {
+    if (!templateId) {
       return NextResponse.json({ error: "Template ID is required" }, { status: 400 })
     }
 
@@ -30,60 +29,41 @@ export async function POST(req: NextRequest) {
 
     // Get the template
     const template = await db.document.findUnique({
-      where: {
-        id: data.templateId,
-        category: "template_master",
-      },
+      where: { id: templateId },
     })
 
     if (!template) {
       return NextResponse.json({ error: "Template not found" }, { status: 404 })
     }
 
-    // Parse template metadata to get price and name
-    let templateName = template.name
-    let templatePrice = data.price || 0
+    // Generate invoice number
+    const invoiceNumber = `TEMP-${Date.now().toString().slice(-6)}`
 
-    try {
-      // Try to extract metadata from name (format: "name|price|tier|count|status")
-      const parts = template.name.split("|")
-      if (parts && parts.length > 1) {
-        templateName = parts[0]
-        templatePrice = Number.parseFloat(parts[1]) || data.price || 0
-      }
-    } catch (e) {
-      console.error("Error parsing template metadata:", e)
-    }
+    // Create invoice items
+    const items = [
+      {
+        type: "template",
+        templateId: template.id,
+        name: template.name,
+        price: price || 29.99,
+        quantity: 1,
+      },
+    ]
 
-    // Generate a unique invoice number
-    const invoiceNumber = `TEMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`
-
-    // Create an invoice for the template purchase
+    // Create invoice
     const invoice = await db.invoice.create({
       data: {
         invoiceNumber,
         customerName: user.name || "Customer",
         customerEmail: user.email,
-        amount: templatePrice,
+        amount: price || 29.99,
         status: "pending",
-        items: JSON.stringify([
-          {
-            type: "template",
-            templateId: template.id,
-            name: templateName,
-            description: `${templateName} template`,
-            price: templatePrice,
-            tier: "Template",
-          },
-        ]),
-        userId: userId,
+        items: JSON.stringify(items),
+        userId: user.id,
       },
     })
 
-    return NextResponse.json({
-      success: true,
-      invoice,
-    })
+    return NextResponse.json({ success: true, invoice })
   } catch (error: any) {
     console.error("Error purchasing template:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })

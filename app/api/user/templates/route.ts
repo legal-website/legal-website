@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { createdAt: "desc" },
     })
+    console.log(`Found ${masterTemplates.length} master templates`)
 
     // Get user's purchased templates (if business exists)
     let userTemplates: Document[] = []
@@ -58,31 +59,43 @@ export async function GET(req: NextRequest) {
           type: "template",
         },
       })
+      console.log(`Found ${userTemplates.length} purchased templates`)
     }
 
-    // Get pending template purchases from invoices
+    // Instead of trying to use the templateId field which doesn't exist,
+    // let's modify our approach to check pending invoices
+
+    // Get pending invoices for the user
     const pendingInvoices: Invoice[] = await db.invoice.findMany({
       where: {
         userId: userId,
         status: "pending",
       },
     })
+    console.log(`Found ${pendingInvoices.length} pending invoices`)
 
-    // Extract template IDs from pending invoices
-    pendingTemplates = pendingInvoices.flatMap((invoice) => {
+    // We'll parse the items field to find template purchases
+    pendingTemplates = []
+    for (const invoice of pendingInvoices) {
       try {
-        const items = JSON.parse(invoice.items)
-        return items
-          .filter((item: any) => item.type === "template")
-          .map((item: any) => ({
-            templateId: item.templateId,
-            invoiceId: invoice.id,
-          }))
+        if (invoice.items) {
+          const items = JSON.parse(invoice.items)
+          const templateItems = items.filter((item: any) => item.type === "template")
+
+          for (const item of templateItems) {
+            if (item.templateId) {
+              pendingTemplates.push({
+                templateId: item.templateId,
+                invoiceId: invoice.id,
+              })
+            }
+          }
+        }
       } catch (e) {
         console.error("Error parsing invoice items:", e)
-        return []
       }
-    })
+    }
+    console.log(`Found ${pendingTemplates.length} pending template purchases`)
 
     // Create a map of template IDs that the user has purchased
     const purchasedTemplateMap = new Map()
