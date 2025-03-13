@@ -18,6 +18,8 @@ import {
   CheckCircle,
   X,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
@@ -88,6 +90,8 @@ export default function InvoicesAdminPage() {
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(20)
   const { toast } = useToast()
   const router = useRouter()
   const { data: session, status } = useSession()
@@ -114,6 +118,11 @@ export default function InvoicesAdminPage() {
       fetchInvoices()
     }
   }, [status, session, router])
+
+  // Reset to first page when changing tabs or search query
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, searchQuery])
 
   const fetchInvoices = async () => {
     try {
@@ -226,6 +235,28 @@ export default function InvoicesAdminPage() {
     }
   }
 
+  // Function to determine if an invoice is a template invoice
+  const isTemplateInvoice = (invoice: Invoice) => {
+    if (invoice.isTemplateInvoice) return true
+
+    // Check items if they're an array
+    if (Array.isArray(invoice.items)) {
+      return invoice.items.some(
+        (item) =>
+          item.type === "template" ||
+          (item.tier && typeof item.tier === "string" && item.tier.toLowerCase().includes("template")),
+      )
+    }
+
+    // Check if items is a string that contains template indicators
+    if (typeof invoice.items === "string") {
+      const lowerItems = invoice.items.toLowerCase()
+      return lowerItems.includes("template") || lowerItems.includes("istemplateinvoice")
+    }
+
+    return false
+  }
+
   const filteredInvoices = invoices
     .filter((invoice) => {
       // Ensure invoice has all required properties
@@ -253,7 +284,8 @@ export default function InvoicesAdminPage() {
         activeTab === "all" ||
         (activeTab === "paid" && invoice.status === "paid") ||
         (activeTab === "pending" && invoice.status === "pending") ||
-        (activeTab === "cancelled" && invoice.status === "cancelled")
+        (activeTab === "cancelled" && invoice.status === "cancelled") ||
+        (activeTab === "template" && isTemplateInvoice(invoice))
 
       return matchesSearch && matchesTab
     })
@@ -272,6 +304,28 @@ export default function InvoicesAdminPage() {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       }
     })
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentInvoices = filteredInvoices.slice(indexOfFirstItem, indexOfLastItem)
+  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage)
+
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1)
+      // Scroll to top of the table
+      document.querySelector(".invoices-table")?.scrollIntoView({ behavior: "smooth" })
+    }
+  }
+
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+      // Scroll to top of the table
+      document.querySelector(".invoices-table")?.scrollIntoView({ behavior: "smooth" })
+    }
+  }
 
   const viewInvoiceDetails = (invoice: Invoice) => {
     setSelectedInvoice(invoice)
@@ -324,28 +378,6 @@ export default function InvoicesAdminPage() {
       setIsDeleting(false)
       setInvoiceToDelete(null)
     }
-  }
-
-  // Function to determine if an invoice is a template invoice
-  const isTemplateInvoice = (invoice: Invoice) => {
-    if (invoice.isTemplateInvoice) return true
-
-    // Check items if they're an array
-    if (Array.isArray(invoice.items)) {
-      return invoice.items.some(
-        (item) =>
-          item.type === "template" ||
-          (item.tier && typeof item.tier === "string" && item.tier.toLowerCase().includes("template")),
-      )
-    }
-
-    // Check if items is a string that contains template indicators
-    if (typeof invoice.items === "string") {
-      const lowerItems = invoice.items.toLowerCase()
-      return lowerItems.includes("template") || lowerItems.includes("istemplateinvoice")
-    }
-
-    return false
   }
 
   // Update the approvePayment function to handle template invoices
@@ -666,7 +698,7 @@ export default function InvoicesAdminPage() {
         <div className="flex items-center justify-end space-x-2">
           <span className="text-sm text-gray-500">Sort by:</span>
           <Select value={sortOrder} onValueChange={setSortOrder}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[220px]">
               <SelectValue placeholder="Sort order" />
             </SelectTrigger>
             <SelectContent>
@@ -681,11 +713,12 @@ export default function InvoicesAdminPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="grid grid-cols-4 w-full max-w-md">
+        <TabsList className="grid grid-cols-5 w-full max-w-md">
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="paid">Paid</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+          <TabsTrigger value="template">Template</TabsTrigger>
         </TabsList>
 
         <div className="mt-2 text-sm text-gray-500">
@@ -693,12 +726,13 @@ export default function InvoicesAdminPage() {
           {activeTab === "paid" && "Showing paid invoices only"}
           {activeTab === "pending" && "Showing pending invoices only"}
           {activeTab === "cancelled" && "Showing cancelled invoices only"}
+          {activeTab === "template" && "Showing template invoices only"}
           {filteredInvoices.length > 0 && ` (${filteredInvoices.length} found)`}
         </div>
       </Tabs>
 
       {/* Invoices Table */}
-      <Card>
+      <Card className="invoices-table">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -713,14 +747,14 @@ export default function InvoicesAdminPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredInvoices.length === 0 ? (
+              {currentInvoices.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-4 text-center text-gray-500">
                     No invoices found
                   </td>
                 </tr>
               ) : (
-                filteredInvoices.map((invoice) => (
+                currentInvoices.map((invoice) => (
                   <tr key={invoice.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="p-4">
                       <div className="flex items-center">
@@ -805,6 +839,41 @@ export default function InvoicesAdminPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {filteredInvoices.length > itemsPerPage && (
+          <div className="flex items-center justify-between p-4 border-t">
+            <div className="text-sm text-gray-500">
+              Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredInvoices.length)} of{" "}
+              {filteredInvoices.length} invoices
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={prevPage}
+                disabled={currentPage === 1}
+                className="flex items-center"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              <div className="text-sm font-medium">
+                Page {currentPage} of {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={nextPage}
+                disabled={currentPage === totalPages}
+                className="flex items-center"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Invoice Details Dialog */}
