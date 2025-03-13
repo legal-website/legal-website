@@ -1,17 +1,18 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 
 export function OnlineStatusTracker() {
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
 
   useEffect(() => {
-    // Only track online status if user is logged in
-    if (!session?.user) return
+    // Only run if the user is authenticated
+    if (status !== "authenticated" || !session?.user) {
+      return
+    }
 
-    // Function to ping the server and update online status
+    // Function to update online status
     const updateOnlineStatus = async () => {
       try {
         await fetch("/api/admin/users/online-status", {
@@ -21,35 +22,50 @@ export function OnlineStatusTracker() {
           },
         })
       } catch (error) {
-        console.error("Error updating online status:", error)
+        console.error("Failed to update online status:", error)
       }
     }
 
-    // Update status immediately
+    // Update status immediately when component mounts
     updateOnlineStatus()
 
-    // Set up interval to update status every minute
-    intervalRef.current = setInterval(updateOnlineStatus, 60000)
+    // Set up interval to update status periodically
+    const interval = setInterval(updateOnlineStatus, 60000) // Every minute
 
-    // Handle visibility change (tab focus/blur)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        updateOnlineStatus()
+    // Set up event listeners for user activity
+    const activityEvents = ["mousedown", "keydown", "touchstart", "scroll"]
+    let activityTimeout: NodeJS.Timeout | null = null
+
+    const handleUserActivity = () => {
+      // Debounce activity updates to avoid too many requests
+      if (activityTimeout) {
+        clearTimeout(activityTimeout)
       }
+      activityTimeout = setTimeout(updateOnlineStatus, 1000)
     }
 
-    document.addEventListener("visibilitychange", handleVisibilityChange)
+    // Add event listeners
+    activityEvents.forEach((event) => {
+      window.addEventListener(event, handleUserActivity)
+    })
 
-    // Clean up on unmount
+    // Update status when user is about to leave
+    window.addEventListener("beforeunload", updateOnlineStatus)
+
+    // Clean up
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-    }
-  }, [session])
+      if (interval) clearInterval(interval)
+      if (activityTimeout) clearTimeout(activityTimeout)
 
-  // This component doesn't render anything visible
+      activityEvents.forEach((event) => {
+        window.removeEventListener(event, handleUserActivity)
+      })
+
+      window.removeEventListener("beforeunload", updateOnlineStatus)
+    }
+  }, [session, status])
+
+  // This component doesn't render anything
   return null
 }
 

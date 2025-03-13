@@ -36,6 +36,9 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // Remove the lastPasswordChange update since it doesn't exist in the schema
+    // Instead, we'll track password reset requests using the verificationToken
+
     // Get the app URL with a fallback to the Vercel deployment URL
     const appUrl = getAppUrl() || "https://legal-website-five.vercel.app"
 

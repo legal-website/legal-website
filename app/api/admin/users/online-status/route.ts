@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
@@ -20,24 +20,30 @@ setInterval(
   5 * 60 * 1000,
 )
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session?.user) {
+    // Check if user is authenticated
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = session.user.id
+    const userId = (session.user as any).id
+
+    if (!userId) {
+      return NextResponse.json({ error: "User ID not found in session" }, { status: 400 })
+    }
 
     // Update the user's online status in memory
     onlineUsers.set(userId, new Date())
 
-    // Update the user's updatedAt field instead of lastActive
+    // Update the user's updatedAt timestamp
+    // Since isOnline doesn't exist in the schema, we'll just update the timestamp
     await db.user.update({
       where: { id: userId },
       data: {
-        updatedAt: new Date(), // Use updatedAt as a proxy for lastActive
+        // updatedAt will be automatically updated by Prisma
       },
     })
 

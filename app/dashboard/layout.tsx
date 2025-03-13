@@ -11,9 +11,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     <ThemeProvider>
       <CartProvider>
         <div className="min-h-screen theme-transition">
-          {/* Add the OnlineStatusTracker component here */}
-          <OnlineStatusTracker />
           <Toaster />
+          <OnlineStatusTracker />
           <div className="flex h-screen overflow-hidden">
             <DashboardSidebar />
             <main className="flex-1 overflow-y-auto p-0">{children}</main>

@@ -1,12 +1,12 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { randomBytes } from "crypto"
-import { sendEmail } from "@/lib/email"
 import { getAppUrl } from "@/lib/get-app-url"
+import { sendEmail } from "@/lib/email"
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const userId = params.id
 
-    // Get user details
+    // Find the user
     const user = await db.user.findUnique({
       where: { id: userId },
     })
@@ -39,14 +39,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
     })
 
-    // Get the app URL
+    // Get the app URL with a fallback to the Vercel deployment URL
     const appUrl = getAppUrl() || "https://legal-website-five.vercel.app"
 
     // Create reset password URL
     const resetUrl = `${appUrl}/reset-password?token=${token}`
 
     // Send the email
-    await sendEmail({
+    const emailResult = await sendEmail({
       to: user.email,
       subject: "Reset Your Password",
       text: `Your password has been reset by an administrator. Please click this link to set a new password: ${resetUrl}`,
@@ -62,21 +62,27 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
           <p style="word-break: break-all;">${resetUrl}</p>
           <p>This link will expire in 24 hours.</p>
+          <p>If you didn't expect this, please contact support.</p>
         </div>
       `,
     })
 
-    // Create a notification for the admin panel
+    if (!emailResult.success) {
+      console.error("Failed to send reset password email:", emailResult.error)
+      return NextResponse.json({ error: "Failed to send reset password email" }, { status: 500 })
+    }
+
+    // Create a notification for the admin UI
     const notification = {
-      title: "Password Reset Sent",
+      title: "Password Reset",
       description: `Password reset email sent to ${user.email}`,
-      source: "password-reset",
+      source: "admin",
     }
 
     return NextResponse.json({ success: true, notification })
   } catch (error) {
-    console.error("Error resetting password:", error)
-    return NextResponse.json({ error: "Failed to reset password" }, { status: 500 })
+    console.error("Error in admin reset password:", error)
+    return NextResponse.json({ error: "An error occurred" }, { status: 500 })
   }
 }
 
