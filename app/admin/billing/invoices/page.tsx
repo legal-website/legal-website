@@ -37,6 +37,7 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useNotifications } from "@/components/admin/header"
 import { invoiceEvents } from "@/lib/invoice-notifications"
+import { getLastSeenInvoices, updateLastSeenInvoices } from "@/lib/invoice-tracker"
 
 // First, let's define a proper interface for the invoice item
 interface InvoiceItem {
@@ -158,6 +159,24 @@ export default function InvoicesAdminPage() {
         console.error("No invoices array in response:", data)
         throw new Error("Invalid response format")
       }
+
+      // Check for new invoices
+      const lastSeenInvoices = getLastSeenInvoices()
+      const currentInvoiceIds = data.invoices.map((invoice: Invoice) => invoice.id)
+
+      // Find new invoices (those not in lastSeenInvoices)
+      const newInvoices = data.invoices.filter((invoice: Invoice) => !lastSeenInvoices.includes(invoice.id))
+
+      // Notify about new invoices
+      if (newInvoices.length > 0 && lastSeenInvoices.length > 0) {
+        // Only notify if we've loaded invoices before (to avoid notifications on first load)
+        newInvoices.forEach((invoice: Invoice) => {
+          addNotification(invoiceEvents.invoiceCreated(invoice.invoiceNumber, invoice.customerName))
+        })
+      }
+
+      // Update the last seen invoices
+      updateLastSeenInvoices(currentInvoiceIds)
 
       setInvoices(data.invoices)
     } catch (error: any) {

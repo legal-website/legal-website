@@ -143,7 +143,7 @@ export default function AdminHeader() {
   const getSourceIcon = (source: string) => {
     switch (source) {
       case "invoices":
-        return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-[#22c984]" />
+        return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-green-500" />
       default:
         return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-gray-500" />
     }
