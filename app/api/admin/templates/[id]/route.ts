@@ -12,18 +12,48 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const templateId = params.id
-
-    // Get the document that represents the template
-    const template = await db.document.findUnique({
-      where: {
-        id: templateId,
-        category: "template_master",
-      },
+    const document = await db.document.findUnique({
+      where: { id: params.id },
     })
 
-    if (!template) {
+    if (!document) {
       return NextResponse.json({ error: "Template not found" }, { status: 404 })
+    }
+
+    // Parse metadata from name if available
+    let name = document.name
+    let price = 0
+    let pricingTier = "Free"
+    let usageCount = 0
+    let status = "active"
+    const description = ""
+
+    try {
+      // Try to extract metadata from name (format: "name|price|tier|count|status")
+      const parts = document.name.split("|")
+      if (parts.length > 1) {
+        name = parts[0]
+        price = Number.parseFloat(parts[1]) || 0
+        pricingTier = parts[2] || "Free"
+        usageCount = Number.parseInt(parts[3]) || 0
+        status = parts[4] || "active"
+      }
+    } catch (e) {
+      // If parsing fails, use defaults
+      console.error("Error parsing template metadata:", e)
+    }
+
+    const template = {
+      id: document.id,
+      name: name,
+      category: document.category,
+      updatedAt: document.updatedAt.toISOString(),
+      status: status,
+      usageCount: usageCount,
+      price: price,
+      pricingTier: pricingTier,
+      description: description,
+      fileUrl: document.fileUrl,
     }
 
     return NextResponse.json({ template })
@@ -42,23 +72,56 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const templateId = params.id
     const data = await req.json()
 
+    // Get existing document
+    const existingDoc = await db.document.findUnique({
+      where: { id: params.id },
+    })
+
+    if (!existingDoc) {
+      return NextResponse.json({ error: "Template not found" }, { status: 404 })
+    }
+
+    // Store metadata in name field (format: "name|price|tier|count|status")
+    // Parse existing metadata to keep usage count
+    let usageCount = 0
+    try {
+      const parts = existingDoc.name.split("|")
+      if (parts.length > 1) {
+        usageCount = Number.parseInt(parts[3]) || 0
+      }
+    } catch (e) {
+      console.error("Error parsing existing template metadata:", e)
+    }
+
+    const metadataName = `${data.name}|${data.price || 0}|${data.pricingTier || "Free"}|${usageCount}|active`
+
     // Update the document
-    const updatedTemplate = await db.document.update({
-      where: {
-        id: templateId,
-        category: "template_master",
-      },
+    const updatedDoc = await db.document.update({
+      where: { id: params.id },
       data: {
-        name: data.name,
-        fileUrl: data.fileUrl,
-        type: data.type || "template",
+        name: metadataName,
+        category: data.category,
+        fileUrl: data.fileUrl || existingDoc.fileUrl,
       },
     })
 
-    return NextResponse.json({ template: updatedTemplate })
+    // Transform to template format for response
+    const template = {
+      id: updatedDoc.id,
+      name: data.name,
+      category: data.category,
+      updatedAt: updatedDoc.updatedAt.toISOString(),
+      status: "active",
+      usageCount: usageCount,
+      price: data.price || 0,
+      pricingTier: data.pricingTier || "Free",
+      description: data.description || "",
+      fileUrl: updatedDoc.fileUrl,
+    }
+
+    return NextResponse.json({ template })
   } catch (error: any) {
     console.error("Error updating template:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -74,11 +137,9 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const templateId = params.id
-
     // Delete the document
     await db.document.delete({
-      where: { id: templateId },
+      where: { id: params.id },
     })
 
     return NextResponse.json({ success: true })

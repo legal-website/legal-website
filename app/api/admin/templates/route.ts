@@ -12,10 +12,49 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get all documents with category "template_master"
-    const templates = await db.document.findMany({
-      where: { category: "template_master" },
+    // Get all documents with type "template"
+    const documents = await db.document.findMany({
+      where: { type: "template" },
       orderBy: { createdAt: "desc" },
+    })
+
+    // Transform documents to template format
+    const templates = documents.map((doc) => {
+      // Parse metadata from name if available
+      let price = 0
+      let pricingTier = "Free"
+      let usageCount = 0
+      let status = "active"
+      let displayName = doc.name
+
+      try {
+        // Try to extract metadata from name (format: "name|price|tier|count|status")
+        const parts = doc.name.split("|")
+
+        if (parts && parts.length > 1) {
+          displayName = parts[0]
+          price = Number.parseFloat(parts[1]) || 0
+          pricingTier = parts[2] || "Free"
+          usageCount = Number.parseInt(parts[3]) || 0
+          status = parts[4] || "active"
+        }
+      } catch (e) {
+        // If parsing fails, use defaults
+        console.error("Error parsing template metadata:", e)
+      }
+
+      return {
+        id: doc.id,
+        name: displayName,
+        category: doc.category,
+        updatedAt: doc.updatedAt.toISOString(),
+        status: status,
+        usageCount: usageCount,
+        price: price,
+        pricingTier: pricingTier as any,
+        description: doc.type,
+        fileUrl: doc.fileUrl,
+      }
     })
 
     return NextResponse.json({ templates })
@@ -41,18 +80,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Create the template as a document with special category
+    // Store metadata in name field (format: "name|price|tier|count|status")
+    const metadataName = `${data.name}|${data.price || 0}|${data.pricingTier || "Free"}|0|active`
+
+    // Create the template as a document
     const template = await db.document.create({
       data: {
-        name: data.name,
-        category: "template_master",
+        name: metadataName,
+        category: data.category,
         businessId: data.businessId,
         fileUrl: data.fileUrl,
         type: "template",
       },
     })
 
-    return NextResponse.json({ template }, { status: 201 })
+    // Transform to template format for response
+    const templateResponse = {
+      id: template.id,
+      name: data.name,
+      category: data.category,
+      updatedAt: template.updatedAt.toISOString(),
+      status: "active",
+      usageCount: 0,
+      price: data.price || 0,
+      pricingTier: data.pricingTier || "Free",
+      description: data.description || "",
+      fileUrl: template.fileUrl,
+    }
+
+    return NextResponse.json({ template: templateResponse }, { status: 201 })
   } catch (error: any) {
     console.error("Error creating template:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })

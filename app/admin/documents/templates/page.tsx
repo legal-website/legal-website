@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,7 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
   const { data: session } = useSession()
   const router = useRouter()
@@ -96,6 +98,18 @@ export default function TemplatesPage() {
 
   const handleCreateTemplate = async () => {
     try {
+      setIsSubmitting(true)
+
+      // Validate required fields
+      if (!newTemplateName || !newTemplateCategory) {
+        toast({
+          title: "Missing Information",
+          description: "Please fill in all required fields.",
+          variant: "destructive",
+        })
+        return
+      }
+
       // First upload the file if there is one
       let fileUrl = ""
       if (newTemplateFile) {
@@ -113,8 +127,28 @@ export default function TemplatesPage() {
 
         const uploadData = await uploadResponse.json()
         fileUrl = uploadData.url
+      } else {
+        toast({
+          title: "Missing File",
+          description: "Please upload a template file.",
+          variant: "destructive",
+        })
+        return
       }
 
+      // Get the first business ID for admin (temporary solution)
+      const businessResponse = await fetch("/api/admin/business")
+      if (!businessResponse.ok) {
+        throw new Error("Failed to get business information")
+      }
+      const businessData = await businessResponse.json()
+      const businessId = businessData.businesses[0]?.id
+
+      if (!businessId) {
+        throw new Error("No business found for template")
+      }
+
+      // Create the template
       const response = await fetch("/api/admin/templates", {
         method: "POST",
         headers: {
@@ -126,13 +160,16 @@ export default function TemplatesPage() {
           category: newTemplateCategory,
           pricingTier: newTemplatePricingTier,
           price: newTemplatePrice,
-          fileUrl,
+          fileUrl: fileUrl,
+          businessId: businessId,
+          type: "template",
           status: "active",
         }),
       })
 
       if (!response.ok) {
-        throw new Error("Failed to create template")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create template")
       }
 
       toast({
@@ -151,13 +188,15 @@ export default function TemplatesPage() {
 
       // Refresh templates
       fetchTemplates()
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating template:", error)
       toast({
         title: "Error",
-        description: "Failed to create template. Please try again.",
+        description: error.message || "Failed to create template. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -165,6 +204,8 @@ export default function TemplatesPage() {
     if (!selectedTemplate) return
 
     try {
+      setIsSubmitting(true)
+
       // First upload the file if there is one
       let fileUrl = selectedTemplate.fileUrl || ""
       if (newTemplateFile) {
@@ -184,6 +225,18 @@ export default function TemplatesPage() {
         fileUrl = uploadData.url
       }
 
+      // Get the first business ID for admin (temporary solution)
+      const businessResponse = await fetch("/api/admin/business")
+      if (!businessResponse.ok) {
+        throw new Error("Failed to get business information")
+      }
+      const businessData = await businessResponse.json()
+      const businessId = businessData.businesses[0]?.id
+
+      if (!businessId) {
+        throw new Error("No business found for template")
+      }
+
       const response = await fetch(`/api/admin/templates/${selectedTemplate.id}`, {
         method: "PUT",
         headers: {
@@ -195,13 +248,16 @@ export default function TemplatesPage() {
           category: newTemplateCategory,
           pricingTier: newTemplatePricingTier,
           price: newTemplatePrice,
-          fileUrl,
+          fileUrl: fileUrl,
+          businessId: businessId,
+          type: "template",
           status: "active",
         }),
       })
 
       if (!response.ok) {
-        throw new Error("Failed to update template")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update template")
       }
 
       toast({
@@ -221,13 +277,15 @@ export default function TemplatesPage() {
 
       // Refresh templates
       fetchTemplates()
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating template:", error)
       toast({
         title: "Error",
-        description: "Failed to update template. Please try again.",
+        description: error.message || "Failed to update template. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -444,47 +502,47 @@ export default function TemplatesPage() {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="name" className="text-right text-sm font-medium">
-                Name
+            <div className="grid grid-cols-1 items-center gap-2">
+              <label htmlFor="name" className="text-sm font-medium">
+                Template Name*
               </label>
               <Input
                 id="name"
                 value={newTemplateName}
                 onChange={(e) => setNewTemplateName(e.target.value)}
-                className="col-span-3"
+                className="w-full"
                 placeholder="e.g. LLC Formation"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="category" className="text-right text-sm font-medium">
-                Category
+            <div className="grid grid-cols-1 items-center gap-2">
+              <label htmlFor="category" className="text-sm font-medium">
+                Category*
               </label>
               <Input
                 id="category"
                 value={newTemplateCategory}
                 onChange={(e) => setNewTemplateCategory(e.target.value)}
-                className="col-span-3"
+                className="w-full"
                 placeholder="e.g. Business Formation"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="description" className="text-right text-sm font-medium">
+            <div className="grid grid-cols-1 items-center gap-2">
+              <label htmlFor="description" className="text-sm font-medium">
                 Description
               </label>
-              <Input
+              <Textarea
                 id="description"
                 value={newTemplateDescription}
                 onChange={(e) => setNewTemplateDescription(e.target.value)}
-                className="col-span-3"
+                className="w-full min-h-[100px]"
                 placeholder="Brief description of the template"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="pricingTier" className="text-right text-sm font-medium">
+            <div className="grid grid-cols-1 items-center gap-2">
+              <label htmlFor="pricingTier" className="text-sm font-medium">
                 Pricing Tier
               </label>
               <select
@@ -496,7 +554,7 @@ export default function TemplatesPage() {
                     setNewTemplatePrice(0)
                   }
                 }}
-                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="Free">Free</option>
                 <option value="Basic">Basic</option>
@@ -505,11 +563,11 @@ export default function TemplatesPage() {
               </select>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="price" className="text-right text-sm font-medium">
+            <div className="grid grid-cols-1 items-center gap-2">
+              <label htmlFor="price" className="text-sm font-medium">
                 Price
               </label>
-              <div className="col-span-3 relative">
+              <div className="relative">
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
                   <DollarSign className="h-4 w-4" />
                 </span>
@@ -518,21 +576,21 @@ export default function TemplatesPage() {
                   type="number"
                   value={newTemplatePrice}
                   onChange={(e) => setNewTemplatePrice(Number.parseFloat(e.target.value))}
-                  className="pl-10"
+                  className="pl-10 w-full"
                   placeholder="0.00"
                   disabled={newTemplatePricingTier === "Free"}
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="file" className="text-right text-sm font-medium">
-                Template File
+            <div className="grid grid-cols-1 items-center gap-2">
+              <label htmlFor="file" className="text-sm font-medium">
+                Template File*
               </label>
               <Input
                 id="file"
                 type="file"
-                className="col-span-3"
+                className="w-full"
                 onChange={(e) => {
                   if (e.target.files && e.target.files[0]) {
                     setNewTemplateFile(e.target.files[0])
@@ -543,11 +601,15 @@ export default function TemplatesPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewTemplateDialog(false)}>
+            <Button variant="outline" onClick={() => setShowNewTemplateDialog(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleCreateTemplate}>
-              Create Template
+            <Button
+              className="bg-purple-600 hover:bg-purple-700"
+              onClick={handleCreateTemplate}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Creating..." : "Create Template"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -562,47 +624,47 @@ export default function TemplatesPage() {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="edit-name" className="text-right text-sm font-medium">
-                Name
+            <div className="grid grid-cols-1 items-center gap-2">
+              <label htmlFor="edit-name" className="text-sm font-medium">
+                Template Name*
               </label>
               <Input
                 id="edit-name"
                 value={newTemplateName}
                 onChange={(e) => setNewTemplateName(e.target.value)}
-                className="col-span-3"
+                className="w-full"
                 placeholder="e.g. LLC Formation"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="edit-category" className="text-right text-sm font-medium">
-                Category
+            <div className="grid grid-cols-1 items-center gap-2">
+              <label htmlFor="edit-category" className="text-sm font-medium">
+                Category*
               </label>
               <Input
                 id="edit-category"
                 value={newTemplateCategory}
                 onChange={(e) => setNewTemplateCategory(e.target.value)}
-                className="col-span-3"
+                className="w-full"
                 placeholder="e.g. Business Formation"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="edit-description" className="text-right text-sm font-medium">
+            <div className="grid grid-cols-1 items-center gap-2">
+              <label htmlFor="edit-description" className="text-sm font-medium">
                 Description
               </label>
-              <Input
+              <Textarea
                 id="edit-description"
                 value={newTemplateDescription}
                 onChange={(e) => setNewTemplateDescription(e.target.value)}
-                className="col-span-3"
+                className="w-full min-h-[100px]"
                 placeholder="Brief description of the template"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="edit-pricingTier" className="text-right text-sm font-medium">
+            <div className="grid grid-cols-1 items-center gap-2">
+              <label htmlFor="edit-pricingTier" className="text-sm font-medium">
                 Pricing Tier
               </label>
               <select
@@ -614,7 +676,7 @@ export default function TemplatesPage() {
                     setNewTemplatePrice(0)
                   }
                 }}
-                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="Free">Free</option>
                 <option value="Basic">Basic</option>
@@ -623,11 +685,11 @@ export default function TemplatesPage() {
               </select>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="edit-price" className="text-right text-sm font-medium">
+            <div className="grid grid-cols-1 items-center gap-2">
+              <label htmlFor="edit-price" className="text-sm font-medium">
                 Price
               </label>
-              <div className="col-span-3 relative">
+              <div className="relative">
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
                   <DollarSign className="h-4 w-4" />
                 </span>
@@ -636,42 +698,39 @@ export default function TemplatesPage() {
                   type="number"
                   value={newTemplatePrice}
                   onChange={(e) => setNewTemplatePrice(Number.parseFloat(e.target.value))}
-                  className="pl-10"
+                  className="pl-10 w-full"
                   placeholder="0.00"
                   disabled={newTemplatePricingTier === "Free"}
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="edit-file" className="text-right text-sm font-medium">
+            <div className="grid grid-cols-1 items-center gap-2">
+              <label htmlFor="edit-file" className="text-sm font-medium">
                 Template File
               </label>
-              <div className="col-span-3">
-                <Input
-                  id="edit-file"
-                  type="file"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setNewTemplateFile(e.target.files[0])
-                    }
-                  }}
-                />
-                {selectedTemplate?.fileUrl && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Current file: {selectedTemplate.fileUrl.split("/").pop()}
-                  </p>
-                )}
-              </div>
+              <Input
+                id="edit-file"
+                type="file"
+                className="w-full"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setNewTemplateFile(e.target.files[0])
+                  }
+                }}
+              />
+              {selectedTemplate?.fileUrl && (
+                <p className="text-xs text-gray-500 mt-1">Current file: {selectedTemplate.fileUrl.split("/").pop()}</p>
+              )}
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditTemplateDialog(false)}>
+            <Button variant="outline" onClick={() => setShowEditTemplateDialog(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleEditTemplate}>
-              Update Template
+            <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleEditTemplate} disabled={isSubmitting}>
+              {isSubmitting ? "Updating..." : "Update Template"}
             </Button>
           </DialogFooter>
         </DialogContent>
