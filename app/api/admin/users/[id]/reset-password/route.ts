@@ -31,6 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const token = randomBytes(32).toString("hex")
 
     // Store the token in the database
+    // This will serve as our record of when the password reset was requested
     await db.verificationToken.create({
       data: {
         identifier: user.email,
@@ -78,7 +79,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Failed to send reset password email" }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, message: "Password reset email sent" })
+    // Create notification data to return to the client
+    const notificationData = {
+      id: Date.now(),
+      title: "Password Reset Sent",
+      description: `Password reset link sent to ${user.email}`,
+      time: new Date().toISOString(),
+      read: false,
+      source: "users",
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Password reset email sent",
+      notification: notificationData, // Return the notification so client can update UI
+    })
   } catch (error) {
     console.error("Error sending reset password email:", error)
     return NextResponse.json({ error: "Failed to send reset password email" }, { status: 500 })

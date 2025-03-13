@@ -25,6 +25,7 @@ import {
   ChevronRight,
   FilterX,
   Shield,
+  RefreshCw,
 } from "lucide-react"
 import {
   Dialog,
@@ -79,7 +80,7 @@ interface UserActivity {
   details: string
 }
 
-// Update the UserData interface to match your schema
+// Update the UserData interface to include passwordResetCount
 interface UserData {
   id: string
   name: string
@@ -106,6 +107,7 @@ interface UserData {
   lastPasswordChange?: string
   isOnline?: boolean
   invoices?: any[] // Add this line to store user invoices
+  passwordResetCount?: number // Add this field to track password reset requests
 }
 
 export default function AllUsersPage() {
@@ -123,6 +125,7 @@ export default function AllUsersPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [selectedRole, setSelectedRole] = useState("All Roles")
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [users, setUsers] = useState<UserData[]>([])
   const [formData, setFormData] = useState({
     name: "",
@@ -171,6 +174,7 @@ export default function AllUsersPage() {
 
     try {
       setLoading(true)
+      setRefreshing(true)
       setError(null) // Clear any previous errors
 
       console.log("Fetching users from API")
@@ -266,9 +270,17 @@ export default function AllUsersPage() {
         address: user.address || "Not provided",
         profileImage: user.profileImage || null,
         isOnline: user.isOnline || false,
+        passwordResetCount: user.passwordResetCount || 0,
       }))
 
       setUsers(formattedUsers)
+
+      if (refreshing) {
+        toast({
+          title: "Refreshed",
+          description: `Successfully refreshed user data.`,
+        })
+      }
     } catch (error) {
       console.error("Error fetching users:", error)
       setError((error as Error).message || "Failed to load users. Please try again.")
@@ -279,7 +291,14 @@ export default function AllUsersPage() {
       })
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
+  }
+
+  // Manual refresh function
+  const handleRefresh = () => {
+    setRefreshing(true)
+    fetchUsers()
   }
 
   // Check if user is authenticated and is an admin
@@ -577,6 +596,15 @@ export default function AllUsersPage() {
         activity: userActivity.length > 0 ? userActivity : [],
         isOnline: data.user.isOnline || false,
         invoices: userInvoices || [],
+        // Add password reset count - extract from user activity or set a default
+        // Find this code:
+        passwordResetCount:
+          userActivity.filter(
+            (act: { action: string; details: string }) =>
+              act.action.toLowerCase().includes("password reset") ||
+              act.details.toLowerCase().includes("password reset"),
+          ).length || 0,
+        // Replace it with:
       }
 
       setSelectedUser(userDetails)
@@ -1135,7 +1163,7 @@ export default function AllUsersPage() {
 
       {/* Replace the filters and search section with this updated version (around line 670) */}
       {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -1210,6 +1238,18 @@ export default function AllUsersPage() {
               className="w-full"
             />
           </div>
+        </div>
+
+        <div>
+          <Button
+            variant="outline"
+            className="w-full flex items-center justify-center"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
         </div>
       </div>
 
@@ -1734,8 +1774,15 @@ export default function AllUsersPage() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                          <User className="h-5 w-5 mr-2 text-gray-400" />
-                          <span>Last Password Change</span>
+                          <div className="relative">
+                            <User className="h-5 w-5 mr-2 text-gray-400" />
+                            {selectedUser.passwordResetCount && selectedUser.passwordResetCount > 0 && (
+                              <span className="absolute -top-2 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                                {selectedUser.passwordResetCount}
+                              </span>
+                            )}
+                          </div>
+                          <span>Last Password Change Request</span>
                         </div>
                         <span>{selectedUser.lastPasswordChange || "Never"}</span>
                       </div>
@@ -1744,9 +1791,7 @@ export default function AllUsersPage() {
                           <FileText className="h-5 w-5 mr-2 text-gray-400" />
                           <span>Login Sessions</span>
                         </div>
-                        <Button variant="outline" size="sm">
-                          Manage
-                        </Button>
+                        <span>{selectedUser.lastActive || "Never"}</span>
                       </div>
                     </div>
                   </Card>
