@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { AlertCircle, FileText, Search, ShoppingCart, Upload, Clock } from "lucide-react"
+import { FileText, Search, Upload, Clock } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -40,6 +40,11 @@ export default function DocumentTemplatesPage() {
   const { toast } = useToast()
   const { data: session } = useSession()
   const router = useRouter()
+
+  const [currentPage, setCurrentPage] = useState(1)
+  const [sortBy, setSortBy] = useState<"name" | "price" | "category">("name")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const itemsPerPage = 12
 
   useEffect(() => {
     fetchTemplates()
@@ -192,6 +197,24 @@ export default function DocumentTemplatesPage() {
     return matchesSearch && matchesCategory
   })
 
+  // Apply sorting to filtered templates
+  const sortedTemplates = [...filteredTemplates].sort((a, b) => {
+    if (sortBy === "name") {
+      return sortOrder === "asc" ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
+    } else if (sortBy === "price") {
+      return sortOrder === "asc" ? a.price - b.price : b.price - a.price
+    } else if (sortBy === "category") {
+      return sortOrder === "asc" ? a.category.localeCompare(b.category) : b.category.localeCompare(a.category)
+    }
+    return 0
+  })
+
+  // Pagination logic
+  const indexOfLastTemplate = currentPage * itemsPerPage
+  const indexOfFirstTemplate = indexOfLastTemplate - itemsPerPage
+  const currentTemplates = sortedTemplates.slice(indexOfFirstTemplate, indexOfLastTemplate)
+  const totalPages = Math.ceil(sortedTemplates.length / itemsPerPage)
+
   const handlePurchase = async (template: Template) => {
     try {
       if (!session) {
@@ -275,6 +298,10 @@ export default function DocumentTemplatesPage() {
     }
   }
 
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber)
+  }
+
   if (loading) {
     return (
       <div className="p-8 flex justify-center items-center">
@@ -291,13 +318,30 @@ export default function DocumentTemplatesPage() {
         <div className="p-6 border-b">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-xl font-semibold">Premium Templates</h2>
-            <div className="flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-md">
-              <AlertCircle className="h-4 w-4 text-amber-500" />
-              <span className="text-sm text-amber-700">Unlock all templates for $99</span>
-              <Button size="sm" className="ml-2">
-                <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />
-                Buy All
-              </Button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">Sort by:</span>
+                <select
+                  className="px-2 py-1 border rounded-md text-sm"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as "name" | "price" | "category")}
+                >
+                  <option value="name">Name</option>
+                  <option value="price">Price</option>
+                  <option value="category">Category</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">Order:</span>
+                <select
+                  className="px-2 py-1 border rounded-md text-sm"
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
+                >
+                  <option value="asc">Ascending</option>
+                  <option value="desc">Descending</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -332,7 +376,7 @@ export default function DocumentTemplatesPage() {
         <div className="p-6">
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTemplates.length > 0 ? (
-              filteredTemplates.map((template) => (
+              currentTemplates.map((template) => (
                 <Card key={template.id} className="overflow-hidden">
                   <div className="p-6 relative">
                     <div className="flex items-center gap-3 mb-3">
@@ -414,6 +458,39 @@ export default function DocumentTemplatesPage() {
           </div>
         </div>
       </Card>
+
+      {filteredTemplates.length > itemsPerPage && (
+        <div className="flex justify-center mt-8">
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              size="sm"
+            >
+              Previous
+            </Button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <Button
+                key={page}
+                variant={currentPage === page ? "default" : "outline"}
+                onClick={() => handlePageChange(page)}
+                size="sm"
+              >
+                {page}
+              </Button>
+            ))}
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              size="sm"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Card>
         <div className="p-6 border-b">

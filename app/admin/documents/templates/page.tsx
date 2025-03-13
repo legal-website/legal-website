@@ -57,6 +57,9 @@ export default function TemplatesPage() {
   const { data: session } = useSession()
   const router = useRouter()
 
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 12
+
   useEffect(() => {
     // Check if user is authenticated and is an admin
     if (session && (session.user as any).role !== "ADMIN" && (session.user as any).role !== "SUPER_ADMIN") {
@@ -513,6 +516,17 @@ export default function TemplatesPage() {
     return matchesSearch
   })
 
+  // Pagination logic
+  const indexOfLastTemplate = currentPage * itemsPerPage
+  const indexOfFirstTemplate = indexOfLastTemplate - itemsPerPage
+  const currentTemplates = filteredTemplates.slice(indexOfFirstTemplate, indexOfLastTemplate)
+  const totalPages = Math.ceil(filteredTemplates.length / itemsPerPage)
+
+  // Add a function to handle page changes:
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber)
+  }
+
   // Get pricing tier badge color
   const getPricingTierBadgeColor = (tier: PricingTier) => {
     switch (tier) {
@@ -596,7 +610,7 @@ export default function TemplatesPage() {
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto">
+    <div className="p-6 max-w-[1600px] mx-auto mb-40">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
@@ -645,7 +659,7 @@ export default function TemplatesPage() {
       {/* Templates Grid - Fixed to show 3 per row on large screens */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredTemplates.length > 0 ? (
-          filteredTemplates.map((template) => <TemplateCard key={template.id} template={template} />)
+          currentTemplates.map((template) => <TemplateCard key={template.id} template={template} />)
         ) : (
           <div className="col-span-3 text-center py-12">
             <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
@@ -654,6 +668,32 @@ export default function TemplatesPage() {
           </div>
         )}
       </div>
+
+      {filteredTemplates.length > itemsPerPage && (
+        <div className="flex justify-center mt-8">
+          <div className="flex space-x-2">
+            <Button variant="outline" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
+              Previous
+            </Button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <Button
+                key={page}
+                variant={currentPage === page ? "default" : "outline"}
+                onClick={() => handlePageChange(page)}
+              >
+                {page}
+              </Button>
+            ))}
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* New Template Dialog */}
       <Dialog open={showNewTemplateDialog} onOpenChange={setShowNewTemplateDialog}>
