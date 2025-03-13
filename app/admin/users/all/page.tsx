@@ -270,25 +270,9 @@ export default function AllUsersPage() {
           const isOnline = onlineUserIds.includes(user.id)
 
           // Format the last active time - use updatedAt if available, otherwise use createdAt
-          let lastActiveTime = "Never"
+          let lastActiveTime = "Offline"
           if (isOnline) {
             lastActiveTime = "Online now"
-          } else if (user.updatedAt) {
-            lastActiveTime = new Date(user.updatedAt).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          } else if (user.createdAt) {
-            lastActiveTime = new Date(user.createdAt).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })
           }
 
           return {
@@ -652,25 +636,9 @@ export default function AllUsersPage() {
       }
 
       // Format the last active time - use updatedAt if available, otherwise use createdAt
-      let lastActiveTime = "Never"
+      let lastActiveTime = "Offline"
       if (isOnline) {
         lastActiveTime = "Online now"
-      } else if (data.user.updatedAt) {
-        lastActiveTime = new Date(data.user.updatedAt).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      } else if (data.user.createdAt) {
-        lastActiveTime = new Date(data.user.createdAt).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })
       }
 
       // Format the user data for display
@@ -1950,24 +1918,10 @@ export default function AllUsersPage() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                          <div className="relative">
-                            <User className="h-5 w-5 mr-2 text-gray-400" />
-                            {selectedUser.passwordResetCount && selectedUser.passwordResetCount > 0 && (
-                              <span className="absolute -top-2 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                                {selectedUser.passwordResetCount}
-                              </span>
-                            )}
-                          </div>
-                          <span>Last Password Reset</span>
-                        </div>
-                        <span>{selectedUser.lastPasswordChange}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
                           <FileText className="h-5 w-5 mr-2 text-gray-400" />
                           <span>Login Sessions</span>
                         </div>
-                        <span>{selectedUser.isOnline ? "Online now" : selectedUser.lastActive}</span>
+                        <span>{selectedUser.isOnline ? "Online" : "Offline"}</span>
                       </div>
                     </div>
                   </Card>
@@ -2434,7 +2388,7 @@ function UserTable({
                 <td className="p-4">{user.role}</td>
                 <td className="p-4">{user.company}</td>
                 <td className="p-4">
-                  {user.isOnline ? <span className="text-green-600 font-medium">Online now</span> : user.lastActive}
+                  {user.isOnline ? <span className="text-green-600 font-medium">Online</span> : <span>Offline</span>}
                 </td>
                 <td className="p-4">
                   <div className="flex items-center gap-2">
