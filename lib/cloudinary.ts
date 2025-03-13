@@ -11,34 +11,33 @@ cloudinary.config({
 export async function uploadToCloudinary(file: File): Promise<string> {
   try {
     // Convert file to base64
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const base64Data = buffer.toString("base64")
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
+    const base64 = buffer.toString("base64")
     const fileType = file.type
-    const dataURI = `data:${fileType};base64,${base64Data}`
+    const dataURI = `data:${fileType};base64,${base64}`
 
-    // Upload to Cloudinary
-    const result = await new Promise<any>((resolve, reject) => {
+    // Upload to Cloudinary using the SDK
+    return new Promise((resolve, reject) => {
       cloudinary.uploader.upload(
         dataURI,
         {
           folder: "receipts",
           resource_type: "auto",
         },
-        (error: any, result: any) => {
+        (error, result) => {
           if (error) {
-            reject(error)
+            console.error("Cloudinary upload error:", error)
+            reject(new Error("Failed to upload file to cloud storage"))
           } else {
-            resolve(result)
+            resolve(result?.secure_url || "")
           }
         },
       )
     })
-
-    return result.secure_url
   } catch (error) {
-    console.error("Cloudinary upload error:", error)
-    throw new Error("Failed to upload file to Cloudinary")
+    console.error("Error uploading to Cloudinary:", error)
+    throw new Error("Failed to process file for upload")
   }
 }
 
