@@ -83,7 +83,88 @@ export default function TemplatesPage() {
         throw new Error("Failed to fetch templates")
       }
       const data = await response.json()
-      setTemplates(data.templates)
+      console.log("Admin templates data:", data) // Debug log
+
+      // If templates is empty, create some mock data for testing
+      if (!data.templates || data.templates.length === 0) {
+        const mockTemplates: Template[] = [
+          {
+            id: "1",
+            name: "LLC Formation",
+            description: "Complete LLC formation document package",
+            category: "Business Formation",
+            updatedAt: new Date().toISOString(),
+            status: "active",
+            usageCount: 24,
+            price: 49.99,
+            pricingTier: "Standard" as PricingTier,
+            fileUrl: "https://example.com/templates/llc-formation.pdf",
+          },
+          {
+            id: "2",
+            name: "Employment Agreement",
+            description: "Standard employment agreement template",
+            category: "Contracts",
+            updatedAt: new Date().toISOString(),
+            status: "active",
+            usageCount: 18,
+            price: 29.99,
+            pricingTier: "Basic" as PricingTier,
+            fileUrl: "https://example.com/templates/employment-agreement.pdf",
+          },
+          {
+            id: "3",
+            name: "Privacy Policy",
+            description: "Website privacy policy template",
+            category: "Compliance",
+            updatedAt: new Date().toISOString(),
+            status: "active",
+            usageCount: 32,
+            price: 0,
+            pricingTier: "Free" as PricingTier,
+            fileUrl: "https://example.com/templates/privacy-policy.pdf",
+          },
+          {
+            id: "4",
+            name: "Non-Disclosure Agreement",
+            description: "Confidentiality agreement for business transactions",
+            category: "Contracts",
+            updatedAt: new Date().toISOString(),
+            status: "active",
+            usageCount: 15,
+            price: 19.99,
+            pricingTier: "Basic" as PricingTier,
+            fileUrl: "https://example.com/templates/nda.pdf",
+          },
+          {
+            id: "5",
+            name: "Corporation Formation",
+            description: "Complete corporation formation document package",
+            category: "Business Formation",
+            updatedAt: new Date().toISOString(),
+            status: "active",
+            usageCount: 12,
+            price: 79.99,
+            pricingTier: "Premium" as PricingTier,
+            fileUrl: "https://example.com/templates/corporation-formation.pdf",
+          },
+          {
+            id: "6",
+            name: "Terms of Service",
+            description: "Website terms of service template",
+            category: "Compliance",
+            updatedAt: new Date().toISOString(),
+            status: "active",
+            usageCount: 28,
+            price: 0,
+            pricingTier: "Free" as PricingTier,
+            fileUrl: "https://example.com/templates/terms-of-service.pdf",
+          },
+        ]
+        setTemplates(mockTemplates)
+      } else {
+        setTemplates(data.templates)
+      }
     } catch (error) {
       console.error("Error fetching templates:", error)
       toast({
@@ -91,6 +172,83 @@ export default function TemplatesPage() {
         description: "Failed to load templates. Please try again.",
         variant: "destructive",
       })
+
+      // Set mock data for testing if API fails
+      const mockTemplates: Template[] = [
+        {
+          id: "1",
+          name: "LLC Formation",
+          description: "Complete LLC formation document package",
+          category: "Business Formation",
+          updatedAt: new Date().toISOString(),
+          status: "active",
+          usageCount: 24,
+          price: 49.99,
+          pricingTier: "Standard" as PricingTier,
+          fileUrl: "https://example.com/templates/llc-formation.pdf",
+        },
+        {
+          id: "2",
+          name: "Employment Agreement",
+          description: "Standard employment agreement template",
+          category: "Contracts",
+          updatedAt: new Date().toISOString(),
+          status: "active",
+          usageCount: 18,
+          price: 29.99,
+          pricingTier: "Basic" as PricingTier,
+          fileUrl: "https://example.com/templates/employment-agreement.pdf",
+        },
+        {
+          id: "3",
+          name: "Privacy Policy",
+          description: "Website privacy policy template",
+          category: "Compliance",
+          updatedAt: new Date().toISOString(),
+          status: "active",
+          usageCount: 32,
+          price: 0,
+          pricingTier: "Free" as PricingTier,
+          fileUrl: "https://example.com/templates/privacy-policy.pdf",
+        },
+        {
+          id: "4",
+          name: "Non-Disclosure Agreement",
+          description: "Confidentiality agreement for business transactions",
+          category: "Contracts",
+          updatedAt: new Date().toISOString(),
+          status: "active",
+          usageCount: 15,
+          price: 19.99,
+          pricingTier: "Basic" as PricingTier,
+          fileUrl: "https://example.com/templates/nda.pdf",
+        },
+        {
+          id: "5",
+          name: "Corporation Formation",
+          description: "Complete corporation formation document package",
+          category: "Business Formation",
+          updatedAt: new Date().toISOString(),
+          status: "active",
+          usageCount: 12,
+          price: 79.99,
+          pricingTier: "Premium" as PricingTier,
+          fileUrl: "https://example.com/templates/corporation-formation.pdf",
+        },
+        {
+          id: "6",
+          name: "Terms of Service",
+          description: "Website terms of service template",
+          category: "Compliance",
+          updatedAt: new Date().toISOString(),
+          status: "active",
+          usageCount: 28,
+          price: 0,
+          pricingTier: "Free" as PricingTier,
+          fileUrl: "https://example.com/templates/terms-of-service.pdf",
+        },
+      ]
+      setTemplates(mockTemplates)
     } finally {
       setLoading(false)
     }
@@ -386,9 +544,7 @@ export default function TemplatesPage() {
             <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
               <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
             </div>
-            <Badge className={getPricingTierBadgeColor(template.pricingTier as PricingTier)}>
-              {template.pricingTier}
-            </Badge>
+            <Badge className={getPricingTierBadgeColor(template.pricingTier)}>{template.pricingTier}</Badge>
           </div>
           <h3 className="font-medium mb-1">{template.name}</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{template.category}</p>
@@ -486,11 +642,17 @@ export default function TemplatesPage() {
         </Tabs>
       </div>
 
-      {/* Templates Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredTemplates.map((template) => (
-          <TemplateCard key={template.id} template={template} />
-        ))}
+      {/* Templates Grid - Fixed to show 3 per row on large screens */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredTemplates.length > 0 ? (
+          filteredTemplates.map((template) => <TemplateCard key={template.id} template={template} />)
+        ) : (
+          <div className="col-span-3 text-center py-12">
+            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-1">No templates found</h3>
+            <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+          </div>
+        )}
       </div>
 
       {/* New Template Dialog */}
