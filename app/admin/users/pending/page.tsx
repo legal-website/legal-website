@@ -37,6 +37,8 @@ interface PendingUser {
     serviceStatus: string
     llcStatusMessage?: string
     llcProgress?: number
+    annualReportFee?: number
+    annualReportFrequency?: number
   }
 }
 
@@ -61,6 +63,8 @@ export default function PendingUsersPage() {
     serviceStatus: "Pending",
     llcStatusMessage: "LLC formation initiated",
     llcProgress: 10,
+    annualReportFee: 100,
+    annualReportFrequency: 1,
   })
   const [processingAction, setProcessingAction] = useState(false)
 
@@ -170,6 +174,8 @@ export default function PendingUsersPage() {
             serviceStatus: data.business.serviceStatus || "Pending",
             llcStatusMessage: data.business.llcStatusMessage || "LLC formation initiated",
             llcProgress: data.business.llcProgress || 10,
+            annualReportFee: data.business.annualReportFee || 100,
+            annualReportFrequency: data.business.annualReportFrequency || 1,
           }
         }
       }
@@ -183,6 +189,8 @@ export default function PendingUsersPage() {
         serviceStatus: "Pending",
         llcStatusMessage: "LLC formation initiated",
         llcProgress: 10,
+        annualReportFee: 100,
+        annualReportFrequency: 1,
       }
     } catch (error) {
       console.error("Error fetching business data:", error)
@@ -206,6 +214,8 @@ export default function PendingUsersPage() {
           serviceStatus: user.business.serviceStatus || "Pending",
           llcStatusMessage: user.business.llcStatusMessage || "LLC formation initiated",
           llcProgress: user.business.llcProgress || 10,
+          annualReportFee: user.business.annualReportFee || 100,
+          annualReportFrequency: user.business.annualReportFrequency || 1,
         })
         setSelectedUser(user)
         setShowUserDialog(true)
@@ -221,6 +231,8 @@ export default function PendingUsersPage() {
             serviceStatus: businessData.serviceStatus || "Pending",
             llcStatusMessage: businessData.llcStatusMessage || "LLC formation initiated",
             llcProgress: businessData.llcProgress || 10,
+            annualReportFee: businessData.annualReportFee || 100,
+            annualReportFrequency: businessData.annualReportFrequency || 1,
           })
           setSelectedUser(user)
           setShowUserDialog(true)
@@ -236,16 +248,33 @@ export default function PendingUsersPage() {
     }
   }
 
+  // Update the handleInputChange function to handle numeric values
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     // Don't allow businessId to be changed
     if (name === "businessId") return
 
-    setBusinessFormData((prev) => ({ ...prev, [name]: value }))
+    if (name === "annualReportFee") {
+      // Ensure it's a valid number
+      const numValue = Number.parseInt(value)
+      if (!isNaN(numValue) && numValue >= 0) {
+        setBusinessFormData((prev) => ({ ...prev, [name]: numValue }))
+      }
+    } else {
+      setBusinessFormData((prev) => ({ ...prev, [name]: value }))
+    }
   }
 
+  // Update the handleSelectChange function to handle numeric values
   const handleSelectChange = (name: string, value: string) => {
-    setBusinessFormData((prev) => ({ ...prev, [name]: value }))
+    if (name === "annualReportFrequency") {
+      const numValue = Number.parseInt(value)
+      if (!isNaN(numValue)) {
+        setBusinessFormData((prev) => ({ ...prev, [name]: numValue }))
+      }
+    } else {
+      setBusinessFormData((prev) => ({ ...prev, [name]: value }))
+    }
   }
 
   const handleProgressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -745,6 +774,44 @@ export default function PendingUsersPage() {
                           } rounded-full`}
                           style={{ width: `${businessFormData.llcProgress}%` }}
                         ></div>
+                      </div>
+                    </div>
+                    <div className="md:col-span-2">
+                      <h4 className="font-medium text-sm mb-3 mt-2">Annual Report Settings</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="annualReportFee">Annual Report Fee ($)</Label>
+                          <Input
+                            id="annualReportFee"
+                            name="annualReportFee"
+                            type="number"
+                            min="0"
+                            value={businessFormData.annualReportFee}
+                            onChange={handleInputChange}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="annualReportFrequency">Report Frequency (Years)</Label>
+                          <Select
+                            value={businessFormData.annualReportFrequency.toString()}
+                            onValueChange={(value) => handleSelectChange("annualReportFrequency", value)}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="Select frequency" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">Every 1 Year</SelectItem>
+                              <SelectItem value="2">Every 2 Years</SelectItem>
+                              <SelectItem value="3">Every 3 Years</SelectItem>
+                              <SelectItem value="5">Every 5 Years</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-500">
+                        Annual report will be due every {businessFormData.annualReportFrequency}{" "}
+                        {businessFormData.annualReportFrequency === 1 ? "year" : "years"} from the formation date.
                       </div>
                     </div>
                   </div>

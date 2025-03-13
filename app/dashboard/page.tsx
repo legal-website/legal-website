@@ -36,6 +36,9 @@ export default function DashboardPage() {
     llcStatus: "In Progress",
     llcProgress: 0,
     llcStatusMessage: "LLC formation initiated",
+    annualReportFee: 100,
+    annualReportFrequency: 1, // in years
+    annualReportDueDate: "", // will be calculated based on formation date
   })
 
   useEffect(() => {
@@ -70,6 +73,9 @@ export default function DashboardPage() {
             llcStatus: data.business.llcStatus || "In Progress",
             llcProgress: data.business.llcProgress || 0,
             llcStatusMessage: data.business.llcStatusMessage || "LLC formation initiated",
+            annualReportFee: data.business.annualReportFee || 100,
+            annualReportFrequency: data.business.annualReportFrequency || 1,
+            annualReportDueDate: data.business.annualReportDueDate || "",
           })
         }
       }
@@ -113,6 +119,70 @@ export default function DashboardPage() {
         })
       },
     )
+  }
+
+  // Function to calculate the annual report due date
+  const calculateAnnualReportDueDate = () => {
+    if (businessData.formationDate === "Pending") return "Pending"
+
+    const formationDate = new Date(businessData.formationDate)
+    const currentYear = new Date().getFullYear()
+
+    // Calculate how many years have passed since formation
+    const yearsSinceFormation = currentYear - formationDate.getFullYear()
+
+    // Calculate how many reporting cycles have passed
+    const cyclesPassed = Math.floor(yearsSinceFormation / businessData.annualReportFrequency)
+
+    // Calculate the next due year
+    const nextDueYear = formationDate.getFullYear() + (cyclesPassed + 1) * businessData.annualReportFrequency
+
+    // Create the next due date (same month and day as formation)
+    const nextDueDate = new Date(nextDueYear, formationDate.getMonth(), formationDate.getDate())
+
+    return nextDueDate.toLocaleDateString()
+  }
+
+  // Function to calculate days remaining until annual report
+  const calculateDaysRemaining = () => {
+    if (businessData.formationDate === "Pending") return 365
+
+    const today = new Date()
+    const dueDate = new Date(calculateAnnualReportDueDate())
+
+    // Calculate the difference in milliseconds
+    const diffTime = dueDate.getTime() - today.getTime()
+
+    // Convert to days and ensure it's not negative
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays > 0 ? diffDays : 0
+  }
+
+  // Function to calculate progress percentage for the progress bar
+  const calculateProgressPercentage = () => {
+    if (businessData.formationDate === "Pending") return 50
+
+    const formationDate = new Date(businessData.formationDate)
+    const dueDate = new Date(calculateAnnualReportDueDate())
+    const today = new Date()
+
+    // Calculate total period length in milliseconds
+    const totalPeriod = businessData.annualReportFrequency * 365 * 24 * 60 * 60 * 1000
+
+    // Calculate elapsed time since last due date
+    const lastDueDate = new Date(
+      dueDate.getFullYear() - businessData.annualReportFrequency,
+      dueDate.getMonth(),
+      dueDate.getDate(),
+    )
+
+    const elapsedTime = today.getTime() - lastDueDate.getTime()
+
+    // Calculate percentage (inverted, as we want to show remaining time)
+    const percentage = 100 - (elapsedTime / totalPeriod) * 100
+
+    // Ensure percentage is between 0 and 100
+    return Math.min(100, Math.max(0, percentage))
   }
 
   if (loading) {
@@ -246,17 +316,26 @@ export default function DashboardPage() {
         <p className="text-sm text-gray-500 mt-1">{businessData.llcProgress}% Complete</p>
       </Card>
 
-      {/* Next Payment Card */}
+      {/* Annual Report Card */}
       <Card className="mb-8 p-6">
         <div className="flex justify-between items-start">
           <div>
-            <div className="text-sm text-gray-600 mb-1">Next payment in</div>
-            <div className="text-lg font-semibold">21 Mar 2025</div>
+            <div className="text-sm text-gray-600 mb-1">Annual Report Due</div>
+            <div className="text-lg font-semibold">
+              {businessData.formationDate !== "Pending" ? calculateAnnualReportDueDate() : "Pending"}
+            </div>
+            <div className="text-sm text-gray-600 mt-1">
+              Fee: ${businessData.annualReportFee} (Every {businessData.annualReportFrequency}{" "}
+              {businessData.annualReportFrequency === 1 ? "year" : "years"})
+            </div>
           </div>
           <div className="text-right">
-            <div className="text-sm text-gray-600 mb-1">227 days left</div>
+            <div className="text-sm text-gray-600 mb-1">{calculateDaysRemaining()} days left</div>
             <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div className="h-full bg-[#22c984] rounded-full" style={{ width: "60%" }}></div>
+              <div
+                className="h-full bg-[#22c984] rounded-full"
+                style={{ width: `${calculateProgressPercentage()}%` }}
+              ></div>
             </div>
           </div>
         </div>
