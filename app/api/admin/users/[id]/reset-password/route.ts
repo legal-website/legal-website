@@ -79,7 +79,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
       source: "admin",
     }
 
-    return NextResponse.json({ success: true, notification })
+    // Get the current count of password reset requests for this user
+    const resetCount = await db.verificationToken.count({
+      where: {
+        userId: user.id,
+      },
+    })
+
+    return NextResponse.json({
+      success: true,
+      notification,
+      resetCount,
+      resetTime: new Date().toISOString(),
+    })
   } catch (error) {
     console.error("Error in admin reset password:", error)
     return NextResponse.json({ error: "An error occurred" }, { status: 500 })

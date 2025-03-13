@@ -3,22 +3,8 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 
-// In-memory store for online users
+// Simple in-memory store for online users
 const onlineUsers = new Map<string, Date>()
-
-// Clean up inactive users every 5 minutes
-setInterval(
-  () => {
-    const now = new Date()
-    for (const [userId, lastSeen] of onlineUsers.entries()) {
-      // If user hasn't been seen in 5 minutes, consider them offline
-      if (now.getTime() - lastSeen.getTime() > 5 * 60 * 1000) {
-        onlineUsers.delete(userId)
-      }
-    }
-  },
-  5 * 60 * 1000,
-)
 
 export async function POST() {
   try {
@@ -39,12 +25,9 @@ export async function POST() {
     onlineUsers.set(userId, new Date())
 
     // Update the user's updatedAt timestamp
-    // Since isOnline doesn't exist in the schema, we'll just update the timestamp
     await db.user.update({
       where: { id: userId },
-      data: {
-        // updatedAt will be automatically updated by Prisma
-      },
+      data: {}, // Empty data will trigger Prisma to update the updatedAt field
     })
 
     return NextResponse.json({ success: true })
@@ -54,6 +37,7 @@ export async function POST() {
   }
 }
 
+// Add a GET endpoint to check which users are online
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -62,10 +46,19 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get all online users
-    const onlineUserIds = Array.from(onlineUsers.keys())
+    // Clean up users who haven't been active in the last 5 minutes
+    const now = new Date()
+    for (const [userId, lastSeen] of onlineUsers.entries()) {
+      if (now.getTime() - lastSeen.getTime() > 5 * 60 * 1000) {
+        onlineUsers.delete(userId)
+      }
+    }
 
-    return NextResponse.json({ onlineUsers: onlineUserIds })
+    // Return the list of online user IDs
+    return NextResponse.json({
+      onlineUsers: Array.from(onlineUsers.keys()),
+      count: onlineUsers.size,
+    })
   } catch (error) {
     console.error("Error fetching online users:", error)
     return NextResponse.json({ error: "Failed to fetch online users" }, { status: 500 })

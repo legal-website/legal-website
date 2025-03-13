@@ -170,6 +170,7 @@ export default function AllUsersPage() {
 
   // Modify the fetchUsers function to try the test endpoint if the main one fails
 
+  // Find the fetchUsers function and update it to include the last active time and reset count
   const fetchUsers = async () => {
     if (sessionStatus !== "authenticated") return
 
@@ -220,42 +221,96 @@ export default function AllUsersPage() {
 
       console.log(`Received ${data.users.length} users`)
 
+      // Get online users
+      let onlineUserIds: string[] = []
+      try {
+        const onlineResponse = await fetch("/api/admin/users/online-status")
+        if (onlineResponse.ok) {
+          const onlineData = await onlineResponse.json()
+          onlineUserIds = onlineData.onlineUsers || []
+        }
+      } catch (error) {
+        console.error("Error fetching online users:", error)
+      }
+
       // Format the user data for display
-      const formattedUsers = data.users.map((user: any) => ({
-        id: user.id,
-        name: user.name || "Unknown",
-        email: user.email,
-        company: user.company || "Not specified",
-        role: user.role || Role.CLIENT,
-        status: user.status || "Active",
-        emailVerified: user.emailVerified ?? true, // Default to true if not specified
-        joinDate:
-          user.joinDate ||
-          (user.createdAt
-            ? new Date(user.createdAt).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              })
-            : "Unknown"),
-        // Fix the lastActive date formatting
-        lastActive: user.updatedAt
-          ? new Date(user.updatedAt).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
+      const formattedUsers = await Promise.all(
+        data.users.map(async (user: any) => {
+          // Count password reset requests for this user
+          let resetCount = 0
+          try {
+            resetCount = await db.verificationToken.count({
+              where: {
+                userId: user.id,
+              },
             })
-          : "Never",
-        phone: user.phone || "Not provided",
-        address: user.address || "Not provided",
-        profileImage: user.profileImage || null,
-        isOnline: false, // Since isOnline doesn't exist in the schema, we'll use the in-memory store
-        passwordResetCount: 0, // We'll fetch this separately if needed
-        // Add lastPasswordChange field
-        lastPasswordChange: "See password reset count",
-      }))
+          } catch (error) {
+            console.error(`Error counting reset requests for user ${user.id}:`, error)
+          }
+
+          // Get the most recent verification token for this user (for last password reset)
+          let lastPasswordReset = null
+          try {
+            const latestToken = await db.verificationToken.findFirst({
+              where: {
+                userId: user.id,
+              },
+              orderBy: {
+                createdAt: "desc",
+              },
+            })
+            if (latestToken) {
+              lastPasswordReset = latestToken.createdAt
+            }
+          } catch (error) {
+            console.error(`Error finding latest token for user ${user.id}:`, error)
+          }
+
+          return {
+            id: user.id,
+            name: user.name || "Unknown",
+            email: user.email,
+            company: user.company || "Not specified",
+            role: user.role || Role.CLIENT,
+            status: user.status || "Active",
+            emailVerified: user.emailVerified ?? true, // Default to true if not specified
+            joinDate:
+              user.joinDate ||
+              (user.createdAt
+                ? new Date(user.createdAt).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })
+                : "Unknown"),
+            // Fix the lastActive date formatting
+            lastActive: user.updatedAt
+              ? new Date(user.updatedAt).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "Never",
+            phone: user.phone || "Not provided",
+            address: user.address || "Not provided",
+            profileImage: user.profileImage || null,
+            isOnline: onlineUserIds.includes(user.id),
+            passwordResetCount: resetCount,
+            // Add lastPasswordChange field
+            lastPasswordChange: lastPasswordReset
+              ? new Date(lastPasswordReset).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "Never",
+          }
+        }),
+      )
 
       setUsers(formattedUsers)
 
@@ -762,6 +817,42 @@ export default function AllUsersPage() {
 
       const data = await response.json()
 
+      // Update the user in the list with the new reset count and time
+      if (data.resetCount && data.resetTime) {
+        setUsers((prevUsers) =>
+          prevUsers.map((user) =>
+            user.id === selectedUser.id
+              ? {
+                  ...user,
+                  passwordResetCount: data.resetCount,
+                  lastPasswordChange: new Date(data.resetTime).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                }
+              : user,
+          ),
+        )
+
+        // Also update the selected user if in the dialog
+        if (selectedUser) {
+          setSelectedUser({
+            ...selectedUser,
+            passwordResetCount: data.resetCount,
+            lastPasswordChange: new Date(data.resetTime).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          })
+        }
+      }
+
       // If the API returned a notification, add it to our notification system
       if (data.notification) {
         // Store the notification in localStorage so it can be picked up by the header
@@ -772,11 +863,6 @@ export default function AllUsersPage() {
           source: data.notification.source,
         })
         localStorage.setItem("pendingNotifications", JSON.stringify(pendingNotifications))
-
-        // Force a refresh of the page to show the notification
-        // This is a simple way to ensure the notification appears
-        // In a more sophisticated app, you'd use a state management solution
-        window.location.reload()
       }
 
       setShowResetPasswordDialog(false)
@@ -1782,6 +1868,7 @@ export default function AllUsersPage() {
                   </Card>
 
                   {/* Security Info */}
+
                   <Card className="p-6">
                     <h3 className="text-lg font-medium mb-4">Security</h3>
                     <div className="space-y-4">
@@ -1795,16 +1882,16 @@ export default function AllUsersPage() {
                               </span>
                             )}
                           </div>
-                          <span>Last Password Change Request</span>
+                          <span>Last Password Reset</span>
                         </div>
-                        <span>{selectedUser.lastPasswordChange || "Never"}</span>
+                        <span>{selectedUser.lastPasswordChange}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
                           <FileText className="h-5 w-5 mr-2 text-gray-400" />
                           <span>Login Sessions</span>
                         </div>
-                        <span>{selectedUser.lastActive || "Never"}</span>
+                        <span>{selectedUser.isOnline ? "Online now" : selectedUser.lastActive}</span>
                       </div>
                     </div>
                   </Card>
@@ -2271,20 +2358,17 @@ function UserTable({
                 <td className="p-4">{user.role}</td>
                 <td className="p-4">{user.company}</td>
                 <td className="p-4">
-                  {user.isOnline ? (
-                    <span className="text-green-600 font-medium">Online now</span>
-                  ) : (
-                    formatDate(user.lastActive)
-                  )}
+                  {user.isOnline ? <span className="text-green-600 font-medium">Online now</span> : user.lastActive}
                 </td>
                 <td className="p-4">
-                  {user.passwordResetCount && user.passwordResetCount > 0 ? (
-                    <span className="px-1.5 py-0.5 text-xs rounded-full bg-red-100 text-red-800">
-                      {user.passwordResetCount} reset requests
-                    </span>
-                  ) : (
-                    "None"
-                  )}
+                  <div className="flex items-center gap-2">
+                    {user.lastPasswordChange !== "Never" ? user.lastPasswordChange : "Never"}
+                    {user.passwordResetCount && user.passwordResetCount > 0 && (
+                      <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+                        {user.passwordResetCount}
+                      </Badge>
+                    )}
+                  </div>
                 </td>
                 <td className="p-4">
                   <div className="flex items-center space-x-2">
