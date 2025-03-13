@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
@@ -6,47 +6,40 @@ import { uploadToCloudinary } from "@/lib/cloudinary"
 
 export async function POST(req: NextRequest) {
   try {
-    // Check authentication
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const formData = await req.formData()
-    const invoiceId = formData.get("invoiceId") as string
     const file = formData.get("file") as File
+    const invoiceId = formData.get("invoiceId") as string
+    const isTemplateInvoice = formData.get("isTemplateInvoice") as string
+
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+    }
 
     if (!invoiceId) {
       return NextResponse.json({ error: "Invoice ID is required" }, { status: 400 })
     }
 
-    if (!file) {
-      return NextResponse.json({ error: "Receipt file is required" }, { status: 400 })
-    }
-
-    // Check if invoice exists and belongs to user
-    const invoice = await db.invoice.findUnique({
-      where: { id: invoiceId },
-    })
-
-    if (!invoice) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
-    }
-
-    if (invoice.customerEmail !== (session.user as any).email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Upload receipt to Cloudinary
+    // Upload file to Cloudinary
     const receiptUrl = await uploadToCloudinary(file)
 
-    // Update invoice with receipt URL - only update the receipt and status, not the amount
+    if (!receiptUrl) {
+      return NextResponse.json({ error: "Failed to upload file" }, { status: 500 })
+    }
+
+    // Update the invoice with the receipt URL
     const updatedInvoice = await db.invoice.update({
       where: { id: invoiceId },
       data: {
         paymentReceipt: receiptUrl,
-        status: "pending_approval", // Change status to pending approval
-        // We're not modifying the amount or items here, preserving the original values
+        // Add a special field to mark this as a template invoice if the flag is set
+        ...(isTemplateInvoice === "true"
+          ? { items: JSON.stringify({ isTemplateInvoice: true, templateId: invoiceId }) }
+          : {}),
       },
     })
 
@@ -56,7 +49,7 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: any) {
     console.error("Error uploading receipt:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Failed to upload receipt", message: error.message }, { status: 500 })
   }
 }
 

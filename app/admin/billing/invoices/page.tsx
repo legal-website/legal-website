@@ -47,6 +47,8 @@ interface InvoiceItem {
   stateFee?: number
   state?: string
   discount?: number
+  templateId?: string
+  type?: string
 }
 
 // Then define the full invoice interface
@@ -64,12 +66,13 @@ interface Invoice {
   customerCountry?: string
   amount: number
   status: string
-  items: InvoiceItem[]
+  items: InvoiceItem[] | string
   paymentReceipt?: string
   paymentDate?: string
   createdAt: string
   updatedAt: string
   userId?: string
+  isTemplateInvoice?: boolean
 }
 
 export default function InvoicesAdminPage() {
@@ -177,6 +180,14 @@ export default function InvoicesAdminPage() {
         return {
           ...invoice,
           items: parsedItems,
+          // Add a flag to identify template invoices
+          isTemplateInvoice:
+            typeof parsedItems === "object" &&
+            (parsedItems.isTemplateInvoice ||
+              (Array.isArray(parsedItems) &&
+                parsedItems.some(
+                  (item) => item.type === "template" || (item.tier && item.tier.toLowerCase().includes("template")),
+                ))),
         }
       })
 
@@ -315,32 +326,84 @@ export default function InvoicesAdminPage() {
     }
   }
 
-  // Update the approvePayment function to use the universal route
+  // Function to determine if an invoice is a template invoice
+  const isTemplateInvoice = (invoice: Invoice) => {
+    if (invoice.isTemplateInvoice) return true
+
+    // Check items if they're an array
+    if (Array.isArray(invoice.items)) {
+      return invoice.items.some(
+        (item) =>
+          item.type === "template" ||
+          (item.tier && typeof item.tier === "string" && item.tier.toLowerCase().includes("template")),
+      )
+    }
+
+    // Check if items is a string that contains template indicators
+    if (typeof invoice.items === "string") {
+      const lowerItems = invoice.items.toLowerCase()
+      return lowerItems.includes("template") || lowerItems.includes("istemplateinvoice")
+    }
+
+    return false
+  }
+
+  // Update the approvePayment function to handle template invoices
   const approvePayment = async (invoiceId: string) => {
     try {
       setIsProcessing(true)
       const invoice = invoices.find((inv) => inv.id === invoiceId)
       if (!invoice) return
 
-      console.log(`Approving invoice ${invoiceId} using universal route...`)
+      console.log(`Approving invoice ${invoiceId}...`)
 
-      // Use the universal route for maximum compatibility
-      const response = await fetch(`/api/universal-invoice/approve`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ invoiceId }),
-      })
+      // Check if this is a template invoice
+      const isTemplate = isTemplateInvoice(invoice)
+      console.log(`Is template invoice: ${isTemplate}`)
+
+      let response
+
+      if (isTemplate) {
+        // Use the template-specific route
+        console.log("Using template invoice route")
+        response = await fetch(`/api/template-invoice/update-status`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            invoiceId,
+            status: "paid",
+          }),
+        })
+      } else {
+        // Try both API paths to ensure compatibility
+        try {
+          console.log("Using standard invoice route")
+          response = await fetch(`/api/admin/invoices/${invoiceId}/approve`, {
+            method: "POST",
+          })
+
+          if (!response.ok) {
+            console.log(`First approval attempt failed, trying alternate path...`)
+            response = await fetch(`/api/invoices/${invoiceId}/approve`, {
+              method: "POST",
+            })
+          }
+        } catch (error) {
+          console.error("First approval attempt error:", error)
+          // Try alternate path if first one fails
+          response = await fetch(`/api/invoices/${invoiceId}/approve`, {
+            method: "POST",
+          })
+        }
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         console.error("Approval error response:", errorData)
         throw new Error(errorData.error || "Failed to approve payment")
       }
-
-      const result = await response.json()
-      console.log("Approval result:", result)
 
       // Update the invoice in the local state
       setInvoices((prevInvoices) =>
@@ -383,32 +446,62 @@ export default function InvoicesAdminPage() {
     }
   }
 
-  // Update the rejectPayment function to use the universal route
+  // Update the rejectPayment function to handle template invoices
   const rejectPayment = async (invoiceId: string) => {
     try {
       setIsProcessing(true)
       const invoice = invoices.find((inv) => inv.id === invoiceId)
       if (!invoice) return
 
-      console.log(`Rejecting invoice ${invoiceId} using universal route...`)
+      console.log(`Rejecting invoice ${invoiceId}...`)
 
-      // Use the universal route for maximum compatibility
-      const response = await fetch(`/api/universal-invoice/reject`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ invoiceId }),
-      })
+      // Check if this is a template invoice
+      const isTemplate = isTemplateInvoice(invoice)
+      console.log(`Is template invoice: ${isTemplate}`)
+
+      let response
+
+      if (isTemplate) {
+        // Use the template-specific route
+        console.log("Using template invoice route")
+        response = await fetch(`/api/template-invoice/update-status`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            invoiceId,
+            status: "cancelled",
+          }),
+        })
+      } else {
+        // Try both API paths to ensure compatibility
+        try {
+          console.log("Using standard invoice route")
+          response = await fetch(`/api/admin/invoices/${invoiceId}/reject`, {
+            method: "POST",
+          })
+
+          if (!response.ok) {
+            console.log(`First rejection attempt failed, trying alternate path...`)
+            response = await fetch(`/api/invoices/${invoiceId}/reject`, {
+              method: "POST",
+            })
+          }
+        } catch (error) {
+          console.error("First rejection attempt error:", error)
+          // Try alternate path if first one fails
+          response = await fetch(`/api/invoices/${invoiceId}/reject`, {
+            method: "POST",
+          })
+        }
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         console.error("Rejection error response:", errorData)
         throw new Error(errorData.error || "Failed to reject payment")
       }
-
-      const result = await response.json()
-      console.log("Rejection result:", result)
 
       // Update the invoice in the local state
       setInvoices((prevInvoices) =>
@@ -633,6 +726,11 @@ export default function InvoicesAdminPage() {
                       <div className="flex items-center">
                         <FileText className="h-4 w-4 mr-2 text-gray-400" />
                         <span>{invoice.invoiceNumber}</span>
+                        {isTemplateInvoice(invoice) && (
+                          <span className="ml-2 px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
+                            Template
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="p-4">
@@ -714,7 +812,12 @@ export default function InvoicesAdminPage() {
         <Dialog open={showInvoiceDialog} onOpenChange={setShowInvoiceDialog}>
           <DialogContent className="sm:max-w-[800px]">
             <DialogHeader>
-              <DialogTitle>Invoice {selectedInvoice.invoiceNumber}</DialogTitle>
+              <DialogTitle>
+                Invoice {selectedInvoice.invoiceNumber}
+                {isTemplateInvoice(selectedInvoice) && (
+                  <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">Template</span>
+                )}
+              </DialogTitle>
             </DialogHeader>
 
             <div className="py-4">
