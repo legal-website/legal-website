@@ -50,6 +50,8 @@ export async function POST(req: Request) {
       stateFee: item.stateFee ? Number(item.stateFee) : null,
       state: item.state || null,
       discount: item.discount ? Number(item.discount) : null,
+      templateId: item.templateId || null, // Add templateId if it exists
+      type: item.templateId ? "template" : item.type || null, // Set type to "template" if templateId exists
     }))
 
     // Convert amount to a number - use the provided total which should match the template price

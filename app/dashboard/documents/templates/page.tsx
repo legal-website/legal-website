@@ -233,6 +233,7 @@ export default function DocumentTemplatesPage() {
         body: JSON.stringify({
           templateId: template.id,
           price: template.price, // Explicitly send the price to ensure it's used
+          type: "template", // Explicitly mark this as a template purchase
         }),
       })
 

@@ -325,13 +325,20 @@ export default function InvoicesAdminPage() {
 
       // Try both API paths to ensure compatibility
       let response
+      let errorMessage = ""
+
       try {
+        console.log("Trying admin route first...")
         response = await fetch(`/api/admin/invoices/${invoiceId}/approve`, {
           method: "POST",
         })
 
         if (!response.ok) {
-          console.log(`First approval attempt failed, trying alternate path...`)
+          const errorData = await response.json().catch(() => ({}))
+          errorMessage = errorData.error || `Admin route failed with status ${response.status}`
+          console.log(`First approval attempt failed: ${errorMessage}, trying alternate path...`)
+
+          console.log("Trying general invoice route...")
           response = await fetch(`/api/invoices/${invoiceId}/approve`, {
             method: "POST",
           })
@@ -339,6 +346,7 @@ export default function InvoicesAdminPage() {
       } catch (error) {
         console.error("First approval attempt error:", error)
         // Try alternate path if first one fails
+        console.log("Trying general invoice route after error...")
         response = await fetch(`/api/invoices/${invoiceId}/approve`, {
           method: "POST",
         })
@@ -401,13 +409,20 @@ export default function InvoicesAdminPage() {
 
       // Try both API paths to ensure compatibility
       let response
+      let errorMessage = ""
+
       try {
+        console.log("Trying admin route first...")
         response = await fetch(`/api/admin/invoices/${invoiceId}/reject`, {
           method: "POST",
         })
 
         if (!response.ok) {
-          console.log(`First rejection attempt failed, trying alternate path...`)
+          const errorData = await response.json().catch(() => ({}))
+          errorMessage = errorData.error || `Admin route failed with status ${response.status}`
+          console.log(`First rejection attempt failed: ${errorMessage}, trying alternate path...`)
+
+          console.log("Trying general invoice route...")
           response = await fetch(`/api/invoices/${invoiceId}/reject`, {
             method: "POST",
           })
@@ -415,6 +430,7 @@ export default function InvoicesAdminPage() {
       } catch (error) {
         console.error("First rejection attempt error:", error)
         // Try alternate path if first one fails
+        console.log("Trying general invoice route after error...")
         response = await fetch(`/api/invoices/${invoiceId}/reject`, {
           method: "POST",
         })
