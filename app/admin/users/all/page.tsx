@@ -308,11 +308,16 @@ export default function AllUsersPage() {
       fetchUsers()
 
       // Poll for updates every 30 seconds to refresh online status
-      const interval = setInterval(fetchUsers, 30000)
+      // but only when the user details dialog is not open
+      const interval = setInterval(() => {
+        if (!showUserDialog && !showEditUserDialog && !showAddUserDialog) {
+          fetchUsers()
+        }
+      }, 30000)
 
       return () => clearInterval(interval)
     }
-  }, [sessionStatus, session])
+  }, [sessionStatus, session, showUserDialog, showEditUserDialog, showAddUserDialog])
 
   // Replace the filteredUsers function with this enhanced version that includes sorting and date filtering
   // Replace the existing filteredUsers definition (around line 200)
@@ -1621,8 +1626,8 @@ export default function AllUsersPage() {
                           {selectedUser.phone || "Not provided"}
                         </div>
                         <div className="flex items-start text-sm mb-2">
-                          <Building className="h-4 w-4 mr-2 text-gray-400 mt-1" />
-                          <span>{selectedUser.address || "Not provided"}</span>
+                          <Building className="h-5 w-5 mr-2 text-gray-400 mt-1 flex-shrink-0" />
+                          <span className="text-left">{selectedUser.address || "Not provided"}</span>
                         </div>
                         <div className="flex items-center text-sm mb-2">
                           <Calendar className="h-4 w-4 mr-2 text-gray-400" />
