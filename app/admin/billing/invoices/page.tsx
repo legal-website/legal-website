@@ -315,48 +315,32 @@ export default function InvoicesAdminPage() {
     }
   }
 
+  // Update the approvePayment function to use the universal route
   const approvePayment = async (invoiceId: string) => {
     try {
       setIsProcessing(true)
       const invoice = invoices.find((inv) => inv.id === invoiceId)
       if (!invoice) return
 
-      console.log(`Approving invoice ${invoiceId}...`)
+      console.log(`Approving invoice ${invoiceId} using universal route...`)
 
-      // Try both API paths to ensure compatibility
-      let response
-      let errorMessage = ""
-
-      try {
-        console.log("Trying admin route first...")
-        response = await fetch(`/api/admin/invoices/${invoiceId}/approve`, {
-          method: "POST",
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          errorMessage = errorData.error || `Admin route failed with status ${response.status}`
-          console.log(`First approval attempt failed: ${errorMessage}, trying alternate path...`)
-
-          console.log("Trying general invoice route...")
-          response = await fetch(`/api/invoices/${invoiceId}/approve`, {
-            method: "POST",
-          })
-        }
-      } catch (error) {
-        console.error("First approval attempt error:", error)
-        // Try alternate path if first one fails
-        console.log("Trying general invoice route after error...")
-        response = await fetch(`/api/invoices/${invoiceId}/approve`, {
-          method: "POST",
-        })
-      }
+      // Use the universal route for maximum compatibility
+      const response = await fetch(`/api/universal-invoice/approve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ invoiceId }),
+      })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         console.error("Approval error response:", errorData)
         throw new Error(errorData.error || "Failed to approve payment")
       }
+
+      const result = await response.json()
+      console.log("Approval result:", result)
 
       // Update the invoice in the local state
       setInvoices((prevInvoices) =>
@@ -399,48 +383,32 @@ export default function InvoicesAdminPage() {
     }
   }
 
+  // Update the rejectPayment function to use the universal route
   const rejectPayment = async (invoiceId: string) => {
     try {
       setIsProcessing(true)
       const invoice = invoices.find((inv) => inv.id === invoiceId)
       if (!invoice) return
 
-      console.log(`Rejecting invoice ${invoiceId}...`)
+      console.log(`Rejecting invoice ${invoiceId} using universal route...`)
 
-      // Try both API paths to ensure compatibility
-      let response
-      let errorMessage = ""
-
-      try {
-        console.log("Trying admin route first...")
-        response = await fetch(`/api/admin/invoices/${invoiceId}/reject`, {
-          method: "POST",
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          errorMessage = errorData.error || `Admin route failed with status ${response.status}`
-          console.log(`First rejection attempt failed: ${errorMessage}, trying alternate path...`)
-
-          console.log("Trying general invoice route...")
-          response = await fetch(`/api/invoices/${invoiceId}/reject`, {
-            method: "POST",
-          })
-        }
-      } catch (error) {
-        console.error("First rejection attempt error:", error)
-        // Try alternate path if first one fails
-        console.log("Trying general invoice route after error...")
-        response = await fetch(`/api/invoices/${invoiceId}/reject`, {
-          method: "POST",
-        })
-      }
+      // Use the universal route for maximum compatibility
+      const response = await fetch(`/api/universal-invoice/reject`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ invoiceId }),
+      })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         console.error("Rejection error response:", errorData)
         throw new Error(errorData.error || "Failed to reject payment")
       }
+
+      const result = await response.json()
+      console.log("Rejection result:", result)
 
       // Update the invoice in the local state
       setInvoices((prevInvoices) =>
@@ -922,6 +890,35 @@ export default function InvoicesAdminPage() {
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete Invoice
+              </Button>
+              <Button
+                variant="outline"
+                className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
+                onClick={() => {
+                  if (selectedInvoice) {
+                    console.log("Invoice details:", selectedInvoice)
+
+                    // Try to parse items if they're a string
+                    if (typeof selectedInvoice.items === "string") {
+                      try {
+                        const parsedItems = JSON.parse(selectedInvoice.items)
+                        console.log("Parsed items:", parsedItems)
+                      } catch (e) {
+                        console.error("Error parsing items:", e)
+                      }
+                    } else {
+                      console.log("Items (already parsed):", selectedInvoice.items)
+                    }
+
+                    toast({
+                      title: "Debug Info",
+                      description: "Invoice details logged to console",
+                    })
+                  }
+                }}
+              >
+                <AlertCircle className="h-4 w-4 mr-2" />
+                Debug Info
               </Button>
             </DialogFooter>
           </DialogContent>
