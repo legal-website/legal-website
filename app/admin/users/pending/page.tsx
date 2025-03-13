@@ -573,7 +573,7 @@ export default function PendingUsersPage() {
   // Get phone request button text
   const getPhoneRequestButtonText = (user: PendingUser) => {
     if (!user.phoneRequest) {
-      return "US Phone Number Request"
+      return null // Don't show button if no request
     }
 
     if (user.phoneRequest.phoneNumber) {
@@ -1232,7 +1232,7 @@ function UserList({
   // Get phone request button text
   const getPhoneRequestButtonText = (user: PendingUser) => {
     if (!user.phoneRequest) {
-      return "US Phone Number Request"
+      return null // Don't show button if no request
     }
 
     if (user.phoneRequest.phoneNumber) {
@@ -1288,15 +1288,17 @@ function UserList({
                 <Eye className="h-4 w-4 mr-2" />
                 Manage LLC
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onViewPhoneRequest(user)}
-                className={user.phoneRequest?.status === "requested" ? "border-blue-300 text-blue-600" : ""}
-              >
-                <Phone className="h-4 w-4 mr-2" />
-                {getPhoneRequestButtonText(user)}
-              </Button>
+              {getPhoneRequestButtonText(user) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onViewPhoneRequest(user)}
+                  className={user.phoneRequest?.status === "requested" ? "border-blue-300 text-blue-600" : ""}
+                >
+                  <Phone className="h-4 w-4 mr-2" />
+                  {getPhoneRequestButtonText(user)}
+                </Button>
+              )}
             </div>
           </div>
         </Card>

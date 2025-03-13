@@ -345,8 +345,10 @@ export default function DashboardPage() {
           disabled={requestingPhone}
         >
           <div className="flex items-center">
-            <Phone className="w-5 h-5 mr-2" />
-            <span>{requestingPhone ? "Submitting request..." : "Claim your FREE US phone number"}</span>
+            <Phone className="w-5 h-5 mr-2 text-[#22c984]" />
+            <span className="text-base font-medium">
+              {requestingPhone ? "Submitting request..." : "Claim your FREE US phone number"}
+            </span>
           </div>
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path d="M9 5l7 7-7 7" />
@@ -361,7 +363,7 @@ export default function DashboardPage() {
         <Button variant="outline" className="flex items-center justify-between p-6 h-auto w-full">
           <div className="flex items-center">
             <Phone className="w-5 h-5 mr-2 text-green-500" />
-            <span>Your US Phone Number: {phoneNumberRequest.phoneNumber}</span>
+            <span className="text-base font-medium">Your US Phone Number: {phoneNumberRequest.phoneNumber}</span>
           </div>
           <Button
             variant="ghost"
@@ -383,17 +385,19 @@ export default function DashboardPage() {
     }
 
     const statusClass = {
-      requested: "text-blue-500",
-      pending: "text-yellow-500",
-      approved: "text-green-500",
-      rejected: "text-red-500",
+      requested: "text-blue-600 font-medium",
+      pending: "text-yellow-600 font-medium",
+      approved: "text-green-600 font-medium",
+      rejected: "text-red-600 font-medium",
     }
 
     return (
       <Button variant="outline" className="flex items-center justify-between p-6 h-auto w-full" disabled>
         <div className="flex items-center">
-          <Phone className={`w-5 h-5 mr-2 ${statusClass[phoneNumberRequest.status]}`} />
-          <span className={statusClass[phoneNumberRequest.status]}>{statusText[phoneNumberRequest.status]}</span>
+          <Phone className={`w-5 h-5 mr-2 ${statusClass[phoneNumberRequest.status].replace("font-medium", "")}`} />
+          <span className={`text-base ${statusClass[phoneNumberRequest.status]}`}>
+            {statusText[phoneNumberRequest.status]}
+          </span>
         </div>
       </Button>
     )
@@ -412,7 +416,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2">Hello, {userName}</h1>
-        <p className="text-gray-600">All of us at Orizen wish you great success with {businessData.name}</p>
+        <p className="text-gray-600 text-lg">All of us at Orizen wish you great success with {businessData.name}</p>
       </div>
 
       {/* Business Information Cards - 5 columns */}
@@ -421,7 +425,7 @@ export default function DashboardPage() {
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center">
               <Flag className="w-5 h-5 text-[#22c984] mr-2" />
-              <span className="text-sm text-gray-600">Business Name</span>
+              <span className="text-sm font-medium text-gray-600">Business Name</span>
             </div>
             <Button variant="ghost" size="icon" onClick={() => copyToClipboard(businessData.name, "Business name")}>
               <Copy className="w-4 h-4" />
@@ -434,7 +438,7 @@ export default function DashboardPage() {
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center">
               <Building2 className="w-5 h-5 text-[#22c984] mr-2" />
-              <span className="text-sm text-gray-600">Business ID</span>
+              <span className="text-sm font-medium text-gray-600">Business ID</span>
             </div>
             <Button variant="ghost" size="icon" onClick={() => copyToClipboard(businessData.businessId, "Business ID")}>
               <Copy className="w-4 h-4" />
@@ -447,7 +451,7 @@ export default function DashboardPage() {
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center">
               <Hash className="w-5 h-5 text-[#22c984] mr-2" />
-              <span className="text-sm text-gray-600">EIN</span>
+              <span className="text-sm font-medium text-gray-600">EIN</span>
             </div>
             <Button variant="ghost" size="icon" onClick={() => copyToClipboard(businessData.ein, "EIN")}>
               <Copy className="w-4 h-4" />
@@ -460,7 +464,7 @@ export default function DashboardPage() {
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center">
               <Bell className="w-5 h-5 text-[#22c984] mr-2" />
-              <span className="text-sm text-gray-600">Service Status</span>
+              <span className="text-sm font-medium text-gray-600">Service Status</span>
             </div>
             <Button
               variant="ghost"
@@ -488,7 +492,7 @@ export default function DashboardPage() {
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center">
               <Calendar className="w-5 h-5 text-[#22c984] mr-2" />
-              <span className="text-sm text-gray-600">Formation Date</span>
+              <span className="text-sm font-medium text-gray-600">Formation Date</span>
             </div>
             <Button
               variant="ghost"
@@ -507,7 +511,7 @@ export default function DashboardPage() {
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center">
             <Building2 className="w-5 h-5 text-[#22c984] mr-2" />
-            <span className="text-sm text-gray-600">LLC Status</span>
+            <span className="text-sm font-medium text-gray-600">LLC Status</span>
           </div>
           <Button
             variant="ghost"
@@ -527,24 +531,24 @@ export default function DashboardPage() {
             style={{ width: `${businessData.llcProgress}%` }}
           ></div>
         </div>
-        <p className="text-sm text-gray-500 mt-1">{businessData.llcProgress}% Complete</p>
+        <p className="text-sm font-medium text-gray-600 mt-1">{businessData.llcProgress}% Complete</p>
       </Card>
 
       {/* Annual Report Card */}
       <Card className="mb-8 p-6">
         <div className="flex justify-between items-start">
           <div>
-            <div className="text-sm text-gray-600 mb-1">Annual Report Due</div>
+            <div className="text-sm font-medium text-gray-600 mb-1">Annual Report Due</div>
             <div className="text-lg font-semibold">
               {businessData.formationDate !== "Pending" ? calculateAnnualReportDueDate() : "Pending"}
             </div>
-            <div className="text-sm text-gray-600 mt-1">
+            <div className="text-sm font-medium text-gray-600 mt-1">
               Fee: ${businessData.annualReportFee} (Every {businessData.annualReportFrequency}{" "}
               {businessData.annualReportFrequency === 1 ? "year" : "years"})
             </div>
           </div>
           <div className="text-right">
-            <div className="text-sm text-gray-600 mb-1">{calculateDaysRemaining()} days left</div>
+            <div className="text-sm font-medium text-gray-600 mb-1">{calculateDaysRemaining()} days left</div>
             <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
                 className="h-full bg-[#22c984] rounded-full"
@@ -558,7 +562,7 @@ export default function DashboardPage() {
       {/* Address Section - Now using the address from invoices */}
       <Card className="mb-8 p-6">
         <div className="flex justify-between items-center mb-4">
-          <p className="text-lg">{userAddress.address}</p>
+          <p className="text-lg font-medium">{userAddress.address}</p>
           <Button variant="ghost" size="icon" onClick={() => copyToClipboard(userAddress.address, "Address")}>
             <Copy className="w-4 h-4" />
           </Button>
@@ -577,15 +581,15 @@ export default function DashboardPage() {
           <table className="w-full">
             <thead>
               <tr className="text-left text-gray-600">
-                <th className="pb-4">Type</th>
-                <th className="pb-4">Date</th>
-                <th className="pb-4">View</th>
-                <th className="pb-4">Download</th>
+                <th className="pb-4 font-medium">Type</th>
+                <th className="pb-4 font-medium">Date</th>
+                <th className="pb-4 font-medium">View</th>
+                <th className="pb-4 font-medium">Download</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               <tr>
-                <td className="py-4">Company documents</td>
+                <td className="py-4 font-medium">Company documents</td>
                 <td className="py-4">28 Mar 2024</td>
                 <td className="py-4">
                   <Button variant="ghost" size="icon">
@@ -599,7 +603,7 @@ export default function DashboardPage() {
                 </td>
               </tr>
               <tr>
-                <td className="py-4">Scanned mail</td>
+                <td className="py-4 font-medium">Scanned mail</td>
                 <td className="py-4">04 Apr 2024</td>
                 <td className="py-4">
                   <Button variant="ghost" size="icon">
@@ -613,7 +617,7 @@ export default function DashboardPage() {
                 </td>
               </tr>
               <tr>
-                <td className="py-4">Scanned mail</td>
+                <td className="py-4 font-medium">Scanned mail</td>
                 <td className="py-4">24 May 2024</td>
                 <td className="py-4">
                   <Button variant="ghost" size="icon">
@@ -636,11 +640,11 @@ export default function DashboardPage() {
         <Card className="bg-gradient-to-r from-pink-500 to-purple-500 text-white">
           <div className="p-6">
             <h3 className="text-2xl font-bold mb-4">Get $20</h3>
-            <p className="mb-6">
+            <p className="mb-6 text-base font-medium">
               Earn rewards by referring your friends to experience our services. Unlock exclusive benefits when you
               partner with Orizen!
             </p>
-            <Button variant="secondary" className="bg-white text-purple-600 hover:bg-gray-100">
+            <Button variant="secondary" className="bg-white text-purple-600 hover:bg-gray-100 font-medium">
               Claim
             </Button>
           </div>
@@ -654,7 +658,7 @@ export default function DashboardPage() {
                 <User className="w-5 h-5 mr-3" />
                 <div className="text-left">
                   <p className="font-semibold">Contact account manager</p>
-                  <p className="text-sm text-gray-600">Steve is your Orizen account manager.</p>
+                  <p className="text-sm text-gray-600 font-medium">Steve is your Orizen account manager.</p>
                 </div>
               </Button>
 
@@ -662,7 +666,7 @@ export default function DashboardPage() {
                 <MessageSquare className="w-5 h-5 mr-3" />
                 <div className="text-left">
                   <p className="font-semibold">Create a ticket</p>
-                  <p className="text-sm text-gray-600">Our support team is always here for you.</p>
+                  <p className="text-sm text-gray-600 font-medium">Our support team is always here for you.</p>
                 </div>
               </Button>
 
@@ -670,7 +674,7 @@ export default function DashboardPage() {
                 <FileText className="w-5 h-5 mr-3" />
                 <div className="text-left">
                   <p className="font-semibold">Read our Helpdesk articles</p>
-                  <p className="text-sm text-gray-600">We have content that you might be interested in.</p>
+                  <p className="text-sm text-gray-600 font-medium">We have content that you might be interested in.</p>
                 </div>
               </Button>
             </div>
