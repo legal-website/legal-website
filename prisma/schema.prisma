@@ -28,7 +28,6 @@ model User {
   business           Business?           @relation(fields: [businessId], references: [id])
   verificationTokens VerificationToken[]
   phoneRequest       PhoneNumberRequest?
-  templateAccess     TemplateAccess[]
 
   @@index([businessId], map: "User_businessId_fkey")
 }
@@ -202,12 +201,9 @@ model Invoice {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   userId          String?
-  templateId      String?   // Reference to a template if this invoice is for a template purchase
   user            User?     @relation(fields: [userId], references: [id])
-  template        Template? @relation(fields: [templateId], references: [id])
 
   @@index([userId], map: "Invoice_userId_fkey")
-  @@index([templateId], map: "Invoice_templateId_fkey")
 }
 
 model PhoneNumberRequest {
@@ -220,36 +216,6 @@ model PhoneNumberRequest {
   user        User     @relation(fields: [userId], references: [id])
 
   @@index([userId], map: "PhoneNumberRequest_userId_fkey")
-}
-
-// New models for document templates
-model Template {
-  id          String            @id @default(uuid())
-  name        String
-  description String            @db.Text
-  category    String
-  price       Float
-  fileUrl     String
-  thumbnailUrl String?
-  isActive    Boolean           @default(true)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  access      TemplateAccess[]
-  invoices    Invoice[]
-}
-
-model TemplateAccess {
-  id         String   @id @default(uuid())
-  userId     String
-  templateId String
-  grantedAt  DateTime @default(now())
-  expiresAt  DateTime?
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, templateId])
-  @@index([userId], map: "TemplateAccess_userId_fkey")
-  @@index([templateId], map: "TemplateAccess_templateId_fkey")
 }
 
 enum Role {
