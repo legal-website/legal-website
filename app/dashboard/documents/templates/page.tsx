@@ -491,74 +491,66 @@ export default function DocumentTemplatesPage() {
   // Replace the handleDownload function with this improved version
   const handleDownload = async (template: Template) => {
     try {
-      // Show loading state
-      toast({
-        title: "Download started",
-        description: "Preparing your document for download...",
-      })
+      let fileUrl = template.fileUrl
+      let fileName = template.name.replace(/\s+/g, "-").toLowerCase()
 
-      // If template has no ID or fileUrl, we can't proceed
-      if (!template.id && !template.fileUrl) {
-        throw new Error("No template information available for download")
+      // If no direct fileUrl is available, try to fetch it from the API
+      if (!fileUrl) {
+        const response = await fetch(`/api/user/templates/${template.id}/download`)
+
+        if (!response.ok) {
+          throw new Error("Failed to download template")
+        }
+
+        const data = await response.json()
+        fileUrl = data.fileUrl
+
+        if (!fileUrl) {
+          throw new Error("No file URL available")
+        }
       }
 
-      // First try to get the file through our API to handle authentication and tracking
-      const apiUrl = `/api/user/templates/${template.id}/download`
-      const apiResponse = await fetch(apiUrl)
+      // Extract file extension from URL
+      const urlExtension = fileUrl.split(".").pop()?.toLowerCase()
 
-      if (!apiResponse.ok) {
-        throw new Error(`API request failed: ${apiResponse.statusText}`)
-      }
-
-      const apiData = await apiResponse.json()
-
-      if (!apiData.fileUrl) {
-        throw new Error("No file URL returned from API")
-      }
-
-      // Get file details from API response
-      const fileUrl = apiData.fileUrl
-      const contentType = apiData.contentType || "application/octet-stream"
-      const displayName = apiData.name || template.name
-
-      // Create a sanitized filename with the correct extension
-      let fileName = displayName.replace(/[^a-z0-9]/gi, "_").toLowerCase()
-      const fileExtension = apiData.fileExtension || fileUrl.split(".").pop()?.split("?")[0]?.toLowerCase()
-
-      if (fileExtension) {
-        fileName = `${fileName}.${fileExtension}`
+      // If URL has a valid extension, use it
+      if (
+        urlExtension &&
+        ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "jpg", "jpeg", "png", "gif"].includes(urlExtension)
+      ) {
+        fileName = `${fileName}.${urlExtension}`
       } else {
         // Default to PDF if no extension is found
         fileName = `${fileName}.pdf`
       }
 
-      console.log(`Downloading file: ${fileName} (${contentType}) from ${fileUrl}`)
+      toast({
+        title: "Download started",
+        description: "Your template is being downloaded.",
+      })
 
-      // Create a server-side proxy request to avoid CORS issues
-      const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(fileUrl)}&contentType=${encodeURIComponent(contentType)}`
+      // Use fetch to get the file as a blob
+      const response = await fetch(fileUrl)
+      const blob = await response.blob()
 
-      // Use the browser's native download capability
+      // Create a blob URL and trigger download
+      const blobUrl = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
-      link.href = proxyUrl
+      link.href = blobUrl
       link.download = fileName
-      link.target = "_blank" // Open in new tab as fallback
       document.body.appendChild(link)
       link.click()
 
       // Clean up
       setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl)
         document.body.removeChild(link)
       }, 100)
-
-      toast({
-        title: "Download complete",
-        description: "Your document has been downloaded successfully.",
-      })
     } catch (error) {
       console.error("Error downloading template:", error)
       toast({
-        title: "Download failed",
-        description: "Failed to download document. Please try again.",
+        title: "Error",
+        description: "Failed to download template. Please try again.",
         variant: "destructive",
       })
     }
