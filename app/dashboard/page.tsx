@@ -168,7 +168,7 @@ export default function DashboardPage() {
         fileName = `${fileName}.pdf`
       }
 
-      const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(fileUrl)}&contentType=${encodeURIComponent(contentType)}&templateId=${template.id}`
+      const proxyUrl = `/api/direct-download?url=${encodeURIComponent(apiData.fileUrl)}&contentType=${encodeURIComponent(contentType)}&documentId=${template.id}&filename=${encodeURIComponent(fileName)}`
 
       const response = await fetch(proxyUrl)
       if (!response.ok) {
@@ -709,7 +709,16 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">{template.name}</td>
                     <td className="py-4">{new Date(template.updatedAt).toLocaleDateString()}</td>
                     <td className="py-4">
-                      <Button variant="ghost" size="icon" onClick={() => handleDownload(template)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          window.open(
+                            `/api/direct-download?url=${encodeURIComponent(template.fileUrl || "")}&contentType=${encodeURIComponent("application/octet-stream")}&documentId=${template.id}&filename=${encodeURIComponent(template.name || "")}`,
+                            "_blank",
+                          )
+                        }
+                      >
                         <Eye className="w-4 h-4" />
                       </Button>
                     </td>
