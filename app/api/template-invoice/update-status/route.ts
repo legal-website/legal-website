@@ -50,6 +50,7 @@ export async function POST(req: Request) {
     }
 
     console.log(`Found invoice: ${invoice.invoiceNumber} for user ${invoice.userId}`)
+    console.log(`Raw invoice items: ${JSON.stringify(invoice.items)}`)
 
     // Update the invoice status
     const updatedInvoice = await db.invoice.update({
@@ -85,76 +86,6 @@ export async function POST(req: Request) {
         const businessId = user.business.id
         console.log(`User's business ID: ${businessId}`)
 
-        // Parse the invoice items
-        console.log(
-          `Invoice items (raw): ${typeof invoice.items === "string" ? invoice.items : JSON.stringify(invoice.items)}`,
-        )
-
-        let invoiceItems: InvoiceItem[] = []
-        try {
-          const parsedItems = typeof invoice.items === "string" ? JSON.parse(invoice.items) : invoice.items
-
-          invoiceItems = Array.isArray(parsedItems) ? parsedItems : [parsedItems]
-          console.log(`Parsed invoice items: ${JSON.stringify(invoiceItems)}`)
-        } catch (e) {
-          console.error("Error parsing invoice items:", e)
-          // If parsing fails, try to check if it contains "template" as a string
-          if (
-            typeof invoice.items === "string" &&
-            (invoice.items.toLowerCase().includes("template") ||
-              invoice.items.toLowerCase().includes("istemplateinvoice"))
-          ) {
-            console.log("Template invoice detected, but items couldn't be parsed")
-
-            // Create a dummy item for template detection
-            invoiceItems = [
-              {
-                type: "template",
-                tier: "Template Purchase",
-                price: invoice.amount,
-              },
-            ]
-          }
-        }
-
-        // Find template items
-        const templateItems = invoiceItems.filter(
-          (item) =>
-            item.type === "template" ||
-            (item.tier && typeof item.tier === "string" && item.tier.toLowerCase().includes("template")),
-        )
-
-        console.log(`Template items found: ${JSON.stringify(templateItems)}`)
-
-        if (templateItems.length === 0) {
-          console.log("No template items found in invoice, checking if entire invoice is for templates")
-
-          // Check if the entire invoice might be for templates
-          if (
-            typeof invoice.items === "string" &&
-            (invoice.items.toLowerCase().includes("template") ||
-              invoice.invoiceNumber.toLowerCase().includes("template"))
-          ) {
-            console.log("Invoice appears to be for templates based on text content")
-
-            // Create a dummy item for template detection
-            templateItems.push({
-              type: "template",
-              tier: "Template Purchase",
-              price: invoice.amount,
-            })
-          }
-        }
-
-        if (templateItems.length === 0) {
-          console.log("No template items found in invoice, cannot grant template access")
-          return NextResponse.json({
-            success: true,
-            invoice: updatedInvoice,
-            warning: "No template items found in invoice",
-          })
-        }
-
         // Get all master templates
         const masterTemplates = (await db.document.findMany({
           where: {
@@ -162,144 +93,222 @@ export async function POST(req: Request) {
           },
         })) as Document[]
 
-        console.log(`Found ${masterTemplates.length} master templates`)
+        console.log(`Found ${masterTemplates.length} master templates:`)
+        masterTemplates.forEach((template) => {
+          console.log(`- ${template.id}: ${template.name}`)
+        })
 
-        // For each template item, create a document record for the user
-        let templatesUnlocked = 0
+        // Try to parse invoice items
+        let invoiceItems: InvoiceItem[] = []
+        let templateKeywords: string[] = []
 
-        // Track which templates we've already processed to avoid duplicates
-        const processedTemplateIds = new Set<string>()
+        try {
+          if (typeof invoice.items === "string") {
+            // Try to parse as JSON
+            try {
+              const parsedItems = JSON.parse(invoice.items)
+              invoiceItems = Array.isArray(parsedItems) ? parsedItems : [parsedItems]
+              console.log(`Successfully parsed invoice items: ${JSON.stringify(invoiceItems)}`)
+            } catch (e) {
+              console.log(`Failed to parse invoice items as JSON: ${e}`)
 
-        for (const item of templateItems) {
-          console.log(`Processing template item: ${JSON.stringify(item)}`)
+              // If parsing fails, extract keywords from the string
+              const itemsStr = invoice.items.toLowerCase()
+              console.log(`Treating invoice items as string: ${itemsStr}`)
 
-          // Find matching template by name/tier or by checking all templates
-          let matchingTemplates: Document[] = []
-
-          // If we have a specific templateId, use that for exact matching
-          if (item.templateId) {
-            const exactMatch = masterTemplates.find((template) => template.id === item.templateId)
-            if (exactMatch) {
-              matchingTemplates = [exactMatch]
-              console.log(`Found exact match by templateId: ${item.templateId}`)
-            }
-          }
-
-          // If no exact match by templateId, try to match by tier name
-          if (matchingTemplates.length === 0 && item.tier) {
-            // First try exact match on tier name
-            const exactTierMatch = masterTemplates.find(
-              (template) => template.name.toLowerCase() === item.tier?.toLowerCase(),
-            )
-
-            if (exactTierMatch) {
-              matchingTemplates = [exactTierMatch]
-              console.log(`Found exact match by tier name: ${item.tier}`)
-            } else {
-              // If no exact match, try partial match but be more specific
-              // Look for templates where the name contains the tier as a whole word
-              const tierRegex = new RegExp(`\\b${item.tier.toLowerCase()}\\b`, "i")
-              matchingTemplates = masterTemplates.filter((template) => tierRegex.test(template.name.toLowerCase()))
-
-              if (matchingTemplates.length > 0) {
-                console.log(`Found ${matchingTemplates.length} templates matching tier as word: ${item.tier}`)
-              } else {
-                // If still no matches, try a more relaxed partial match
-                matchingTemplates = masterTemplates.filter((template) =>
-                  template.name.toLowerCase().includes(item.tier?.toLowerCase() || ""),
-                )
-                console.log(`Found ${matchingTemplates.length} templates with partial match on tier: ${item.tier}`)
-
-                // If we have multiple matches, try to narrow it down
-                if (matchingTemplates.length > 1) {
-                  // Look for the best match - one that most closely matches the tier name
-                  const bestMatch = matchingTemplates.reduce((best, current) => {
-                    const bestScore = best.name.toLowerCase().indexOf(item.tier?.toLowerCase() || "")
-                    const currentScore = current.name.toLowerCase().indexOf(item.tier?.toLowerCase() || "")
-                    return bestScore < currentScore ? best : current
-                  })
-
-                  matchingTemplates = [bestMatch]
-                  console.log(`Narrowed down to best match: ${bestMatch.name}`)
-                }
-              }
-            }
-          }
-
-          // If we still have no matches and this is the only template item,
-          // check if there's a template with a name similar to the invoice number or customer name
-          if (matchingTemplates.length === 0 && templateItems.length === 1) {
-            console.log("No matches found, checking invoice metadata for clues")
-
-            // Try to match based on invoice number or customer name
-            const invoiceNumber = invoice.invoiceNumber.toLowerCase()
-            const customerName = invoice.customerName.toLowerCase()
-
-            // Look for templates with names that might match the invoice details
-            matchingTemplates = masterTemplates.filter((template) => {
-              const templateName = template.name.toLowerCase()
-              return (
-                templateName.includes(invoiceNumber) ||
-                templateName.includes(customerName) ||
-                (invoice.customerEmail && templateName.includes(invoice.customerEmail.toLowerCase()))
+              // Extract potential template names or keywords
+              const words = itemsStr.split(/\s+/)
+              templateKeywords = words.filter(
+                (word) =>
+                  word.length > 3 && !["template", "invoice", "item", "price", "quantity", "total"].includes(word),
               )
-            })
 
-            if (matchingTemplates.length > 0) {
-              console.log(`Found ${matchingTemplates.length} templates matching invoice metadata`)
+              console.log(`Extracted keywords from invoice items: ${templateKeywords.join(", ")}`)
             }
+          } else if (invoice.items) {
+            // Items is already an object
+            invoiceItems = Array.isArray(invoice.items) ? invoice.items : [invoice.items]
+            console.log(`Invoice items is already an object: ${JSON.stringify(invoiceItems)}`)
           }
+        } catch (e) {
+          console.error(`Error processing invoice items: ${e}`)
+        }
 
-          // If we still have no matches, DO NOT unlock all templates
-          // Instead, log a warning and skip this item
-          if (matchingTemplates.length === 0) {
-            console.log("No matching templates found for this item, skipping")
-            continue
-          }
+        // Extract template information from invoice
+        let potentialTemplateNames: string[] = []
 
-          for (const matchingTemplate of matchingTemplates) {
-            // Skip if we've already processed this template
-            if (processedTemplateIds.has(matchingTemplate.id)) {
-              console.log(`Template ${matchingTemplate.id} already processed, skipping`)
-              continue
-            }
+        // 1. Check invoice number for template info
+        if (invoice.invoiceNumber.toLowerCase().includes("template")) {
+          console.log(`Invoice number contains 'template': ${invoice.invoiceNumber}`)
+          potentialTemplateNames.push(invoice.invoiceNumber)
+        }
 
-            processedTemplateIds.add(matchingTemplate.id)
+        // 2. Check customer name for template info
+        if (invoice.customerName.toLowerCase().includes("template")) {
+          console.log(`Customer name contains 'template': ${invoice.customerName}`)
+          potentialTemplateNames.push(invoice.customerName)
+        }
 
-            console.log(`Processing matching template: ${matchingTemplate.id} - ${matchingTemplate.name}`)
+        // 3. Add any template keywords from invoice items
+        potentialTemplateNames = [...potentialTemplateNames, ...templateKeywords]
+
+        // 4. Check parsed invoice items for template info
+        const templateItems = invoiceItems.filter(
+          (item) =>
+            item.type === "template" ||
+            (item.tier && typeof item.tier === "string" && item.tier.toLowerCase().includes("template")),
+        )
+
+        if (templateItems.length > 0) {
+          console.log(`Found ${templateItems.length} template items in invoice`)
+          templateItems.forEach((item) => {
+            if (item.tier) potentialTemplateNames.push(item.tier)
+            if (item.templateId) potentialTemplateNames.push(item.templateId)
+          })
+        }
+
+        console.log(`Potential template names: ${potentialTemplateNames.join(", ")}`)
+
+        // If we have no potential template names, use a fallback
+        if (potentialTemplateNames.length === 0) {
+          console.log(`No potential template names found, using fallback`)
+
+          // Use the first template as a fallback
+          if (masterTemplates.length > 0) {
+            const fallbackTemplate = masterTemplates[0]
+            console.log(`Using fallback template: ${fallbackTemplate.id} - ${fallbackTemplate.name}`)
 
             // Check if the user already has this template
             const existingTemplate = await db.document.findFirst({
               where: {
                 businessId: businessId,
-                name: { contains: `template_${matchingTemplate.id}` },
+                name: { contains: `template_${fallbackTemplate.id}` },
               },
             })
 
             if (existingTemplate) {
-              console.log(`User already has template ${matchingTemplate.id}`)
-              continue
+              console.log(`User already has template ${fallbackTemplate.id}`)
+              return NextResponse.json({
+                success: true,
+                invoice: updatedInvoice,
+                message: "User already has the template",
+              })
             }
 
             // Create a copy of the template for the user
             try {
               const newTemplate = await db.document.create({
                 data: {
-                  name: `template_${matchingTemplate.id}_${matchingTemplate.name}`,
+                  name: `template_${fallbackTemplate.id}_${fallbackTemplate.name}`,
                   category: "template",
                   type: "purchased_template",
-                  fileUrl: matchingTemplate.fileUrl,
+                  fileUrl: fallbackTemplate.fileUrl,
                   businessId: businessId,
                 },
               })
 
               console.log(
-                `Template ${matchingTemplate.id} unlocked for user ${invoice.userId}, created document ${newTemplate.id}`,
+                `Template ${fallbackTemplate.id} unlocked for user ${invoice.userId}, created document ${newTemplate.id}`,
               )
-              templatesUnlocked++
+
+              return NextResponse.json({
+                success: true,
+                invoice: updatedInvoice,
+                templatesUnlocked: 1,
+              })
             } catch (error) {
               console.error(`Error creating template document: ${error}`)
+              return NextResponse.json({
+                success: true,
+                invoice: updatedInvoice,
+                error: `Error creating template document: ${error}`,
+              })
             }
+          } else {
+            console.log(`No templates found in the system`)
+            return NextResponse.json({
+              success: true,
+              invoice: updatedInvoice,
+              warning: "No templates found in the system",
+            })
+          }
+        }
+
+        // Find matching templates based on potential template names
+        let matchingTemplates: Document[] = []
+
+        for (const name of potentialTemplateNames) {
+          // Skip empty names
+          if (!name) continue
+
+          const nameStr = String(name).toLowerCase()
+
+          // Try to find exact matches first
+          const exactMatches = masterTemplates.filter((template) => template.name.toLowerCase() === nameStr)
+
+          if (exactMatches.length > 0) {
+            console.log(`Found ${exactMatches.length} exact matches for name: ${nameStr}`)
+            matchingTemplates = [...matchingTemplates, ...exactMatches]
+          } else {
+            // Try partial matches
+            const partialMatches = masterTemplates.filter((template) => template.name.toLowerCase().includes(nameStr))
+
+            if (partialMatches.length > 0) {
+              console.log(`Found ${partialMatches.length} partial matches for name: ${nameStr}`)
+              matchingTemplates = [...matchingTemplates, ...partialMatches]
+            }
+          }
+        }
+
+        // Remove duplicates
+        matchingTemplates = Array.from(new Map(matchingTemplates.map((template) => [template.id, template])).values())
+
+        console.log(`Found ${matchingTemplates.length} unique matching templates`)
+
+        // If we still have no matches, use the first template as a fallback
+        if (matchingTemplates.length === 0 && masterTemplates.length > 0) {
+          const fallbackTemplate = masterTemplates[0]
+          console.log(`No matches found, using fallback template: ${fallbackTemplate.id} - ${fallbackTemplate.name}`)
+          matchingTemplates = [fallbackTemplate]
+        }
+
+        // Unlock the matching templates
+        let templatesUnlocked = 0
+
+        for (const template of matchingTemplates) {
+          console.log(`Processing template: ${template.id} - ${template.name}`)
+
+          // Check if the user already has this template
+          const existingTemplate = await db.document.findFirst({
+            where: {
+              businessId: businessId,
+              name: { contains: `template_${template.id}` },
+            },
+          })
+
+          if (existingTemplate) {
+            console.log(`User already has template ${template.id}`)
+            continue
+          }
+
+          // Create a copy of the template for the user
+          try {
+            const newTemplate = await db.document.create({
+              data: {
+                name: `template_${template.id}_${template.name}`,
+                category: "template",
+                type: "purchased_template",
+                fileUrl: template.fileUrl,
+                businessId: businessId,
+              },
+            })
+
+            console.log(
+              `Template ${template.id} unlocked for user ${invoice.userId}, created document ${newTemplate.id}`,
+            )
+            templatesUnlocked++
+          } catch (error) {
+            console.error(`Error creating template document: ${error}`)
           }
         }
 
