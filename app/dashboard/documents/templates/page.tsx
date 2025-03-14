@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { FileText, Search, Upload, Clock, CheckCircle, RefreshCw, Lock, Unlock } from "lucide-react"
+import { FileText, Search, Upload, Clock, CheckCircle, RefreshCw, Lock, Unlock, Gift } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -20,9 +20,10 @@ interface Template {
   description: string
   category: string
   price: number
-  pricingTier: string // Changed from "Free" | "Basic" | "Standard" | "Premium" to string
+  pricingTier: string
   isPurchased: boolean
   isPending: boolean
+  isFree?: boolean
   invoiceId?: string
   fileUrl?: string
   updatedAt: string
@@ -194,6 +195,7 @@ export default function DocumentTemplatesPage() {
             pricingTier: "Free",
             isPurchased: true,
             isPending: false,
+            isFree: true,
             updatedAt: new Date().toISOString(),
           },
         ]
@@ -209,6 +211,7 @@ export default function DocumentTemplatesPage() {
           pricingTier?: string
           purchased?: boolean
           isPending?: boolean
+          isFree?: boolean
           invoiceId?: string
           fileUrl?: string
           updatedAt?: string
@@ -225,6 +228,7 @@ export default function DocumentTemplatesPage() {
           pricingTier: template.pricingTier || "Free",
           isPurchased: template.purchased || false,
           isPending: template.isPending || false,
+          isFree: template.isFree || template.price === 0 || template.pricingTier === "Free",
           invoiceId: template.invoiceId || undefined,
           fileUrl: template.fileUrl || undefined,
           updatedAt: template.updatedAt || new Date().toISOString(),
@@ -274,6 +278,7 @@ export default function DocumentTemplatesPage() {
           pricingTier: "Free",
           isPurchased: true,
           isPending: false,
+          isFree: true,
           updatedAt: new Date().toISOString(),
         },
       ]
@@ -288,13 +293,15 @@ export default function DocumentTemplatesPage() {
   // Get counts for tabs
   const allTemplatesCount = templates.length
   const unlockedTemplatesCount = templates.filter((t) => t.isPurchased).length
-  const lockedTemplatesCount = templates.filter((t) => !t.isPurchased).length
+  const lockedTemplatesCount = templates.filter((t) => !t.isPurchased && !t.isFree).length
+  const freeTemplatesCount = templates.filter((t) => t.isFree).length
 
   // Filter templates based on active tab
   const tabFilteredTemplates = templates.filter((template) => {
     if (activeTab === "all") return true
     if (activeTab === "unlocked") return template.isPurchased
-    if (activeTab === "locked") return !template.isPurchased && !template.isPending
+    if (activeTab === "locked") return !template.isPurchased && !template.isPending && !template.isFree
+    if (activeTab === "free") return template.isFree
     return true
   })
 
@@ -602,6 +609,13 @@ export default function DocumentTemplatesPage() {
                   {allTemplatesCount}
                 </Badge>
               </TabsTrigger>
+              <TabsTrigger value="free" className="flex items-center gap-2">
+                <Gift className="h-4 w-4" />
+                Free Templates
+                <Badge variant="secondary" className="ml-1">
+                  {freeTemplatesCount}
+                </Badge>
+              </TabsTrigger>
               <TabsTrigger value="unlocked" className="flex items-center gap-2">
                 <Unlock className="h-4 w-4" />
                 Unlocked Templates
@@ -670,7 +684,7 @@ export default function DocumentTemplatesPage() {
                         </div>
 
                         <div className="flex justify-end">
-                          {template.isPurchased ? (
+                          {template.isPurchased || template.isFree ? (
                             <Button size="sm" variant="outline" onClick={() => handleDownload(template)}>
                               <Check className="h-3.5 w-3.5 mr-1.5" />
                               Download
@@ -689,7 +703,7 @@ export default function DocumentTemplatesPage() {
                         </div>
 
                         {/* Blur overlay for unpurchased templates */}
-                        {!template.isPurchased && !template.isPending && (
+                        {!template.isPurchased && !template.isPending && !template.isFree && (
                           <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
                             <div className="text-center">
                               <Lock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
@@ -733,6 +747,74 @@ export default function DocumentTemplatesPage() {
                     <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-1">No templates found</h3>
                     <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="free" className="mt-0">
+              {/* Search and filters for free tab */}
+              <div className="border-b pb-6 mb-6">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search free templates..."
+                        className="pl-9"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                  >
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Template Grid for free templates */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredTemplates.length > 0 ? (
+                  currentTemplates.map((template) => (
+                    <Card key={template.id} className="overflow-hidden">
+                      <div className="p-6 relative">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="p-2 bg-green-100 rounded-lg">
+                            <Gift className="h-5 w-5 text-green-600" />
+                          </div>
+                          <Badge className="bg-gray-100 hover:bg-gray-200 text-gray-800">Free</Badge>
+                        </div>
+                        <h3 className="font-semibold mb-2">{template.name}</h3>
+                        <p className="text-sm text-gray-600 mb-4">{template.description}</p>
+
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">{template.category}</span>
+                          <span className="text-sm font-medium">$0.00</span>
+                        </div>
+
+                        <div className="flex justify-end">
+                          <Button size="sm" variant="outline" onClick={() => handleDownload(template)}>
+                            <Check className="h-3.5 w-3.5 mr-1.5" />
+                            Download
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="col-span-3 text-center py-12">
+                    <Gift className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-1">No free templates found</h3>
+                    <p className="text-gray-500">Check back later for new free templates</p>
                   </div>
                 )}
               </div>
@@ -1033,5 +1115,6 @@ export default function DocumentTemplatesPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
 
-)}

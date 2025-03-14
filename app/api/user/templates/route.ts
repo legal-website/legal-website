@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
       include: { business: true },
     })
 
-    if (!user || !user.business) {
-      return NextResponse.json({ error: "User or business not found" }, { status: 404 })
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     // Fetch all templates
@@ -31,23 +31,27 @@ export async function GET(request: NextRequest) {
     })
 
     // Fetch user's templates (templates they have access to)
-    const userTemplates = await prisma.document.findMany({
-      where: {
-        businessId: user.business.id,
-        type: "user_template",
-      },
-    })
+    const userTemplates = user.business
+      ? await prisma.document.findMany({
+          where: {
+            businessId: user.business.id,
+            type: "user_template",
+          },
+        })
+      : []
 
     // Fetch access records to determine which templates the user has access to
-    const accessRecords = await prisma.document.findMany({
-      where: {
-        businessId: user.business.id,
-        type: "access_template",
-        name: {
-          contains: `_${userId}`,
-        },
-      },
-    })
+    const accessRecords = user.business
+      ? await prisma.document.findMany({
+          where: {
+            businessId: user.business.id,
+            type: "access_template",
+            name: {
+              contains: `_${userId}`,
+            },
+          },
+        })
+      : []
 
     // Extract templateIds from access records
     const accessibleTemplateIds = accessRecords
@@ -76,8 +80,12 @@ export async function GET(request: NextRequest) {
       }
 
       // Check if user has access to this template
+      // Free templates are automatically accessible to all users
+      const isFreeTemplate = price === 0 || pricingTier === "Free"
       const hasAccess =
-        accessibleTemplateIds.includes(template.id) || userTemplates.some((ut) => ut.fileUrl === template.fileUrl)
+        isFreeTemplate ||
+        accessibleTemplateIds.includes(template.id) ||
+        userTemplates.some((ut) => ut.fileUrl === template.fileUrl)
 
       return {
         id: template.id,
@@ -90,6 +98,7 @@ export async function GET(request: NextRequest) {
         updatedAt: template.updatedAt,
         purchased: hasAccess,
         isPending: false,
+        isFree: isFreeTemplate,
       }
     })
 
