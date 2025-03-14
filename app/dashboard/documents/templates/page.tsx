@@ -491,33 +491,40 @@ export default function DocumentTemplatesPage() {
   // Replace the handleDownload function with this improved version
   const handleDownload = async (template: Template) => {
     try {
-      let fileUrl = template.fileUrl
-      let fileName = template.name.replace(/\s+/g, "-").toLowerCase()
-      let contentType = "application/octet-stream" // Default content type
+      // Show loading state
+      toast({
+        title: "Download started",
+        description: "Preparing your document for download...",
+      })
 
-      // If no direct fileUrl is available, try to fetch it from the API
-      if (!fileUrl) {
-        const response = await fetch(`/api/user/templates/${template.id}/download`)
-
-        if (!response.ok) {
-          throw new Error("Failed to download template")
-        }
-
-        const data = await response.json()
-        fileUrl = data.fileUrl
-        contentType = data.contentType || contentType
-
-        if (!fileUrl) {
-          throw new Error("No file URL available")
-        }
+      // If template has no ID or fileUrl, we can't proceed
+      if (!template.id && !template.fileUrl) {
+        throw new Error("No template information available for download")
       }
 
-      // Extract file extension from URL
-      const urlWithoutParams = fileUrl.split("?")[0]
-      const urlParts = urlWithoutParams.split(".")
-      const fileExtension = urlParts.length > 1 ? urlParts[urlParts.length - 1].toLowerCase() : ""
+      // First try to get the file through our API to handle authentication and tracking
+      const apiUrl = `/api/user/templates/${template.id}/download`
+      const apiResponse = await fetch(apiUrl)
 
-      // If URL has a valid extension, use it
+      if (!apiResponse.ok) {
+        throw new Error(`API request failed: ${apiResponse.statusText}`)
+      }
+
+      const apiData = await apiResponse.json()
+
+      if (!apiData.fileUrl) {
+        throw new Error("No file URL returned from API")
+      }
+
+      // Get file details from API response
+      const fileUrl = apiData.fileUrl
+      const contentType = apiData.contentType || "application/octet-stream"
+      const displayName = apiData.name || template.name
+
+      // Create a sanitized filename with the correct extension
+      let fileName = displayName.replace(/[^a-z0-9]/gi, "_").toLowerCase()
+      const fileExtension = apiData.fileExtension || fileUrl.split(".").pop()?.split("?")[0]?.toLowerCase()
+
       if (fileExtension) {
         fileName = `${fileName}.${fileExtension}`
       } else {
@@ -525,47 +532,33 @@ export default function DocumentTemplatesPage() {
         fileName = `${fileName}.pdf`
       }
 
-      toast({
-        title: "Download started",
-        description: "Your template is being downloaded.",
-      })
+      console.log(`Downloading file: ${fileName} (${contentType}) from ${fileUrl}`)
 
-      // Use fetch with appropriate headers to get the file as a blob
-      const response = await fetch(fileUrl, {
-        method: "GET",
-        headers: {
-          "Content-Type": contentType,
-        },
-      })
+      // Create a server-side proxy request to avoid CORS issues
+      const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(fileUrl)}&contentType=${encodeURIComponent(contentType)}`
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch file: ${response.statusText}`)
-      }
-
-      // Get the file as a blob
-      const blob = await response.blob()
-
-      // Create a blob with the correct content type
-      const fileBlob = new Blob([blob], { type: contentType })
-
-      // Create a blob URL and trigger download
-      const blobUrl = window.URL.createObjectURL(fileBlob)
+      // Use the browser's native download capability
       const link = document.createElement("a")
-      link.href = blobUrl
+      link.href = proxyUrl
       link.download = fileName
+      link.target = "_blank" // Open in new tab as fallback
       document.body.appendChild(link)
       link.click()
 
       // Clean up
       setTimeout(() => {
-        window.URL.revokeObjectURL(blobUrl)
         document.body.removeChild(link)
       }, 100)
+
+      toast({
+        title: "Download complete",
+        description: "Your document has been downloaded successfully.",
+      })
     } catch (error) {
       console.error("Error downloading template:", error)
       toast({
-        title: "Error",
-        description: "Failed to download template. Please try again.",
+        title: "Download failed",
+        description: "Failed to download document. Please try again.",
         variant: "destructive",
       })
     }

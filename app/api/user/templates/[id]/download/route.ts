@@ -14,6 +14,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const templateId = params.id
     const userId = (session.user as any).id
 
+    console.log(`Template download requested: ${templateId} by user ${userId}`)
+
     // Get the user with their business
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -35,6 +37,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     if (!template) {
       return NextResponse.json({ error: "Template not found" }, { status: 404 })
     }
+
+    console.log(`Template found: ${template.name}, fileUrl: ${template.fileUrl}`)
 
     // Extract template metadata
     let displayName = template.name
@@ -95,9 +99,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         console.error("Error updating template usage count:", e)
       }
 
-      // Get the file extension from the URL
+      // Get the file extension and content type from the URL
       const fileUrl = template.fileUrl || ""
       let fileExtension = ""
+      let contentType = "application/octet-stream" // Default content type
 
       try {
         // Extract file extension from URL or filename
@@ -107,11 +112,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           const urlParts = urlWithoutParams.split(".")
           if (urlParts.length > 1) {
             fileExtension = urlParts[urlParts.length - 1].toLowerCase()
+            contentType = getContentType(fileExtension)
           }
         }
       } catch (e) {
         console.error("Error extracting file extension:", e)
       }
+
+      console.log(
+        `Returning template download info: ${displayName}, extension: ${fileExtension}, contentType: ${contentType}`,
+      )
 
       // Return direct file URL and metadata
       return NextResponse.json({
@@ -119,7 +129,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         name: displayName,
         originalName: template.name,
         fileExtension: fileExtension || "",
-        contentType: getContentType(fileExtension),
+        contentType: contentType,
+        success: true,
       })
     }
 
@@ -137,12 +148,15 @@ function getContentType(extension: string): string {
     case "pdf":
       return "application/pdf"
     case "doc":
+      return "application/msword"
     case "docx":
       return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     case "xls":
+      return "application/vnd.ms-excel"
     case "xlsx":
       return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     case "ppt":
+      return "application/vnd.ms-powerpoint"
     case "pptx":
       return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
     case "jpg":
@@ -154,6 +168,12 @@ function getContentType(extension: string): string {
       return "image/gif"
     case "txt":
       return "text/plain"
+    case "rtf":
+      return "application/rtf"
+    case "zip":
+      return "application/zip"
+    case "csv":
+      return "text/csv"
     default:
       return "application/octet-stream" // Default binary file type
   }

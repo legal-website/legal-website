@@ -17,20 +17,49 @@ export async function uploadToCloudinary(file: File): Promise<string> {
     const fileType = file.type
     const dataURI = `data:${fileType};base64,${base64Data}`
 
+    console.log(`Uploading file to Cloudinary: ${file.name} (${file.type}, ${file.size} bytes)`)
+
+    // Determine resource type based on file type
+    let resourceType = "auto"
+    if (fileType.startsWith("image/")) {
+      resourceType = "image"
+    } else if (fileType.startsWith("video/")) {
+      resourceType = "video"
+    } else if (
+      fileType === "application/pdf" ||
+      fileType === "application/msword" ||
+      fileType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      fileType === "application/vnd.ms-excel" ||
+      fileType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      fileType === "application/vnd.ms-powerpoint" ||
+      fileType === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+      fileType === "text/plain" ||
+      fileType === "application/rtf" ||
+      fileType === "application/zip" ||
+      fileType === "text/csv"
+    ) {
+      resourceType = "raw"
+    }
+
     // Upload to Cloudinary with proper resource type detection
     const result = await new Promise<any>((resolve, reject) => {
       cloudinary.uploader.upload(
         dataURI,
         {
-          folder: "receipts",
-          resource_type: "auto", // Automatically detect resource type
-          use_filename: true, // Use original filename
-          unique_filename: true, // Ensure unique filenames
+          folder: "documents",
+          resource_type: resourceType,
+          use_filename: true,
+          unique_filename: true,
+          overwrite: false,
+          access_mode: "public",
+          type: "upload",
         },
         (error: any, result: any) => {
           if (error) {
+            console.error("Cloudinary upload error:", error)
             reject(error)
           } else {
+            console.log("Cloudinary upload success:", result.secure_url)
             resolve(result)
           }
         },
@@ -43,3 +72,4 @@ export async function uploadToCloudinary(file: File): Promise<string> {
     throw new Error("Failed to upload file to Cloudinary")
   }
 }
+
