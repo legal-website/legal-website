@@ -14,7 +14,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const templateId = params.id
     const userId = (session.user as any).id
 
-    // Check if the template exists (using Document model with type="template")
+    // Get the user with their business
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { business: true },
+    })
+
+    if (!user || !user.business) {
+      return NextResponse.json({ error: "User or business not found" }, { status: 404 })
+    }
+
+    // Check if the template exists
     const template = await prisma.document.findUnique({
       where: {
         id: templateId,
@@ -26,27 +36,40 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Template not found" }, { status: 404 })
     }
 
-    // Since there's no TemplateAccess model, we need to implement a different way to check access
-    // This is a placeholder - you'll need to implement your own access control logic
-    // For example, you might have a separate table or use metadata in the document name
-
-    // For free templates (price = 0) or templates the user has access to
-    // Parse price from template name if it exists (format: "name|price|tier|count|status")
+    // Extract template metadata
+    let displayName = template.name
     let price = 0
+
     try {
       const parts = template.name.split("|")
       if (parts && parts.length > 1) {
+        displayName = parts[0]
         price = Number.parseFloat(parts[1]) || 0
       }
     } catch (e) {
-      console.error("Error parsing template price:", e)
+      console.error("Error parsing template metadata:", e)
     }
 
     // Check if user has access to this template
-    // This is a simplified check - you'll need to implement your own access control
-    const hasAccess = price === 0 || (await checkUserAccess(userId, templateId))
+    const accessRecord = await prisma.document.findFirst({
+      where: {
+        businessId: user.business.id,
+        type: "access_template",
+        name: `access_${templateId}_${userId}`,
+      },
+    })
 
-    if (hasAccess) {
+    // Also check for user_template records
+    const userTemplate = await prisma.document.findFirst({
+      where: {
+        businessId: user.business.id,
+        type: "user_template",
+        fileUrl: template.fileUrl,
+      },
+    })
+
+    // For free templates or templates the user has access to
+    if (price === 0 || accessRecord || userTemplate) {
       // Increment usage count if tracking in the name
       try {
         const parts = template.name.split("|")
@@ -69,17 +92,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         console.error("Error updating template usage count:", e)
       }
 
-      // Extract display name from metadata
-      let displayName = template.name
-      try {
-        const parts = template.name.split("|")
-        if (parts && parts.length > 0) {
-          displayName = parts[0]
-        }
-      } catch (e) {
-        console.error("Error parsing template name:", e)
-      }
-
       return NextResponse.json({
         fileUrl: template.fileUrl,
         name: displayName,
@@ -92,16 +104,5 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.error("Error downloading template:", error)
     return NextResponse.json({ error: "Failed to download template" }, { status: 500 })
   }
-}
-
-// Helper function to check if a user has access to a template
-// This is a placeholder - implement your own access control logic
-async function checkUserAccess(userId: string, templateId: string): Promise<boolean> {
-  // Example implementation - you might have a different way to track access
-  // For example, you might have a separate table or use metadata
-
-  // For now, we'll return true for testing purposes
-  // In a real implementation, you would check your access control system
-  return true
 }
 

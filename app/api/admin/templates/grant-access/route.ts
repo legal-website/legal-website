@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import prisma from "@/lib/prisma"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
 export async function POST(req: NextRequest) {
@@ -30,25 +30,81 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Template not found" }, { status: 404 })
     }
 
-    // Check if user exists
+    // Check if user exists and get their business
     const user = await prisma.user.findUnique({
       where: { id: userId },
+      include: { business: true },
     })
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Since we don't have a TemplateAccess model, we need to implement a different way to track access
-    // This is a placeholder - you'll need to implement your own access control logic
-    // For example, you might create a custom table or use metadata
+    if (!user.business) {
+      return NextResponse.json({ error: "User does not have an associated business" }, { status: 400 })
+    }
 
-    // For now, we'll just return success
-    // In a real implementation, you would record the access grant in your system
+    // Extract template metadata
+    let templateName = template.name
+    let templatePrice = 0
+    let templateTier = "Free"
+
+    try {
+      const parts = template.name.split("|")
+      if (parts && parts.length > 2) {
+        templateName = parts[0]
+        templatePrice = Number.parseFloat(parts[1]) || 0
+        templateTier = parts[2] || "Free"
+      }
+    } catch (e) {
+      console.error("Error parsing template metadata:", e)
+    }
+
+    // Check if access already exists by looking for a document with access_template type
+    const existingAccess = await prisma.document.findFirst({
+      where: {
+        businessId: user.business.id,
+        type: "access_template",
+        name: `access_${templateId}_${userId}`,
+      },
+    })
+
+    if (existingAccess) {
+      return NextResponse.json({
+        success: true,
+        message: "User already has access to this template",
+        access: existingAccess,
+      })
+    }
+
+    // Create a document to track template access
+    const access = await prisma.document.create({
+      data: {
+        name: `access_${templateId}_${userId}`,
+        category: "template_access",
+        businessId: user.business.id,
+        fileUrl: template.fileUrl,
+        type: "access_template",
+      },
+    })
+
+    // Also create a copy of the template in the user's business documents
+    // This makes it easier for the user to find and use the template
+    const userTemplate = await prisma.document.create({
+      data: {
+        name: `${templateName} (Unlocked)`,
+        category: template.category,
+        businessId: user.business.id,
+        fileUrl: template.fileUrl,
+        type: "user_template",
+      },
+    })
 
     return NextResponse.json({
       success: true,
       message: "Template access granted successfully",
+      access,
+      userTemplate,
     })
   } catch (error: any) {
     console.error("Error granting template access:", error)
