@@ -16,6 +16,8 @@ export async function POST(req: NextRequest) {
     const invoiceId = formData.get("invoiceId") as string
     const isTemplateInvoice = formData.get("isTemplateInvoice") as string
     const templateName = formData.get("templateName") as string
+    const templateId = formData.get("templateId") as string
+    const price = formData.get("price") as string
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
@@ -25,6 +27,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invoice ID is required" }, { status: 400 })
     }
 
+    // Get the existing invoice to preserve any existing items
+    const existingInvoice = await db.invoice.findUnique({
+      where: { id: invoiceId },
+    })
+
     // Upload file to Cloudinary
     const receiptUrl = await uploadToCloudinary(file)
 
@@ -32,17 +39,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to upload file" }, { status: 500 })
     }
 
+    // Ensure we have a valid template name
+    const finalTemplateName = templateName || "Unknown Template"
+
+    // Create a clean items object with the template information
+    const templateItems = {
+      isTemplateInvoice: true,
+      templateName: finalTemplateName,
+      templateId: templateId || invoiceId,
+      type: "template",
+      price: Number.parseFloat(price) || 0,
+    }
+
     // Update the invoice with the receipt URL and template information
     const updatedInvoice = await db.invoice.update({
       where: { id: invoiceId },
       data: {
         paymentReceipt: receiptUrl,
-        items: JSON.stringify({
-          isTemplateInvoice: true,
-          templateName: templateName, // Use the template name directly
-          type: "template",
-          price: formData.get("price") || 0,
-        }),
+        items: JSON.stringify(templateItems),
       },
     })
 

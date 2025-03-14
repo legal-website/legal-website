@@ -60,7 +60,7 @@ export default function DocumentTemplatesPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
+  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null)
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -470,6 +470,7 @@ export default function DocumentTemplatesPage() {
       formData.append("invoiceId", selectedInvoice.id)
       formData.append("isTemplateInvoice", "true")
       formData.append("templateName", selectedTemplate.name) // Ensure template name is included
+      formData.append("templateId", selectedTemplate.id)
       formData.append("price", selectedTemplate.price.toString())
 
       const response = await fetch("/api/user/templates/upload-receipt", {
