@@ -166,24 +166,20 @@ export default function DashboardPage() {
       const response = await fetch("/api/admin/templates/stats")
       if (response.ok) {
         const data = await response.json()
-        if (data.templateStats && data.templateStats.length > 0) {
-          // Create template objects from the stats data
-          const templatesFromStats = data.templateStats.map((stat: any) => ({
-            id: stat.id,
-            name: stat.name,
-            description: `${stat.name} template`,
-            category: stat.category || "Document",
-            price: stat.price || 0,
-            pricingTier: stat.pricingTier || "Free",
-            isPurchased: true, // Assume all templates from stats are accessible
-            isPending: false,
-            isFree: stat.price === 0 || stat.pricingTier === "Free",
-            updatedAt: stat.updatedAt || new Date().toISOString(),
-            usageCount: stat.usageCount || 0,
-            status: stat.status || "active",
-          }))
-
-          setTemplates(templatesFromStats)
+        if (data.templates) {
+          // Update existing templates with download counts
+          setTemplates((prevTemplates) => {
+            return prevTemplates.map((template) => {
+              const matchingTemplate = data.templates.find((t: any) => t.id === template.id)
+              if (matchingTemplate) {
+                return {
+                  ...template,
+                  usageCount: matchingTemplate.usageCount || 0,
+                }
+              }
+              return template
+            })
+          })
         }
       }
     } catch (error) {
@@ -191,7 +187,7 @@ export default function DashboardPage() {
     }
   }
 
-  // Update the handleDownload function to increment the download count
+  // Add this function to handle template download
   const handleDownload = async (template: Template) => {
     try {
       toast({
@@ -207,16 +203,6 @@ export default function DashboardPage() {
       setTemplates((prevTemplates) =>
         prevTemplates.map((t) => (t.id === template.id ? { ...t, usageCount: (t.usageCount || 0) + 1 } : t)),
       )
-
-      // Update usage count on the server
-      try {
-        await fetch(`/api/admin/templates/${template.id}/increment-download`, {
-          method: "POST",
-        })
-      } catch (err) {
-        console.error("Error incrementing download count:", err)
-        // Continue with download even if tracking fails
-      }
 
       const apiUrl = `/api/user/templates/${template.id}/download`
       const apiResponse = await fetch(apiUrl)

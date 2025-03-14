@@ -7,8 +7,8 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    // Check if user is authenticated
-    if (!session) {
+    // Check if user is authenticated and is an admin
+    if (!session || (session.user as any).role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -53,6 +53,10 @@ export async function GET(request: NextRequest) {
         console.error("Error parsing template metadata:", e)
       }
 
+      // Since we don't have a TemplateAccess model, we'll set accessCount to 0
+      // In a real implementation, you would count from your access control system
+      const accessCount = 0
+
       return {
         id: template.id,
         name: displayName,
@@ -61,9 +65,9 @@ export async function GET(request: NextRequest) {
         createdAt: template.createdAt,
         updatedAt: template.updatedAt,
         usageCount: usageCount,
+        accessCount: accessCount,
         status: status,
         pricingTier: pricingTier,
-        fileUrl: template.fileUrl,
       }
     })
 
