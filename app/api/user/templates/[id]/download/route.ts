@@ -1,45 +1,29 @@
-import { type NextRequest, NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
+import { NextResponse, type NextRequest } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { db } from "@/lib/db"
+import { v2 as cloudinary } from "cloudinary"
 import { extractCloudinaryDetails } from "@/lib/cloudinary"
 
-// Define a proper type for the downloadOptions object
-// Add this type definition before the GET function:
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "",
+  api_key: process.env.CLOUDINARY_API_KEY || "",
+  api_secret: process.env.CLOUDINARY_API_SECRET || "",
+})
 
-interface DownloadOptions {
-  original: string
-  proxy: string
-  direct: string
-  cloudinaryDirect?: string
-  cloudinarySigned?: string
-}
-
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const templateId = params.id
     const userId = (session.user as any).id
+    const templateId = params.id
 
-    console.log(`Template download requested: ${templateId} by user ${userId}`)
-
-    // Get the user with their business
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { business: true },
-    })
-
-    if (!user || !user.business) {
-      return NextResponse.json({ error: "User or business not found" }, { status: 404 })
-    }
-
-    // Check if the template exists
-    const template = await prisma.document.findUnique({
+    // Find the template
+    const template = await db.document.findFirst({
       where: {
         id: templateId,
         type: "template",
@@ -47,215 +31,199 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     })
 
     if (!template) {
+      console.error(`Template not found: ${templateId}`)
       return NextResponse.json({ error: "Template not found" }, { status: 404 })
     }
 
-    console.log(`Template found: ${template.name}, fileUrl: ${template.fileUrl}`)
-
-    if (!template.fileUrl) {
-      return NextResponse.json({ error: "Template has no associated file" }, { status: 404 })
-    }
-
-    // Extract template metadata
-    let displayName = template.name
-    let price = 0
-    let isFree = false
-
-    try {
-      const parts = template.name.split("|")
-      if (parts && parts.length > 1) {
-        displayName = parts[0].trim()
-        price = Number.parseFloat(parts[1]) || 0
-        // Consider it free if price is 0 or if it's explicitly marked as free tier
-        isFree = price === 0 || (parts.length > 2 && parts[2].toLowerCase() === "free")
-      }
-    } catch (e) {
-      console.error("Error parsing template metadata:", e)
-    }
-
     // Check if user has access to this template
-    const accessRecord = await prisma.document.findFirst({
+    // Using Document model with type "access_template" instead of TemplateAccess
+    const access = await db.document.findFirst({
       where: {
-        businessId: user.business.id,
         type: "access_template",
         name: `access_${templateId}_${userId}`,
       },
     })
 
-    // Also check for user_template records
-    const userTemplate = await prisma.document.findFirst({
-      where: {
-        businessId: user.business.id,
-        type: "user_template",
-        fileUrl: template.fileUrl,
-      },
-    })
+    // For free templates or if user has access, allow download
+    const isFreeTemplate = template.category.includes("Free") || template.name.includes("Free")
 
-    // For free templates or templates the user has access to
-    if (isFree || price === 0 || accessRecord || userTemplate) {
-      // Increment usage count if tracking in the name
-      try {
-        const parts = template.name.split("|")
-        if (parts && parts.length > 3) {
-          const displayName = parts[0]
-          const price = parts[1]
-          const tier = parts[2]
-          const usageCount = (Number.parseInt(parts[3]) || 0) + 1
-          const status = parts[4] || "active"
-
-          // Update the document with incremented usage count
-          await prisma.document.update({
-            where: { id: templateId },
-            data: {
-              name: `${displayName}|${price}|${tier}|${usageCount}|${status}`,
-            },
-          })
-        }
-      } catch (e) {
-        console.error("Error updating template usage count:", e)
-      }
-
-      // Get the file extension and content type from the URL
-      const fileUrl = template.fileUrl
-      let fileExtension = ""
-      let contentType = "application/octet-stream" // Default content type
-
-      try {
-        // Extract file extension from URL or filename
-        if (fileUrl) {
-          // Remove query parameters for extension extraction
-          const urlWithoutParams = fileUrl.split("?")[0]
-          const urlParts = urlWithoutParams.split(".")
-          if (urlParts.length > 1) {
-            fileExtension = urlParts[urlParts.length - 1].toLowerCase()
-            contentType = getContentType(fileExtension)
-          }
-        }
-      } catch (e) {
-        console.error("Error extracting file extension:", e)
-      }
-
-      // Prepare multiple download options
-      const downloadOptions: DownloadOptions = {
-        // Option 1: Original URL
-        original: fileUrl,
-
-        // Option 2: Proxy download
-        proxy: `/api/proxy-download?url=${encodeURIComponent(fileUrl)}&contentType=${encodeURIComponent(contentType)}&templateId=${templateId}&filename=${encodeURIComponent(displayName + (fileExtension ? `.${fileExtension}` : ""))}`,
-
-        // Option 3: Direct download
-        direct: `/api/direct-download?documentId=${templateId}&filename=${encodeURIComponent(displayName + (fileExtension ? `.${fileExtension}` : ""))}`,
-      }
-
-      // Option 4: If it's a Cloudinary URL, add direct attachment URL
-      if (fileUrl.includes("cloudinary.com")) {
-        try {
-          // Try direct attachment URL
-          downloadOptions.cloudinaryDirect = fileUrl.replace("/upload/", "/upload/fl_attachment/")
-
-          // Try signed URL
-          const { publicId, resourceType } = extractCloudinaryDetails(fileUrl)
-          if (publicId) {
-            downloadOptions.cloudinarySigned = cloudinarySignedUrl(publicId, resourceType)
-          }
-        } catch (e) {
-          console.error("Error creating Cloudinary URLs:", e)
-        }
-      }
-
-      console.log(
-        `Returning template download info: ${displayName}, extension: ${fileExtension}, contentType: ${contentType}`,
-      )
-
-      // Return all download options and metadata
-      return NextResponse.json({
-        fileUrl: fileUrl, // Original URL for backward compatibility
-        name: displayName,
-        originalName: template.name,
-        fileExtension: fileExtension || "",
-        contentType: contentType,
-        success: true,
-        downloadOptions: downloadOptions,
-        // Recommended download method
-        recommendedUrl: downloadOptions.proxy,
-      })
+    if (!isFreeTemplate && !access) {
+      console.error(`User ${userId} does not have access to template ${templateId}`)
+      return NextResponse.json({ error: "You don't have access to this template" }, { status: 403 })
     }
 
-    // If the user doesn't have access
-    return NextResponse.json({ error: "You don't have access to this template" }, { status: 403 })
-  } catch (error) {
+    // Increment usage count (optional)
+    // This would need to be implemented based on your specific requirements
+
+    // Get the file URL
+    const fileUrl = template.fileUrl
+    if (!fileUrl) {
+      console.error(`Template ${templateId} has no file URL`)
+      return NextResponse.json({ error: "Template file not available" }, { status: 404 })
+    }
+
+    console.log(`Attempting to download template: ${templateId}, URL: ${fileUrl}`)
+
+    // Check if it's a Cloudinary URL
+    if (fileUrl.includes("cloudinary.com")) {
+      try {
+        // Extract Cloudinary details
+        const { publicId, resourceType, folderPath } = extractCloudinaryDetails(fileUrl)
+
+        if (!publicId) {
+          console.error(`Could not extract public ID from URL: ${fileUrl}`)
+          return NextResponse.json({
+            url: fileUrl,
+            filename: template.name.replace(/[^a-z0-9]/gi, "_").toLowerCase() + ".pdf",
+          })
+        }
+
+        console.log(
+          `Extracted Cloudinary details - Public ID: ${publicId}, Resource Type: ${resourceType}, Folder: ${folderPath}`,
+        )
+
+        // Try to download with the detected resource type
+        try {
+          const result = await downloadFromCloudinary(publicId, resourceType as "image" | "raw" | "video")
+          if (result) {
+            // Create a filename based on the template name
+            const filename =
+              template.name.replace(/[^a-z0-9]/gi, "_").toLowerCase() +
+              "." +
+              getExtensionFromResourceType(resourceType, result.format)
+
+            // Return the file directly
+            return new NextResponse(result.buffer, {
+              headers: {
+                "Content-Type": result.contentType,
+                "Content-Disposition": `attachment; filename="${filename}"`,
+              },
+            })
+          }
+        } catch (error) {
+          console.error(`Failed to download with resource type ${resourceType}:`, error)
+        }
+
+        // If the first attempt failed, try other resource types
+        const resourceTypes = ["raw", "image", "video"] as const
+        for (const type of resourceTypes) {
+          if (type === resourceType) continue // Skip the one we already tried
+
+          try {
+            console.log(`Trying alternative resource type: ${type} for ${publicId}`)
+            const result = await downloadFromCloudinary(publicId, type)
+            if (result) {
+              // Create a filename based on the template name
+              const filename =
+                template.name.replace(/[^a-z0-9]/gi, "_").toLowerCase() +
+                "." +
+                getExtensionFromResourceType(type, result.format)
+
+              // Return the file directly
+              return new NextResponse(result.buffer, {
+                headers: {
+                  "Content-Type": result.contentType,
+                  "Content-Disposition": `attachment; filename="${filename}"`,
+                },
+              })
+            }
+          } catch (error) {
+            console.error(`Failed to download with resource type ${type}:`, error)
+          }
+        }
+
+        // If all direct download attempts failed, return the URL for client-side handling
+        console.log(`All Cloudinary download attempts failed, returning URL for client-side handling`)
+        return NextResponse.json({
+          url: fileUrl,
+          filename: template.name.replace(/[^a-z0-9]/gi, "_").toLowerCase() + ".pdf",
+        })
+      } catch (error) {
+        console.error(`Error processing Cloudinary URL:`, error)
+        return NextResponse.json({
+          url: fileUrl,
+          filename: template.name.replace(/[^a-z0-9]/gi, "_").toLowerCase() + ".pdf",
+        })
+      }
+    } else {
+      // For non-Cloudinary URLs, return the URL for client-side handling
+      console.log(`Non-Cloudinary URL, returning for client-side handling: ${fileUrl}`)
+      return NextResponse.json({
+        url: fileUrl,
+        filename: template.name.replace(/[^a-z0-9]/gi, "_").toLowerCase() + ".pdf",
+      })
+    }
+  } catch (error: any) {
     console.error("Error downloading template:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to download template",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: error.message || "Failed to download template" }, { status: 500 })
   }
 }
 
-// Helper function to determine content type based on file extension
-function getContentType(extension: string): string {
-  switch (extension.toLowerCase()) {
-    case "pdf":
-      return "application/pdf"
-    case "doc":
-      return "application/msword"
-    case "docx":
-      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    case "xls":
-      return "application/vnd.ms-excel"
-    case "xlsx":
-      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    case "ppt":
-      return "application/vnd.ms-powerpoint"
-    case "pptx":
-      return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg"
-    case "png":
-      return "image/png"
-    case "gif":
-      return "image/gif"
-    case "txt":
-      return "text/plain"
-    case "rtf":
-      return "application/rtf"
-    case "zip":
-      return "application/zip"
-    case "csv":
-      return "text/csv"
-    default:
-      return "application/octet-stream" // Default binary file type
-  }
-}
-
-// Helper function to create a Cloudinary signed URL
-function cloudinarySignedUrl(publicId: string, resourceType: string): string {
+async function downloadFromCloudinary(publicId: string, resourceType: "image" | "raw" | "video") {
   try {
-    const { v2: cloudinary } = require("cloudinary")
+    console.log(`Attempting to download from Cloudinary - Public ID: ${publicId}, Resource Type: ${resourceType}`)
 
-    // Configure Cloudinary
-    cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
-      secure: true,
-    })
-
-    return cloudinary.url(publicId, {
-      secure: true,
+    // Generate a signed URL with the admin API
+    const url = cloudinary.url(publicId, {
       resource_type: resourceType,
-      type: "upload",
+      secure: true,
       sign_url: true,
-      attachment: true,
-      expires_at: Math.floor(Date.now() / 1000) + 3600, // URL valid for 1 hour
+      type: "authenticated",
     })
+
+    console.log(`Generated signed URL: ${url}`)
+
+    // Fetch the file
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.error(`Cloudinary fetch failed: ${response.status} ${response.statusText}`)
+      return null
+    }
+
+    // Get the content type and format
+    const contentType = response.headers.get("content-type") || "application/octet-stream"
+    const format = getFormatFromContentType(contentType)
+
+    // Get the file as a buffer
+    const buffer = await response.arrayBuffer()
+
+    return {
+      buffer,
+      contentType,
+      format,
+    }
   } catch (error) {
-    console.error("Error creating Cloudinary signed URL:", error)
-    return ""
+    console.error(`Error downloading from Cloudinary:`, error)
+    return null
+  }
+}
+
+function getFormatFromContentType(contentType: string): string {
+  const mapping: Record<string, string> = {
+    "application/pdf": "pdf",
+    "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "text/plain": "txt",
+  }
+
+  return mapping[contentType] || "pdf"
+}
+
+function getExtensionFromResourceType(resourceType: string, format?: string): string {
+  if (format) return format
+
+  switch (resourceType) {
+    case "image":
+      return "jpg"
+    case "video":
+      return "mp4"
+    case "raw":
+    default:
+      return "pdf"
   }
 }
 

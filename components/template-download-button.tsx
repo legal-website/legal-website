@@ -25,85 +25,128 @@ export function TemplateDownloadButton({
     setIsLoading(true)
 
     try {
-      // First attempt: Get the download URL from the API
+      // Try direct download first - this will either return the file directly or provide the URL
       const response = await fetch(`/api/user/templates/${templateId}/download`)
 
       if (!response.ok) {
-        throw new Error(`Failed to get download URL: ${response.status}`)
+        throw new Error(`Failed to get download information: ${response.status}`)
       }
 
+      // Check if the response is a file (binary) or JSON
+      const contentType = response.headers.get("content-type") || ""
+
+      // If it's a file, create a download link
+      if (!contentType.includes("application/json")) {
+        console.log("Received file directly from server")
+
+        // Get the filename from the Content-Disposition header
+        const contentDisposition = response.headers.get("content-disposition") || ""
+        const filenameMatch = contentDisposition.match(/filename="(.+?)"/)
+        const filename = filenameMatch ? filenameMatch[1] : `document-${templateId}`
+
+        // Create a blob from the response
+        const blob = await response.blob()
+
+        // Create a download link
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.style.display = "none"
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+
+        // Clean up
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+
+        toast({
+          title: "Download complete",
+          description: `${filename} has been downloaded`,
+        })
+
+        setIsLoading(false)
+        return
+      }
+
+      // If we get here, the response is JSON with the file URL
       const data = await response.json()
 
       if (!data.success || !data.fileUrl) {
         throw new Error(data.error || "Failed to get download URL")
       }
 
+      console.log("Received download information:", data)
+
       // Get the filename
       const filename = `${data.name}${data.fileExtension ? `.${data.fileExtension}` : ""}`
 
-      // Check if this is a Cloudinary URL
-      const isCloudinaryUrl = data.fileUrl.includes("cloudinary.com")
-
-      // Try the new Cloudinary direct download endpoint first for Cloudinary URLs
-      if (isCloudinaryUrl) {
-        console.log("Using Cloudinary direct download endpoint")
-        window.location.href = `/api/cloudinary-direct?documentId=${templateId}&filename=${encodeURIComponent(filename)}`
-
-        toast({
-          title: "Download started",
-          description: `${filename} is being downloaded`,
-        })
-
-        setIsLoading(false)
-        return
-      }
-
-      // For PDFs, use the proxy download endpoint
-      const isPdf =
-        data.fileUrl.toLowerCase().endsWith(".pdf") ||
-        data.contentType === "application/pdf" ||
-        data.fileExtension === "pdf"
-
-      if (isPdf) {
-        console.log("PDF detected, using proxy download")
-        const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(data.fileUrl)}&contentType=${encodeURIComponent(
-          data.contentType || "application/pdf",
-        )}&templateId=${templateId}&filename=${encodeURIComponent(filename)}`
-
-        window.location.href = proxyUrl
-
-        toast({
-          title: "Download started",
-          description: `${filename} is being downloaded`,
-        })
-
-        setIsLoading(false)
-        return
-      }
-
-      // Try the direct download method
-      try {
-        const directUrl = `/api/direct-download?documentId=${templateId}&filename=${encodeURIComponent(filename)}`
-        window.location.href = directUrl
-
-        toast({
-          title: "Download started",
-          description: `${filename} is being downloaded`,
-        })
-      } catch (primaryError) {
-        console.error("Primary download method failed:", primaryError)
-
-        // If primary method fails, try the proxy download method
-        toast({
-          title: "Trying alternative download method",
-          description: "The first download attempt failed, trying another method...",
-        })
-
-        // Use the proxy download endpoint
+      // If there was a Cloudinary error, try the proxy download
+      if (data.cloudinaryError) {
+        console.log("Cloudinary direct download failed, using proxy download")
         const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(data.fileUrl)}&contentType=${encodeURIComponent(
           data.contentType || "application/octet-stream",
         )}&templateId=${templateId}&filename=${encodeURIComponent(filename)}`
+
         window.location.href = proxyUrl
+
+        toast({
+          title: "Download started",
+          description: `${filename} is being downloaded`,
+        })
+
+        setIsLoading(false)
+        return
+      }
+
+      // Try to download the file directly from the browser
+      try {
+        console.log("Attempting direct browser download")
+
+        const fileResponse = await fetch(data.fileUrl)
+
+        if (!fileResponse.ok) {
+          throw new Error(`Failed to fetch file: ${fileResponse.status}`)
+        }
+
+        const blob = await fileResponse.blob()
+
+        // Create a download link
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.style.display = "none"
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+
+        // Clean up
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+
+        toast({
+          title: "Download complete",
+          description: `${filename} has been downloaded`,
+        })
+      } catch (directError) {
+        console.error("Direct browser download failed:", directError)
+
+        // Fall back to proxy download
+        toast({
+          title: "Trying alternative download method",
+          description: "Direct download failed, trying server-side download...",
+        })
+
+        const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(data.fileUrl)}&contentType=${encodeURIComponent(
+          data.contentType || "application/octet-stream",
+        )}&templateId=${templateId}&filename=${encodeURIComponent(filename)}`
+
+        window.location.href = proxyUrl
+
+        toast({
+          title: "Download started",
+          description: `${filename} is being downloaded`,
+        })
       }
     } catch (error) {
       console.error("Download error:", error)
