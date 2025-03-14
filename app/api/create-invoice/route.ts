@@ -1,6 +1,21 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 
+// Define an interface for the invoice item to avoid TypeScript errors
+interface InvoiceItem {
+  id: string
+  tier: string
+  price: number
+  stateFee: number | null
+  state: string | null
+  discount: number | null
+  templateId: string | null
+  type: string | null
+  name: string
+  description: string | null
+  isTemplateInvoice?: boolean // Make this optional
+}
+
 export async function POST(req: Request) {
   try {
     // Parse request body
@@ -43,7 +58,7 @@ export async function POST(req: Request) {
 
     // Process items to ensure they're in the correct format
     // IMPORTANT: Preserve the original price from the items
-    const safeItems = items.map((item: any) => ({
+    const safeItems: InvoiceItem[] = items.map((item: any) => ({
       id: item.id || `item-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       tier: item.tier || "STANDARD",
       price: Number(item.price) || 0, // Ensure we're using the actual price from the item
@@ -52,7 +67,30 @@ export async function POST(req: Request) {
       discount: item.discount ? Number(item.discount) : null,
       templateId: item.templateId || null, // Add templateId if it exists
       type: item.templateId ? "template" : item.type || null, // Set type to "template" if templateId exists
+      name: item.name || item.tier || "Unknown Item", // Add item name for better identification
+      description: item.description || null, // Add description if available
     }))
+
+    // Check if this is a template invoice
+    const isTemplateInvoice = safeItems.some(
+      (item) =>
+        item.type === "template" ||
+        (item.tier && typeof item.tier === "string" && item.tier.toLowerCase().includes("template")),
+    )
+
+    // If this is a template invoice, add a flag to make it easier to identify
+    if (isTemplateInvoice) {
+      console.log("This is a template invoice")
+      // Add isTemplateInvoice flag to each item that is a template
+      safeItems.forEach((item) => {
+        if (
+          item.type === "template" ||
+          (item.tier && typeof item.tier === "string" && item.tier.toLowerCase().includes("template"))
+        ) {
+          item.isTemplateInvoice = true
+        }
+      })
+    }
 
     // Convert amount to a number - use the provided total which should match the template price
     const amount = typeof total === "string" ? Number.parseFloat(total) : Number(total)
@@ -60,7 +98,7 @@ export async function POST(req: Request) {
     // Create the invoice
     const invoice = await db.invoice.create({
       data: {
-        invoiceNumber,
+        invoiceNumber: isTemplateInvoice ? `TEMPLATE-${invoiceNumber}` : invoiceNumber,
         customerName: customer.name,
         customerEmail: customer.email,
         amount, // Use the correct amount from the request
