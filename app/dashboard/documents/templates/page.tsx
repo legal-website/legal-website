@@ -50,6 +50,7 @@ interface UnlockingStatus {
   isUnlocking: boolean
   templateName: string
   progress: number
+  effectClass?: string
 }
 
 export default function DocumentTemplatesPage() {
@@ -107,10 +108,27 @@ export default function DocumentTemplatesPage() {
       progress: 0,
     })
 
-    let progress = 0
+    // Calculate steps for a 3-minute progress (180 seconds)
+    // We'll update every 2 seconds, so 90 steps total
+    const totalSteps = 90
+    const stepSize = 100 / totalSteps
+    let currentStep = 0
+
     const interval = setInterval(() => {
-      progress += 5
-      setUnlockingStatus((prev) => (prev ? { ...prev, progress } : null))
+      currentStep++
+      const progress = Math.min(currentStep * stepSize, 100)
+
+      // Add different effects based on progress
+      let effectClass = "bg-blue-500"
+      if (progress > 75) {
+        effectClass = "bg-green-500"
+      } else if (progress > 50) {
+        effectClass = "bg-teal-500"
+      } else if (progress > 25) {
+        effectClass = "bg-cyan-500"
+      }
+
+      setUnlockingStatus((prev) => (prev ? { ...prev, progress, effectClass } : null))
 
       if (progress >= 100) {
         clearInterval(interval)
@@ -119,7 +137,7 @@ export default function DocumentTemplatesPage() {
           fetchTemplates() // Refresh templates after unlocking
         }, 1000)
       }
-    }, 300)
+    }, 2000) // Update every 2 seconds for a total of 3 minutes
   }
 
   useEffect(() => {
@@ -471,7 +489,9 @@ export default function DocumentTemplatesPage() {
 
       setShowUploadDialog(false)
       setUploadFile(null)
-      fetchTemplates() // Refresh templates
+
+      // Show the progress bar for 3 minutes after upload
+      simulateUnlocking(selectedTemplate.name)
     } catch (error) {
       console.error("Error uploading receipt:", error)
       toast({
@@ -491,66 +511,144 @@ export default function DocumentTemplatesPage() {
   // Replace the handleDownload function with this improved version
   const handleDownload = async (template: Template) => {
     try {
-      let fileUrl = template.fileUrl
-      let fileName = template.name.replace(/\s+/g, "-").toLowerCase()
+      // Show loading state
+      toast({
+        title: "Download started",
+        description: "Preparing your document for download...",
+      })
 
-      // If no direct fileUrl is available, try to fetch it from the API
-      if (!fileUrl) {
-        const response = await fetch(`/api/user/templates/${template.id}/download`)
-
-        if (!response.ok) {
-          throw new Error("Failed to download template")
-        }
-
-        const data = await response.json()
-        fileUrl = data.fileUrl
-
-        if (!fileUrl) {
-          throw new Error("No file URL available")
-        }
+      // If template has no ID or fileUrl, we can't proceed
+      if (!template.id && !template.fileUrl) {
+        throw new Error("No template information available for download")
       }
 
-      // Extract file extension from URL
-      const urlExtension = fileUrl.split(".").pop()?.toLowerCase()
+      // First try to get the file through our API to handle authentication and tracking
+      const apiUrl = `/api/user/templates/${template.id}/download`
+      const apiResponse = await fetch(apiUrl)
 
-      // If URL has a valid extension, use it
-      if (
-        urlExtension &&
-        ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "jpg", "jpeg", "png", "gif"].includes(urlExtension)
-      ) {
-        fileName = `${fileName}.${urlExtension}`
+      if (!apiResponse.ok) {
+        throw new Error(`API request failed: ${apiResponse.statusText}`)
+      }
+
+      const apiData = await apiResponse.json()
+
+      if (!apiData.fileUrl) {
+        throw new Error("No file URL returned from API")
+      }
+
+      // Get file details from API response
+      const fileUrl = apiData.fileUrl
+      const contentType = apiData.contentType || "application/octet-stream"
+      const displayName = apiData.name || template.name
+
+      // Create a sanitized filename with the correct extension
+      let fileName = displayName.replace(/[^a-z0-9]/gi, "_").toLowerCase()
+      const fileExtension = apiData.fileExtension || fileUrl.split(".").pop()?.split("?")[0]?.toLowerCase()
+
+      if (fileExtension) {
+        fileName = `${fileName}.${fileExtension}`
       } else {
         // Default to PDF if no extension is found
         fileName = `${fileName}.pdf`
       }
 
-      toast({
-        title: "Download started",
-        description: "Your template is being downloaded.",
-      })
+      console.log(`Downloading file: ${fileName} (${contentType}) from ${fileUrl}`)
 
-      // Use fetch to get the file as a blob
-      const response = await fetch(fileUrl)
-      const blob = await response.blob()
+      // Create a server-side proxy request to avoid CORS issues and handle authentication
+      const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(fileUrl)}&contentType=${encodeURIComponent(contentType)}&templateId=${template.id}`
 
-      // Create a blob URL and trigger download
-      const blobUrl = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = blobUrl
-      link.download = fileName
-      document.body.appendChild(link)
-      link.click()
+      // Try multiple download methods for better compatibility
 
-      // Clean up
-      setTimeout(() => {
-        window.URL.revokeObjectURL(blobUrl)
-        document.body.removeChild(link)
-      }, 100)
+      // Method 1: Fetch and create blob URL (most reliable)
+      try {
+        const response = await fetch(proxyUrl)
+
+        if (!response.ok) {
+          throw new Error(`Proxy request failed: ${response.statusText}`)
+        }
+
+        const blob = await response.blob()
+
+        if (blob.size === 0) {
+          throw new Error("Downloaded file is empty")
+        }
+
+        // Create a blob URL and trigger download
+        const blobUrl = window.URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = blobUrl
+        link.download = fileName
+        document.body.appendChild(link)
+        link.click()
+
+        // Clean up
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl)
+          document.body.removeChild(link)
+        }, 100)
+
+        toast({
+          title: "Download complete",
+          description: "Your document has been downloaded successfully.",
+        })
+
+        return
+      } catch (method1Error) {
+        console.error("Method 1 download failed:", method1Error)
+        // Continue to method 2
+      }
+
+      // Method 2: Direct link with target="_blank" (fallback)
+      try {
+        const link = document.createElement("a")
+        link.href = proxyUrl
+        link.target = "_blank" // Open in new tab
+        link.rel = "noopener noreferrer"
+        document.body.appendChild(link)
+        link.click()
+
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(link)
+        }, 100)
+
+        toast({
+          title: "Download initiated",
+          description:
+            "Your document should open in a new tab. If it doesn't, please check your popup blocker settings.",
+        })
+
+        return
+      } catch (method2Error) {
+        console.error("Method 2 download failed:", method2Error)
+        // Continue to method 3
+      }
+
+      // Method 3: iframe approach (last resort)
+      try {
+        const iframe = document.createElement("iframe")
+        iframe.style.display = "none"
+        iframe.src = proxyUrl
+        document.body.appendChild(iframe)
+
+        // Clean up after a delay
+        setTimeout(() => {
+          document.body.removeChild(iframe)
+        }, 5000)
+
+        toast({
+          title: "Download initiated",
+          description: "Your document should download automatically. If it doesn't, please try again.",
+        })
+      } catch (method3Error) {
+        console.error("Method 3 download failed:", method3Error)
+        throw new Error("All download methods failed")
+      }
     } catch (error) {
       console.error("Error downloading template:", error)
       toast({
-        title: "Error",
-        description: "Failed to download template. Please try again.",
+        title: "Download failed",
+        description: "Failed to download document. Please try again or contact support.",
         variant: "destructive",
       })
     }
@@ -599,7 +697,7 @@ export default function DocumentTemplatesPage() {
                   </div>
                   <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-green-500 rounded-full transition-all duration-300 ease-in-out"
+                      className={`h-full ${unlockingStatus.effectClass || "bg-blue-500"} rounded-full transition-all duration-300 ease-in-out`}
                       style={{ width: `${unlockingStatus.progress}%` }}
                     ></div>
                   </div>
@@ -730,7 +828,7 @@ export default function DocumentTemplatesPage() {
                 {filteredTemplates.length > 0 ? (
                   currentTemplates.map((template) => (
                     <Card key={template.id} className="overflow-hidden">
-                      <div className="p-6 relative">
+                      <div className="p-6">
                         <div className="flex items-start justify-between mb-3">
                           <div className="p-2 bg-blue-100 rounded-lg">{getFileIcon(template.fileUrl)}</div>
                           <Badge className={getPricingTierBadgeColor(template.pricingTier)}>
@@ -752,9 +850,22 @@ export default function DocumentTemplatesPage() {
                               Download
                             </Button>
                           ) : template.isPending ? (
-                            <Button size="sm" variant="outline" disabled>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedTemplate(template)
+                                // Fetch invoice details
+                                fetch(`/api/invoices/${template.invoiceId}`)
+                                  .then((res) => res.json())
+                                  .then((data) => {
+                                    setSelectedInvoice(data.invoice)
+                                    setShowUploadDialog(true)
+                                  })
+                              }}
+                            >
                               <Clock className="h-3.5 w-3.5 mr-1.5" />
-                              Pending
+                              Upload Receipt
                             </Button>
                           ) : (
                             <Button size="sm" onClick={() => handlePurchase(template)}>
@@ -763,44 +874,6 @@ export default function DocumentTemplatesPage() {
                             </Button>
                           )}
                         </div>
-
-                        {/* Blur overlay for unpurchased templates */}
-                        {!template.isPurchased && !template.isPending && !template.isFree && (
-                          <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
-                            <div className="text-center">
-                              <Lock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                              <Button size="sm" onClick={() => handlePurchase(template)}>
-                                Unlock for ${template.price}
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Pending overlay */}
-                        {template.isPending && (
-                          <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
-                            <div className="text-center">
-                              <Clock className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-                              <p className="text-sm text-gray-600 mb-2">Payment pending approval</p>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedTemplate(template)
-                                  // Fetch invoice details
-                                  fetch(`/api/invoices/${template.invoiceId}`)
-                                    .then((res) => res.json())
-                                    .then((data) => {
-                                      setSelectedInvoice(data.invoice)
-                                      setShowUploadDialog(true)
-                                    })
-                                }}
-                              >
-                                Upload Receipt
-                              </Button>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </Card>
                   ))
@@ -848,7 +921,7 @@ export default function DocumentTemplatesPage() {
                 {filteredTemplates.length > 0 ? (
                   currentTemplates.map((template) => (
                     <Card key={template.id} className="overflow-hidden">
-                      <div className="p-6 relative">
+                      <div className="p-6">
                         <div className="flex items-start justify-between mb-3">
                           <div className="p-2 bg-green-100 rounded-lg">{getFileIcon(template.fileUrl)}</div>
                           <Badge className="bg-gray-100 hover:bg-gray-200 text-gray-800">Free</Badge>
@@ -914,7 +987,7 @@ export default function DocumentTemplatesPage() {
                 {filteredTemplates.length > 0 ? (
                   currentTemplates.map((template) => (
                     <Card key={template.id} className="overflow-hidden">
-                      <div className="p-6 relative">
+                      <div className="p-6">
                         <div className="flex items-start justify-between mb-3">
                           <div className="p-2 bg-green-100 rounded-lg">{getFileIcon(template.fileUrl)}</div>
                           <Badge className={getPricingTierBadgeColor(template.pricingTier)}>
@@ -982,7 +1055,7 @@ export default function DocumentTemplatesPage() {
                 {filteredTemplates.length > 0 ? (
                   currentTemplates.map((template) => (
                     <Card key={template.id} className="overflow-hidden">
-                      <div className="p-6 relative">
+                      <div className="p-6">
                         <div className="flex items-start justify-between mb-3">
                           <div className="p-2 bg-blue-100 rounded-lg">{getFileIcon(template.fileUrl)}</div>
                           <Badge className={getPricingTierBadgeColor(template.pricingTier)}>
@@ -1003,16 +1076,6 @@ export default function DocumentTemplatesPage() {
                             Unlock ${template.price}
                           </Button>
                         </div>
-
-                        {/* Blur overlay for locked templates */}
-                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
-                          <div className="text-center">
-                            <Lock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                            <Button size="sm" onClick={() => handlePurchase(template)}>
-                              Unlock for ${template.price}
-                            </Button>
-                          </div>
-                        </div>
                       </div>
                     </Card>
                   ))
@@ -1030,7 +1093,7 @@ export default function DocumentTemplatesPage() {
       </Card>
 
       {filteredTemplates.length > itemsPerPage && (
-        <div className="flex justify-center mt-8">
+        <div className="flex justify-center mt-8 mb-12">
           <div className="flex space-x-2">
             <Button
               variant="outline"
@@ -1105,7 +1168,7 @@ export default function DocumentTemplatesPage() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 2 0 00-2 2v12a2 2 2 0 002 2z"
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 2 0 002 2z"
                   />
                 </svg>
               </div>
