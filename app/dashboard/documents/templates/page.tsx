@@ -469,8 +469,8 @@ export default function DocumentTemplatesPage() {
       formData.append("file", uploadFile)
       formData.append("invoiceId", selectedInvoice.id)
       formData.append("isTemplateInvoice", "true")
-      formData.append("templateName", selectedTemplate.name)
-      formData.append("templateId", selectedTemplate.id)
+      formData.append("templateName", selectedTemplate.name) // Ensure template name is included
+      formData.append("price", selectedTemplate.price.toString())
 
       const response = await fetch("/api/user/templates/upload-receipt", {
         method: "POST",
