@@ -20,7 +20,7 @@ interface Template {
   description: string
   category: string
   price: number
-  pricingTier: string
+  pricingTier: string // Changed from "Free" | "Basic" | "Standard" | "Premium" to string
   isPurchased: boolean
   isPending: boolean
   invoiceId?: string
@@ -133,6 +133,22 @@ export default function DocumentTemplatesPage() {
     })
   }
 
+  // Add this function before the return statement
+  const getPricingTierBadgeColor = (tier: string) => {
+    switch (tier) {
+      case "Free":
+        return "bg-gray-100 hover:bg-gray-200 text-gray-800"
+      case "Basic":
+        return "bg-blue-100 hover:bg-blue-200 text-blue-800"
+      case "Standard":
+        return "bg-purple-100 hover:bg-purple-200 text-purple-800"
+      case "Premium":
+        return "bg-amber-100 hover:bg-amber-200 text-amber-800"
+      default:
+        return "bg-gray-100 hover:bg-gray-200 text-gray-800"
+    }
+  }
+
   // Update the fetchTemplates function to handle the updated template access
   const fetchTemplates = async () => {
     try {
@@ -146,7 +162,7 @@ export default function DocumentTemplatesPage() {
 
       // If templates is empty, create some mock data for testing
       if (!data.templates || data.templates.length === 0) {
-        const mockTemplates = [
+        const mockTemplates: Template[] = [
           {
             id: "1",
             name: "LLC Formation",
@@ -214,7 +230,7 @@ export default function DocumentTemplatesPage() {
           updatedAt: template.updatedAt || new Date().toISOString(),
           status: template.status || "active",
           usageCount: template.usageCount || 0,
-        }))
+        })) as Template[]
         setTemplates(mappedTemplates)
       }
     } catch (error) {
@@ -637,17 +653,23 @@ export default function DocumentTemplatesPage() {
                   currentTemplates.map((template) => (
                     <Card key={template.id} className="overflow-hidden">
                       <div className="p-6 relative">
-                        <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-start justify-between mb-3">
                           <div className="p-2 bg-blue-100 rounded-lg">
                             <FileText className="h-5 w-5 text-blue-600" />
                           </div>
-                          <h3 className="font-semibold">{template.name}</h3>
+                          <Badge className={getPricingTierBadgeColor(template.pricingTier)}>
+                            {template.pricingTier}
+                          </Badge>
                         </div>
-
+                        <h3 className="font-semibold mb-2">{template.name}</h3>
                         <p className="text-sm text-gray-600 mb-4">{template.description}</p>
 
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-3">
                           <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">{template.category}</span>
+                          <span className="text-sm font-medium">${template.price.toFixed(2)}</span>
+                        </div>
+
+                        <div className="flex justify-end">
                           {template.isPurchased ? (
                             <Button size="sm" variant="outline" onClick={() => handleDownload(template)}>
                               <Check className="h-3.5 w-3.5 mr-1.5" />
@@ -751,17 +773,23 @@ export default function DocumentTemplatesPage() {
                   currentTemplates.map((template) => (
                     <Card key={template.id} className="overflow-hidden">
                       <div className="p-6 relative">
-                        <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-start justify-between mb-3">
                           <div className="p-2 bg-green-100 rounded-lg">
                             <FileText className="h-5 w-5 text-green-600" />
                           </div>
-                          <h3 className="font-semibold">{template.name}</h3>
+                          <Badge className={getPricingTierBadgeColor(template.pricingTier)}>
+                            {template.pricingTier}
+                          </Badge>
                         </div>
-
+                        <h3 className="font-semibold mb-2">{template.name}</h3>
                         <p className="text-sm text-gray-600 mb-4">{template.description}</p>
 
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-3">
                           <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">{template.category}</span>
+                          <span className="text-sm font-medium">${template.price.toFixed(2)}</span>
+                        </div>
+
+                        <div className="flex justify-end">
                           <Button size="sm" variant="outline" onClick={() => handleDownload(template)}>
                             <Check className="h-3.5 w-3.5 mr-1.5" />
                             Download
@@ -815,17 +843,23 @@ export default function DocumentTemplatesPage() {
                   currentTemplates.map((template) => (
                     <Card key={template.id} className="overflow-hidden">
                       <div className="p-6 relative">
-                        <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-start justify-between mb-3">
                           <div className="p-2 bg-blue-100 rounded-lg">
                             <FileText className="h-5 w-5 text-blue-600" />
                           </div>
-                          <h3 className="font-semibold">{template.name}</h3>
+                          <Badge className={getPricingTierBadgeColor(template.pricingTier)}>
+                            {template.pricingTier}
+                          </Badge>
                         </div>
-
+                        <h3 className="font-semibold mb-2">{template.name}</h3>
                         <p className="text-sm text-gray-600 mb-4">{template.description}</p>
 
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-3">
                           <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">{template.category}</span>
+                          <span className="text-sm font-medium">${template.price.toFixed(2)}</span>
+                        </div>
+
+                        <div className="flex justify-end">
                           <Button size="sm" onClick={() => handlePurchase(template)}>
                             <Lock className="h-3.5 w-3.5 mr-1.5" />
                             Unlock ${template.price}
@@ -891,7 +925,7 @@ export default function DocumentTemplatesPage() {
       )}
 
       <Card>
-        <div className="p-6 border-b mt-10">
+        <div className="p-6 border-b">
           <h2 className="text-xl font-semibold">Template Benefits</h2>
         </div>
         <div className="p-6">
@@ -933,7 +967,7 @@ export default function DocumentTemplatesPage() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 2 0 00-2 2v12a2 2 0 002 2z"
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 2 0 00-2 2v12a2 2 2 0 002 2z"
                   />
                 </svg>
               </div>
@@ -983,15 +1017,15 @@ export default function DocumentTemplatesPage() {
               </Button>
               <Button onClick={handleUploadReceipt} disabled={!uploadFile || uploading}>
                 {uploading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                  <span className="flex items-center">
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                     Uploading...
-                  </>
+                  </span>
                 ) : (
-                  <>
+                  <span className="flex items-center">
                     <Upload className="h-4 w-4 mr-2" />
                     Upload Receipt
-                  </>
+                  </span>
                 )}
               </Button>
             </div>
@@ -999,6 +1033,5 @@ export default function DocumentTemplatesPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
 
+)}
