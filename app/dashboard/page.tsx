@@ -139,15 +139,51 @@ export default function DashboardPage() {
   // Add this function to fetch templates
   const fetchTemplates = async () => {
     try {
+      // First try to fetch from user templates endpoint
       const response = await fetch("/api/user/templates")
       if (response.ok) {
         const data = await response.json()
-        if (data.templates) {
+        if (data.templates && data.templates.length > 0) {
           setTemplates(data.templates)
+        } else {
+          // If no templates found, try to fetch from admin templates for download counts
+          await fetchTemplateStats()
         }
+      } else {
+        // If user templates endpoint fails, try admin endpoint
+        await fetchTemplateStats()
       }
     } catch (error) {
       console.error("Error fetching templates:", error)
+      // Try admin endpoint as fallback
+      await fetchTemplateStats()
+    }
+  }
+
+  // Add this function to fetch template stats from admin endpoint
+  const fetchTemplateStats = async () => {
+    try {
+      const response = await fetch("/api/admin/templates/stats")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.templates) {
+          // Update existing templates with download counts
+          setTemplates((prevTemplates) => {
+            return prevTemplates.map((template) => {
+              const matchingTemplate = data.templates.find((t: any) => t.id === template.id)
+              if (matchingTemplate) {
+                return {
+                  ...template,
+                  usageCount: matchingTemplate.usageCount || 0,
+                }
+              }
+              return template
+            })
+          })
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching template stats:", error)
     }
   }
 
