@@ -9,7 +9,6 @@ import {
   Bell,
   FileText,
   Phone,
-  Eye,
   MessageSquare,
   User,
   Calendar,
@@ -21,6 +20,7 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
+import { Badge } from "@/components/ui/badge"
 
 interface Invoice {
   id: string
@@ -168,29 +168,57 @@ export default function DashboardPage() {
         fileName = `${fileName}.pdf`
       }
 
-      const proxyUrl = `/api/direct-download?url=${encodeURIComponent(apiData.fileUrl)}&contentType=${encodeURIComponent(contentType)}&documentId=${template.id}&filename=${encodeURIComponent(fileName)}`
+      // Create a server-side proxy request to avoid CORS issues and handle authentication
+      const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(fileUrl)}&contentType=${encodeURIComponent(contentType)}&templateId=${template.id}`
 
-      const response = await fetch(proxyUrl)
-      if (!response.ok) {
-        throw new Error(`Proxy request failed: ${response.statusText}`)
+      // Try multiple download methods for better compatibility
+      try {
+        const response = await fetch(proxyUrl)
+
+        if (!response.ok) {
+          throw new Error(`Proxy request failed: ${response.statusText}`)
+        }
+
+        const blob = await response.blob()
+
+        if (blob.size === 0) {
+          throw new Error("Downloaded file is empty")
+        }
+
+        // Create a blob URL and trigger download
+        const blobUrl = window.URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = blobUrl
+        link.download = fileName
+        document.body.appendChild(link)
+        link.click()
+
+        // Clean up
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl)
+          document.body.removeChild(link)
+        }, 100)
+
+        toast({
+          title: "Download complete",
+          description: "Your document has been downloaded successfully.",
+        })
+
+        return
+      } catch (method1Error) {
+        console.error("Method 1 download failed:", method1Error)
+        // Continue to method 2
       }
 
-      const blob = await response.blob()
-      const blobUrl = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = blobUrl
-      link.download = fileName
-      document.body.appendChild(link)
-      link.click()
-
-      setTimeout(() => {
-        window.URL.revokeObjectURL(blobUrl)
-        document.body.removeChild(link)
-      }, 100)
+      // Method 2: Direct link with target="_blank" (fallback)
+      window.open(
+        `/api/direct-download?url=${encodeURIComponent(fileUrl)}&contentType=${encodeURIComponent(contentType)}&documentId=${template.id}&filename=${encodeURIComponent(fileName)}`,
+        "_blank",
+      )
 
       toast({
-        title: "Download complete",
-        description: "Your document has been downloaded successfully.",
+        title: "Download initiated",
+        description: "Your document should open in a new tab. If it doesn't, please check your popup blocker settings.",
       })
     } catch (error) {
       console.error("Error downloading template:", error)
@@ -355,6 +383,22 @@ export default function DashboardPage() {
   const getStatusIcon = (progress: number) => {
     if (progress >= 100) return <CheckCircle className="h-5 w-5 text-green-500" />
     return null
+  }
+
+  // Function to determine the color of the pricing tier badge
+  const getPricingTierBadgeColor = (tier: string) => {
+    switch (tier) {
+      case "Free":
+        return "bg-gray-100 hover:bg-gray-200 text-gray-800"
+      case "Basic":
+        return "bg-blue-100 hover:bg-blue-200 text-blue-800"
+      case "Standard":
+        return "bg-purple-100 hover:bg-purple-200 text-purple-800"
+      case "Premium":
+        return "bg-amber-100 hover:bg-amber-200 text-amber-800"
+      default:
+        return "bg-gray-100 hover:bg-gray-200 text-gray-800"
+    }
   }
 
   // Function to copy text to clipboard
@@ -524,6 +568,20 @@ export default function DashboardPage() {
         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     )
+  }
+
+  // Function to determine the badge color based on pricing tier
+  const getPricingTierBadgeColorTemplates = (pricingTier: string) => {
+    switch (pricingTier) {
+      case "Basic":
+        return "bg-gray-100 hover:bg-gray-200 text-gray-800"
+      case "Standard":
+        return "bg-blue-100 hover:bg-blue-200 text-blue-800"
+      case "Premium":
+        return "bg-purple-100 hover:bg-purple-200 text-purple-800"
+      default:
+        return "bg-gray-100 hover:bg-gray-200 text-gray-800" // Default color
+    }
   }
 
   return (
@@ -698,7 +756,7 @@ export default function DashboardPage() {
               <tr className="text-left text-gray-600">
                 <th className="pb-4 font-medium">Template Name</th>
                 <th className="pb-4 font-medium">Date</th>
-                <th className="pb-4 font-medium">View</th>
+                <th className="pb-4 font-medium">Pricing Tier</th>
                 <th className="pb-4 font-medium">Download</th>
               </tr>
             </thead>
@@ -709,18 +767,9 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">{template.name}</td>
                     <td className="py-4">{new Date(template.updatedAt).toLocaleDateString()}</td>
                     <td className="py-4">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          window.open(
-                            `/api/direct-download?url=${encodeURIComponent(template.fileUrl || "")}&contentType=${encodeURIComponent("application/octet-stream")}&documentId=${template.id}&filename=${encodeURIComponent(template.name || "")}`,
-                            "_blank",
-                          )
-                        }
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
+                      <Badge className={getPricingTierBadgeColorTemplates(template.pricingTier)}>
+                        {template.pricingTier}
+                      </Badge>
                     </td>
                     <td className="py-4">
                       <Button variant="ghost" size="icon" onClick={() => handleDownload(template)}>
@@ -735,42 +784,30 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">Company documents</td>
                     <td className="py-4">28 Mar 2024</td>
                     <td className="py-4">
-                      <Button variant="ghost" size="icon">
-                        <Eye className="w-4 h-4" />
-                      </Button>
+                      <Badge className="bg-gray-100 hover:bg-gray-200 text-gray-800">Basic</Badge>
                     </td>
                     <td className="py-4">
-                      <Button variant="ghost" size="icon">
-                        <FileText className="w-4 h-4" />
-                      </Button>
+                      <FileText className="w-4 h-4" />
                     </td>
                   </tr>
                   <tr>
                     <td className="py-4 font-medium">Scanned mail</td>
                     <td className="py-4">04 Apr 2024</td>
                     <td className="py-4">
-                      <Button variant="ghost" size="icon">
-                        <Eye className="w-4 h-4" />
-                      </Button>
+                      <Badge className="bg-blue-100 hover:bg-blue-200 text-blue-800">Standard</Badge>
                     </td>
                     <td className="py-4">
-                      <Button variant="ghost" size="icon">
-                        <FileText className="w-4 h-4" />
-                      </Button>
+                      <FileText className="w-4 h-4" />
                     </td>
                   </tr>
                   <tr>
                     <td className="py-4 font-medium">Scanned mail</td>
                     <td className="py-4">24 May 2024</td>
                     <td className="py-4">
-                      <Button variant="ghost" size="icon">
-                        <Eye className="w-4 h-4" />
-                      </Button>
+                      <Badge className="bg-purple-100 hover:bg-purple-200 text-purple-800">Premium</Badge>
                     </td>
                     <td className="py-4">
-                      <Button variant="ghost" size="icon">
-                        <FileText className="w-4 h-4" />
-                      </Button>
+                      <FileText className="w-4 h-4" />
                     </td>
                   </tr>
                 </>
