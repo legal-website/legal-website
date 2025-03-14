@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import type { InvoiceItem } from "@/lib/prisma-types"
 
 // GET - Fetch templates available to users
 export async function GET(req: NextRequest) {
@@ -43,6 +44,14 @@ export async function GET(req: NextRequest) {
       },
     })
 
+    // Get user's pending template invoices
+    const pendingInvoices = await db.invoice.findMany({
+      where: {
+        userId,
+        status: "pending",
+      },
+    })
+
     // Create a map of template IDs that the user has purchased
     const purchasedTemplateMap = new Map()
     userTemplates.forEach((template) => {
@@ -53,6 +62,29 @@ export async function GET(req: NextRequest) {
 
       if (originalTemplateId) {
         purchasedTemplateMap.set(originalTemplateId, true)
+      }
+    })
+
+    // Create a map of template IDs that are pending approval
+    const pendingTemplateMap = new Map()
+    pendingInvoices.forEach((invoice) => {
+      try {
+        const items: InvoiceItem[] =
+          typeof invoice.items === "string" ? JSON.parse(invoice.items) : (invoice.items as any)
+
+        if (Array.isArray(items)) {
+          items.forEach((item) => {
+            if (
+              item.templateId &&
+              (item.type === "template" ||
+                (item.tier && typeof item.tier === "string" && item.tier.toLowerCase().includes("template")))
+            ) {
+              pendingTemplateMap.set(item.templateId, invoice.id)
+            }
+          })
+        }
+      } catch (e) {
+        console.error(`Error parsing items for invoice ${invoice.id}:`, e)
       }
     })
 
@@ -95,6 +127,8 @@ export async function GET(req: NextRequest) {
         pricingTier: pricingTier,
         fileUrl: doc.fileUrl,
         purchased: purchasedTemplateMap.has(doc.id),
+        isPending: pendingTemplateMap.has(doc.id),
+        invoiceId: pendingTemplateMap.get(doc.id),
       }
     })
 

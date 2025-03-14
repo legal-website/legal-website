@@ -56,6 +56,7 @@ export default function DocumentTemplatesPage() {
     }
   }, [session])
 
+  // Update the fetchTemplates function to handle the updated template access
   const fetchTemplates = async () => {
     try {
       setLoading(true)
