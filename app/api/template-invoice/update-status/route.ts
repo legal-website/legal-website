@@ -36,13 +36,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { invoiceId, templateId } = await req.json()
+    // Parse request body
+    let body
+    try {
+      body = await req.json()
+      console.log("Request body:", JSON.stringify(body, null, 2))
+    } catch (e: any) {
+      console.error("Error parsing request body:", e)
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
+
+    const { invoiceId, status, specificTemplateId } = body
 
     if (!invoiceId) {
       return NextResponse.json({ error: "Invoice ID is required" }, { status: 400 })
     }
 
-    console.log(`Processing template invoice ${invoiceId}, specified templateId: ${templateId || "none"}`)
+    // Ensure status is provided and valid
+    if (!status || !["paid", "pending", "cancelled"].includes(status)) {
+      return NextResponse.json(
+        {
+          error: "Valid status is required (paid, pending, or cancelled)",
+        },
+        { status: 400 },
+      )
+    }
+
+    console.log(
+      `Processing template invoice ${invoiceId}, status: ${status}, specified templateId: ${specificTemplateId || "none"}`,
+    )
 
     // Get the invoice
     const invoice = await db.invoice.findUnique({
@@ -55,6 +77,37 @@ export async function POST(req: Request) {
 
     console.log(`Found invoice: ${invoice.invoiceNumber}, amount: ${invoice.amount}`)
 
+    // Update the invoice status first
+    try {
+      const updatedInvoice = await db.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          status,
+          paymentDate: status === "paid" ? new Date() : undefined,
+        },
+      })
+
+      console.log(`Updated invoice status to ${status}`)
+
+      // If status is not 'paid', we don't need to unlock templates
+      if (status !== "paid") {
+        return NextResponse.json({
+          success: true,
+          message: `Invoice status updated to ${status}`,
+          invoice: updatedInvoice,
+        })
+      }
+    } catch (e: any) {
+      console.error("Error updating invoice status:", e)
+      return NextResponse.json(
+        {
+          error: "Failed to update invoice status",
+          details: e.message,
+        },
+        { status: 500 },
+      )
+    }
+
     // Get the user from the invoice
     const user = await db.user.findFirst({
       where: { email: invoice.customerEmail },
@@ -62,7 +115,13 @@ export async function POST(req: Request) {
     })
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return NextResponse.json(
+        {
+          error: "User not found",
+          email: invoice.customerEmail,
+        },
+        { status: 404 },
+      )
     }
 
     // Check if user has a business
@@ -99,36 +158,54 @@ export async function POST(req: Request) {
     console.log(`User already has ${purchasedTemplates.length} purchased templates`)
 
     // If a specific templateId was provided, use that
-    if (templateId) {
-      console.log(`Using specified templateId: ${templateId}`)
+    if (specificTemplateId) {
+      console.log(`Using specified templateId: ${specificTemplateId}`)
 
       // Check if the template exists
-      const template = allTemplates.find((t) => t.id === templateId)
+      const template = allTemplates.find((t) => t.id === specificTemplateId)
       if (!template) {
-        return NextResponse.json({ error: "Specified template not found" }, { status: 404 })
+        return NextResponse.json(
+          {
+            error: "Specified template not found",
+            templateId: specificTemplateId,
+          },
+          { status: 404 },
+        )
       }
 
       // Check if the user already has this template
       const alreadyPurchased = purchasedTemplates.some(
-        (pt) => pt.name.includes(templateId) || pt.name.includes(template.name),
+        (pt) => pt.name.includes(specificTemplateId) || pt.name.includes(template.name),
       )
 
       if (alreadyPurchased) {
-        console.log(`User already has template ${templateId}, skipping`)
+        console.log(`User already has template ${specificTemplateId}, skipping`)
         return NextResponse.json({
+          success: true,
           message: "Template already purchased",
           alreadyPurchased: true,
         })
       }
 
       // Create the purchased template
-      const purchasedTemplate = await createPurchasedTemplate(template, businessId)
+      try {
+        const purchasedTemplate = await createPurchasedTemplate(template, businessId)
 
-      return NextResponse.json({
-        success: true,
-        message: "Template unlocked successfully",
-        template: purchasedTemplate,
-      })
+        return NextResponse.json({
+          success: true,
+          message: "Template unlocked successfully",
+          template: purchasedTemplate,
+        })
+      } catch (e: any) {
+        console.error("Error creating purchased template:", e)
+        return NextResponse.json(
+          {
+            error: "Failed to create purchased template",
+            details: e.message,
+          },
+          { status: 500 },
+        )
+      }
     }
 
     // Parse invoice items
@@ -145,6 +222,7 @@ export async function POST(req: Request) {
     } catch (e) {
       console.error("Error parsing invoice items:", e)
       console.log("Raw invoice items:", invoice.items)
+      // Continue with empty items array
     }
 
     // Extract potential template names and prices from invoice
@@ -176,21 +254,36 @@ export async function POST(req: Request) {
         const template = templatesByPrice[0]
 
         // Create the purchased template
-        const purchasedTemplate = await createPurchasedTemplate(template, businessId)
+        try {
+          const purchasedTemplate = await createPurchasedTemplate(template, businessId)
 
-        return NextResponse.json({
-          success: true,
-          message: "Template unlocked by price match",
-          template: purchasedTemplate,
-          matchType: "price",
-        })
+          return NextResponse.json({
+            success: true,
+            message: "Template unlocked by price match",
+            template: purchasedTemplate,
+            matchType: "price",
+          })
+        } catch (e: any) {
+          console.error("Error creating purchased template by price match:", e)
+          return NextResponse.json(
+            {
+              error: "Failed to create purchased template",
+              details: e.message,
+            },
+            { status: 500 },
+          )
+        }
       }
 
+      // If we still couldn't find a template, return a more detailed error
       return NextResponse.json(
         {
           error: "No matching templates found",
           potentialNames: potentialTemplateInfo.names,
           price: potentialTemplateInfo.price || invoice.amount,
+          invoiceNumber: invoice.invoiceNumber,
+          customerName: invoice.customerName,
+          invoiceItems: invoiceItems.length > 0 ? invoiceItems : "No items parsed",
         },
         { status: 404 },
       )
@@ -201,20 +294,32 @@ export async function POST(req: Request) {
     console.log(`Selected template: ${template.id} - ${template.name}`)
 
     // Create the purchased template
-    const purchasedTemplate = await createPurchasedTemplate(template, businessId)
+    try {
+      const purchasedTemplate = await createPurchasedTemplate(template, businessId)
 
-    return NextResponse.json({
-      success: true,
-      message: "Template unlocked successfully",
-      template: purchasedTemplate,
-      matchType: "name_and_price",
-    })
+      return NextResponse.json({
+        success: true,
+        message: "Template unlocked successfully",
+        template: purchasedTemplate,
+        matchType: "name_and_price",
+      })
+    } catch (e: any) {
+      console.error("Error creating purchased template:", e)
+      return NextResponse.json(
+        {
+          error: "Failed to create purchased template",
+          details: e.message,
+        },
+        { status: 500 },
+      )
+    }
   } catch (error: any) {
     console.error("Error updating template status:", error)
     return NextResponse.json(
       {
         error: "Failed to update template status",
         message: error.message,
+        stack: error.stack,
       },
       { status: 500 },
     )
@@ -225,18 +330,23 @@ export async function POST(req: Request) {
 async function createPurchasedTemplate(template: Document, businessId: string) {
   console.log(`Creating purchased template for template ${template.id}`)
 
-  const purchasedTemplate = await db.document.create({
-    data: {
-      name: `template_${template.id}_${template.name}`,
-      category: "template",
-      businessId: businessId,
-      fileUrl: template.fileUrl,
-      type: "purchased_template",
-    },
-  })
+  try {
+    const purchasedTemplate = await db.document.create({
+      data: {
+        name: `template_${template.id}_${template.name}`,
+        category: "template",
+        businessId: businessId,
+        fileUrl: template.fileUrl,
+        type: "purchased_template",
+      },
+    })
 
-  console.log(`Created purchased template: ${purchasedTemplate.id}`)
-  return purchasedTemplate
+    console.log(`Created purchased template: ${purchasedTemplate.id}`)
+    return purchasedTemplate
+  } catch (error: any) {
+    console.error(`Error creating purchased template: ${error}`)
+    throw error // Re-throw to handle in the calling function
+  }
 }
 
 // Helper function to extract template info from invoice
@@ -269,15 +379,17 @@ function extractTemplateInfo(invoice: any, items: InvoiceItem[]) {
 
   // If still no names, try to extract from invoice number or customer name
   if (potentialNames.length === 0) {
-    if (invoice.invoiceNumber.includes("TEMPLATE")) {
+    if (invoice.invoiceNumber && invoice.invoiceNumber.includes("TEMPLATE")) {
       potentialNames.push("template")
     }
 
-    potentialNames.push(invoice.customerName)
+    if (invoice.customerName) {
+      potentialNames.push(invoice.customerName)
+    }
   }
 
   // If no price found, use invoice amount
-  if (price === null) {
+  if (price === null && invoice.amount) {
     price = invoice.amount
   }
 
@@ -325,7 +437,7 @@ function findMatchingTemplates(
   // Find templates that match by name
   const matchingTemplates = templatesWithPrices.filter((template) => {
     // Check if any potential name is included in the template name
-    const nameMatch = potentialNames.some((name) => template.name.toLowerCase().includes(name.toLowerCase()))
+    const nameMatch = potentialNames.some((name) => name && template.name.toLowerCase().includes(name.toLowerCase()))
 
     // Check if the user already has this template
     const alreadyPurchased = purchasedTemplates.some(

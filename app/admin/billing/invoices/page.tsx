@@ -423,6 +423,21 @@ export default function InvoicesAdminPage() {
             specificTemplateId: templateId, // Add the specific template ID if provided
           }),
         })
+
+        // Log the response for debugging
+        const responseData = await response.json()
+        console.log("Template invoice approval response:", responseData)
+
+        if (!response.ok) {
+          throw new Error(responseData.error || "Failed to approve template invoice")
+        }
+
+        // Re-fetch the response to avoid "body already read" error
+        response = new Response(JSON.stringify(responseData), {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        })
       } else {
         // Try both API paths to ensure compatibility
         try {
