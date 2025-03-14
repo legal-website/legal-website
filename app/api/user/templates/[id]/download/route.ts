@@ -39,12 +39,15 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // Extract template metadata
     let displayName = template.name
     let price = 0
+    let isFree = false
 
     try {
       const parts = template.name.split("|")
       if (parts && parts.length > 1) {
         displayName = parts[0]
         price = Number.parseFloat(parts[1]) || 0
+        // Consider it free if price is 0 or if it's explicitly marked as free tier
+        isFree = price === 0 || (parts.length > 2 && parts[2].toLowerCase() === "free")
       }
     } catch (e) {
       console.error("Error parsing template metadata:", e)
@@ -69,7 +72,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     })
 
     // For free templates or templates the user has access to
-    if (price === 0 || accessRecord || userTemplate) {
+    if (isFree || price === 0 || accessRecord || userTemplate) {
       // Increment usage count if tracking in the name
       try {
         const parts = template.name.split("|")
@@ -92,9 +95,19 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         console.error("Error updating template usage count:", e)
       }
 
+      // Ensure the fileUrl is properly formatted for download
+      let fileUrl = template.fileUrl
+
+      // For Cloudinary URLs, ensure we're getting the file directly
+      if (fileUrl && fileUrl.includes("cloudinary.com") && !fileUrl.includes("/download")) {
+        // Add download flag to Cloudinary URL if needed
+        fileUrl = fileUrl.includes("?") ? `${fileUrl}&fl_attachment` : `${fileUrl}?fl_attachment`
+      }
+
       return NextResponse.json({
-        fileUrl: template.fileUrl,
+        fileUrl: fileUrl,
         name: displayName,
+        originalName: template.name,
       })
     }
 

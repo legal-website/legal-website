@@ -6,7 +6,19 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { FileText, Search, Upload, Clock, CheckCircle, RefreshCw, Lock, Unlock, Gift } from "lucide-react"
+import {
+  FileText,
+  Search,
+  Upload,
+  Clock,
+  CheckCircle,
+  RefreshCw,
+  Lock,
+  Unlock,
+  Gift,
+  FileIcon as FileWord,
+  FileIcon as FilePdf,
+} from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -132,6 +144,23 @@ export default function DocumentTemplatesPage() {
         description: "Template list has been updated.",
       })
     })
+  }
+
+  // Get file icon based on file extension
+  const getFileIcon = (fileUrl: string | undefined) => {
+    if (!fileUrl) return <FileText className="h-5 w-5" />
+
+    const extension = fileUrl.split(".").pop()?.toLowerCase()
+
+    switch (extension) {
+      case "pdf":
+        return <FilePdf className="h-5 w-5" />
+      case "doc":
+      case "docx":
+        return <FileWord className="h-5 w-5" />
+      default:
+        return <FileText className="h-5 w-5" />
+    }
   }
 
   // Add this function before the return statement
@@ -445,10 +474,14 @@ export default function DocumentTemplatesPage() {
     setCurrentPage(pageNumber)
   }
 
+  // Improved download function to handle different file types
   const handleDownload = async (template: Template) => {
     try {
-      if (!template.fileUrl) {
-        // If no direct fileUrl is available, try to fetch it from the API
+      let fileUrl = template.fileUrl
+      let fileName = template.name.replace(/\s+/g, "-").toLowerCase()
+
+      // If no direct fileUrl is available, try to fetch it from the API
+      if (!fileUrl) {
         const response = await fetch(`/api/user/templates/${template.id}/download`)
 
         if (!response.ok) {
@@ -456,27 +489,42 @@ export default function DocumentTemplatesPage() {
         }
 
         const data = await response.json()
+        fileUrl = data.fileUrl
 
-        if (data.fileUrl) {
-          // Create a temporary anchor element to trigger the download
-          const link = document.createElement("a")
-          link.href = data.fileUrl
-          link.download = `${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-        } else {
+        if (!fileUrl) {
           throw new Error("No file URL available")
         }
-      } else {
-        // If fileUrl is directly available on the template object
-        const link = document.createElement("a")
-        link.href = template.fileUrl
-        link.download = `${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
       }
+
+      // Extract file extension from URL
+      const urlExtension = fileUrl.split(".").pop()?.toLowerCase()
+
+      // If URL has a valid extension, use it
+      if (urlExtension && ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(urlExtension)) {
+        fileName = `${fileName}.${urlExtension}`
+      } else {
+        // Default to PDF if no extension is found
+        fileName = `${fileName}.pdf`
+      }
+
+      // For Cloudinary URLs, ensure we're getting the file directly
+      if (fileUrl.includes("cloudinary.com") && !fileUrl.includes("/download")) {
+        // Add download flag to Cloudinary URL if needed
+        fileUrl = fileUrl.includes("?") ? `${fileUrl}&fl_attachment` : `${fileUrl}?fl_attachment`
+      }
+
+      // Create a temporary anchor element to trigger the download
+      const link = document.createElement("a")
+      link.href = fileUrl
+      link.download = fileName
+      link.target = "_blank" // Open in new tab to handle potential redirects
+      document.body.appendChild(link)
+      link.click()
+
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link)
+      }, 100)
 
       toast({
         title: "Download started",
@@ -668,9 +716,7 @@ export default function DocumentTemplatesPage() {
                     <Card key={template.id} className="overflow-hidden">
                       <div className="p-6 relative">
                         <div className="flex items-start justify-between mb-3">
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <FileText className="h-5 w-5 text-blue-600" />
-                          </div>
+                          <div className="p-2 bg-blue-100 rounded-lg">{getFileIcon(template.fileUrl)}</div>
                           <Badge className={getPricingTierBadgeColor(template.pricingTier)}>
                             {template.pricingTier}
                           </Badge>
@@ -788,9 +834,7 @@ export default function DocumentTemplatesPage() {
                     <Card key={template.id} className="overflow-hidden">
                       <div className="p-6 relative">
                         <div className="flex items-start justify-between mb-3">
-                          <div className="p-2 bg-green-100 rounded-lg">
-                            <Gift className="h-5 w-5 text-green-600" />
-                          </div>
+                          <div className="p-2 bg-green-100 rounded-lg">{getFileIcon(template.fileUrl)}</div>
                           <Badge className="bg-gray-100 hover:bg-gray-200 text-gray-800">Free</Badge>
                         </div>
                         <h3 className="font-semibold mb-2">{template.name}</h3>
@@ -856,9 +900,7 @@ export default function DocumentTemplatesPage() {
                     <Card key={template.id} className="overflow-hidden">
                       <div className="p-6 relative">
                         <div className="flex items-start justify-between mb-3">
-                          <div className="p-2 bg-green-100 rounded-lg">
-                            <FileText className="h-5 w-5 text-green-600" />
-                          </div>
+                          <div className="p-2 bg-green-100 rounded-lg">{getFileIcon(template.fileUrl)}</div>
                           <Badge className={getPricingTierBadgeColor(template.pricingTier)}>
                             {template.pricingTier}
                           </Badge>
@@ -926,9 +968,7 @@ export default function DocumentTemplatesPage() {
                     <Card key={template.id} className="overflow-hidden">
                       <div className="p-6 relative">
                         <div className="flex items-start justify-between mb-3">
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <FileText className="h-5 w-5 text-blue-600" />
-                          </div>
+                          <div className="p-2 bg-blue-100 rounded-lg">{getFileIcon(template.fileUrl)}</div>
                           <Badge className={getPricingTierBadgeColor(template.pricingTier)}>
                             {template.pricingTier}
                           </Badge>
