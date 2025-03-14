@@ -166,33 +166,106 @@ export async function POST(req: Request) {
 
         // For each template item, create a document record for the user
         let templatesUnlocked = 0
+
+        // Track which templates we've already processed to avoid duplicates
+        const processedTemplateIds = new Set<string>()
+
         for (const item of templateItems) {
           console.log(`Processing template item: ${JSON.stringify(item)}`)
 
           // Find matching template by name/tier or by checking all templates
           let matchingTemplates: Document[] = []
 
-          if (item.tier) {
-            // Try to find by tier name
-            matchingTemplates = masterTemplates.filter((template) =>
-              template.name.toLowerCase().includes(item.tier?.toLowerCase() || ""),
+          // If we have a specific templateId, use that for exact matching
+          if (item.templateId) {
+            const exactMatch = masterTemplates.find((template) => template.id === item.templateId)
+            if (exactMatch) {
+              matchingTemplates = [exactMatch]
+              console.log(`Found exact match by templateId: ${item.templateId}`)
+            }
+          }
+
+          // If no exact match by templateId, try to match by tier name
+          if (matchingTemplates.length === 0 && item.tier) {
+            // First try exact match on tier name
+            const exactTierMatch = masterTemplates.find(
+              (template) => template.name.toLowerCase() === item.tier?.toLowerCase(),
             )
-            console.log(`Found ${matchingTemplates.length} templates matching tier: ${item.tier}`)
+
+            if (exactTierMatch) {
+              matchingTemplates = [exactTierMatch]
+              console.log(`Found exact match by tier name: ${item.tier}`)
+            } else {
+              // If no exact match, try partial match but be more specific
+              // Look for templates where the name contains the tier as a whole word
+              const tierRegex = new RegExp(`\\b${item.tier.toLowerCase()}\\b`, "i")
+              matchingTemplates = masterTemplates.filter((template) => tierRegex.test(template.name.toLowerCase()))
+
+              if (matchingTemplates.length > 0) {
+                console.log(`Found ${matchingTemplates.length} templates matching tier as word: ${item.tier}`)
+              } else {
+                // If still no matches, try a more relaxed partial match
+                matchingTemplates = masterTemplates.filter((template) =>
+                  template.name.toLowerCase().includes(item.tier?.toLowerCase() || ""),
+                )
+                console.log(`Found ${matchingTemplates.length} templates with partial match on tier: ${item.tier}`)
+
+                // If we have multiple matches, try to narrow it down
+                if (matchingTemplates.length > 1) {
+                  // Look for the best match - one that most closely matches the tier name
+                  const bestMatch = matchingTemplates.reduce((best, current) => {
+                    const bestScore = best.name.toLowerCase().indexOf(item.tier?.toLowerCase() || "")
+                    const currentScore = current.name.toLowerCase().indexOf(item.tier?.toLowerCase() || "")
+                    return bestScore < currentScore ? best : current
+                  })
+
+                  matchingTemplates = [bestMatch]
+                  console.log(`Narrowed down to best match: ${bestMatch.name}`)
+                }
+              }
+            }
           }
 
-          // If no matches by tier, try to match by templateId
-          if (matchingTemplates.length === 0 && item.templateId) {
-            matchingTemplates = masterTemplates.filter((template) => template.id === item.templateId)
-            console.log(`Found ${matchingTemplates.length} templates matching templateId: ${item.templateId}`)
+          // If we still have no matches and this is the only template item,
+          // check if there's a template with a name similar to the invoice number or customer name
+          if (matchingTemplates.length === 0 && templateItems.length === 1) {
+            console.log("No matches found, checking invoice metadata for clues")
+
+            // Try to match based on invoice number or customer name
+            const invoiceNumber = invoice.invoiceNumber.toLowerCase()
+            const customerName = invoice.customerName.toLowerCase()
+
+            // Look for templates with names that might match the invoice details
+            matchingTemplates = masterTemplates.filter((template) => {
+              const templateName = template.name.toLowerCase()
+              return (
+                templateName.includes(invoiceNumber) ||
+                templateName.includes(customerName) ||
+                (invoice.customerEmail && templateName.includes(invoice.customerEmail.toLowerCase()))
+              )
+            })
+
+            if (matchingTemplates.length > 0) {
+              console.log(`Found ${matchingTemplates.length} templates matching invoice metadata`)
+            }
           }
 
-          // If still no matches, unlock all templates (this is a fallback)
-          if (matchingTemplates.length === 0 && masterTemplates.length > 0) {
-            console.log("No specific template matches found, unlocking all templates")
-            matchingTemplates = masterTemplates
+          // If we still have no matches, DO NOT unlock all templates
+          // Instead, log a warning and skip this item
+          if (matchingTemplates.length === 0) {
+            console.log("No matching templates found for this item, skipping")
+            continue
           }
 
           for (const matchingTemplate of matchingTemplates) {
+            // Skip if we've already processed this template
+            if (processedTemplateIds.has(matchingTemplate.id)) {
+              console.log(`Template ${matchingTemplate.id} already processed, skipping`)
+              continue
+            }
+
+            processedTemplateIds.add(matchingTemplate.id)
+
             console.log(`Processing matching template: ${matchingTemplate.id} - ${matchingTemplate.name}`)
 
             // Check if the user already has this template
