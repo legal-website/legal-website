@@ -163,6 +163,11 @@ export default function DashboardPage() {
         throw new Error("No template information available for download")
       }
 
+      // Increment usage count locally for immediate UI feedback
+      setTemplates((prevTemplates) =>
+        prevTemplates.map((t) => (t.id === template.id ? { ...t, usageCount: (t.usageCount || 0) + 1 } : t)),
+      )
+
       const apiUrl = `/api/user/templates/${template.id}/download`
       const apiResponse = await fetch(apiUrl)
 
@@ -743,7 +748,12 @@ export default function DashboardPage() {
               <tr className="text-left text-gray-600">
                 <th className="pb-4 font-medium">Template Name</th>
                 <th className="pb-4 font-medium">Date</th>
-                <th className="pb-4 font-medium">Price</th>
+                <th className="pb-4 font-medium relative group">
+                  Total Downloads
+                  <div className="absolute left-0 top-full mt-1 hidden group-hover:block bg-black text-white text-xs rounded p-2 w-48 z-10">
+                    Total number of times this template has been downloaded by all users
+                  </div>
+                </th>
                 <th className="pb-4 font-medium">Download</th>
               </tr>
             </thead>
@@ -754,7 +764,7 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">{template.name}</td>
                     <td className="py-4">{new Date(template.updatedAt).toLocaleDateString()}</td>
                     <td className="py-4">
-                      <span className="font-medium">${template.isFree ? "0.00" : template.price.toFixed(2)}</span>
+                      <span className="font-medium">{template.usageCount || 0}</span>
                     </td>
                     <td className="py-4">
                       <Button variant="ghost" size="icon" onClick={() => handleDownload(template)}>
@@ -769,7 +779,7 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">Company documents</td>
                     <td className="py-4">28 Mar 2024</td>
                     <td className="py-4">
-                      <span className="font-medium">$19.99</span>
+                      <span className="font-medium">24</span>
                     </td>
                     <td className="py-4">
                       <Button variant="ghost" size="icon">
@@ -781,7 +791,7 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">Scanned mail</td>
                     <td className="py-4">04 Apr 2024</td>
                     <td className="py-4">
-                      <span className="font-medium">$29.99</span>
+                      <span className="font-medium">18</span>
                     </td>
                     <td className="py-4">
                       <Button variant="ghost" size="icon">
@@ -793,7 +803,7 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">Scanned mail</td>
                     <td className="py-4">24 May 2024</td>
                     <td className="py-4">
-                      <span className="font-medium">$49.99</span>
+                      <span className="font-medium">32</span>
                     </td>
                     <td className="py-4">
                       <Button variant="ghost" size="icon">
