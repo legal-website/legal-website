@@ -15,12 +15,15 @@ import {
   CheckCircle,
   Copy,
   Download,
+  ExternalLink,
+  Loader2,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { Badge } from "@/components/ui/badge"
+import Link from "next/link"
 
 interface Invoice {
   id: string
@@ -65,6 +68,25 @@ interface Template {
   updatedAt: string
   status?: string
   usageCount?: number
+}
+
+// Attractive loader component
+const DashboardLoader = () => {
+  return (
+    <div className="p-8 flex flex-col justify-center items-center min-h-screen">
+      <div className="relative w-20 h-20 mb-4">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        </div>
+        <div
+          className="absolute inset-0 border-4 border-t-primary border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"
+          style={{ animationDuration: "1.5s" }}
+        ></div>
+      </div>
+      <h3 className="text-xl font-medium text-gray-700 mb-2">Loading your dashboard</h3>
+      <p className="text-gray-500">Preparing your business information...</p>
+    </div>
+  )
 }
 
 export default function DashboardPage() {
@@ -563,25 +585,7 @@ export default function DashboardPage() {
     : templates.filter((t) => t.isFree) // Show only free templates if no purchases
 
   if (loading) {
-    return (
-      <div className="p-8 flex justify-center items-center min-h-screen">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    )
-  }
-
-  // Function to determine the badge color based on pricing tier
-  const getPricingTierBadgeColorTemplates = (pricingTier: string) => {
-    switch (pricingTier) {
-      case "Basic":
-        return "bg-gray-100 hover:bg-gray-200 text-gray-800"
-      case "Standard":
-        return "bg-blue-100 hover:bg-blue-200 text-blue-800"
-      case "Premium":
-        return "bg-purple-100 hover:bg-purple-200 text-purple-800"
-      default:
-        return "bg-gray-100 hover:bg-gray-200 text-gray-800" // Default color
-    }
+    return <DashboardLoader />
   }
 
   return (
@@ -747,7 +751,7 @@ export default function DashboardPage() {
 
       {/* Documents Section - Updated to show templates */}
       <Card className="mb-8">
-        <div className="p-6 border-b">
+        <div className="p-6 border-b flex justify-between items-center">
           <h2 className="text-xl font-semibold">Docs</h2>
         </div>
         <div className="p-6">
@@ -767,9 +771,7 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">{template.name}</td>
                     <td className="py-4">{new Date(template.updatedAt).toLocaleDateString()}</td>
                     <td className="py-4">
-                      <Badge className={getPricingTierBadgeColorTemplates(template.pricingTier)}>
-                        {template.pricingTier}
-                      </Badge>
+                      <Badge className={getPricingTierBadgeColor(template.pricingTier)}>{template.pricingTier}</Badge>
                     </td>
                     <td className="py-4">
                       <Button variant="ghost" size="icon" onClick={() => handleDownload(template)}>
@@ -784,36 +786,52 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">Company documents</td>
                     <td className="py-4">28 Mar 2024</td>
                     <td className="py-4">
-                      <Badge className="bg-gray-100 hover:bg-gray-200 text-gray-800">Basic</Badge>
+                      <Badge className="bg-blue-100 hover:bg-blue-200 text-blue-800">Basic</Badge>
                     </td>
                     <td className="py-4">
-                      <FileText className="w-4 h-4" />
+                      <Button variant="ghost" size="icon">
+                        <Download className="w-4 h-4" />
+                      </Button>
                     </td>
                   </tr>
                   <tr>
                     <td className="py-4 font-medium">Scanned mail</td>
                     <td className="py-4">04 Apr 2024</td>
                     <td className="py-4">
-                      <Badge className="bg-blue-100 hover:bg-blue-200 text-blue-800">Standard</Badge>
+                      <Badge className="bg-purple-100 hover:bg-purple-200 text-purple-800">Standard</Badge>
                     </td>
                     <td className="py-4">
-                      <FileText className="w-4 h-4" />
+                      <Button variant="ghost" size="icon">
+                        <Download className="w-4 h-4" />
+                      </Button>
                     </td>
                   </tr>
                   <tr>
                     <td className="py-4 font-medium">Scanned mail</td>
                     <td className="py-4">24 May 2024</td>
                     <td className="py-4">
-                      <Badge className="bg-purple-100 hover:bg-purple-200 text-purple-800">Premium</Badge>
+                      <Badge className="bg-amber-100 hover:bg-amber-200 text-amber-800">Premium</Badge>
                     </td>
                     <td className="py-4">
-                      <FileText className="w-4 h-4" />
+                      <Button variant="ghost" size="icon">
+                        <Download className="w-4 h-4" />
+                      </Button>
                     </td>
                   </tr>
                 </>
               )}
             </tbody>
           </table>
+
+          {/* See more templates button */}
+          <div className="mt-6 flex justify-center">
+            <Link href="/dashboard/documents/templates" passHref>
+              <Button variant="outline" className="flex items-center gap-2">
+                <span>See more templates</span>
+                <ExternalLink className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </Card>
 
