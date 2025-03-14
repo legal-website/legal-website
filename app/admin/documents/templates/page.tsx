@@ -28,6 +28,9 @@ import {
   Trash2,
   Unlock,
   Check,
+  FileImage,
+  FileIcon as FilePdf,
+  FileIcon as FileDefault,
 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
@@ -94,6 +97,7 @@ export default function TemplatesPage() {
   const [loading, setLoading] = useState(true)
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const { toast } = useToast()
   const { data: session } = useSession()
   const router = useRouter()
@@ -304,6 +308,91 @@ export default function TemplatesPage() {
       setTemplates(mockTemplates)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Add this function to handle direct file downloads
+  const handleDownload = async (template: Template) => {
+    try {
+      setDownloadingId(template.id)
+
+      if (!template.fileUrl) {
+        throw new Error("No file URL available")
+      }
+
+      // Get file extension from URL
+      const urlWithoutParams = template.fileUrl.split("?")[0]
+      const urlParts = urlWithoutParams.split(".")
+      const fileExtension = urlParts.length > 1 ? urlParts[urlParts.length - 1].toLowerCase() : ""
+
+      // Create a sanitized filename with the correct extension
+      const fileName = `${template.name.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.${fileExtension}`
+
+      // Fetch the actual file as a blob
+      const fileResponse = await fetch(template.fileUrl)
+
+      if (!fileResponse.ok) {
+        throw new Error(`Failed to fetch file: ${fileResponse.statusText}`)
+      }
+
+      // Get the file as a blob
+      const blob = await fileResponse.blob()
+
+      // Create a blob URL and trigger download
+      const blobUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = blobUrl
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(blobUrl)
+      }, 100)
+
+      toast({
+        title: "Success",
+        description: "Template downloaded successfully.",
+      })
+    } catch (error: any) {
+      console.error("Error downloading template:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to download template. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
+  // Get file icon based on file extension
+  const getFileIcon = (fileUrl: string | undefined) => {
+    if (!fileUrl) return <FileDefault className="h-5 w-5 text-gray-600" />
+
+    const extension = fileUrl.split(".").pop()?.toLowerCase().split("?")[0]
+
+    switch (extension) {
+      case "pdf":
+        return <FilePdf className="h-5 w-5 text-red-600" />
+      case "doc":
+      case "docx":
+        return <FileText className="h-5 w-5 text-blue-600" />
+      case "xls":
+      case "xlsx":
+        return <FileText className="h-5 w-5 text-green-600" />
+      case "ppt":
+      case "pptx":
+        return <FileText className="h-5 w-5 text-orange-600" />
+      case "jpg":
+      case "jpeg":
+      case "png":
+      case "gif":
+        return <FileImage className="h-5 w-5 text-purple-600" />
+      default:
+        return <FileText className="h-5 w-5 text-gray-600" />
     }
   }
 
@@ -529,6 +618,78 @@ export default function TemplatesPage() {
     }
   }
 
+  // Add this function after the handleDeleteTemplate function
+  const handleDownloadTemplate = async (template: Template) => {
+    try {
+      const fileUrl = template.fileUrl
+      let fileName = template.name.replace(/\s+/g, "-").toLowerCase()
+
+      // If no direct fileUrl is available, try to fetch it from the API
+      if (!fileUrl) {
+        toast({
+          title: "Error",
+          description: "No file URL available for this template.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Extract file extension from URL
+      const urlExtension = fileUrl.split(".").pop()?.toLowerCase()?.split("?")[0]
+
+      // If URL has a valid extension, use it
+      if (
+        urlExtension &&
+        ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "jpg", "jpeg", "png", "gif"].includes(urlExtension)
+      ) {
+        fileName = `${fileName}.${urlExtension}`
+      } else {
+        // Default to PDF if no extension is found
+        fileName = `${fileName}.pdf`
+      }
+
+      toast({
+        title: "Download started",
+        description: "Your template is being downloaded.",
+      })
+
+      // Use fetch to get the file as a blob
+      const response = await fetch(fileUrl)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.statusText}`)
+      }
+
+      const blob = await response.blob()
+
+      // Check if the blob has content
+      if (blob.size === 0) {
+        throw new Error("Downloaded file is empty")
+      }
+
+      // Create a blob URL and trigger download
+      const blobUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = blobUrl
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+
+      // Clean up
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl)
+        document.body.removeChild(link)
+      }, 100)
+    } catch (error) {
+      console.error("Error downloading template:", error)
+      toast({
+        title: "Error",
+        description: "Failed to download template. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleEditClick = (template: Template) => {
     setSelectedTemplate(template)
     setNewTemplateName(template.name)
@@ -744,7 +905,7 @@ export default function TemplatesPage() {
         <div className="p-6">
           <div className="flex items-start justify-between mb-4">
             <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              {getFileIcon(template.fileUrl)}
             </div>
             <Badge className={getPricingTierBadgeColor(template.pricingTier)}>{template.pricingTier}</Badge>
           </div>
@@ -765,7 +926,7 @@ export default function TemplatesPage() {
             {template.price.toFixed(2)}
           </div>
 
-          <div className="flex space-x-2">
+          <div className="flex space-x-2 flex-wrap">
             <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEditClick(template)}>
               <Edit className="h-4 w-4 mr-1" />
               Edit
@@ -776,12 +937,21 @@ export default function TemplatesPage() {
             </Button>
             <Button variant="outline" size="sm" className="flex-1" onClick={() => handleUnlockForUser(template)}>
               <Unlock className="h-4 w-4 mr-1" />
-              Unlock for User
+              Unlock
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="flex-none text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+              className="flex-1 mt-2"
+              onClick={() => handleDownloadTemplate(template)}
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Download
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-none text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 mt-2"
               onClick={() => handleDeleteTemplate(template.id)}
             >
               <Trash2 className="h-4 w-4" />

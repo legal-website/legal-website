@@ -44,7 +44,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     try {
       const parts = template.name.split("|")
       if (parts && parts.length > 1) {
-        displayName = parts[0]
+        displayName = parts[0].trim()
         price = Number.parseFloat(parts[1]) || 0
         // Consider it free if price is 0 or if it's explicitly marked as free tier
         isFree = price === 0 || (parts.length > 2 && parts[2].toLowerCase() === "free")
@@ -96,15 +96,30 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       }
 
       // Get the file extension from the URL
-      const fileUrl = template.fileUrl
-      const fileExtension = fileUrl ? fileUrl.split(".").pop()?.toLowerCase() : null
+      const fileUrl = template.fileUrl || ""
+      let fileExtension = ""
 
-      // Return the direct file URL and metadata
+      try {
+        // Extract file extension from URL or filename
+        if (fileUrl) {
+          // Remove query parameters for extension extraction
+          const urlWithoutParams = fileUrl.split("?")[0]
+          const urlParts = urlWithoutParams.split(".")
+          if (urlParts.length > 1) {
+            fileExtension = urlParts[urlParts.length - 1].toLowerCase()
+          }
+        }
+      } catch (e) {
+        console.error("Error extracting file extension:", e)
+      }
+
+      // Return direct file URL and metadata
       return NextResponse.json({
         fileUrl: fileUrl,
         name: displayName,
         originalName: template.name,
-        fileExtension: fileExtension || "pdf", // Default to PDF if no extension found
+        fileExtension: fileExtension || "",
+        contentType: getContentType(fileExtension),
       })
     }
 
@@ -113,6 +128,34 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   } catch (error) {
     console.error("Error downloading template:", error)
     return NextResponse.json({ error: "Failed to download template" }, { status: 500 })
+  }
+}
+
+// Helper function to determine content type based on file extension
+function getContentType(extension: string): string {
+  switch (extension.toLowerCase()) {
+    case "pdf":
+      return "application/pdf"
+    case "doc":
+    case "docx":
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    case "xls":
+    case "xlsx":
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    case "ppt":
+    case "pptx":
+      return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg"
+    case "png":
+      return "image/png"
+    case "gif":
+      return "image/gif"
+    case "txt":
+      return "text/plain"
+    default:
+      return "application/octet-stream" // Default binary file type
   }
 }
 
