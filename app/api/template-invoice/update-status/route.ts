@@ -1,31 +1,20 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
 
-// Define a type for the Document model
-interface Document {
-  id: string
-  name: string
-  category: string
-  type: string
-  fileUrl: string
-  businessId: string
-  createdAt?: Date
-  updatedAt?: Date
-}
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     // Check if user is authenticated and is an admin
     const session = await getServerSession(authOptions)
 
-    if (!session?.user) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if ((session.user as any).role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const userRole = (session.user as any).role
+    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
     }
 
     // Get request body
@@ -33,30 +22,20 @@ export async function POST(req: Request) {
     const { invoiceId, status, specificTemplateId } = body
 
     if (!invoiceId || !status) {
-      return NextResponse.json({ error: "Invoice ID and status are required" }, { status: 400 })
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    console.log(`Processing template invoice ${invoiceId} with status ${status}`)
-    if (specificTemplateId) {
-      console.log(`Specific template ID provided: ${specificTemplateId}`)
-    }
-
-    // Get the invoice with user details
-    const invoice = await db.invoice.findUnique({
+    // Find the invoice
+    const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
-      include: { user: true },
     })
 
     if (!invoice) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
     }
 
-    console.log(`Found invoice: ${invoice.invoiceNumber} for user ${invoice.userId}`)
-    console.log(`Raw invoice items: ${JSON.stringify(invoice.items)}`)
-    console.log(`Invoice amount: $${invoice.amount}`)
-
     // Update the invoice status
-    const updatedInvoice = await db.invoice.update({
+    const updatedInvoice = await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         status,
@@ -64,23 +43,17 @@ export async function POST(req: Request) {
       },
     })
 
-    console.log(`Updated invoice status to ${status}`)
+    // Note: We're not automatically unlocking the template anymore
+    // Instead, we'll let the client-side handle the unlocking notification
 
-    // Return success response without unlocking templates
     return NextResponse.json({
       success: true,
+      message: `Invoice status updated to ${status}`,
       invoice: updatedInvoice,
-      message: "Invoice status updated successfully. Template access is managed separately.",
     })
-  } catch (error: any) {
-    console.error("Error updating invoice status:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "An error occurred while updating invoice status",
-      },
-      { status: 500 },
-    )
+  } catch (error) {
+    console.error("Error updating template invoice status:", error)
+    return NextResponse.json({ error: "Failed to update invoice status" }, { status: 500 })
   }
 }
 

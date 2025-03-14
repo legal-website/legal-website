@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { TemplateUnlockNotification } from "@/components/template-unlock-notification"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { FileText, Search, Upload, Clock } from "lucide-react"
+import { FileText, Search, Upload, Clock, CheckCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -27,6 +28,12 @@ interface Template {
   usageCount?: number
 }
 
+interface UnlockingStatus {
+  isUnlocking: boolean
+  templateName: string
+  progress: number
+}
+
 export default function DocumentTemplatesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
@@ -45,6 +52,58 @@ export default function DocumentTemplatesPage() {
   const [sortBy, setSortBy] = useState<"name" | "price" | "category">("name")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
   const itemsPerPage = 12
+
+  // Add state for tracking unlocking status
+  const [unlockingStatus, setUnlockingStatus] = useState<UnlockingStatus | null>(null)
+
+  // Check for recently approved payments
+  useEffect(() => {
+    const checkRecentApprovals = async () => {
+      if (!session) return
+
+      try {
+        const response = await fetch("/api/user/templates/recent-approvals")
+        if (response.ok) {
+          const data = await response.json()
+          if (data.recentApprovals && data.recentApprovals.length > 0) {
+            const approval = data.recentApprovals[0]
+            simulateUnlocking(approval.templateName)
+          }
+        }
+      } catch (error) {
+        console.error("Error checking recent approvals:", error)
+      }
+    }
+
+    checkRecentApprovals()
+
+    // Poll for updates every 30 seconds
+    const intervalId = setInterval(checkRecentApprovals, 30000)
+    return () => clearInterval(intervalId)
+  }, [session])
+
+  // Function to simulate the unlocking process with a progress bar
+  const simulateUnlocking = (templateName: string) => {
+    setUnlockingStatus({
+      isUnlocking: true,
+      templateName,
+      progress: 0,
+    })
+
+    let progress = 0
+    const interval = setInterval(() => {
+      progress += 5
+      setUnlockingStatus((prev) => (prev ? { ...prev, progress } : null))
+
+      if (progress >= 100) {
+        clearInterval(interval)
+        setTimeout(() => {
+          setUnlockingStatus(null)
+          fetchTemplates() // Refresh templates after unlocking
+        }, 1000)
+      }
+    }, 300)
+  }
 
   useEffect(() => {
     fetchTemplates()
@@ -362,6 +421,37 @@ export default function DocumentTemplatesPage() {
     }
   }
 
+  const [recentApprovals, setRecentApprovals] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    const checkRecentApprovals = async () => {
+      try {
+        const response = await fetch("/api/user/templates/recent-approvals")
+        const data = await response.json()
+
+        if (data.recentApprovals && data.recentApprovals.length > 0) {
+          setRecentApprovals(data.recentApprovals)
+        }
+      } catch (error) {
+        console.error("Error checking recent approvals:", error)
+      }
+    }
+
+    // Check on initial load
+    checkRecentApprovals()
+
+    // Set up interval to check periodically
+    const interval = setInterval(checkRecentApprovals, 10000) // Check every 10 seconds
+
+    return () => clearInterval(interval)
+  }, [])
+
+  const handleUnlockComplete = () => {
+    setRecentApprovals([])
+    fetchTemplates() // Refresh templates after unlock
+  }
+
   if (loading) {
     return (
       <div className="p-8 flex justify-center items-center">
@@ -377,7 +467,35 @@ export default function DocumentTemplatesPage() {
       <Card className="mb-8">
         <div className="p-6 border-b">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <h2 className="text-xl font-semibold">Premium Templates</h2>
+            <div className="flex flex-col">
+              <h2 className="text-xl font-semibold mb-4">Premium Templates</h2>
+              {recentApprovals.length > 0 && (
+                <TemplateUnlockNotification
+                  templateName={recentApprovals[0].templateName}
+                  onComplete={handleUnlockComplete}
+                />
+              )}
+
+              {/* Unlocking Progress Notification */}
+              {unlockingStatus && unlockingStatus.isUnlocking && (
+                <div className="mt-2 bg-green-50 border border-green-100 rounded-md p-3 max-w-md">
+                  <div className="flex items-center mb-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                    <p className="text-sm text-green-700">
+                      Payment approved. <span className="font-medium">{unlockingStatus.templateName}</span> is being
+                      unlocked.
+                    </p>
+                  </div>
+                  <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-green-500 rounded-full transition-all duration-300 ease-in-out"
+                      style={{ width: `${unlockingStatus.progress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <span className="text-sm">Sort by:</span>
