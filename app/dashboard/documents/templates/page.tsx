@@ -891,7 +891,7 @@ export default function DocumentTemplatesPage() {
       )}
 
       <Card>
-        <div className="p-6 border-b">
+        <div className="p-6 border-b mt-10">
           <h2 className="text-xl font-semibold">Template Benefits</h2>
         </div>
         <div className="p-6">
