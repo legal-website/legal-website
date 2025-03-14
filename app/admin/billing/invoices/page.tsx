@@ -763,9 +763,18 @@ export default function InvoicesAdminPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-2">
-          <Clock className="h-8 w-8 animate-spin text-primary" />
-          <p>Loading invoices...</p>
+        <div className="flex flex-col items-center gap-4 p-8 rounded-lg bg-white shadow-lg dark:bg-gray-800 max-w-md text-center">
+          <div className="relative">
+            <div className="w-20 h-20 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+            <FileText className="h-8 w-8 text-blue-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Loading Invoices</h3>
+            <p className="text-gray-500 dark:text-gray-400">Please wait while we fetch your invoice data...</p>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2 overflow-hidden">
+            <div className="bg-blue-500 h-1.5 rounded-full animate-pulse" style={{ width: "100%" }}></div>
+          </div>
         </div>
       </div>
     )
@@ -822,8 +831,8 @@ export default function InvoicesAdminPage() {
       </div>
 
       {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="relative">
+      <div className="flex flex-wrap items-center gap-4 mb-8">
+        <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="Search invoices..."
@@ -833,19 +842,18 @@ export default function InvoicesAdminPage() {
           />
         </div>
 
-        <div className="flex space-x-2">
-          <Button variant="outline" className="flex-1" onClick={() => setSearchQuery("")}>
-            <Filter className="mr-2 h-4 w-4" />
-            Clear Filters
-          </Button>
-          <Button variant="outline" className="flex-1" onClick={fetchInvoices}>
-            <Clock className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-        </div>
+        <Button variant="outline" onClick={() => setSearchQuery("")}>
+          <Filter className="mr-2 h-4 w-4" />
+          Clear Filters
+        </Button>
 
-        <div className="flex items-center justify-end space-x-2">
-          <span className="text-sm text-gray-500">Items per page:</span>
+        <Button variant="outline" onClick={fetchInvoices}>
+          <Clock className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500 whitespace-nowrap">Items per page:</span>
           <Select
             value={itemsPerPage.toString()}
             onValueChange={(value) => {
@@ -864,10 +872,11 @@ export default function InvoicesAdminPage() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center justify-end space-x-2">
-          <span className="text-sm text-gray-500">Sort by:</span>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500 whitespace-nowrap">Sort by:</span>
           <Select value={sortOrder} onValueChange={setSortOrder}>
-            <SelectTrigger className="w-[220px]">
+            <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Sort order" />
             </SelectTrigger>
             <SelectContent>
@@ -881,17 +890,29 @@ export default function InvoicesAdminPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="grid grid-cols-6 w-full max-w-md">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="paid">Paid</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-          <TabsTrigger value="template">Template</TabsTrigger>
-          <TabsTrigger value="regular">Regular</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
+        <TabsList className="grid grid-cols-6 w-full max-w-md gap-1">
+          <TabsTrigger value="all" className="px-4">
+            All
+          </TabsTrigger>
+          <TabsTrigger value="paid" className="px-4">
+            Paid
+          </TabsTrigger>
+          <TabsTrigger value="pending" className="px-4">
+            Pending
+          </TabsTrigger>
+          <TabsTrigger value="cancelled" className="px-4">
+            Cancelled
+          </TabsTrigger>
+          <TabsTrigger value="template" className="px-4">
+            Template
+          </TabsTrigger>
+          <TabsTrigger value="regular" className="px-4">
+            Regular
+          </TabsTrigger>
         </TabsList>
 
-        <div className="mt-2 text-sm text-gray-500">
+        <div className="mt-4 text-sm text-gray-500">
           {activeTab === "all" && "Showing all invoices"}
           {activeTab === "paid" && "Showing paid invoices only"}
           {activeTab === "pending" && "Showing pending invoices only"}
