@@ -2,7 +2,18 @@ import { type NextRequest, NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { getSignedUrl, extractPublicId } from "@/lib/cloudinary"
+import { extractCloudinaryDetails } from "@/lib/cloudinary"
+
+// Define a proper type for the downloadOptions object
+// Add this type definition before the GET function:
+
+interface DownloadOptions {
+  original: string
+  proxy: string
+  direct: string
+  cloudinaryDirect?: string
+  cloudinarySigned?: string
+}
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -124,23 +135,31 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         console.error("Error extracting file extension:", e)
       }
 
-      // Check if this is a Cloudinary URL and generate a fresh signed URL if needed
-      let finalFileUrl = fileUrl
+      // Prepare multiple download options
+      const downloadOptions: DownloadOptions = {
+        // Option 1: Original URL
+        original: fileUrl,
 
+        // Option 2: Proxy download
+        proxy: `/api/proxy-download?url=${encodeURIComponent(fileUrl)}&contentType=${encodeURIComponent(contentType)}&templateId=${templateId}&filename=${encodeURIComponent(displayName + (fileExtension ? `.${fileExtension}` : ""))}`,
+
+        // Option 3: Direct download
+        direct: `/api/direct-download?documentId=${templateId}&filename=${encodeURIComponent(displayName + (fileExtension ? `.${fileExtension}` : ""))}`,
+      }
+
+      // Option 4: If it's a Cloudinary URL, add direct attachment URL
       if (fileUrl.includes("cloudinary.com")) {
         try {
-          // Extract public ID from Cloudinary URL
-          const publicId = extractPublicId(fileUrl)
+          // Try direct attachment URL
+          downloadOptions.cloudinaryDirect = fileUrl.replace("/upload/", "/upload/fl_attachment/")
 
+          // Try signed URL
+          const { publicId, resourceType } = extractCloudinaryDetails(fileUrl)
           if (publicId) {
-            // Generate a fresh signed URL with authentication
-            finalFileUrl = await getSignedUrl(publicId, 3600) // URL valid for 1 hour
-
-            console.log(`Generated fresh Cloudinary URL for download: ${finalFileUrl}`)
+            downloadOptions.cloudinarySigned = cloudinarySignedUrl(publicId, resourceType)
           }
-        } catch (cloudinaryError) {
-          console.error("Error generating Cloudinary signed URL:", cloudinaryError)
-          // Continue with the original URL if signing fails
+        } catch (e) {
+          console.error("Error creating Cloudinary URLs:", e)
         }
       }
 
@@ -148,16 +167,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         `Returning template download info: ${displayName}, extension: ${fileExtension}, contentType: ${contentType}`,
       )
 
-      // Return direct file URL and metadata
+      // Return all download options and metadata
       return NextResponse.json({
-        fileUrl: finalFileUrl,
+        fileUrl: fileUrl, // Original URL for backward compatibility
         name: displayName,
         originalName: template.name,
         fileExtension: fileExtension || "",
         contentType: contentType,
         success: true,
-        // Include direct download URL as fallback
-        directUrl: `/api/direct-download?documentId=${templateId}&filename=${encodeURIComponent(displayName)}`,
+        downloadOptions: downloadOptions,
+        // Recommended download method
+        recommendedUrl: downloadOptions.proxy,
       })
     }
 
@@ -209,6 +229,33 @@ function getContentType(extension: string): string {
       return "text/csv"
     default:
       return "application/octet-stream" // Default binary file type
+  }
+}
+
+// Helper function to create a Cloudinary signed URL
+function cloudinarySignedUrl(publicId: string, resourceType: string): string {
+  try {
+    const { v2: cloudinary } = require("cloudinary")
+
+    // Configure Cloudinary
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+      secure: true,
+    })
+
+    return cloudinary.url(publicId, {
+      secure: true,
+      resource_type: resourceType,
+      type: "upload",
+      sign_url: true,
+      attachment: true,
+      expires_at: Math.floor(Date.now() / 1000) + 3600, // URL valid for 1 hour
+    })
+  } catch (error) {
+    console.error("Error creating Cloudinary signed URL:", error)
+    return ""
   }
 }
 

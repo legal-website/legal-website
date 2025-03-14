@@ -34,32 +34,113 @@ export function TemplateDownloadButton({
 
       const data = await response.json()
 
-      if (!data.success || !data.url) {
+      if (!data.success) {
         throw new Error(data.error || "Failed to get download URL")
       }
 
-      // Try the primary download method
-      try {
-        await downloadFile(data.url, data.filename)
+      // Get the filename
+      const filename = `${data.name}${data.fileExtension ? `.${data.fileExtension}` : ""}`
+
+      // Try the recommended download method first
+      if (data.recommendedUrl) {
+        console.log("Trying recommended download method...")
+        window.location.href = data.recommendedUrl
+
         toast({
           title: "Download started",
-          description: `${data.filename} is being downloaded`,
+          description: `${filename} is being downloaded`,
         })
-      } catch (primaryError) {
-        console.error("Primary download method failed:", primaryError)
 
-        // If primary method fails, try the direct download method
-        if (data.directUrl) {
+        setIsLoading(false)
+        return
+      }
+
+      // If no recommended URL, try the download options in order
+      if (data.downloadOptions) {
+        const options = data.downloadOptions
+
+        // Try proxy download first
+        if (options.proxy) {
+          console.log("Trying proxy download...")
+          window.location.href = options.proxy
+
           toast({
-            title: "Trying alternative download method",
-            description: "The first download attempt failed, trying another method...",
+            title: "Download started",
+            description: `${filename} is being downloaded`,
           })
 
-          // Use the direct download endpoint
-          window.location.href = data.directUrl
-        } else {
-          throw primaryError
+          setIsLoading(false)
+          return
         }
+
+        // Try Cloudinary direct
+        if (options.cloudinaryDirect) {
+          console.log("Trying Cloudinary direct download...")
+          window.location.href = options.cloudinaryDirect
+
+          toast({
+            title: "Download started",
+            description: `${filename} is being downloaded`,
+          })
+
+          setIsLoading(false)
+          return
+        }
+
+        // Try Cloudinary signed
+        if (options.cloudinarySigned) {
+          console.log("Trying Cloudinary signed download...")
+          window.location.href = options.cloudinarySigned
+
+          toast({
+            title: "Download started",
+            description: `${filename} is being downloaded`,
+          })
+
+          setIsLoading(false)
+          return
+        }
+
+        // Try direct download
+        if (options.direct) {
+          console.log("Trying direct download...")
+          window.location.href = options.direct
+
+          toast({
+            title: "Download started",
+            description: `${filename} is being downloaded`,
+          })
+
+          setIsLoading(false)
+          return
+        }
+
+        // Try original URL as last resort
+        if (options.original) {
+          console.log("Trying original URL download...")
+          window.location.href = options.original
+
+          toast({
+            title: "Download started",
+            description: `${filename} is being downloaded`,
+          })
+
+          setIsLoading(false)
+          return
+        }
+      }
+
+      // Fallback to the old method if no download options
+      if (data.fileUrl) {
+        console.log("Falling back to original fileUrl...")
+        window.location.href = data.fileUrl
+
+        toast({
+          title: "Download started",
+          description: `${filename} is being downloaded`,
+        })
+      } else {
+        throw new Error("No download URL available")
       }
     } catch (error) {
       console.error("Download error:", error)
@@ -70,36 +151,6 @@ export function TemplateDownloadButton({
       })
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  // Helper function to download a file from a URL
-  const downloadFile = async (url: string, filename: string) => {
-    try {
-      // Fetch the file
-      const response = await fetch(url)
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch file: ${response.status}`)
-      }
-
-      // Get the file content as a blob
-      const blob = await response.blob()
-
-      // Create a download link
-      const downloadUrl = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = downloadUrl
-      link.download = filename
-
-      // Append to the document, click, and remove
-      document.body.appendChild(link)
-      link.click()
-      window.URL.revokeObjectURL(downloadUrl)
-      document.body.removeChild(link)
-    } catch (error) {
-      console.error("Error downloading file:", error)
-      throw error
     }
   }
 

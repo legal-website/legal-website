@@ -1,6 +1,5 @@
 import { v2 as cloudinary } from "cloudinary"
 
-// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "",
   api_key: process.env.CLOUDINARY_API_KEY || "",
@@ -159,41 +158,123 @@ export async function deleteFromCloudinary(publicId: string): Promise<boolean> {
   }
 }
 
-// Generate a signed URL for a Cloudinary resource
-export async function getSignedUrl(publicId: string, expiresIn = 3600): Promise<string> {
+// Extract public ID and resource type from a Cloudinary URL
+export function extractCloudinaryDetails(url: string): {
+  publicId: string | null
+  resourceType: string
+  folderPath: string
+} {
   try {
-    const url = cloudinary.url(publicId, {
+    // Default values
+    let publicId: string | null = null
+    let resourceType = "image" // Default resource type
+    let folderPath = ""
+
+    // Check if it's a Cloudinary URL
+    if (!url.includes("cloudinary.com")) {
+      return { publicId, resourceType, folderPath }
+    }
+
+    // Determine resource type from URL
+    if (url.includes("/image/")) {
+      resourceType = "image"
+    } else if (url.includes("/video/")) {
+      resourceType = "video"
+    } else if (url.includes("/raw/")) {
+      resourceType = "raw"
+    } else {
+      // Try to determine from file extension
+      const extension = url.split(".").pop()?.toLowerCase()
+      if (extension) {
+        if (["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].includes(extension)) {
+          resourceType = "image"
+        } else if (["mp4", "mov", "avi", "wmv", "flv", "webm"].includes(extension)) {
+          resourceType = "video"
+        } else {
+          resourceType = "raw"
+        }
+      }
+    }
+
+    // Extract the public ID
+    // Format: https://res.cloudinary.com/cloud_name/resource_type/upload/v1234567890/folder/filename.ext
+    const regex = new RegExp(`${resourceType}/upload/(?:v\\d+/)?(.+?)(?:\\.[^./]+)?$`)
+    const match = url.match(regex)
+
+    if (match && match[1]) {
+      publicId = match[1]
+
+      // Check if there's a folder path
+      if (publicId.includes("/")) {
+        const lastSlashIndex = publicId.lastIndexOf("/")
+        folderPath = publicId.substring(0, lastSlashIndex)
+      }
+    } else {
+      // Alternative approach for other URL formats
+      const urlObj = new URL(url)
+      const pathSegments = urlObj.pathname.split("/")
+
+      // Find the upload segment
+      const uploadIndex = pathSegments.findIndex((segment) => segment === "upload")
+
+      if (uploadIndex !== -1 && uploadIndex < pathSegments.length - 1) {
+        // Join all segments after 'upload', excluding version numbers (v1234567890)
+        const relevantSegments = pathSegments.slice(uploadIndex + 1).filter((segment) => !segment.match(/^v\\d+$/))
+        publicId = relevantSegments.join("/")
+
+        // Remove file extension if present
+        publicId = publicId.replace(/\.[^/.]+$/, "")
+
+        // Extract folder path
+        if (publicId.includes("/")) {
+          const lastSlashIndex = publicId.lastIndexOf("/")
+          folderPath = publicId.substring(0, lastSlashIndex)
+        }
+      }
+    }
+
+    console.log(`Extracted from URL ${url}:`, { publicId, resourceType, folderPath })
+    return { publicId, resourceType, folderPath }
+  } catch (error) {
+    console.error("Error extracting Cloudinary details:", error)
+    return { publicId: null, resourceType: "auto", folderPath: "" }
+  }
+}
+
+// Generate a signed URL for a Cloudinary resource
+export async function getSignedUrl(url: string, expiresIn = 3600): Promise<string> {
+  try {
+    const { publicId, resourceType } = extractCloudinaryDetails(url)
+
+    if (!publicId) {
+      console.error("Could not extract public ID from URL:", url)
+      return url // Return original URL if we can't extract the public ID
+    }
+
+    console.log(`Generating signed URL for ${resourceType}/${publicId}`)
+
+    // Generate signed URL with appropriate resource type
+    const signedUrl = cloudinary.url(publicId, {
       secure: true,
-      resource_type: "auto",
+      resource_type: resourceType,
       type: "upload",
       sign_url: true,
       attachment: true,
       expires_at: Math.floor(Date.now() / 1000) + expiresIn,
     })
 
-    return url
+    console.log(`Generated signed URL: ${signedUrl}`)
+    return signedUrl
   } catch (error) {
     console.error("Error generating signed URL:", error)
-    throw error
+    return url // Return original URL on error
   }
 }
 
-// Extract public ID from a Cloudinary URL
+// For backward compatibility
 export function extractPublicId(url: string): string | null {
-  try {
-    // Handle different Cloudinary URL formats
-    const regex = /\/(?:v\d+\/|image\/upload\/|raw\/upload\/|video\/upload\/)(?:.*?\/)?([^.]+)/
-    const match = url.match(regex)
-
-    if (match && match[1]) {
-      return match[1]
-    }
-
-    return null
-  } catch (error) {
-    console.error("Error extracting public ID:", error)
-    return null
-  }
+  const { publicId } = extractCloudinaryDetails(url)
+  return publicId
 }
 
 // For backward compatibility with the original implementation
