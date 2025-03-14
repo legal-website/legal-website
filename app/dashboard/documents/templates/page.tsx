@@ -468,10 +468,9 @@ export default function DocumentTemplatesPage() {
       const formData = new FormData()
       formData.append("file", uploadFile)
       formData.append("invoiceId", selectedInvoice.id)
-      // Add a special flag to indicate this is a template invoice
       formData.append("isTemplateInvoice", "true")
-      // Add the template name to the form data
       formData.append("templateName", selectedTemplate.name)
+      formData.append("templateId", selectedTemplate.id)
 
       const response = await fetch("/api/user/templates/upload-receipt", {
         method: "POST",
@@ -489,9 +488,7 @@ export default function DocumentTemplatesPage() {
 
       setShowUploadDialog(false)
       setUploadFile(null)
-
-      // Show the progress bar for 3 minutes after upload
-      simulateUnlocking(selectedTemplate.name)
+      fetchTemplates() // Refresh templates
     } catch (error) {
       console.error("Error uploading receipt:", error)
       toast({
