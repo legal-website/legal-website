@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { getSignedUrl, extractPublicId } from "@/lib/cloudinary"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -39,6 +40,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 
     console.log(`Template found: ${template.name}, fileUrl: ${template.fileUrl}`)
+
+    if (!template.fileUrl) {
+      return NextResponse.json({ error: "Template has no associated file" }, { status: 404 })
+    }
 
     // Extract template metadata
     let displayName = template.name
@@ -100,7 +105,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       }
 
       // Get the file extension and content type from the URL
-      const fileUrl = template.fileUrl || ""
+      const fileUrl = template.fileUrl
       let fileExtension = ""
       let contentType = "application/octet-stream" // Default content type
 
@@ -119,18 +124,40 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         console.error("Error extracting file extension:", e)
       }
 
+      // Check if this is a Cloudinary URL and generate a fresh signed URL if needed
+      let finalFileUrl = fileUrl
+
+      if (fileUrl.includes("cloudinary.com")) {
+        try {
+          // Extract public ID from Cloudinary URL
+          const publicId = extractPublicId(fileUrl)
+
+          if (publicId) {
+            // Generate a fresh signed URL with authentication
+            finalFileUrl = await getSignedUrl(publicId, 3600) // URL valid for 1 hour
+
+            console.log(`Generated fresh Cloudinary URL for download: ${finalFileUrl}`)
+          }
+        } catch (cloudinaryError) {
+          console.error("Error generating Cloudinary signed URL:", cloudinaryError)
+          // Continue with the original URL if signing fails
+        }
+      }
+
       console.log(
         `Returning template download info: ${displayName}, extension: ${fileExtension}, contentType: ${contentType}`,
       )
 
       // Return direct file URL and metadata
       return NextResponse.json({
-        fileUrl: fileUrl,
+        fileUrl: finalFileUrl,
         name: displayName,
         originalName: template.name,
         fileExtension: fileExtension || "",
         contentType: contentType,
         success: true,
+        // Include direct download URL as fallback
+        directUrl: `/api/direct-download?documentId=${templateId}&filename=${encodeURIComponent(displayName)}`,
       })
     }
 
@@ -138,7 +165,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: "You don't have access to this template" }, { status: 403 })
   } catch (error) {
     console.error("Error downloading template:", error)
-    return NextResponse.json({ error: "Failed to download template" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to download template",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    )
   }
 }
 

@@ -534,31 +534,101 @@ export default function DocumentTemplatesPage() {
 
       console.log(`Downloading file: ${fileName} (${contentType}) from ${fileUrl}`)
 
-      // Create a server-side proxy request to avoid CORS issues
-      const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(fileUrl)}&contentType=${encodeURIComponent(contentType)}`
+      // Create a server-side proxy request to avoid CORS issues and handle authentication
+      const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(fileUrl)}&contentType=${encodeURIComponent(contentType)}&templateId=${template.id}`
 
-      // Use the browser's native download capability
-      const link = document.createElement("a")
-      link.href = proxyUrl
-      link.download = fileName
-      link.target = "_blank" // Open in new tab as fallback
-      document.body.appendChild(link)
-      link.click()
+      // Try multiple download methods for better compatibility
 
-      // Clean up
-      setTimeout(() => {
-        document.body.removeChild(link)
-      }, 100)
+      // Method 1: Fetch and create blob URL (most reliable)
+      try {
+        const response = await fetch(proxyUrl)
 
-      toast({
-        title: "Download complete",
-        description: "Your document has been downloaded successfully.",
-      })
+        if (!response.ok) {
+          throw new Error(`Proxy request failed: ${response.statusText}`)
+        }
+
+        const blob = await response.blob()
+
+        if (blob.size === 0) {
+          throw new Error("Downloaded file is empty")
+        }
+
+        // Create a blob URL and trigger download
+        const blobUrl = window.URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = blobUrl
+        link.download = fileName
+        document.body.appendChild(link)
+        link.click()
+
+        // Clean up
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl)
+          document.body.removeChild(link)
+        }, 100)
+
+        toast({
+          title: "Download complete",
+          description: "Your document has been downloaded successfully.",
+        })
+
+        return
+      } catch (method1Error) {
+        console.error("Method 1 download failed:", method1Error)
+        // Continue to method 2
+      }
+
+      // Method 2: Direct link with target="_blank" (fallback)
+      try {
+        const link = document.createElement("a")
+        link.href = proxyUrl
+        link.target = "_blank" // Open in new tab
+        link.rel = "noopener noreferrer"
+        document.body.appendChild(link)
+        link.click()
+
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(link)
+        }, 100)
+
+        toast({
+          title: "Download initiated",
+          description:
+            "Your document should open in a new tab. If it doesn't, please check your popup blocker settings.",
+        })
+
+        return
+      } catch (method2Error) {
+        console.error("Method 2 download failed:", method2Error)
+        // Continue to method 3
+      }
+
+      // Method 3: iframe approach (last resort)
+      try {
+        const iframe = document.createElement("iframe")
+        iframe.style.display = "none"
+        iframe.src = proxyUrl
+        document.body.appendChild(iframe)
+
+        // Clean up after a delay
+        setTimeout(() => {
+          document.body.removeChild(iframe)
+        }, 5000)
+
+        toast({
+          title: "Download initiated",
+          description: "Your document should download automatically. If it doesn't, please try again.",
+        })
+      } catch (method3Error) {
+        console.error("Method 3 download failed:", method3Error)
+        throw new Error("All download methods failed")
+      }
     } catch (error) {
       console.error("Error downloading template:", error)
       toast({
         title: "Download failed",
-        description: "Failed to download document. Please try again.",
+        description: "Failed to download document. Please try again or contact support.",
         variant: "destructive",
       })
     }
