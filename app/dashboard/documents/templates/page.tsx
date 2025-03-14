@@ -18,6 +18,9 @@ import {
   Gift,
   FileIcon as FileWord,
   FileIcon as FilePdf,
+  FileSpreadsheetIcon,
+  FileIcon as FilePresentationIcon,
+  ImageIcon,
 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
@@ -146,20 +149,31 @@ export default function DocumentTemplatesPage() {
     })
   }
 
-  // Get file icon based on file extension
+  // Update the getFileIcon function to be more specific with file types
   const getFileIcon = (fileUrl: string | undefined) => {
-    if (!fileUrl) return <FileText className="h-5 w-5" />
+    if (!fileUrl) return <FileText className="h-5 w-5 text-blue-600" />
 
     const extension = fileUrl.split(".").pop()?.toLowerCase()
 
     switch (extension) {
       case "pdf":
-        return <FilePdf className="h-5 w-5" />
+        return <FilePdf className="h-5 w-5 text-red-600" />
       case "doc":
       case "docx":
-        return <FileWord className="h-5 w-5" />
+        return <FileWord className="h-5 w-5 text-blue-600" />
+      case "xls":
+      case "xlsx":
+        return <FileSpreadsheetIcon className="h-5 w-5 text-green-600" />
+      case "ppt":
+      case "pptx":
+        return <FilePresentationIcon className="h-5 w-5 text-orange-600" />
+      case "jpg":
+      case "jpeg":
+      case "png":
+      case "gif":
+        return <ImageIcon className="h-5 w-5 text-purple-600" />
       default:
-        return <FileText className="h-5 w-5" />
+        return <FileText className="h-5 w-5 text-blue-600" />
     }
   }
 
@@ -474,7 +488,7 @@ export default function DocumentTemplatesPage() {
     setCurrentPage(pageNumber)
   }
 
-  // Improved download function to handle different file types
+  // Replace the handleDownload function with this improved version
   const handleDownload = async (template: Template) => {
     try {
       let fileUrl = template.fileUrl
@@ -500,36 +514,38 @@ export default function DocumentTemplatesPage() {
       const urlExtension = fileUrl.split(".").pop()?.toLowerCase()
 
       // If URL has a valid extension, use it
-      if (urlExtension && ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(urlExtension)) {
+      if (
+        urlExtension &&
+        ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "jpg", "jpeg", "png", "gif"].includes(urlExtension)
+      ) {
         fileName = `${fileName}.${urlExtension}`
       } else {
         // Default to PDF if no extension is found
         fileName = `${fileName}.pdf`
       }
 
-      // For Cloudinary URLs, ensure we're getting the file directly
-      if (fileUrl.includes("cloudinary.com") && !fileUrl.includes("/download")) {
-        // Add download flag to Cloudinary URL if needed
-        fileUrl = fileUrl.includes("?") ? `${fileUrl}&fl_attachment` : `${fileUrl}?fl_attachment`
-      }
+      toast({
+        title: "Download started",
+        description: "Your template is being downloaded.",
+      })
 
-      // Create a temporary anchor element to trigger the download
+      // Use fetch to get the file as a blob
+      const response = await fetch(fileUrl)
+      const blob = await response.blob()
+
+      // Create a blob URL and trigger download
+      const blobUrl = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
-      link.href = fileUrl
+      link.href = blobUrl
       link.download = fileName
-      link.target = "_blank" // Open in new tab to handle potential redirects
       document.body.appendChild(link)
       link.click()
 
       // Clean up
       setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl)
         document.body.removeChild(link)
       }, 100)
-
-      toast({
-        title: "Download started",
-        description: "Your template is being downloaded.",
-      })
     } catch (error) {
       console.error("Error downloading template:", error)
       toast({
@@ -1074,7 +1090,7 @@ export default function DocumentTemplatesPage() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 2 0 002 2z"
                   />
                 </svg>
               </div>

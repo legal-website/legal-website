@@ -95,19 +95,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         console.error("Error updating template usage count:", e)
       }
 
-      // Ensure the fileUrl is properly formatted for download
-      let fileUrl = template.fileUrl
+      // Get the file extension from the URL
+      const fileUrl = template.fileUrl
+      const fileExtension = fileUrl ? fileUrl.split(".").pop()?.toLowerCase() : null
 
-      // For Cloudinary URLs, ensure we're getting the file directly
-      if (fileUrl && fileUrl.includes("cloudinary.com") && !fileUrl.includes("/download")) {
-        // Add download flag to Cloudinary URL if needed
-        fileUrl = fileUrl.includes("?") ? `${fileUrl}&fl_attachment` : `${fileUrl}?fl_attachment`
-      }
-
+      // Return the direct file URL and metadata
       return NextResponse.json({
         fileUrl: fileUrl,
         name: displayName,
         originalName: template.name,
+        fileExtension: fileExtension || "pdf", // Default to PDF if no extension found
       })
     }
 
