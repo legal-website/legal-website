@@ -160,9 +160,18 @@ export default function InvoicesAdminPage() {
       }
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
+        const errorText = await response.text()
+        console.error("Error response text:", errorText)
+
+        let errorData = {}
+        try {
+          errorData = JSON.parse(errorText)
+        } catch (e) {
+          console.error("Error parsing error response:", e)
+        }
+
         console.error("Error response:", errorData)
-        throw new Error(errorData.error || `Failed to fetch invoices: ${response.status}`)
+        throw new Error((errorData as any).error || `Failed to fetch invoices: ${response.status}`)
       }
 
       const data = await response.json()
@@ -177,13 +186,13 @@ export default function InvoicesAdminPage() {
       const processedInvoices = data.invoices.map((invoice: any) => {
         // Parse items if they're stored as a JSON string
         let parsedItems = invoice.items
-        if (typeof invoice.items === "string") {
-          try {
+        try {
+          if (typeof invoice.items === "string") {
             parsedItems = JSON.parse(invoice.items)
-          } catch (e) {
-            console.error(`Error parsing items for invoice ${invoice.id}:`, e)
-            parsedItems = []
           }
+        } catch (e) {
+          console.error(`Error parsing items for invoice ${invoice.id}:`, e)
+          parsedItems = []
         }
 
         return {
@@ -195,8 +204,12 @@ export default function InvoicesAdminPage() {
             (parsedItems.isTemplateInvoice ||
               (Array.isArray(parsedItems) &&
                 parsedItems.some(
-                  (item) => item.type === "template" || (item.tier && item.tier.toLowerCase().includes("template")),
-                ))),
+                  (item: any) =>
+                    item.type === "template" || (item.tier && item.tier.toLowerCase().includes("template")),
+                )) ||
+              (typeof invoice.items === "string" &&
+                (invoice.items.toLowerCase().includes("template") ||
+                  invoice.items.toLowerCase().includes("istemplateinvoice")))),
         }
       })
 

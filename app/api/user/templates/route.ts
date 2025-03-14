@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     const userId = (session.user as any).id
+    console.log(`Fetching templates for user ${userId}`)
 
     // Get the user with their business
     const user = await db.user.findUnique({
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
     }
 
     const businessId = user.business.id
+    console.log(`User's business ID: ${businessId}`)
 
     // Get all master templates (documents with type "template")
     const masterTemplates = await db.document.findMany({
@@ -35,6 +37,8 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     })
 
+    console.log(`Found ${masterTemplates.length} master templates`)
+
     // Get user's purchased templates (documents in their business with type "purchased_template")
     const userTemplates = await db.document.findMany({
       where: {
@@ -42,6 +46,28 @@ export async function GET(req: NextRequest) {
         type: "purchased_template",
       },
     })
+
+    console.log(`Found ${userTemplates.length} purchased templates for user`)
+
+    // Also check for templates with the naming convention
+    const namedTemplates = await db.document.findMany({
+      where: {
+        businessId: businessId,
+        name: { startsWith: "template_" },
+      },
+    })
+
+    console.log(`Found ${namedTemplates.length} templates with naming convention`)
+
+    // Combine both sets of templates
+    const allUserTemplates = [...userTemplates]
+    for (const template of namedTemplates) {
+      if (!allUserTemplates.some((t) => t.id === template.id)) {
+        allUserTemplates.push(template)
+      }
+    }
+
+    console.log(`Total user templates after combining: ${allUserTemplates.length}`)
 
     // Get user's pending template invoices
     const pendingInvoices = await db.invoice.findMany({
@@ -51,13 +77,16 @@ export async function GET(req: NextRequest) {
       },
     })
 
+    console.log(`Found ${pendingInvoices.length} pending invoices`)
+
     // Create a map of template IDs that the user has purchased
     const purchasedTemplateMap = new Map()
-    userTemplates.forEach((template) => {
+    allUserTemplates.forEach((template) => {
       // Extract the original template ID from the name (format: template_<id>_<name>)
       const match = template.name.match(/^template_([^_]+)/)
       if (match && match[1]) {
         purchasedTemplateMap.set(match[1], true)
+        console.log(`User has purchased template: ${match[1]}`)
       }
     })
 
@@ -84,13 +113,14 @@ export async function GET(req: NextRequest) {
 
         // For each template item, find matching master template
         templateItems.forEach((item) => {
-          const matchingTemplate = masterTemplates.find((template) =>
+          const matchingTemplates = masterTemplates.filter((template) =>
             template.name.toLowerCase().includes(item.tier?.toLowerCase() || ""),
           )
 
-          if (matchingTemplate) {
-            pendingTemplateMap.set(matchingTemplate.id, invoice.id)
-          }
+          matchingTemplates.forEach((template) => {
+            pendingTemplateMap.set(template.id, invoice.id)
+            console.log(`Template ${template.id} is pending in invoice ${invoice.id}`)
+          })
         })
       } catch (e) {
         console.error(`Error processing invoice ${invoice.id}:`, e)
@@ -124,6 +154,11 @@ export async function GET(req: NextRequest) {
         console.error("Error parsing template metadata:", e)
       }
 
+      const isPurchased = purchasedTemplateMap.has(doc.id)
+      const isPending = pendingTemplateMap.has(doc.id)
+
+      console.log(`Template ${doc.id} - ${displayName}: purchased=${isPurchased}, pending=${isPending}`)
+
       return {
         id: doc.id,
         name: displayName,
@@ -135,8 +170,8 @@ export async function GET(req: NextRequest) {
         price: price,
         pricingTier: pricingTier,
         fileUrl: doc.fileUrl,
-        purchased: purchasedTemplateMap.has(doc.id),
-        isPending: pendingTemplateMap.has(doc.id),
+        purchased: isPurchased,
+        isPending: isPending,
         invoiceId: pendingTemplateMap.get(doc.id),
       }
     })
