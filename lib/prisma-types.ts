@@ -12,8 +12,7 @@ export interface InvoiceItem {
   type?: string
 }
 
-// Instead of extending PrismaClient directly, we'll use declaration merging
-// This avoids the need to manually define all methods for each model
+// This is a workaround for TypeScript not recognizing the new model
 declare global {
   namespace PrismaJson {
     interface PhoneNumberRequestModel {
@@ -27,6 +26,6 @@ declare global {
   }
 }
 
-// Use type assertion to extend PrismaClient without TypeScript errors
+// Use type assertion instead of interface extension
 export type ExtendedPrismaClient = PrismaClient
 

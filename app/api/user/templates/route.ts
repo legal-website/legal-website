@@ -35,12 +35,11 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     })
 
-    // Get user's purchased templates (documents in their business with category "template")
+    // Get user's purchased templates (documents in their business with type "purchased_template")
     const userTemplates = await db.document.findMany({
       where: {
         businessId: businessId,
-        category: "template",
-        type: "template",
+        type: "purchased_template",
       },
     })
 
@@ -55,36 +54,46 @@ export async function GET(req: NextRequest) {
     // Create a map of template IDs that the user has purchased
     const purchasedTemplateMap = new Map()
     userTemplates.forEach((template) => {
-      // Assuming the original template ID is stored in the name field with a prefix
-      const originalTemplateId = template.name.startsWith("template_")
-        ? template.name.substring(9) // Remove "template_" prefix
-        : null
-
-      if (originalTemplateId) {
-        purchasedTemplateMap.set(originalTemplateId, true)
+      // Extract the original template ID from the name (format: template_<id>_<name>)
+      const match = template.name.match(/^template_([^_]+)/)
+      if (match && match[1]) {
+        purchasedTemplateMap.set(match[1], true)
       }
     })
 
-    // Create a map of template IDs that are pending approval
+    // Create a map of pending template IDs
     const pendingTemplateMap = new Map()
     pendingInvoices.forEach((invoice) => {
       try {
-        const items: InvoiceItem[] =
-          typeof invoice.items === "string" ? JSON.parse(invoice.items) : (invoice.items as any)
+        let items: InvoiceItem[] = []
+        try {
+          const parsedItems = typeof invoice.items === "string" ? JSON.parse(invoice.items) : invoice.items
 
-        if (Array.isArray(items)) {
-          items.forEach((item) => {
-            if (
-              item.templateId &&
-              (item.type === "template" ||
-                (item.tier && typeof item.tier === "string" && item.tier.toLowerCase().includes("template")))
-            ) {
-              pendingTemplateMap.set(item.templateId, invoice.id)
-            }
-          })
+          items = Array.isArray(parsedItems) ? parsedItems : [parsedItems]
+        } catch (e) {
+          console.error(`Error parsing items for invoice ${invoice.id}:`, e)
+          return
         }
+
+        // Find template items
+        const templateItems = items.filter(
+          (item) =>
+            item.type === "template" ||
+            (item.tier && typeof item.tier === "string" && item.tier.toLowerCase().includes("template")),
+        )
+
+        // For each template item, find matching master template
+        templateItems.forEach((item) => {
+          const matchingTemplate = masterTemplates.find((template) =>
+            template.name.toLowerCase().includes(item.tier?.toLowerCase() || ""),
+          )
+
+          if (matchingTemplate) {
+            pendingTemplateMap.set(matchingTemplate.id, invoice.id)
+          }
+        })
       } catch (e) {
-        console.error(`Error parsing items for invoice ${invoice.id}:`, e)
+        console.error(`Error processing invoice ${invoice.id}:`, e)
       }
     })
 
@@ -118,8 +127,8 @@ export async function GET(req: NextRequest) {
       return {
         id: doc.id,
         name: displayName,
-        description: description,
-        category: doc.category,
+        description: description || `${displayName} template`,
+        category: doc.category || "Uncategorized",
         updatedAt: doc.updatedAt.toISOString(),
         status: status,
         usageCount: usageCount,
