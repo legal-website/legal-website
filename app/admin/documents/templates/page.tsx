@@ -15,10 +15,24 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Plus, Search, Download, Edit, DollarSign, Filter, Copy, Calendar, Trash2 } from "lucide-react"
+import {
+  FileText,
+  Plus,
+  Search,
+  Download,
+  Edit,
+  DollarSign,
+  Filter,
+  Copy,
+  Calendar,
+  Trash2,
+  Unlock,
+  Check,
+} from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 // Define pricing tier types
 type PricingTier = "Free" | "Basic" | "Standard" | "Premium"
@@ -36,6 +50,33 @@ interface Template {
   pricingTier: PricingTier
   description?: string
   fileUrl?: string
+}
+
+// Define user type
+interface User {
+  id: string
+  name: string | null
+  email: string
+  role: string
+  business?: {
+    id: string
+    name: string
+  } | null
+}
+
+// Define template access type
+interface TemplateAccess {
+  id: string
+  documentId: string
+  user: {
+    id: string
+    name: string | null
+    email: string
+    role: string
+  }
+  businessId: string
+  businessName: string
+  grantedAt: string
 }
 
 export default function TemplatesPage() {
@@ -59,6 +100,15 @@ export default function TemplatesPage() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 12
+
+  // Add these below the other states
+  const [showUnlockTemplateDialog, setShowUnlockTemplateDialog] = useState(false)
+  const [searchUserQuery, setSearchUserQuery] = useState("")
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [users, setUsers] = useState<User[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [templateUsersAccess, setTemplateUsersAccess] = useState<TemplateAccess[]>([])
+  const [loadingAccess, setLoadingAccess] = useState(false)
 
   useEffect(() => {
     // Check if user is authenticated and is an admin
@@ -500,6 +550,144 @@ export default function TemplatesPage() {
     setShowNewTemplateDialog(true)
   }
 
+  const searchUsers = async (query: string) => {
+    try {
+      setLoadingUsers(true)
+      const response = await fetch(`/api/admin/users/search?query=${encodeURIComponent(query)}`)
+
+      if (!response.ok) {
+        throw new Error("Failed to search users")
+      }
+
+      const data = await response.json()
+      setUsers(data.users || [])
+    } catch (error) {
+      console.error("Error searching users:", error)
+      toast({
+        title: "Error",
+        description: "Failed to search users. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
+
+  const fetchTemplateAccess = async (templateId: string) => {
+    try {
+      setLoadingAccess(true)
+      const response = await fetch(`/api/admin/templates/${templateId}/access`)
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch template access")
+      }
+
+      const data = await response.json()
+      setTemplateUsersAccess(data.templateAccess || [])
+    } catch (error) {
+      console.error("Error fetching template access:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch template access. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingAccess(false)
+    }
+  }
+
+  const grantTemplateAccess = async () => {
+    if (!selectedTemplate || !selectedUserId) return
+
+    try {
+      setIsSubmitting(true)
+
+      const response = await fetch("/api/admin/templates/grant-access", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          templateId: selectedTemplate.id,
+          userId: selectedUserId,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to grant template access")
+      }
+
+      toast({
+        title: "Success",
+        description: "Template access granted successfully.",
+      })
+
+      // Refresh template access
+      fetchTemplateAccess(selectedTemplate.id)
+
+      // Reset selected user
+      setSelectedUserId(null)
+      setSearchUserQuery("")
+    } catch (error: any) {
+      console.error("Error granting template access:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to grant template access. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const removeTemplateAccess = async (userId: string) => {
+    if (!selectedTemplate) return
+
+    try {
+      setLoadingAccess(true)
+
+      const response = await fetch(`/api/admin/templates/${selectedTemplate.id}/access`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to remove template access")
+      }
+
+      toast({
+        title: "Success",
+        description: "Template access removed successfully.",
+      })
+
+      // Refresh template access
+      fetchTemplateAccess(selectedTemplate.id)
+    } catch (error: any) {
+      console.error("Error removing template access:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove template access. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingAccess(false)
+    }
+  }
+
+  // Add this function to handle opening the unlock dialog
+  const handleUnlockForUser = (template: Template) => {
+    setSelectedTemplate(template)
+    setShowUnlockTemplateDialog(true)
+    fetchTemplateAccess(template.id)
+  }
+
   // Filter templates based on search query and active tab
   const filteredTemplates = templates.filter((template) => {
     const matchesSearch =
@@ -585,6 +773,10 @@ export default function TemplatesPage() {
             <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDuplicateTemplate(template)}>
               <Copy className="h-4 w-4 mr-1" />
               Duplicate
+            </Button>
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => handleUnlockForUser(template)}>
+              <Unlock className="h-4 w-4 mr-1" />
+              Unlock for User
             </Button>
             <Button
               variant="outline"
@@ -933,6 +1125,161 @@ export default function TemplatesPage() {
             </Button>
             <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleEditTemplate} disabled={isSubmitting}>
               {isSubmitting ? "Updating..." : "Update Template"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unlock Template Dialog */}
+      <Dialog open={showUnlockTemplateDialog} onOpenChange={setShowUnlockTemplateDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Unlock Template for User</DialogTitle>
+            <DialogDescription>
+              {selectedTemplate && <span>Grant access to {selectedTemplate.name} for a specific user</span>}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            {selectedTemplate && (
+              <div className="p-4 border rounded-lg mb-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-purple-100">
+                    <FileText className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">{selectedTemplate.name}</h3>
+                    <p className="text-sm text-gray-500">{selectedTemplate.category}</p>
+                    <div className="mt-1 flex items-center text-sm">
+                      <DollarSign className="h-3.5 w-3.5 mr-1" />
+                      <span>{selectedTemplate.price.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Search User by Email</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search users by email..."
+                  className="pl-10"
+                  value={searchUserQuery}
+                  onChange={(e) => {
+                    setSearchUserQuery(e.target.value)
+                    if (e.target.value.length > 2) {
+                      searchUsers(e.target.value)
+                    }
+                  }}
+                />
+              </div>
+
+              {loadingUsers && (
+                <div className="py-2 text-center">
+                  <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent"></div>
+                  <span className="ml-2 text-sm text-gray-500">Searching users...</span>
+                </div>
+              )}
+
+              {!loadingUsers && users.length > 0 && (
+                <div className="max-h-60 overflow-y-auto border rounded-md mt-2">
+                  {users.map((user) => (
+                    <div
+                      key={user.id}
+                      className={`flex items-center justify-between p-2 hover:bg-gray-100 cursor-pointer ${
+                        selectedUserId === user.id ? "bg-purple-50" : ""
+                      }`}
+                      onClick={() => setSelectedUserId(user.id)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback>
+                            {user.name
+                              ? user.name
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .toUpperCase()
+                              : user.email[0].toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">{user.name || "Unnamed User"}</p>
+                          <p className="text-xs text-gray-500">{user.email}</p>
+                        </div>
+                      </div>
+                      {selectedUserId === user.id && (
+                        <div className="h-5 w-5 rounded-full bg-purple-200 flex items-center justify-center">
+                          <Check className="h-3 w-3 text-purple-600" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!loadingUsers && searchUserQuery.length > 2 && users.length === 0 && (
+                <p className="text-sm text-gray-500 py-2">No users found. Try a different search term.</p>
+              )}
+            </div>
+
+            <div className="pt-4">
+              <h3 className="text-sm font-medium mb-2">Current Access</h3>
+              {loadingAccess ? (
+                <div className="py-2 text-center">
+                  <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent"></div>
+                  <span className="ml-2 text-sm text-gray-500">Loading access list...</span>
+                </div>
+              ) : templateUsersAccess.length > 0 ? (
+                <div className="max-h-40 overflow-y-auto border rounded-md">
+                  {templateUsersAccess.map((access) => (
+                    <div key={access.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback>
+                            {access.user.name
+                              ? access.user.name
+                                  .split(" ")
+                                  .map((n: string) => n[0])
+                                  .join("")
+                                  .toUpperCase()
+                              : access.user.email[0].toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">{access.user.name || "Unnamed User"}</p>
+                          <p className="text-xs text-gray-500">{access.user.email}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => removeTemplateAccess(access.user.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 py-2">No users have access to this template yet.</p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowUnlockTemplateDialog(false)} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-purple-600 hover:bg-purple-700"
+              onClick={grantTemplateAccess}
+              disabled={isSubmitting || !selectedUserId}
+            >
+              {isSubmitting ? "Granting Access..." : "Grant Access"}
             </Button>
           </DialogFooter>
         </DialogContent>
