@@ -31,13 +31,16 @@ export async function POST(req: Request) {
 
     // Get request body
     const body = await req.json()
-    const { invoiceId, status } = body
+    const { invoiceId, status, specificTemplateId } = body
 
     if (!invoiceId || !status) {
       return NextResponse.json({ error: "Invoice ID and status are required" }, { status: 400 })
     }
 
     console.log(`Processing template invoice ${invoiceId} with status ${status}`)
+    if (specificTemplateId) {
+      console.log(`Specific template ID provided: ${specificTemplateId}`)
+    }
 
     // Get the invoice with user details
     const invoice = await db.invoice.findUnique({
@@ -97,6 +100,85 @@ export async function POST(req: Request) {
         masterTemplates.forEach((template) => {
           console.log(`- ${template.id}: ${template.name}`)
         })
+
+        // Get user's existing templates
+        const userTemplates = await db.document.findMany({
+          where: {
+            businessId: businessId,
+            type: "purchased_template",
+          },
+        })
+
+        console.log(`User has ${userTemplates.length} existing templates`)
+
+        // Create a map of template IDs that the user already has
+        const userTemplateMap = new Map()
+        userTemplates.forEach((template) => {
+          // Extract the original template ID from the name (format: template_<id>_<name>)
+          const match = template.name.match(/^template_([^_]+)/)
+          if (match && match[1]) {
+            userTemplateMap.set(match[1], true)
+            console.log(`User already has template: ${match[1]}`)
+          }
+        })
+
+        // If a specific template ID was provided, use that
+        if (specificTemplateId) {
+          const template = masterTemplates.find((t) => t.id === specificTemplateId)
+
+          if (!template) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: `Template with ID ${specificTemplateId} not found`,
+              },
+              { status: 404 },
+            )
+          }
+
+          // Check if user already has this template
+          if (userTemplateMap.has(specificTemplateId)) {
+            console.log(`User already has template ${specificTemplateId}, skipping`)
+            return NextResponse.json({
+              success: true,
+              invoice: updatedInvoice,
+              message: `User already has template ${specificTemplateId}`,
+            })
+          }
+
+          // Create a copy of the template for the user
+          try {
+            const newTemplate = await db.document.create({
+              data: {
+                name: `template_${template.id}_${template.name}`,
+                category: "template",
+                type: "purchased_template",
+                fileUrl: template.fileUrl,
+                businessId: businessId,
+              },
+            })
+
+            console.log(
+              `Template ${template.id} unlocked for user ${invoice.userId}, created document ${newTemplate.id}`,
+            )
+
+            return NextResponse.json({
+              success: true,
+              invoice: updatedInvoice,
+              templatesUnlocked: 1,
+              unlockedTemplate: template.name,
+            })
+          } catch (error) {
+            console.error(`Error creating template document: ${error}`)
+            return NextResponse.json(
+              {
+                success: false,
+                error: `Error creating template document: ${error}`,
+              },
+              { status: 500 },
+            )
+          }
+        }
 
         // Try to parse invoice items
         let invoiceItems: InvoiceItem[] = []
@@ -169,67 +251,58 @@ export async function POST(req: Request) {
 
         console.log(`Potential template names: ${potentialTemplateNames.join(", ")}`)
 
-        // If we have no potential template names, use a fallback
+        // If we have no potential template names, try to find a template that the user doesn't already have
         if (potentialTemplateNames.length === 0) {
-          console.log(`No potential template names found, using fallback`)
+          console.log(`No potential template names found, looking for templates user doesn't have`)
 
-          // Use the first template as a fallback
-          if (masterTemplates.length > 0) {
-            const fallbackTemplate = masterTemplates[0]
-            console.log(`Using fallback template: ${fallbackTemplate.id} - ${fallbackTemplate.name}`)
+          // Find templates the user doesn't already have
+          const availableTemplates = masterTemplates.filter((template) => !userTemplateMap.has(template.id))
 
-            // Check if the user already has this template
-            const existingTemplate = await db.document.findFirst({
-              where: {
-                businessId: businessId,
-                name: { contains: `template_${fallbackTemplate.id}` },
-              },
-            })
+          if (availableTemplates.length > 0) {
+            console.log(`Found ${availableTemplates.length} templates user doesn't have`)
 
-            if (existingTemplate) {
-              console.log(`User already has template ${fallbackTemplate.id}`)
-              return NextResponse.json({
-                success: true,
-                invoice: updatedInvoice,
-                message: "User already has the template",
-              })
-            }
+            // Use the first available template
+            const templateToUnlock = availableTemplates[0]
+            console.log(`Using template: ${templateToUnlock.id} - ${templateToUnlock.name}`)
 
             // Create a copy of the template for the user
             try {
               const newTemplate = await db.document.create({
                 data: {
-                  name: `template_${fallbackTemplate.id}_${fallbackTemplate.name}`,
+                  name: `template_${templateToUnlock.id}_${templateToUnlock.name}`,
                   category: "template",
                   type: "purchased_template",
-                  fileUrl: fallbackTemplate.fileUrl,
+                  fileUrl: templateToUnlock.fileUrl,
                   businessId: businessId,
                 },
               })
 
               console.log(
-                `Template ${fallbackTemplate.id} unlocked for user ${invoice.userId}, created document ${newTemplate.id}`,
+                `Template ${templateToUnlock.id} unlocked for user ${invoice.userId}, created document ${newTemplate.id}`,
               )
 
               return NextResponse.json({
                 success: true,
                 invoice: updatedInvoice,
                 templatesUnlocked: 1,
+                unlockedTemplate: templateToUnlock.name,
               })
             } catch (error) {
               console.error(`Error creating template document: ${error}`)
-              return NextResponse.json({
-                success: true,
-                invoice: updatedInvoice,
-                error: `Error creating template document: ${error}`,
-              })
+              return NextResponse.json(
+                {
+                  success: false,
+                  error: `Error creating template document: ${error}`,
+                },
+                { status: 500 },
+              )
             }
           } else {
-            console.log(`No templates found in the system`)
+            console.log(`User already has all available templates`)
             return NextResponse.json({
               success: true,
               invoice: updatedInvoice,
-              warning: "No templates found in the system",
+              message: "User already has all available templates",
             })
           }
         }
@@ -265,31 +338,73 @@ export async function POST(req: Request) {
 
         console.log(`Found ${matchingTemplates.length} unique matching templates`)
 
-        // If we still have no matches, use the first template as a fallback
-        if (matchingTemplates.length === 0 && masterTemplates.length > 0) {
-          const fallbackTemplate = masterTemplates[0]
-          console.log(`No matches found, using fallback template: ${fallbackTemplate.id} - ${fallbackTemplate.name}`)
-          matchingTemplates = [fallbackTemplate]
+        // Filter out templates the user already has
+        const templatesToUnlock = matchingTemplates.filter((template) => !userTemplateMap.has(template.id))
+
+        console.log(`Found ${templatesToUnlock.length} templates to unlock (after filtering out already owned)`)
+
+        // If we still have no templates to unlock, find a template the user doesn't have
+        if (templatesToUnlock.length === 0) {
+          console.log(`No templates to unlock, looking for any template user doesn't have`)
+
+          // Find templates the user doesn't already have
+          const availableTemplates = masterTemplates.filter((template) => !userTemplateMap.has(template.id))
+
+          if (availableTemplates.length > 0) {
+            console.log(`Found ${availableTemplates.length} templates user doesn't have`)
+
+            // Use the first available template
+            const templateToUnlock = availableTemplates[0]
+            console.log(`Using template: ${templateToUnlock.id} - ${templateToUnlock.name}`)
+
+            // Create a copy of the template for the user
+            try {
+              const newTemplate = await db.document.create({
+                data: {
+                  name: `template_${templateToUnlock.id}_${templateToUnlock.name}`,
+                  category: "template",
+                  type: "purchased_template",
+                  fileUrl: templateToUnlock.fileUrl,
+                  businessId: businessId,
+                },
+              })
+
+              console.log(
+                `Template ${templateToUnlock.id} unlocked for user ${invoice.userId}, created document ${newTemplate.id}`,
+              )
+
+              return NextResponse.json({
+                success: true,
+                invoice: updatedInvoice,
+                templatesUnlocked: 1,
+                unlockedTemplate: templateToUnlock.name,
+              })
+            } catch (error) {
+              console.error(`Error creating template document: ${error}`)
+              return NextResponse.json(
+                {
+                  success: false,
+                  error: `Error creating template document: ${error}`,
+                },
+                { status: 500 },
+              )
+            }
+          } else {
+            console.log(`User already has all available templates`)
+            return NextResponse.json({
+              success: true,
+              invoice: updatedInvoice,
+              message: "User already has all available templates",
+            })
+          }
         }
 
         // Unlock the matching templates
         let templatesUnlocked = 0
+        const unlockedTemplateNames: string[] = []
 
-        for (const template of matchingTemplates) {
+        for (const template of templatesToUnlock) {
           console.log(`Processing template: ${template.id} - ${template.name}`)
-
-          // Check if the user already has this template
-          const existingTemplate = await db.document.findFirst({
-            where: {
-              businessId: businessId,
-              name: { contains: `template_${template.id}` },
-            },
-          })
-
-          if (existingTemplate) {
-            console.log(`User already has template ${template.id}`)
-            continue
-          }
 
           // Create a copy of the template for the user
           try {
@@ -307,6 +422,7 @@ export async function POST(req: Request) {
               `Template ${template.id} unlocked for user ${invoice.userId}, created document ${newTemplate.id}`,
             )
             templatesUnlocked++
+            unlockedTemplateNames.push(template.name)
           } catch (error) {
             console.error(`Error creating template document: ${error}`)
           }
@@ -318,6 +434,7 @@ export async function POST(req: Request) {
           success: true,
           invoice: updatedInvoice,
           templatesUnlocked,
+          unlockedTemplates: unlockedTemplateNames,
         })
       } catch (e) {
         console.error("Error handling template access:", e)
