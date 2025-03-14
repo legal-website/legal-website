@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { uploadToCloudinary } from "@/lib/cloudinary"
@@ -27,11 +27,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invoice ID is required" }, { status: 400 })
     }
 
-    // Get the existing invoice to preserve any existing items
-    const existingInvoice = await db.invoice.findUnique({
-      where: { id: invoiceId },
-    })
-
     // Upload file to Cloudinary
     const receiptUrl = await uploadToCloudinary(file)
 
@@ -41,18 +36,29 @@ export async function POST(req: NextRequest) {
 
     // Ensure we have a valid template name
     const finalTemplateName = templateName || "Unknown Template"
+    const priceValue = Number.parseFloat(price) || 0
 
-    // Create a clean items object with the template information
+    // Create a structure that works with both formats the admin page checks
+    // Format 1: Direct templateName property
+    // Format 2: Array with tier property
     const templateItems = {
       isTemplateInvoice: true,
       templateName: finalTemplateName,
       templateId: templateId || invoiceId,
       type: "template",
-      price: Number.parseFloat(price) || 0,
+      price: priceValue,
+      // Add an array item with tier property to ensure compatibility
+      0: {
+        tier: finalTemplateName,
+        price: priceValue,
+        type: "template",
+      },
     }
 
+    console.log("Storing template items:", JSON.stringify(templateItems, null, 2))
+
     // Update the invoice with the receipt URL and template information
-    const updatedInvoice = await db.invoice.update({
+    const updatedInvoice = await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         paymentReceipt: receiptUrl,

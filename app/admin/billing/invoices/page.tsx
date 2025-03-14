@@ -271,6 +271,54 @@ export default function InvoicesAdminPage() {
     return false
   }
 
+  // Add this helper function to extract template name from invoice items
+  const getTemplateName = (invoice: any) => {
+    try {
+      // If items is a string, try to parse it
+      if (typeof invoice.items === "string") {
+        const parsedItems = JSON.parse(invoice.items)
+
+        // Check for direct templateName property
+        if (parsedItems.templateName) {
+          return parsedItems.templateName
+        }
+
+        // Check for array with tier property
+        if (Array.isArray(parsedItems) && parsedItems.length > 0 && parsedItems[0].tier) {
+          return parsedItems[0].tier
+        }
+
+        // Check for object with numeric keys (our new format)
+        if (parsedItems["0"] && parsedItems["0"].tier) {
+          return parsedItems["0"].tier
+        }
+      }
+      // If items is already an object/array
+      else if (typeof invoice.items === "object") {
+        // Direct templateName property
+        if (invoice.items.templateName) {
+          return invoice.items.templateName
+        }
+
+        // Array with tier property
+        if (Array.isArray(invoice.items) && invoice.items.length > 0 && invoice.items[0].tier) {
+          return invoice.items[0].tier
+        }
+
+        // Object with numeric keys
+        if (invoice.items["0"] && invoice.items["0"].tier) {
+          return invoice.items["0"].tier
+        }
+      }
+
+      // Default fallback
+      return "Unknown Template"
+    } catch (e) {
+      console.error("Error extracting template name:", e)
+      return "Unknown Template"
+    }
+  }
+
   const filteredInvoices = invoices
     .filter((invoice) => {
       // Ensure invoice has all required properties
@@ -988,21 +1036,7 @@ export default function InvoicesAdminPage() {
                   <h3 className="font-semibold text-lg mb-2">Template Information</h3>
                   <div className="p-4 border rounded-lg">
                     <p className="text-sm font-medium">
-                      <span className="text-gray-600">Template Name:</span>{" "}
-                      {typeof selectedInvoice.items === "string"
-                        ? (() => {
-                            try {
-                              const parsedItems = JSON.parse(selectedInvoice.items)
-                              return parsedItems.templateName || "Unknown Template"
-                            } catch (e) {
-                              return "Unknown Template"
-                            }
-                          })()
-                        : Array.isArray(selectedInvoice.items) &&
-                            selectedInvoice.items.length > 0 &&
-                            selectedInvoice.items[0].tier
-                          ? selectedInvoice.items[0].tier
-                          : "Unknown Template"}
+                      <span className="text-gray-600">Template Name:</span> {getTemplateName(selectedInvoice)}
                     </p>
                     <p className="text-xs text-gray-500 mt-2">
                       Note: Template access is managed separately. Approving this invoice will not automatically unlock

@@ -465,6 +465,13 @@ export default function DocumentTemplatesPage() {
     try {
       setUploading(true)
 
+      // Log what we're sending for debugging
+      console.log("Uploading receipt for template:", {
+        templateName: selectedTemplate.name,
+        templateId: selectedTemplate.id,
+        price: selectedTemplate.price,
+      })
+
       const formData = new FormData()
       formData.append("file", uploadFile)
       formData.append("invoiceId", selectedInvoice.id)
@@ -479,8 +486,13 @@ export default function DocumentTemplatesPage() {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to upload receipt")
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Upload receipt error:", errorData)
+        throw new Error(errorData.error || "Failed to upload receipt")
       }
+
+      const responseData = await response.json()
+      console.log("Upload receipt response:", responseData)
 
       toast({
         title: "Receipt uploaded",
