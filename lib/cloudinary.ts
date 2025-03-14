@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from "cloudinary"
 
+// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "",
   api_key: process.env.CLOUDINARY_API_KEY || "",
@@ -161,13 +162,13 @@ export async function deleteFromCloudinary(publicId: string): Promise<boolean> {
 // Extract public ID and resource type from a Cloudinary URL
 export function extractCloudinaryDetails(url: string): {
   publicId: string | null
-  resourceType: string
+  resourceType: "image" | "video" | "raw" | "auto"
   folderPath: string
 } {
   try {
     // Default values
     let publicId: string | null = null
-    let resourceType = "image" // Default resource type
+    let resourceType: "image" | "video" | "raw" | "auto" = "auto" // Default resource type
     let folderPath = ""
 
     // Check if it's a Cloudinary URL
