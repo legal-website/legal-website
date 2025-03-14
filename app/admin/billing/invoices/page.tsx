@@ -96,7 +96,9 @@ export default function InvoicesAdminPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const { addNotification } = useNotifications()
-  const [templateIdInput, setTemplateIdInput] = useState<string>("")
+  const [
+    /*templateIdInput, setTemplateIdInput*/
+  ] = useState<string>("")
 
   useEffect(() => {
     // Check if user is authenticated and has admin role
@@ -443,7 +445,7 @@ export default function InvoicesAdminPage() {
   }
 
   // Update the approvePayment function to handle template invoices
-  const approvePayment = async (invoiceId: string, templateId?: string) => {
+  const approvePayment = async (invoiceId: string) => {
     try {
       setIsProcessing(true)
       const invoice = invoices.find((inv) => inv.id === invoiceId)
@@ -468,7 +470,6 @@ export default function InvoicesAdminPage() {
           body: JSON.stringify({
             invoiceId,
             status: "paid",
-            specificTemplateId: templateId, // Add the specific template ID if provided
           }),
         })
       } else {
@@ -945,12 +946,9 @@ export default function InvoicesAdminPage() {
           open={showInvoiceDialog}
           onOpenChange={(open) => {
             setShowInvoiceDialog(open)
-            if (!open) {
-              setTemplateIdInput("")
-            }
           }}
         >
-          <DialogContent className="sm:max-w-[800px]">
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 Invoice {selectedInvoice.invoiceNumber}
@@ -1001,34 +999,6 @@ export default function InvoicesAdminPage() {
                   )}
                 </div>
               </div>
-
-              {/* Template ID Input (only for template invoices) */}
-              {selectedInvoice && isTemplateInvoice(selectedInvoice) && selectedInvoice.status === "pending" && (
-                <div className="mb-4">
-                  <h3 className="font-semibold text-lg mb-2">Specify Template</h3>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      placeholder="Enter specific template ID (optional)"
-                      value={templateIdInput}
-                      onChange={(e) => setTemplateIdInput(e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        // Open the debug templates endpoint in a new tab
-                        window.open("/api/debug/templates", "_blank")
-                      }}
-                    >
-                      View Templates
-                    </Button>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Enter a template ID to unlock a specific template, or leave blank to auto-detect
-                  </p>
-                </div>
-              )}
 
               {/* Template Name Display (for template invoices) */}
               {selectedInvoice && isTemplateInvoice(selectedInvoice) && (
@@ -1119,7 +1089,7 @@ export default function InvoicesAdminPage() {
               {selectedInvoice.status === "pending" && (
                 <div className="flex space-x-3 mt-4">
                   <Button
-                    onClick={() => approvePayment(selectedInvoice.id, templateIdInput || undefined)}
+                    onClick={() => approvePayment(selectedInvoice.id)}
                     className="bg-green-600 hover:bg-green-700 text-white"
                     disabled={isProcessing}
                   >
