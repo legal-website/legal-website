@@ -91,7 +91,8 @@ export default function InvoicesAdminPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(20)
+  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([])
+  const [itemsPerPage, setItemsPerPage] = useState(20)
   const { toast } = useToast()
   const router = useRouter()
   const { data: session, status } = useSession()
@@ -349,7 +350,8 @@ export default function InvoicesAdminPage() {
         (activeTab === "paid" && invoice.status === "paid") ||
         (activeTab === "pending" && invoice.status === "pending") ||
         (activeTab === "cancelled" && invoice.status === "cancelled") ||
-        (activeTab === "template" && isTemplateInvoice(invoice))
+        (activeTab === "template" && isTemplateInvoice(invoice)) ||
+        (activeTab === "regular" && !isTemplateInvoice(invoice))
 
       return matchesSearch && matchesTab
     })
@@ -391,13 +393,30 @@ export default function InvoicesAdminPage() {
     }
   }
 
+  const toggleInvoiceSelection = (invoiceId: string) => {
+    setSelectedInvoices((prev) =>
+      prev.includes(invoiceId) ? prev.filter((id) => id !== invoiceId) : [...prev, invoiceId],
+    )
+  }
+
+  const selectAllInvoices = () => {
+    if (selectedInvoices.length === currentInvoices.length) {
+      setSelectedInvoices([])
+    } else {
+      setSelectedInvoices(currentInvoices.map((invoice) => invoice.id))
+    }
+  }
+
   const viewInvoiceDetails = (invoice: Invoice) => {
     setSelectedInvoice(invoice)
     setShowInvoiceDialog(true)
   }
 
-  const confirmDeleteInvoice = (invoice: Invoice) => {
-    setInvoiceToDelete(invoice)
+  const confirmDeleteInvoice = (invoice?: Invoice) => {
+    if (invoice) {
+      setInvoiceToDelete(invoice)
+      setSelectedInvoices([invoice.id])
+    }
     setShowDeleteDialog(true)
   }
 
@@ -441,6 +460,53 @@ export default function InvoicesAdminPage() {
     } finally {
       setIsDeleting(false)
       setInvoiceToDelete(null)
+    }
+  }
+
+  const deleteSelectedInvoices = async () => {
+    try {
+      setIsDeleting(true)
+
+      // Create an array of promises for each delete operation
+      const deletePromises = selectedInvoices.map((invoiceId) =>
+        fetch(`/api/admin/invoices/${invoiceId}`, {
+          method: "DELETE",
+        }),
+      )
+
+      // Wait for all delete operations to complete
+      const results = await Promise.allSettled(deletePromises)
+
+      // Count successful and failed operations
+      const successful = results.filter((result) => result.status === "fulfilled").length
+      const failed = results.filter((result) => result.status === "rejected").length
+
+      // Remove the deleted invoices from the local state
+      setInvoices((prevInvoices) => prevInvoices.filter((inv) => !selectedInvoices.includes(inv.id)))
+
+      // Add notification
+      addNotification({
+        title: "Invoices Deleted",
+        description: `${successful} invoices deleted successfully${failed > 0 ? `, ${failed} failed` : ""}`,
+        source: "invoices",
+      })
+
+      toast({
+        title: "Invoices deleted",
+        description: `${successful} invoices have been deleted successfully${failed > 0 ? `, ${failed} failed` : ""}`,
+      })
+
+      // Close the dialog and clear selection
+      setShowDeleteDialog(false)
+      setSelectedInvoices([])
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete invoices. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -729,6 +795,25 @@ export default function InvoicesAdminPage() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage and track all client invoices</p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center text-red-600"
+            onClick={() => {
+              if (selectedInvoices.length > 0) {
+                confirmDeleteInvoice()
+              } else {
+                toast({
+                  title: "No invoices selected",
+                  description: "Please select at least one invoice to delete.",
+                })
+              }
+            }}
+            disabled={selectedInvoices.length === 0}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Selected ({selectedInvoices.length})
+          </Button>
           <Button variant="outline" size="sm" className="flex items-center" onClick={exportInvoices}>
             <Download className="mr-2 h-4 w-4" />
             Export
@@ -760,6 +845,26 @@ export default function InvoicesAdminPage() {
         </div>
 
         <div className="flex items-center justify-end space-x-2">
+          <span className="text-sm text-gray-500">Items per page:</span>
+          <Select
+            value={itemsPerPage.toString()}
+            onValueChange={(value) => {
+              setItemsPerPage(Number.parseInt(value))
+              setCurrentPage(1) // Reset to first page when changing items per page
+            }}
+          >
+            <SelectTrigger className="w-[80px]">
+              <SelectValue placeholder="20" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="30">30</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center justify-end space-x-2">
           <span className="text-sm text-gray-500">Sort by:</span>
           <Select value={sortOrder} onValueChange={setSortOrder}>
             <SelectTrigger className="w-[220px]">
@@ -777,12 +882,13 @@ export default function InvoicesAdminPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="grid grid-cols-5 w-full max-w-md">
+        <TabsList className="grid grid-cols-6 w-full max-w-md">
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="paid">Paid</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
           <TabsTrigger value="template">Template</TabsTrigger>
+          <TabsTrigger value="regular">Regular</TabsTrigger>
         </TabsList>
 
         <div className="mt-2 text-sm text-gray-500">
@@ -791,6 +897,7 @@ export default function InvoicesAdminPage() {
           {activeTab === "pending" && "Showing pending invoices only"}
           {activeTab === "cancelled" && "Showing cancelled invoices only"}
           {activeTab === "template" && "Showing template invoices only"}
+          {activeTab === "regular" && "Showing regular invoices only"}
           {filteredInvoices.length > 0 && ` (${filteredInvoices.length} found)`}
         </div>
       </Tabs>
@@ -801,6 +908,14 @@ export default function InvoicesAdminPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b">
+                <th className="text-left p-4 font-medium text-sm w-10">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300"
+                    checked={selectedInvoices.length > 0 && selectedInvoices.length === currentInvoices.length}
+                    onChange={selectAllInvoices}
+                  />
+                </th>
                 <th className="text-left p-4 font-medium text-sm">Invoice</th>
                 <th className="text-left p-4 font-medium text-sm">Customer</th>
                 <th className="text-left p-4 font-medium text-sm">Amount</th>
@@ -820,6 +935,14 @@ export default function InvoicesAdminPage() {
               ) : (
                 currentInvoices.map((invoice) => (
                   <tr key={invoice.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td className="p-4">
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300"
+                        checked={selectedInvoices.includes(invoice.id)}
+                        onChange={() => toggleInvoiceSelection(invoice.id)}
+                      />
+                    </td>
                     <td className="p-4">
                       <div className="flex items-center">
                         <FileText className="h-4 w-4 mr-2 text-gray-400" />
@@ -1188,7 +1311,10 @@ export default function InvoicesAdminPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete invoice {invoiceToDelete?.invoiceNumber}. This action cannot be undone.
+              {selectedInvoices.length === 1 && invoiceToDelete
+                ? `This will permanently delete invoice ${invoiceToDelete.invoiceNumber}.`
+                : `This will permanently delete ${selectedInvoices.length} invoices.`}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1196,7 +1322,11 @@ export default function InvoicesAdminPage() {
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
-                deleteInvoice()
+                if (selectedInvoices.length === 1 && invoiceToDelete) {
+                  deleteInvoice()
+                } else {
+                  deleteSelectedInvoices()
+                }
               }}
               disabled={isDeleting}
               className="bg-red-600 hover:bg-red-700 text-white"
