@@ -269,7 +269,7 @@ export default function DocumentTemplatesPage() {
   }
 
   const handleUploadReceipt = async () => {
-    if (!uploadFile || !selectedInvoice) return
+    if (!uploadFile || !selectedInvoice || !selectedTemplate) return
 
     try {
       setUploading(true)
@@ -279,6 +279,8 @@ export default function DocumentTemplatesPage() {
       formData.append("invoiceId", selectedInvoice.id)
       // Add a special flag to indicate this is a template invoice
       formData.append("isTemplateInvoice", "true")
+      // Add the template name to the form data
+      formData.append("templateName", selectedTemplate.name)
 
       const response = await fetch("/api/user/templates/upload-receipt", {
         method: "POST",

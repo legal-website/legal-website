@@ -982,6 +982,36 @@ export default function InvoicesAdminPage() {
                 </div>
               )}
 
+              {/* Template Name Display (for template invoices) */}
+              {selectedInvoice && isTemplateInvoice(selectedInvoice) && (
+                <div className="mb-4">
+                  <h3 className="font-semibold text-lg mb-2">Template Information</h3>
+                  <div className="p-4 border rounded-lg">
+                    <p className="text-sm font-medium">
+                      <span className="text-gray-600">Template Name:</span>{" "}
+                      {typeof selectedInvoice.items === "string"
+                        ? (() => {
+                            try {
+                              const parsedItems = JSON.parse(selectedInvoice.items)
+                              return parsedItems.templateName || "Unknown Template"
+                            } catch (e) {
+                              return "Unknown Template"
+                            }
+                          })()
+                        : Array.isArray(selectedInvoice.items) &&
+                            selectedInvoice.items.length > 0 &&
+                            selectedInvoice.items[0].tier
+                          ? selectedInvoice.items[0].tier
+                          : "Unknown Template"}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Note: Template access is managed separately. Approving this invoice will not automatically unlock
+                      the template.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Invoice Items */}
               <div className="mb-8">
                 <table className="w-full">

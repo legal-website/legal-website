@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file") as File
     const invoiceId = formData.get("invoiceId") as string
     const isTemplateInvoice = formData.get("isTemplateInvoice") as string
+    const templateName = formData.get("templateName") as string // Get template name from form data
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
@@ -31,14 +32,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to upload file" }, { status: 500 })
     }
 
-    // Update the invoice with the receipt URL
+    // Update the invoice with the receipt URL and template information
     const updatedInvoice = await db.invoice.update({
       where: { id: invoiceId },
       data: {
         paymentReceipt: receiptUrl,
-        // Add a special field to mark this as a template invoice if the flag is set
+        // Add template information to the invoice items
         ...(isTemplateInvoice === "true"
-          ? { items: JSON.stringify({ isTemplateInvoice: true, templateId: invoiceId }) }
+          ? {
+              items: JSON.stringify({
+                isTemplateInvoice: true,
+                templateId: invoiceId,
+                templateName: templateName || "Unknown Template", // Include template name
+              }),
+            }
           : {}),
       },
     })
