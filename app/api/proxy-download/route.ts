@@ -36,83 +36,12 @@ export async function GET(request: NextRequest) {
     let response
 
     if (isCloudinaryUrl) {
-      // For Cloudinary URLs, we need to handle PDFs differently
-      const isPdf = url.toLowerCase().endsWith(".pdf") || contentType === "application/pdf"
+      // For Cloudinary URLs, we'll try multiple approaches
+      console.log("Detected Cloudinary URL, attempting multiple download methods")
 
+      // Try direct download first (simplest approach)
       try {
-        // Extract public ID from Cloudinary URL - this is a more robust method
-        const publicId = extractPublicIdFromCloudinaryUrl(url)
-
-        if (!publicId) {
-          console.error("Could not extract public ID from Cloudinary URL:", url)
-          return NextResponse.json({ error: "Invalid Cloudinary URL format" }, { status: 400 })
-        }
-
-        console.log(`Extracted Cloudinary public ID: ${publicId}`)
-
-        // Determine resource type based on URL or content type
-        let resourceType = "image"
-        if (isPdf || url.includes("/raw/")) {
-          resourceType = "raw"
-        } else if (url.includes("/video/")) {
-          resourceType = "video"
-        }
-
-        console.log(`Using resource type: ${resourceType} for Cloudinary URL`)
-
-        // Generate a fresh signed URL with authentication
-        const signedUrl = cloudinary.url(publicId, {
-          secure: true,
-          resource_type: resourceType,
-          type: "upload",
-          sign_url: true,
-          attachment: true, // Force download
-          expires_at: Math.floor(Date.now() / 1000) + 3600, // URL valid for 1 hour
-        })
-
-        console.log(`Generated signed Cloudinary URL: ${signedUrl}`)
-
-        // Fetch using the signed URL
-        response = await fetch(signedUrl, {
-          headers: {
-            Accept: "*/*",
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-          },
-        })
-
-        if (!response.ok) {
-          console.error(`Failed to fetch with signed URL: ${response.status} ${response.statusText}`)
-
-          // Try with a different resource type if the first attempt failed
-          if (resourceType === "image" && (response.status === 401 || response.status === 404)) {
-            console.log("Retrying with resource_type=raw")
-            const alternativeSignedUrl = cloudinary.url(publicId, {
-              secure: true,
-              resource_type: "raw", // Try raw instead
-              type: "upload",
-              sign_url: true,
-              attachment: true,
-              expires_at: Math.floor(Date.now() / 1000) + 3600,
-            })
-
-            response = await fetch(alternativeSignedUrl, {
-              headers: {
-                Accept: "*/*",
-                "User-Agent":
-                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-              },
-            })
-
-            if (!response.ok) {
-              console.error(`Failed with raw resource type too: ${response.status} ${response.statusText}`)
-            }
-          }
-        }
-      } catch (cloudinaryError) {
-        console.error("Error generating Cloudinary signed URL:", cloudinaryError)
-
-        // Fallback to direct fetch if signing fails
+        console.log("Method 1: Direct fetch from original URL")
         response = await fetch(url, {
           headers: {
             Accept: "*/*",
@@ -120,6 +49,144 @@ export async function GET(request: NextRequest) {
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
           },
         })
+
+        if (response.ok) {
+          console.log("Direct fetch successful")
+        } else {
+          console.log(`Direct fetch failed: ${response.status} ${response.statusText}`)
+        }
+      } catch (error) {
+        console.error("Error with direct fetch:", error)
+      }
+
+      // If direct fetch failed, try with fl_attachment parameter
+      if (!response || !response.ok) {
+        try {
+          const attachmentUrl = url.includes("?") ? `${url}&fl_attachment=true` : `${url}?fl_attachment=true`
+
+          console.log("Method 2: Using fl_attachment parameter:", attachmentUrl)
+          response = await fetch(attachmentUrl, {
+            headers: {
+              Accept: "*/*",
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            },
+          })
+
+          if (response.ok) {
+            console.log("fl_attachment fetch successful")
+          } else {
+            console.log(`fl_attachment fetch failed: ${response.status} ${response.statusText}`)
+          }
+        } catch (error) {
+          console.error("Error with fl_attachment fetch:", error)
+        }
+      }
+
+      // If still failed, try with signed URL
+      if (!response || !response.ok) {
+        try {
+          // Extract details from the URL for signing
+          console.log("Method 3: Generating signed URL")
+
+          // Parse the URL to extract components
+          const parsedUrl = new URL(url)
+          const pathParts = parsedUrl.pathname.split("/")
+
+          // Find the upload part index
+          const uploadIndex = pathParts.findIndex((part) => part === "upload")
+          if (uploadIndex === -1) {
+            throw new Error("Could not find 'upload' in URL path")
+          }
+
+          // Determine resource type
+          let resourceType = "image"
+          if (pathParts.includes("raw")) {
+            resourceType = "raw"
+          } else if (pathParts.includes("video")) {
+            resourceType = "video"
+          } else if (contentType === "application/pdf" || url.toLowerCase().endsWith(".pdf")) {
+            resourceType = "raw" // PDFs should use raw
+          }
+
+          // Extract the public ID including folder structure
+          // Skip the parts before and including 'upload', and any version number (v1234567890)
+          const relevantParts = pathParts.slice(uploadIndex + 1).filter((part) => !part.match(/^v\d+$/))
+          let publicId = relevantParts.join("/")
+
+          // Remove file extension if present
+          if (publicId.includes(".")) {
+            publicId = publicId.substring(0, publicId.lastIndexOf("."))
+          }
+
+          console.log(`Extracted public ID: ${publicId}, resource type: ${resourceType}`)
+
+          // Generate signed URL
+          const signedUrl = cloudinary.url(publicId, {
+            secure: true,
+            resource_type: resourceType,
+            type: "upload",
+            sign_url: true,
+            attachment: true,
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+          })
+
+          console.log(`Generated signed URL: ${signedUrl}`)
+
+          response = await fetch(signedUrl, {
+            headers: {
+              Accept: "*/*",
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            },
+          })
+
+          if (response.ok) {
+            console.log("Signed URL fetch successful")
+          } else {
+            console.log(`Signed URL fetch failed: ${response.status} ${response.statusText}`)
+
+            // If failed with one resource type, try with another
+            if (resourceType !== "raw") {
+              console.log("Retrying with resource_type=raw")
+              const rawSignedUrl = cloudinary.url(publicId, {
+                secure: true,
+                resource_type: "raw",
+                type: "upload",
+                sign_url: true,
+                attachment: true,
+                expires_at: Math.floor(Date.now() / 1000) + 3600,
+              })
+
+              response = await fetch(rawSignedUrl, {
+                headers: {
+                  Accept: "*/*",
+                  "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                },
+              })
+
+              if (response.ok) {
+                console.log("Raw resource type fetch successful")
+              } else {
+                console.log(`Raw resource type fetch failed: ${response.status} ${response.statusText}`)
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error with signed URL:", error)
+        }
+      }
+
+      // If all Cloudinary methods failed, try fetching from the database
+      if (!response || !response.ok) {
+        console.log("All Cloudinary methods failed, trying database fallback")
+        if (templateId) {
+          const dbResponse = await fetchTemplateDirectly(templateId)
+          if (dbResponse) {
+            return dbResponse
+          }
+        }
       }
     } else {
       // For non-Cloudinary URLs, fetch directly
@@ -132,8 +199,9 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    if (!response.ok) {
-      console.error(`Failed to fetch file: ${response.status} ${response.statusText}`)
+    // If we still don't have a valid response
+    if (!response || !response.ok) {
+      console.error(`Failed to fetch file: ${response?.status} ${response?.statusText}`)
 
       // If we have a template ID, try to fetch directly from the database
       if (templateId) {
@@ -146,11 +214,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           error: "Failed to fetch file",
-          status: response.status,
-          statusText: response.statusText,
+          status: response?.status || 404,
+          statusText: response?.statusText || "Not Found",
           url: isCloudinaryUrl ? "Cloudinary URL (signed)" : url,
         },
-        { status: response.status },
+        { status: response?.status || 404 },
       )
     }
 
@@ -198,60 +266,14 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Improved helper function to extract public ID from Cloudinary URL
-function extractPublicIdFromCloudinaryUrl(url: string): string | null {
-  try {
-    // Parse the URL
-    const parsedUrl = new URL(url)
-
-    // Get the pathname
-    const pathname = parsedUrl.pathname
-
-    // Different patterns for different resource types
-    const imageMatch = pathname.match(/\/image\/upload\/(?:v\d+\/)?(.+)/)
-    const videoMatch = pathname.match(/\/video\/upload\/(?:v\d+\/)?(.+)/)
-    const rawMatch = pathname.match(/\/raw\/upload\/(?:v\d+\/)?(.+)/)
-
-    const match = imageMatch || videoMatch || rawMatch
-
-    if (match && match[1]) {
-      // Remove file extension if present
-      let publicId = match[1]
-      const extensionIndex = publicId.lastIndexOf(".")
-
-      if (extensionIndex !== -1) {
-        publicId = publicId.substring(0, extensionIndex)
-      }
-
-      return publicId
-    }
-
-    // If no match found with specific patterns, try a more generic approach
-    const genericMatch = pathname.match(/\/upload\/(?:v\d+\/)?(.+)/)
-
-    if (genericMatch && genericMatch[1]) {
-      let publicId = genericMatch[1]
-      const extensionIndex = publicId.lastIndexOf(".")
-
-      if (extensionIndex !== -1) {
-        publicId = publicId.substring(0, extensionIndex)
-      }
-
-      return publicId
-    }
-
-    return null
-  } catch (error) {
-    console.error("Error extracting public ID:", error)
-    return null
-  }
-}
-
 // Fallback function to fetch template directly from database
 async function fetchTemplateDirectly(templateId: string) {
   try {
     const { default: prisma } = await import("@/lib/prisma")
 
+    console.log(`Fetching template directly from database: ${templateId}`)
+
+    // Get the template from the database
     const template = await prisma.document.findUnique({
       where: {
         id: templateId,
@@ -259,11 +281,23 @@ async function fetchTemplateDirectly(templateId: string) {
       },
     })
 
-    if (!template || !template.fileUrl) {
+    if (!template) {
+      console.log("Template not found in database")
       return null
     }
 
-    // Try to fetch the file directly from the database URL
+    console.log(`Found template in database: ${template.name}`)
+
+    // Check if the template has a fileUrl
+    if (!template.fileUrl) {
+      console.log("Template has no fileUrl")
+      return null
+    }
+
+    // Try to fetch the file
+    console.log(`Fetching file from template fileUrl: ${template.fileUrl}`)
+
+    // Try to fetch the file
     const response = await fetch(template.fileUrl, {
       headers: {
         Accept: "*/*",
@@ -273,20 +307,25 @@ async function fetchTemplateDirectly(templateId: string) {
     })
 
     if (!response.ok) {
+      console.log(`Failed to fetch from template fileUrl: ${response.status} ${response.statusText}`)
       return null
     }
 
     const arrayBuffer = await response.arrayBuffer()
 
     // Extract filename and content type
+    const displayName = template.name.split("|")[0].trim()
     const urlObj = new URL(template.fileUrl)
     const pathSegments = urlObj.pathname.split("/")
     const filenameWithParams = pathSegments[pathSegments.length - 1]
-    const filename = filenameWithParams.split("?")[0]
+    const originalFilename = filenameWithParams.split("?")[0]
 
-    // Determine content type
-    const extension = filename.split(".").pop()?.toLowerCase() || ""
+    // Get extension from original filename
+    const extension = originalFilename.split(".").pop()?.toLowerCase() || ""
     const contentType = getContentType(extension)
+
+    // Create a filename with the display name and original extension
+    const filename = `${displayName}${extension ? `.${extension}` : ""}`
 
     // Create response with appropriate headers
     const headers = new Headers()

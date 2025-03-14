@@ -41,6 +41,60 @@ export function TemplateDownloadButton({
       // Get the filename
       const filename = `${data.name}${data.fileExtension ? `.${data.fileExtension}` : ""}`
 
+      // Check if this is a Cloudinary URL
+      const isCloudinaryUrl = data.fileUrl.includes("cloudinary.com")
+
+      if (isCloudinaryUrl) {
+        console.log("Cloudinary URL detected, using specialized download endpoint")
+
+        // Extract public ID from URL if possible
+        let publicId = null
+        let resourceType = "image"
+
+        try {
+          // Parse the URL
+          const parsedUrl = new URL(data.fileUrl)
+          const pathParts = parsedUrl.pathname.split("/")
+
+          // Find the upload part index
+          const uploadIndex = pathParts.findIndex((part) => part === "upload")
+          if (uploadIndex !== -1) {
+            // Determine resource type from URL
+            if (pathParts.includes("raw")) {
+              resourceType = "raw"
+            } else if (pathParts.includes("video")) {
+              resourceType = "video"
+            } else if (data.fileUrl.toLowerCase().endsWith(".pdf") || data.contentType === "application/pdf") {
+              resourceType = "raw" // PDFs should use raw
+            }
+
+            // Extract the public ID including folder structure
+            const relevantParts = pathParts.slice(uploadIndex + 1).filter((part) => !part.match(/^v\d+$/))
+            publicId = relevantParts.join("/")
+
+            // Remove file extension if present
+            if (publicId.includes(".")) {
+              publicId = publicId.substring(0, publicId.lastIndexOf("."))
+            }
+          }
+        } catch (error) {
+          console.error("Error extracting public ID:", error)
+        }
+
+        // Use the Cloudinary download endpoint
+        const cloudinaryUrl = `/api/cloudinary-download?url=${encodeURIComponent(data.fileUrl)}${publicId ? `&publicId=${encodeURIComponent(publicId)}` : ""}${resourceType ? `&resourceType=${resourceType}` : ""}&filename=${encodeURIComponent(filename)}`
+
+        window.location.href = cloudinaryUrl
+
+        toast({
+          title: "Download started",
+          description: `${filename} is being downloaded`,
+        })
+
+        setIsLoading(false)
+        return
+      }
+
       // For PDFs, always use the proxy download endpoint
       const isPdf =
         data.fileUrl.toLowerCase().endsWith(".pdf") ||
