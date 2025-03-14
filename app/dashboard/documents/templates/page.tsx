@@ -6,11 +6,13 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { FileText, Search, Upload, Clock, CheckCircle, RefreshCw } from "lucide-react"
+import { FileText, Search, Upload, Clock, CheckCircle, RefreshCw, Lock, Unlock } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Lock, Check } from "lucide-react"
+import { Check } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
 
 interface Template {
   id: string
@@ -45,6 +47,7 @@ export default function DocumentTemplatesPage() {
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [activeTab, setActiveTab] = useState("all")
   const { toast } = useToast()
   const { data: session } = useSession()
   const router = useRouter()
@@ -78,7 +81,6 @@ export default function DocumentTemplatesPage() {
     }
 
     checkRecentApprovals()
-    // Removed the interval for auto-refresh
   }, [session])
 
   // Function to simulate the unlocking process with a progress bar
@@ -113,6 +115,11 @@ export default function DocumentTemplatesPage() {
       fetchTemplates()
     }
   }, [session])
+
+  // Reset to page 1 when changing tabs
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab])
 
   // Manual refresh function
   const handleRefresh = () => {
@@ -262,7 +269,20 @@ export default function DocumentTemplatesPage() {
 
   const categories = ["All", ...new Set(templates.map((template) => template.category))]
 
-  const filteredTemplates = templates.filter((template) => {
+  // Get counts for tabs
+  const allTemplatesCount = templates.length
+  const unlockedTemplatesCount = templates.filter((t) => t.isPurchased).length
+  const lockedTemplatesCount = templates.filter((t) => !t.isPurchased).length
+
+  // Filter templates based on active tab
+  const tabFilteredTemplates = templates.filter((template) => {
+    if (activeTab === "all") return true
+    if (activeTab === "unlocked") return template.isPurchased
+    if (activeTab === "locked") return !template.isPurchased && !template.isPending
+    return true
+  })
+
+  const filteredTemplates = tabFilteredTemplates.filter((template) => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === "All" || template.category === selectedCategory
 
@@ -555,116 +575,285 @@ export default function DocumentTemplatesPage() {
           </div>
         </div>
 
-        <div className="p-6 border-b">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search templates..."
-                  className="pl-9"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-            >
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        {/* Template Tabs */}
+        <div className="px-6 pt-6">
+          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="all" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                All Templates
+                <Badge variant="secondary" className="ml-1">
+                  {allTemplatesCount}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="unlocked" className="flex items-center gap-2">
+                <Unlock className="h-4 w-4" />
+                Unlocked Templates
+                <Badge variant="secondary" className="ml-1">
+                  {unlockedTemplatesCount}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="locked" className="flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                Locked Templates
+                <Badge variant="secondary" className="ml-1">
+                  {lockedTemplatesCount}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
 
-        <div className="p-6">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTemplates.length > 0 ? (
-              currentTemplates.map((template) => (
-                <Card key={template.id} className="overflow-hidden">
-                  <div className="p-6 relative">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <FileText className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <h3 className="font-semibold">{template.name}</h3>
+            <TabsContent value="all" className="mt-0">
+              {/* Search and filters remain in all tabs */}
+              <div className="border-b pb-6 mb-6">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search templates..."
+                        className="pl-9"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
                     </div>
-
-                    <p className="text-sm text-gray-600 mb-4">{template.description}</p>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">{template.category}</span>
-                      {template.isPurchased ? (
-                        <Button size="sm" variant="outline" onClick={() => handleDownload(template)}>
-                          <Check className="h-3.5 w-3.5 mr-1.5" />
-                          Download
-                        </Button>
-                      ) : template.isPending ? (
-                        <Button size="sm" variant="outline" disabled>
-                          <Clock className="h-3.5 w-3.5 mr-1.5" />
-                          Pending
-                        </Button>
-                      ) : (
-                        <Button size="sm" onClick={() => handlePurchase(template)}>
-                          <Lock className="h-3.5 w-3.5 mr-1.5" />
-                          Unlock ${template.price}
-                        </Button>
-                      )}
-                    </div>
-
-                    {/* Blur overlay for unpurchased templates */}
-                    {!template.isPurchased && !template.isPending && (
-                      <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
-                        <div className="text-center">
-                          <Lock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          <Button size="sm" onClick={() => handlePurchase(template)}>
-                            Unlock for ${template.price}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Pending overlay */}
-                    {template.isPending && (
-                      <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
-                        <div className="text-center">
-                          <Clock className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600 mb-2">Payment pending approval</p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedTemplate(template)
-                              // Fetch invoice details
-                              fetch(`/api/invoices/${template.invoiceId}`)
-                                .then((res) => res.json())
-                                .then((data) => {
-                                  setSelectedInvoice(data.invoice)
-                                  setShowUploadDialog(true)
-                                })
-                            }}
-                          >
-                            Upload Receipt
-                          </Button>
-                        </div>
-                      </div>
-                    )}
                   </div>
-                </Card>
-              ))
-            ) : (
-              <div className="col-span-3 text-center py-12">
-                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-1">No templates found</h3>
-                <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                  >
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Template Grid */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredTemplates.length > 0 ? (
+                  currentTemplates.map((template) => (
+                    <Card key={template.id} className="overflow-hidden">
+                      <div className="p-6 relative">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <FileText className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <h3 className="font-semibold">{template.name}</h3>
+                        </div>
+
+                        <p className="text-sm text-gray-600 mb-4">{template.description}</p>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">{template.category}</span>
+                          {template.isPurchased ? (
+                            <Button size="sm" variant="outline" onClick={() => handleDownload(template)}>
+                              <Check className="h-3.5 w-3.5 mr-1.5" />
+                              Download
+                            </Button>
+                          ) : template.isPending ? (
+                            <Button size="sm" variant="outline" disabled>
+                              <Clock className="h-3.5 w-3.5 mr-1.5" />
+                              Pending
+                            </Button>
+                          ) : (
+                            <Button size="sm" onClick={() => handlePurchase(template)}>
+                              <Lock className="h-3.5 w-3.5 mr-1.5" />
+                              Unlock ${template.price}
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Blur overlay for unpurchased templates */}
+                        {!template.isPurchased && !template.isPending && (
+                          <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                            <div className="text-center">
+                              <Lock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                              <Button size="sm" onClick={() => handlePurchase(template)}>
+                                Unlock for ${template.price}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Pending overlay */}
+                        {template.isPending && (
+                          <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                            <div className="text-center">
+                              <Clock className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                              <p className="text-sm text-gray-600 mb-2">Payment pending approval</p>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedTemplate(template)
+                                  // Fetch invoice details
+                                  fetch(`/api/invoices/${template.invoiceId}`)
+                                    .then((res) => res.json())
+                                    .then((data) => {
+                                      setSelectedInvoice(data.invoice)
+                                      setShowUploadDialog(true)
+                                    })
+                                }}
+                              >
+                                Upload Receipt
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="col-span-3 text-center py-12">
+                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-1">No templates found</h3>
+                    <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="unlocked" className="mt-0">
+              {/* Search and filters for unlocked tab */}
+              <div className="border-b pb-6 mb-6">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search unlocked templates..."
+                        className="pl-9"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                  >
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Template Grid for unlocked templates */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredTemplates.length > 0 ? (
+                  currentTemplates.map((template) => (
+                    <Card key={template.id} className="overflow-hidden">
+                      <div className="p-6 relative">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="p-2 bg-green-100 rounded-lg">
+                            <FileText className="h-5 w-5 text-green-600" />
+                          </div>
+                          <h3 className="font-semibold">{template.name}</h3>
+                        </div>
+
+                        <p className="text-sm text-gray-600 mb-4">{template.description}</p>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">{template.category}</span>
+                          <Button size="sm" variant="outline" onClick={() => handleDownload(template)}>
+                            <Check className="h-3.5 w-3.5 mr-1.5" />
+                            Download
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="col-span-3 text-center py-12">
+                    <Unlock className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-1">No unlocked templates</h3>
+                    <p className="text-gray-500">Purchase templates to access them here</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="locked" className="mt-0">
+              {/* Search and filters for locked tab */}
+              <div className="border-b pb-6 mb-6">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search locked templates..."
+                        className="pl-9"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                  >
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Template Grid for locked templates */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredTemplates.length > 0 ? (
+                  currentTemplates.map((template) => (
+                    <Card key={template.id} className="overflow-hidden">
+                      <div className="p-6 relative">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <FileText className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <h3 className="font-semibold">{template.name}</h3>
+                        </div>
+
+                        <p className="text-sm text-gray-600 mb-4">{template.description}</p>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">{template.category}</span>
+                          <Button size="sm" onClick={() => handlePurchase(template)}>
+                            <Lock className="h-3.5 w-3.5 mr-1.5" />
+                            Unlock ${template.price}
+                          </Button>
+                        </div>
+
+                        {/* Blur overlay for locked templates */}
+                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                          <div className="text-center">
+                            <Lock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                            <Button size="sm" onClick={() => handlePurchase(template)}>
+                              Unlock for ${template.price}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="col-span-3 text-center py-12">
+                    <Lock className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-1">No locked templates</h3>
+                    <p className="text-gray-500">All templates have been unlocked</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </Card>
 
