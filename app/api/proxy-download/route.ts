@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { v2 as cloudinary } from "cloudinary"
 
@@ -12,6 +12,23 @@ cloudinary.config({
 
 export async function GET(request: NextRequest) {
   try {
+    // If a templateId is provided, increment the download count
+    const templateId = request.nextUrl.searchParams.get("templateId")
+    if (templateId) {
+      try {
+        // Call the increment-download API
+        await fetch(
+          `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/admin/templates/${templateId}/increment-download`,
+          {
+            method: "POST",
+          },
+        )
+      } catch (error) {
+        console.error("Error incrementing download count:", error)
+        // Continue with download even if tracking fails
+      }
+    }
+
     // Check authentication
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -21,11 +38,25 @@ export async function GET(request: NextRequest) {
     // Get URL and content type from query parameters
     const url = request.nextUrl.searchParams.get("url")
     const contentType = request.nextUrl.searchParams.get("contentType") || "application/octet-stream"
-    const templateId = request.nextUrl.searchParams.get("templateId")
     const filename = request.nextUrl.searchParams.get("filename")
 
     if (!url) {
-      return NextResponse.json({ error: "Missing URL parameter" }, { status: 400 })
+      return NextResponse.json({ error: "URL parameter is required" }, { status: 400 })
+    }
+
+    // If templateId is provided, increment download count
+    if (templateId) {
+      try {
+        await fetch(`${request.nextUrl.origin}/api/admin/templates/${templateId}/increment-download`, {
+          method: "POST",
+          headers: {
+            Cookie: request.headers.get("cookie") || "",
+          },
+        })
+      } catch (error) {
+        console.error("Error incrementing download count:", error)
+        // Continue with download even if increment fails
+      }
     }
 
     console.log(`Proxying download for: ${url} (${contentType})`)
@@ -241,15 +272,16 @@ export async function GET(request: NextRequest) {
       finalFilename = filenameWithParams.split("?")[0]
     }
 
-    // Create response with appropriate headers
+    // Set headers for file download
     const headers = new Headers()
     headers.set("Content-Type", contentType)
-    headers.set("Content-Disposition", `attachment; filename="${finalFilename}"`)
+    headers.set("Content-Disposition", `attachment`)
     headers.set("Content-Length", arrayBuffer.byteLength.toString())
     headers.set("Cache-Control", "no-cache, no-store, must-revalidate")
     headers.set("Pragma", "no-cache")
     headers.set("Expires", "0")
 
+    // Return the file
     return new NextResponse(arrayBuffer, {
       status: 200,
       headers,
@@ -257,10 +289,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Error in proxy download:", error)
     return NextResponse.json(
-      {
-        error: "Failed to proxy download",
-        details: error instanceof Error ? error.message : String(error),
-      },
+      { error: "Failed to process download", details: error instanceof Error ? error.message : String(error) },
       { status: 500 },
     )
   }
