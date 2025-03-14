@@ -15,6 +15,7 @@ import {
   Calendar,
   CheckCircle,
   Copy,
+  Download,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
@@ -49,12 +50,30 @@ interface PhoneNumberRequest {
   updatedAt?: string
 }
 
+interface Template {
+  id: string
+  name: string
+  description: string
+  category: string
+  price: number
+  pricingTier: string
+  isPurchased: boolean
+  isPending: boolean
+  isFree?: boolean
+  invoiceId?: string
+  fileUrl?: string
+  updatedAt: string
+  status?: string
+  usageCount?: number
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [requestingPhone, setRequestingPhone] = useState(false)
+  const [templates, setTemplates] = useState<Template[]>([])
   const [businessData, setBusinessData] = useState({
     name: "",
     businessId: "",
@@ -90,10 +109,98 @@ export default function DashboardPage() {
       fetchBusinessData()
       fetchUserInvoices()
       fetchPhoneNumberRequest()
+      fetchTemplates() // Add this to fetch templates
     } else {
       setLoading(false)
     }
   }, [session])
+
+  // Add this function to fetch templates
+  const fetchTemplates = async () => {
+    try {
+      const response = await fetch("/api/user/templates")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.templates) {
+          setTemplates(data.templates)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching templates:", error)
+    }
+  }
+
+  // Add this function to handle template download
+  const handleDownload = async (template: Template) => {
+    try {
+      toast({
+        title: "Download started",
+        description: "Preparing your document for download...",
+      })
+
+      if (!template.id) {
+        throw new Error("No template information available for download")
+      }
+
+      const apiUrl = `/api/user/templates/${template.id}/download`
+      const apiResponse = await fetch(apiUrl)
+
+      if (!apiResponse.ok) {
+        throw new Error(`API request failed: ${apiResponse.statusText}`)
+      }
+
+      const apiData = await apiResponse.json()
+
+      if (!apiData.fileUrl) {
+        throw new Error("No file URL returned from API")
+      }
+
+      const fileUrl = apiData.fileUrl
+      const contentType = apiData.contentType || "application/octet-stream"
+      const displayName = apiData.name || template.name
+
+      let fileName = displayName.replace(/[^a-z0-9]/gi, "_").toLowerCase()
+      const fileExtension = apiData.fileExtension || fileUrl.split(".").pop()?.split("?")[0]?.toLowerCase()
+
+      if (fileExtension) {
+        fileName = `${fileName}.${fileExtension}`
+      } else {
+        fileName = `${fileName}.pdf`
+      }
+
+      const proxyUrl = `/api/proxy-download?url=${encodeURIComponent(fileUrl)}&contentType=${encodeURIComponent(contentType)}&templateId=${template.id}`
+
+      const response = await fetch(proxyUrl)
+      if (!response.ok) {
+        throw new Error(`Proxy request failed: ${response.statusText}`)
+      }
+
+      const blob = await response.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = blobUrl
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl)
+        document.body.removeChild(link)
+      }, 100)
+
+      toast({
+        title: "Download complete",
+        description: "Your document has been downloaded successfully.",
+      })
+    } catch (error) {
+      console.error("Error downloading template:", error)
+      toast({
+        title: "Download failed",
+        description: "Failed to download document. Please try again or contact support.",
+        variant: "destructive",
+      })
+    }
+  }
 
   const fetchBusinessData = async () => {
     try {
@@ -403,6 +510,14 @@ export default function DashboardPage() {
     )
   }
 
+  // Filter templates based on purchase status
+  const hasPurchasedTemplates = templates.some((t) => t.isPurchased && !t.isFree)
+
+  // Get templates to display in the dashboard
+  const templatesForDashboard = hasPurchasedTemplates
+    ? templates.filter((t) => t.isPurchased && !t.isFree) // Show purchased non-free templates
+    : templates.filter((t) => t.isFree) // Show only free templates if no purchases
+
   if (loading) {
     return (
       <div className="p-8 flex justify-center items-center min-h-screen">
@@ -572,7 +687,7 @@ export default function DashboardPage() {
       {/* Action Buttons - Removed logo button, updated phone button */}
       <div className="mb-8">{renderPhoneNumberButton()}</div>
 
-      {/* Documents Section */}
+      {/* Documents Section - Updated to show templates */}
       <Card className="mb-8">
         <div className="p-6 border-b">
           <h2 className="text-xl font-semibold">Docs</h2>
@@ -581,55 +696,76 @@ export default function DashboardPage() {
           <table className="w-full">
             <thead>
               <tr className="text-left text-gray-600">
-                <th className="pb-4 font-medium">Type</th>
+                <th className="pb-4 font-medium">Template Name</th>
                 <th className="pb-4 font-medium">Date</th>
                 <th className="pb-4 font-medium">View</th>
                 <th className="pb-4 font-medium">Download</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              <tr>
-                <td className="py-4 font-medium">Company documents</td>
-                <td className="py-4">28 Mar 2024</td>
-                <td className="py-4">
-                  <Button variant="ghost" size="icon">
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                </td>
-                <td className="py-4">
-                  <Button variant="ghost" size="icon">
-                    <FileText className="w-4 h-4" />
-                  </Button>
-                </td>
-              </tr>
-              <tr>
-                <td className="py-4 font-medium">Scanned mail</td>
-                <td className="py-4">04 Apr 2024</td>
-                <td className="py-4">
-                  <Button variant="ghost" size="icon">
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                </td>
-                <td className="py-4">
-                  <Button variant="ghost" size="icon">
-                    <FileText className="w-4 h-4" />
-                  </Button>
-                </td>
-              </tr>
-              <tr>
-                <td className="py-4 font-medium">Scanned mail</td>
-                <td className="py-4">24 May 2024</td>
-                <td className="py-4">
-                  <Button variant="ghost" size="icon">
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                </td>
-                <td className="py-4">
-                  <Button variant="ghost" size="icon">
-                    <FileText className="w-4 h-4" />
-                  </Button>
-                </td>
-              </tr>
+              {templatesForDashboard.length > 0 ? (
+                templatesForDashboard.map((template) => (
+                  <tr key={template.id}>
+                    <td className="py-4 font-medium">{template.name}</td>
+                    <td className="py-4">{new Date(template.updatedAt).toLocaleDateString()}</td>
+                    <td className="py-4">
+                      <Button variant="ghost" size="icon" onClick={() => handleDownload(template)}>
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </td>
+                    <td className="py-4">
+                      <Button variant="ghost" size="icon" onClick={() => handleDownload(template)}>
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <>
+                  <tr>
+                    <td className="py-4 font-medium">Company documents</td>
+                    <td className="py-4">28 Mar 2024</td>
+                    <td className="py-4">
+                      <Button variant="ghost" size="icon">
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </td>
+                    <td className="py-4">
+                      <Button variant="ghost" size="icon">
+                        <FileText className="w-4 h-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-4 font-medium">Scanned mail</td>
+                    <td className="py-4">04 Apr 2024</td>
+                    <td className="py-4">
+                      <Button variant="ghost" size="icon">
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </td>
+                    <td className="py-4">
+                      <Button variant="ghost" size="icon">
+                        <FileText className="w-4 h-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-4 font-medium">Scanned mail</td>
+                    <td className="py-4">24 May 2024</td>
+                    <td className="py-4">
+                      <Button variant="ghost" size="icon">
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </td>
+                    <td className="py-4">
+                      <Button variant="ghost" size="icon">
+                        <FileText className="w-4 h-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                </>
+              )}
             </tbody>
           </table>
         </div>
