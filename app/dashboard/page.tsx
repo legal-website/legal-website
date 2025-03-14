@@ -22,7 +22,6 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
-import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 
 interface Invoice {
@@ -407,22 +406,6 @@ export default function DashboardPage() {
     return null
   }
 
-  // Function to determine the color of the pricing tier badge
-  const getPricingTierBadgeColor = (tier: string) => {
-    switch (tier) {
-      case "Free":
-        return "bg-gray-100 hover:bg-gray-200 text-gray-800"
-      case "Basic":
-        return "bg-blue-100 hover:bg-blue-200 text-blue-800"
-      case "Standard":
-        return "bg-purple-100 hover:bg-purple-200 text-purple-800"
-      case "Premium":
-        return "bg-amber-100 hover:bg-amber-200 text-amber-800"
-      default:
-        return "bg-gray-100 hover:bg-gray-200 text-gray-800"
-    }
-  }
-
   // Function to copy text to clipboard
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(
@@ -760,7 +743,7 @@ export default function DashboardPage() {
               <tr className="text-left text-gray-600">
                 <th className="pb-4 font-medium">Template Name</th>
                 <th className="pb-4 font-medium">Date</th>
-                <th className="pb-4 font-medium">Pricing Tier</th>
+                <th className="pb-4 font-medium">Price</th>
                 <th className="pb-4 font-medium">Download</th>
               </tr>
             </thead>
@@ -771,7 +754,7 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">{template.name}</td>
                     <td className="py-4">{new Date(template.updatedAt).toLocaleDateString()}</td>
                     <td className="py-4">
-                      <Badge className={getPricingTierBadgeColor(template.pricingTier)}>{template.pricingTier}</Badge>
+                      <span className="font-medium">${template.isFree ? "0.00" : template.price.toFixed(2)}</span>
                     </td>
                     <td className="py-4">
                       <Button variant="ghost" size="icon" onClick={() => handleDownload(template)}>
@@ -786,7 +769,7 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">Company documents</td>
                     <td className="py-4">28 Mar 2024</td>
                     <td className="py-4">
-                      <Badge className="bg-blue-100 hover:bg-blue-200 text-blue-800">Basic</Badge>
+                      <span className="font-medium">$19.99</span>
                     </td>
                     <td className="py-4">
                       <Button variant="ghost" size="icon">
@@ -798,7 +781,7 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">Scanned mail</td>
                     <td className="py-4">04 Apr 2024</td>
                     <td className="py-4">
-                      <Badge className="bg-purple-100 hover:bg-purple-200 text-purple-800">Standard</Badge>
+                      <span className="font-medium">$29.99</span>
                     </td>
                     <td className="py-4">
                       <Button variant="ghost" size="icon">
@@ -810,7 +793,7 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">Scanned mail</td>
                     <td className="py-4">24 May 2024</td>
                     <td className="py-4">
-                      <Badge className="bg-amber-100 hover:bg-amber-200 text-amber-800">Premium</Badge>
+                      <span className="font-medium">$49.99</span>
                     </td>
                     <td className="py-4">
                       <Button variant="ghost" size="icon">
