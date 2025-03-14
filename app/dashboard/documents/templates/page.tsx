@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { FileText, Search, Upload, Clock, CheckCircle } from "lucide-react"
+import { FileText, Search, Upload, Clock, CheckCircle, RefreshCw } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -39,6 +39,7 @@ export default function DocumentTemplatesPage() {
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
   const [showUploadDialog, setShowUploadDialog] = useState(false)
@@ -49,14 +50,15 @@ export default function DocumentTemplatesPage() {
   const router = useRouter()
 
   const [currentPage, setCurrentPage] = useState(1)
-  const [sortBy, setSortBy] = useState<"name" | "price" | "category">("name")
+  const [sortBy, setSortBy] = useState<"name" | "price" | "category" | "newest" | "oldest">("name")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [priceFilter, setPriceFilter] = useState<"all" | "highest" | "lowest">("all")
   const itemsPerPage = 12
 
   // Add state for tracking unlocking status
   const [unlockingStatus, setUnlockingStatus] = useState<UnlockingStatus | null>(null)
 
-  // Check for recently approved payments
+  // Check for recently approved payments - only on initial load, not auto-refresh
   useEffect(() => {
     const checkRecentApprovals = async () => {
       if (!session) return
@@ -76,10 +78,7 @@ export default function DocumentTemplatesPage() {
     }
 
     checkRecentApprovals()
-
-    // Poll for updates every 30 seconds
-    const intervalId = setInterval(checkRecentApprovals, 30000)
-    return () => clearInterval(intervalId)
+    // Removed the interval for auto-refresh
   }, [session])
 
   // Function to simulate the unlocking process with a progress bar
@@ -114,6 +113,18 @@ export default function DocumentTemplatesPage() {
       fetchTemplates()
     }
   }, [session])
+
+  // Manual refresh function
+  const handleRefresh = () => {
+    setRefreshing(true)
+    fetchTemplates().finally(() => {
+      setRefreshing(false)
+      toast({
+        title: "Refreshed",
+        description: "Template list has been updated.",
+      })
+    })
+  }
 
   // Update the fetchTemplates function to handle the updated template access
   const fetchTemplates = async () => {
@@ -254,7 +265,20 @@ export default function DocumentTemplatesPage() {
   const filteredTemplates = templates.filter((template) => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === "All" || template.category === selectedCategory
-    return matchesSearch && matchesCategory
+
+    // Apply price filter
+    let matchesPrice = true
+    if (priceFilter === "highest") {
+      // Get the highest price template
+      const highestPrice = Math.max(...templates.map((t) => t.price))
+      matchesPrice = template.price === highestPrice
+    } else if (priceFilter === "lowest") {
+      // Get the lowest price template (excluding free templates)
+      const lowestPrice = Math.min(...templates.filter((t) => t.price > 0).map((t) => t.price))
+      matchesPrice = template.price === lowestPrice
+    }
+
+    return matchesSearch && matchesCategory && matchesPrice
   })
 
   // Apply sorting to filtered templates
@@ -265,6 +289,10 @@ export default function DocumentTemplatesPage() {
       return sortOrder === "asc" ? a.price - b.price : b.price - a.price
     } else if (sortBy === "category") {
       return sortOrder === "asc" ? a.category.localeCompare(b.category) : b.category.localeCompare(a.category)
+    } else if (sortBy === "newest") {
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    } else if (sortBy === "oldest") {
+      return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
     }
     return 0
   })
@@ -422,30 +450,6 @@ export default function DocumentTemplatesPage() {
   }
 
   const [recentApprovals, setRecentApprovals] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-
-  useEffect(() => {
-    const checkRecentApprovals = async () => {
-      try {
-        const response = await fetch("/api/user/templates/recent-approvals")
-        const data = await response.json()
-
-        if (data.recentApprovals && data.recentApprovals.length > 0) {
-          setRecentApprovals(data.recentApprovals)
-        }
-      } catch (error) {
-        console.error("Error checking recent approvals:", error)
-      }
-    }
-
-    // Check on initial load
-    checkRecentApprovals()
-
-    // Set up interval to check periodically
-    const interval = setInterval(checkRecentApprovals, 10000) // Check every 10 seconds
-
-    return () => clearInterval(interval)
-  }, [])
 
   const handleUnlockComplete = () => {
     setRecentApprovals([])
@@ -496,19 +500,46 @@ export default function DocumentTemplatesPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-1"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                {refreshing ? "Refreshing..." : "Refresh"}
+              </Button>
+
               <div className="flex items-center gap-2">
                 <span className="text-sm">Sort by:</span>
                 <select
                   className="px-2 py-1 border rounded-md text-sm"
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as "name" | "price" | "category")}
+                  onChange={(e) => setSortBy(e.target.value as any)}
                 >
                   <option value="name">Name</option>
                   <option value="price">Price</option>
                   <option value="category">Category</option>
+                  <option value="newest">Newest</option>
+                  <option value="oldest">Oldest</option>
                 </select>
               </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm">Price:</span>
+                <select
+                  className="px-2 py-1 border rounded-md text-sm"
+                  value={priceFilter}
+                  onChange={(e) => setPriceFilter(e.target.value as any)}
+                >
+                  <option value="all">All Prices</option>
+                  <option value="highest">Highest Price</option>
+                  <option value="lowest">Lowest Price</option>
+                </select>
+              </div>
+
               <div className="flex items-center gap-2">
                 <span className="text-sm">Order:</span>
                 <select
