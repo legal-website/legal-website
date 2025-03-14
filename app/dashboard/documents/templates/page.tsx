@@ -493,6 +493,7 @@ export default function DocumentTemplatesPage() {
     try {
       let fileUrl = template.fileUrl
       let fileName = template.name.replace(/\s+/g, "-").toLowerCase()
+      let contentType = "application/octet-stream" // Default content type
 
       // If no direct fileUrl is available, try to fetch it from the API
       if (!fileUrl) {
@@ -504,6 +505,7 @@ export default function DocumentTemplatesPage() {
 
         const data = await response.json()
         fileUrl = data.fileUrl
+        contentType = data.contentType || contentType
 
         if (!fileUrl) {
           throw new Error("No file URL available")
@@ -511,14 +513,13 @@ export default function DocumentTemplatesPage() {
       }
 
       // Extract file extension from URL
-      const urlExtension = fileUrl.split(".").pop()?.toLowerCase()
+      const urlWithoutParams = fileUrl.split("?")[0]
+      const urlParts = urlWithoutParams.split(".")
+      const fileExtension = urlParts.length > 1 ? urlParts[urlParts.length - 1].toLowerCase() : ""
 
       // If URL has a valid extension, use it
-      if (
-        urlExtension &&
-        ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "jpg", "jpeg", "png", "gif"].includes(urlExtension)
-      ) {
-        fileName = `${fileName}.${urlExtension}`
+      if (fileExtension) {
+        fileName = `${fileName}.${fileExtension}`
       } else {
         // Default to PDF if no extension is found
         fileName = `${fileName}.pdf`
@@ -529,12 +530,26 @@ export default function DocumentTemplatesPage() {
         description: "Your template is being downloaded.",
       })
 
-      // Use fetch to get the file as a blob
-      const response = await fetch(fileUrl)
+      // Use fetch with appropriate headers to get the file as a blob
+      const response = await fetch(fileUrl, {
+        method: "GET",
+        headers: {
+          "Content-Type": contentType,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.statusText}`)
+      }
+
+      // Get the file as a blob
       const blob = await response.blob()
 
+      // Create a blob with the correct content type
+      const fileBlob = new Blob([blob], { type: contentType })
+
       // Create a blob URL and trigger download
-      const blobUrl = window.URL.createObjectURL(blob)
+      const blobUrl = window.URL.createObjectURL(fileBlob)
       const link = document.createElement("a")
       link.href = blobUrl
       link.download = fileName
