@@ -2,22 +2,7 @@
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import {
-  Flag,
-  Building2,
-  Hash,
-  Bell,
-  FileText,
-  Phone,
-  MessageSquare,
-  User,
-  Calendar,
-  CheckCircle,
-  Copy,
-  Download,
-  ExternalLink,
-  Loader2,
-} from "lucide-react"
+import { Flag, Building2, Hash, Bell, FileText, Phone, MessageSquare, User, Calendar, CheckCircle, Copy, Download, ExternalLink, Loader2 } from 'lucide-react'
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -166,20 +151,24 @@ export default function DashboardPage() {
       const response = await fetch("/api/admin/templates/stats")
       if (response.ok) {
         const data = await response.json()
-        if (data.templates) {
-          // Update existing templates with download counts
-          setTemplates((prevTemplates) => {
-            return prevTemplates.map((template) => {
-              const matchingTemplate = data.templates.find((t: any) => t.id === template.id)
-              if (matchingTemplate) {
-                return {
-                  ...template,
-                  usageCount: matchingTemplate.usageCount || 0,
-                }
-              }
-              return template
-            })
-          })
+        if (data.templateStats && data.templateStats.length > 0) {
+          // Create template objects from the stats data
+          const templatesFromStats = data.templateStats.map((stat: any) => ({
+            id: stat.id,
+            name: stat.name,
+            description: `${stat.name} template`,
+            category: stat.category || "Document",
+            price: stat.price || 0,
+            pricingTier: stat.pricingTier || "Free",
+            isPurchased: true, // Assume all templates from stats are accessible
+            isPending: false,
+            isFree: stat.price === 0 || stat.pricingTier === "Free",
+            updatedAt: stat.updatedAt || new Date().toISOString(),
+            usageCount: stat.usageCount || 0,
+            status: stat.status || "active",
+          }))
+
+          setTemplates(templatesFromStats)
         }
       }
     } catch (error) {
@@ -248,17 +237,18 @@ export default function DashboardPage() {
         }
 
         // Create a blob URL and trigger download
-        const blobUrl = window.URL.createObjectURL(blob)
-        const link = document.createElement("a")
-        link.href = blobUrl
-        link.download = fileName
-        document.body.appendChild(link)
-        link.click()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.style.display = "none"
+        a.href = url
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
 
         // Clean up
         setTimeout(() => {
-          window.URL.revokeObjectURL(blobUrl)
-          document.body.removeChild(link)
+          window.URL.revokeObjectURL(url)
+          document.body.removeChild(a)
         }, 100)
 
         toast({
@@ -913,4 +903,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-
