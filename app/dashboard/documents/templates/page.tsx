@@ -313,6 +313,53 @@ export default function DocumentTemplatesPage() {
     setCurrentPage(pageNumber)
   }
 
+  const handleDownload = async (template: Template) => {
+    try {
+      if (!template.fileUrl) {
+        // If no direct fileUrl is available, try to fetch it from the API
+        const response = await fetch(`/api/user/templates/${template.id}/download`)
+
+        if (!response.ok) {
+          throw new Error("Failed to download template")
+        }
+
+        const data = await response.json()
+
+        if (data.fileUrl) {
+          // Create a temporary anchor element to trigger the download
+          const link = document.createElement("a")
+          link.href = data.fileUrl
+          link.download = `${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+        } else {
+          throw new Error("No file URL available")
+        }
+      } else {
+        // If fileUrl is directly available on the template object
+        const link = document.createElement("a")
+        link.href = template.fileUrl
+        link.download = `${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+
+      toast({
+        title: "Download started",
+        description: "Your template is being downloaded.",
+      })
+    } catch (error) {
+      console.error("Error downloading template:", error)
+      toast({
+        title: "Error",
+        description: "Failed to download template. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-8 flex justify-center items-center">
@@ -402,7 +449,7 @@ export default function DocumentTemplatesPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">{template.category}</span>
                       {template.isPurchased ? (
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" onClick={() => handleDownload(template)}>
                           <Check className="h-3.5 w-3.5 mr-1.5" />
                           Download
                         </Button>
