@@ -152,8 +152,21 @@ export default function TemplatesPage() {
           break
       }
 
+      // For Cloudinary URLs, use the getSignedUrl function to get a proper download URL
+      let downloadUrl = template.fileUrl
+      if (template.fileUrl.includes("cloudinary.com")) {
+        try {
+          // Import the Cloudinary utility
+          const { getSignedUrl } = await import("@/lib/cloudinary")
+          downloadUrl = await getSignedUrl(template.fileUrl, 3600)
+        } catch (error) {
+          console.error("Error generating signed URL:", error)
+          // Continue with original URL if signed URL generation fails
+        }
+      }
+
       // Fetch the actual file as a blob
-      const fileResponse = await fetch(template.fileUrl, {
+      const fileResponse = await fetch(downloadUrl, {
         method: "GET",
         headers: {
           "Content-Type": contentType,
