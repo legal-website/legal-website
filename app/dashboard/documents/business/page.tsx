@@ -9,8 +9,33 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/components/ui/use-toast"
-import { AlertCircle, Clock, Download, File, FileText, Search, RefreshCcw } from "lucide-react"
+import {
+  AlertCircle,
+  Clock,
+  Download,
+  File,
+  FileText,
+  Search,
+  RefreshCcw,
+  Tag,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  HardDrive,
+  AlertTriangle,
+} from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 import type { Document, StorageInfo } from "@/types/document"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function BusinessDocumentsPage() {
   const { data: session, status } = useSession()
@@ -22,9 +47,16 @@ export default function BusinessDocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [storageInfo, setStorageInfo] = useState<StorageInfo>({ used: 0, limit: 104857600, percentage: 0 })
+  const [storageInfo, setStorageInfo] = useState<StorageInfo>({ used: 0, limit: 20 * 1024 * 1024, percentage: 0 }) // 20MB limit
   const [recentUpdates, setRecentUpdates] = useState<{ text: string; time: string }[]>([])
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([])
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [deletingIds, setDeletingIds] = useState<string[]>([])
+
+  // Pagination
+  const itemsPerPage = 20
+  const [currentPage, setCurrentPage] = useState(1)
 
   const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
 
@@ -36,6 +68,24 @@ export default function BusinessDocumentsPage() {
 
     // Return true if any condition is met
     return typeCheck || nameCheck
+  }
+
+  // Estimate file size based on document type
+  const estimateFileSize = (doc: Document): number => {
+    // This is a rough estimate, in a real app you would store the actual file size
+    const typeMap: Record<string, number> = {
+      pdf: 500 * 1024, // 500KB
+      doc: 300 * 1024, // 300KB
+      docx: 300 * 1024, // 300KB
+      xls: 250 * 1024, // 250KB
+      xlsx: 250 * 1024, // 250KB
+      jpg: 1 * 1024 * 1024, // 1MB
+      png: 800 * 1024, // 800KB
+      txt: 50 * 1024, // 50KB
+    }
+
+    const fileExtension = doc.type.toLowerCase()
+    return typeMap[fileExtension] || 300 * 1024 // Default to 300KB if type is unknown
   }
 
   // Format bytes to human readable format
@@ -71,6 +121,19 @@ export default function BusinessDocumentsPage() {
     }
   }
 
+  // Calculate storage usage
+  const calculateStorageUsage = (docs: Document[]): StorageInfo => {
+    const totalBytes = docs.reduce((total, doc) => total + estimateFileSize(doc), 0)
+    const limit = 20 * 1024 * 1024 // 20MB
+    const percentage = (totalBytes / limit) * 100
+
+    return {
+      used: totalBytes,
+      limit,
+      percentage: Math.min(percentage, 100), // Cap at 100%
+    }
+  }
+
   // Fetch documents and storage info
   const fetchDocuments = async () => {
     try {
@@ -96,13 +159,9 @@ export default function BusinessDocumentsPage() {
 
       setDocuments(nonTemplateDocuments || [])
 
-      // Update storage info
-      if (data.storage) {
-        const used = data.storage.totalStorageBytes
-        const limit = data.storage.storageLimit
-        const percentage = (used / limit) * 100
-        setStorageInfo({ used, limit, percentage })
-      }
+      // Calculate storage usage
+      const storageInfo = calculateStorageUsage(nonTemplateDocuments)
+      setStorageInfo(storageInfo)
 
       // Update recent updates
       if (data.recentUpdates) {
@@ -163,6 +222,73 @@ export default function BusinessDocumentsPage() {
     }
   }
 
+  // Handle document selection
+  const toggleDocumentSelection = (docId: string) => {
+    setSelectedDocuments((prev) => {
+      if (prev.includes(docId)) {
+        return prev.filter((id) => id !== docId)
+      } else {
+        return [...prev, docId]
+      }
+    })
+  }
+
+  // Handle select all documents
+  const toggleSelectAll = () => {
+    if (selectedDocuments.length === paginatedDocuments.length) {
+      setSelectedDocuments([])
+    } else {
+      setSelectedDocuments(paginatedDocuments.map((doc) => doc.id))
+    }
+  }
+
+  // Handle document deletion
+  const handleDeleteDocuments = async () => {
+    try {
+      setDeletingIds(selectedDocuments)
+
+      // Make API call to delete documents
+      const response = await fetch("/api/user/documents/business/delete", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ documentIds: selectedDocuments }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete documents")
+      }
+
+      // Remove deleted documents from state
+      setDocuments((prev) => prev.filter((doc) => !selectedDocuments.includes(doc.id)))
+
+      // Recalculate storage
+      const updatedDocs = documents.filter((doc) => !selectedDocuments.includes(doc.id))
+      const storageInfo = calculateStorageUsage(updatedDocs)
+      setStorageInfo(storageInfo)
+
+      // Clear selection
+      setSelectedDocuments([])
+
+      toast({
+        title: "Success",
+        description: `${selectedDocuments.length} document(s) deleted successfully`,
+      })
+    } catch (error) {
+      console.error("Error deleting documents:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete documents",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingIds([])
+      setIsDeleteDialogOpen(false)
+    }
+  }
+
   // Filter documents based on search and category
   const filteredDocuments = documents.filter((doc) => {
     const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -170,6 +296,16 @@ export default function BusinessDocumentsPage() {
 
     return matchesSearch && matchesCategory
   })
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage)
+  const paginatedDocuments = filteredDocuments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    setSelectedDocuments([])
+  }
 
   // Load documents on component mount
   useEffect(() => {
@@ -179,6 +315,11 @@ export default function BusinessDocumentsPage() {
       router.push("/login")
     }
   }, [status, router])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, selectedCategory])
 
   if (status === "loading") {
     return (
@@ -198,12 +339,25 @@ export default function BusinessDocumentsPage() {
             <div className="p-6 border-b">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <h2 className="text-xl font-semibold">Document Library</h2>
-                {error && (
-                  <Button variant="outline" size="sm" onClick={fetchDocuments} className="flex items-center gap-2">
-                    <RefreshCcw className="h-4 w-4" />
-                    Retry
-                  </Button>
-                )}
+                <div className="flex gap-2">
+                  {error && (
+                    <Button variant="outline" size="sm" onClick={fetchDocuments} className="flex items-center gap-2">
+                      <RefreshCcw className="h-4 w-4" />
+                      Retry
+                    </Button>
+                  )}
+                  {selectedDocuments.length > 0 && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setIsDeleteDialogOpen(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Selected ({selectedDocuments.length})
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -237,8 +391,17 @@ export default function BusinessDocumentsPage() {
 
             <div className="p-6">
               {loading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="relative w-24 h-24 mb-4">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <FileText className="h-8 w-8 text-blue-600 animate-pulse" />
+                    </div>
+                  </div>
+                  <p className="text-lg font-medium text-gray-700">Loading your documents...</p>
+                  <p className="text-sm text-gray-500 mt-1">This may take a moment</p>
                 </div>
               ) : error ? (
                 <div className="text-center py-8">
@@ -248,54 +411,131 @@ export default function BusinessDocumentsPage() {
                   <Button onClick={fetchDocuments}>Try Again</Button>
                 </div>
               ) : filteredDocuments.length > 0 ? (
-                <div className="space-y-4">
-                  {filteredDocuments.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                          <FileText className="h-5 w-5 text-blue-600" />
+                <>
+                  <div className="mb-4 flex items-center">
+                    <Checkbox
+                      id="select-all"
+                      checked={selectedDocuments.length === paginatedDocuments.length && paginatedDocuments.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                      className="mr-2"
+                    />
+                    <label htmlFor="select-all" className="text-sm text-gray-600">
+                      Select all on this page
+                    </label>
+                  </div>
+                  <div className="space-y-4">
+                    {paginatedDocuments.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            id={`doc-${doc.id}`}
+                            checked={selectedDocuments.includes(doc.id)}
+                            onCheckedChange={() => toggleDocumentSelection(doc.id)}
+                            className="mr-2"
+                          />
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <FileText className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-medium">{doc.name}</p>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${getCategoryColor(doc.category)}`}>
+                                {doc.category}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm text-gray-500">
+                              <span>{doc.type.toUpperCase()}</span>
+                              <span>•</span>
+                              <span>{formatBytes(estimateFileSize(doc))}</span>
+                              <span>•</span>
+                              <span>
+                                {doc.createdAt instanceof Date
+                                  ? doc.createdAt.toLocaleDateString()
+                                  : new Date(doc.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-medium">{doc.name}</p>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${getCategoryColor(doc.category)}`}>
-                              {doc.category}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 text-sm text-gray-500">
-                            <span>{doc.type.toUpperCase()}</span>
-                            <span>•</span>
-                            <span>
-                              {doc.createdAt instanceof Date
-                                ? doc.createdAt.toLocaleDateString()
-                                : new Date(doc.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownload(doc)}
+                            disabled={downloadingId === doc.id || deletingIds.includes(doc.id)}
+                          >
+                            {downloadingId === doc.id ? (
+                              <>
+                                <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2"></div>
+                                Downloading...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => {
+                              setSelectedDocuments([doc.id])
+                              setIsDeleteDialogOpen(true)
+                            }}
+                            disabled={deletingIds.includes(doc.id)}
+                          >
+                            {deletingIds.includes(doc.id) ? (
+                              <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                    ))}
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-6">
+                      <p className="text-sm text-gray-500">
+                        Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+                        {Math.min(currentPage * itemsPerPage, filteredDocuments.length)} of {filteredDocuments.length}{" "}
+                        documents
+                      </p>
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDownload(doc)}
-                          disabled={downloadingId === doc.id}
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 1}
                         >
-                          {downloadingId === doc.id ? (
-                            <>
-                              <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2"></div>
-                              Downloading...
-                            </>
-                          ) : (
-                            <>
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </>
-                          )}
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                          <Button
+                            key={page}
+                            variant={page === currentPage ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handlePageChange(page)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                        >
+                          <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center py-8">
                   <File className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -312,6 +552,72 @@ export default function BusinessDocumentsPage() {
         </div>
 
         <div>
+          <Card className="mb-6">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">Document Storage</h3>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm text-gray-600">Used Storage</span>
+                  <span className="text-sm font-medium">
+                    {formatBytes(storageInfo.used)} / {formatBytes(storageInfo.limit)}
+                  </span>
+                </div>
+                <Progress
+                  value={storageInfo.percentage}
+                  className={`h-2 ${storageInfo.percentage > 90 ? "[&>div]:bg-red-500" : ""}`}
+                />
+
+                {storageInfo.percentage > 90 && (
+                  <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <h4 className="font-medium text-red-800">Storage Almost Full</h4>
+                        <p className="text-sm text-red-700 mt-1">
+                          You've used {storageInfo.percentage.toFixed(1)}% of your storage. Please delete some documents
+                          to free up space.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-full">
+                      <HardDrive className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <span className="text-sm font-medium">Total Documents</span>
+                  </div>
+                  <span className="text-sm font-bold">{documents.length}</span>
+                </div>
+
+                {categories
+                  .filter((cat) => cat !== "All")
+                  .map((category) => {
+                    const count = documents.filter((doc) => doc.category === category).length
+                    if (count === 0) return null
+
+                    return (
+                      <div key={category} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-full ${getCategoryColor(category)}`}>
+                            <Tag className="h-4 w-4" />
+                          </div>
+                          <span className="text-sm font-medium">{category}</span>
+                        </div>
+                        <span className="text-sm font-bold">{count}</span>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+          </Card>
+
           <Card className="mb-6">
             <div className="p-6 border-b">
               <h3 className="text-lg font-semibold">Recent Updates</h3>
@@ -339,26 +645,9 @@ export default function BusinessDocumentsPage() {
 
           <Card>
             <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">Document Storage</h3>
+              <h3 className="text-lg font-semibold">Document Retention</h3>
             </div>
             <div className="p-6">
-              <div className="mb-4">
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm text-gray-600">Used Storage</span>
-                  <span className="text-sm font-medium">
-                    {formatBytes(storageInfo.used)} / {formatBytes(storageInfo.limit)}
-                  </span>
-                </div>
-                <Progress value={storageInfo.percentage} className="h-2" />
-
-                {storageInfo.percentage > 90 && (
-                  <div className="mt-2 flex items-start gap-2 text-red-600 text-sm">
-                    <AlertCircle className="h-4 w-4 mt-0.5" />
-                    <span>Storage almost full! Please contact support for more storage.</span>
-                  </div>
-                )}
-              </div>
-
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
@@ -375,6 +664,31 @@ export default function BusinessDocumentsPage() {
           </Card>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to delete {selectedDocuments.length} document(s). This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteDocuments} className="bg-red-600 hover:bg-red-700">
+              {deletingIds.length > 0 ? (
+                <>
+                  <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2"></div>
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
