@@ -63,17 +63,18 @@ export async function GET(req: NextRequest) {
       return {
         id: doc.id,
         name: doc.name,
-        description: null, // Not in schema
+        description: doc.description || null,
         category: doc.category,
         fileUrl: doc.fileUrl,
         fileType: doc.type,
         type: doc.type,
-        fileSize: 0, // Not in schema
+        fileSize: doc.fileSize || 0,
         uploadDate: doc.createdAt.toISOString(),
         lastModified: doc.updatedAt.toISOString(),
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
         businessId: doc.businessId,
+        uploadedByAdmin: doc.uploadedByAdmin || false, // Make sure this field is included
       }
     })
 
