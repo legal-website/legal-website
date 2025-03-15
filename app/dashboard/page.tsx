@@ -7,7 +7,6 @@ import {
   Building2,
   Hash,
   Bell,
-  FileText,
   Phone,
   MessageSquare,
   User,
@@ -26,6 +25,8 @@ import Link from "next/link"
 import SpendingAnalytics from "@/components/spending-analytics"
 // Import the AccountManagerRequest component at the top of the file
 import { AccountManagerRequest } from "@/components/account-manager-request"
+// Import the ContactPopup component at the top of the file:
+import { ContactPopup } from "@/components/contact-popup"
 
 interface Invoice {
   id: string
@@ -1121,13 +1122,7 @@ export default function DashboardPage() {
                 </div>
               </Button>
 
-              <Button variant="outline" className="w-full justify-start h-auto py-4">
-                <FileText className="w-5 h-5 mr-3" />
-                <div className="text-left">
-                  <p className="font-semibold">Read our Helpdesk articles</p>
-                  <p className="text-sm text-gray-600 font-medium">We have content that you might be interested in.</p>
-                </div>
-              </Button>
+              <ContactPopup />
             </div>
           </div>
         </Card>
