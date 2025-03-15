@@ -41,15 +41,21 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "Access denied to this document" }, { status: 403 })
     }
 
-    // Generate signed URL for download with document name
-    const downloadUrl = getSignedDownloadUrl(document.fileUrl, document.name, 3600) // 1 hour expiry
+    // Determine filename with extension
+    let filename = document.name
+    if (document.type && !filename.toLowerCase().endsWith(`.${document.type.toLowerCase()}`)) {
+      filename = `${filename}.${document.type.toLowerCase()}`
+    }
 
-    console.log("Generated download URL for document:", document.id)
+    // Generate signed URL for download with document name
+    const downloadUrl = getSignedDownloadUrl(document.fileUrl, filename, 3600) // 1 hour expiry
+
+    console.log("Generated download URL for document:", document.id, downloadUrl)
 
     return NextResponse.json({
       success: true,
       downloadUrl,
-      documentName: document.name,
+      documentName: filename,
       documentType: document.type || "application/octet-stream",
     })
   } catch (error) {

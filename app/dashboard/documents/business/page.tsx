@@ -192,12 +192,17 @@ export default function BusinessDocumentsPage() {
         // Create a hidden anchor element
         const link = window.document.createElement("a")
         link.href = data.downloadUrl
-        link.setAttribute("download", document.name)
 
-        // For PDF files, add the file extension if not present
-        if (document.type.toLowerCase() === "pdf" && !document.name.toLowerCase().endsWith(".pdf")) {
-          link.setAttribute("download", `${document.name}.pdf`)
+        // Set the download attribute with the document name
+        let filename = document.name
+
+        // Add file extension if not present
+        const fileExtension = document.type.toLowerCase()
+        if (fileExtension && !filename.toLowerCase().endsWith(`.${fileExtension}`)) {
+          filename = `${filename}.${fileExtension}`
         }
+
+        link.setAttribute("download", filename)
 
         // Add to body, click, and remove
         window.document.body.appendChild(link)
