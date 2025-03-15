@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
-import { getSignedDownloadUrl } from "@/lib/cloudinary"
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -54,19 +53,65 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       filename = `${filename}.${document.type.toLowerCase()}`
     }
 
-    // Generate signed URL for download with document name
-    const downloadUrl = getSignedDownloadUrl(document.fileUrl, filename, 3600) // 1 hour expiry
+    // Fetch the file directly from Cloudinary
+    try {
+      // Fetch the file from Cloudinary
+      const response = await fetch(document.fileUrl)
 
-    console.log("Generated download URL for document:", document.id, downloadUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file from Cloudinary: ${response.status} ${response.statusText}`)
+      }
 
-    // For debugging, let's also include the original URL
-    return NextResponse.json({
-      success: true,
-      downloadUrl,
-      originalUrl: document.fileUrl,
-      documentName: filename,
-      documentType: document.type || "application/octet-stream",
-    })
+      // Get the file content as a buffer
+      const fileBuffer = await response.arrayBuffer()
+
+      // Determine content type based on document type
+      let contentType = "application/octet-stream" // Default
+      switch (document.type.toLowerCase()) {
+        case "pdf":
+          contentType = "application/pdf"
+          break
+        case "doc":
+        case "docx":
+          contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          break
+        case "xls":
+        case "xlsx":
+          contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          break
+        case "jpg":
+        case "jpeg":
+          contentType = "image/jpeg"
+          break
+        case "png":
+          contentType = "image/png"
+          break
+        case "txt":
+          contentType = "text/plain"
+          break
+      }
+
+      // Create headers for the response
+      const headers = new Headers()
+      headers.set("Content-Type", contentType)
+      headers.set("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}"`)
+      headers.set("Content-Length", fileBuffer.byteLength.toString())
+
+      // Return the file as a blob with appropriate headers
+      return new Response(fileBuffer, {
+        headers,
+        status: 200,
+      })
+    } catch (fetchError) {
+      console.error("Error fetching file from Cloudinary:", fetchError)
+      return NextResponse.json(
+        {
+          error: "Failed to fetch document from storage",
+          details: fetchError instanceof Error ? fetchError.message : String(fetchError),
+        },
+        { status: 500 },
+      )
+    }
   } catch (error) {
     console.error("Error downloading document:", error)
     return NextResponse.json(

@@ -177,54 +177,49 @@ export default function BusinessDocumentsPage() {
       setDownloadingId(doc.id)
       console.log("Downloading document:", doc.id)
 
+      // Determine filename with extension
+      let filename = doc.name
+      if (doc.type && !filename.toLowerCase().endsWith(`.${doc.type.toLowerCase()}`)) {
+        filename = `${filename}.${doc.type.toLowerCase()}`
+      }
+
+      // Fetch the document as a blob
       const response = await fetch(`/api/user/documents/business/${doc.id}/download`)
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to download document")
-      }
-
-      const data = await response.json()
-      console.log("Download response:", data)
-
-      // Create a temporary link and trigger download
-      if (typeof window !== "undefined") {
-        // For direct download, we'll use a different approach
-        // Create a hidden anchor element
-        const link = window.document.createElement("a")
-
-        // Set the href to the download URL
-        link.href = data.downloadUrl
-
-        // Set the download attribute with the document name
-        let filename = doc.name
-
-        // Add file extension if not present
-        const fileExtension = doc.type.toLowerCase()
-        if (fileExtension && !filename.toLowerCase().endsWith(`.${fileExtension}`)) {
-          filename = `${filename}.${fileExtension}`
+        // Try to parse error response as JSON
+        try {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to download document")
+        } catch (jsonError) {
+          // If not JSON, use status text
+          throw new Error(`Failed to download document: ${response.status} ${response.statusText}`)
         }
-
-        link.setAttribute("download", filename)
-
-        // Set target to _blank to open in a new tab as a fallback
-        link.setAttribute("target", "_blank")
-
-        // Add to body, click, and remove
-        window.document.body.appendChild(link)
-        link.click()
-
-        // Small delay before removing the link
-        setTimeout(() => {
-          window.document.body.removeChild(link)
-        }, 100)
-
-        toast({
-          title: "Download Started",
-          description:
-            "Your document download has started. If it doesn't download automatically, check your browser settings.",
-        })
       }
+
+      // Get the blob from the response
+      const blob = await response.blob()
+
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob)
+
+      // Create a temporary link element
+      const link = window.document.createElement("a")
+      link.href = url
+      link.download = filename
+
+      // Append to the document, click it, and remove it
+      window.document.body.appendChild(link)
+      link.click()
+
+      // Clean up
+      window.document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Success",
+        description: "Document downloaded successfully",
+      })
     } catch (error) {
       console.error("Error downloading document:", error)
       toast({
