@@ -35,6 +35,8 @@ import {
   FileUp,
   Mail,
   Check,
+  RefreshCcw,
+  AlertCircle,
 } from "lucide-react"
 
 // Define types for our data
@@ -76,6 +78,7 @@ export default function ClientDocumentsPage() {
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
@@ -114,16 +117,20 @@ export default function ClientDocumentsPage() {
   const fetchDocuments = async () => {
     try {
       setLoading(true)
+      setError(null)
+
       const response = await fetch("/api/admin/documents/client")
 
       if (!response.ok) {
-        throw new Error("Failed to fetch documents")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch documents")
       }
 
       const data = await response.json()
       setDocuments(data.documents || [])
     } catch (error) {
       console.error("Error fetching documents:", error)
+      setError(error instanceof Error ? error.message : "Failed to load documents")
       toast({
         title: "Error",
         description: "Failed to load documents. Please try again.",
@@ -141,7 +148,8 @@ export default function ClientDocumentsPage() {
       const response = await fetch(`/api/admin/users/search?query=${encodeURIComponent(query)}`)
 
       if (!response.ok) {
-        throw new Error("Failed to search users")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to search users")
       }
 
       const data = await response.json()
@@ -208,8 +216,8 @@ export default function ClientDocumentsPage() {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || "Failed to upload document")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to upload document")
       }
 
       // Reset form
@@ -256,8 +264,8 @@ export default function ClientDocumentsPage() {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || "Failed to delete document")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete document")
       }
 
       toast({
@@ -283,8 +291,8 @@ export default function ClientDocumentsPage() {
       const response = await fetch(`/api/admin/documents/client/${document.id}/download`)
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || "Failed to download document")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to download document")
       }
 
       const data = await response.json()
@@ -316,8 +324,8 @@ export default function ClientDocumentsPage() {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || "Failed to verify document")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to verify document")
       }
 
       toast({
@@ -445,13 +453,26 @@ export default function ClientDocumentsPage() {
             <Filter className="mr-2 h-4 w-4" />
             More Filters
           </Button>
+          {error && (
+            <Button variant="outline" onClick={fetchDocuments}>
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              Retry
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Documents Table */}
       <Card>
         <div className="overflow-x-auto">
-          {filteredDocuments.length > 0 ? (
+          {error ? (
+            <div className="p-8 text-center">
+              <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+              <h3 className="text-lg font-medium mb-2">Error Loading Documents</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">{error}</p>
+              <Button onClick={fetchDocuments}>Try Again</Button>
+            </div>
+          ) : filteredDocuments.length > 0 ? (
             <table className="w-full">
               <thead>
                 <tr className="border-b">

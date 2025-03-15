@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/components/ui/use-toast"
-import { AlertCircle, Clock, Download, File, FileText, Search } from "lucide-react"
+import { AlertCircle, Clock, Download, File, FileText, Search, RefreshCcw } from "lucide-react"
 
 interface Document {
   id: string
@@ -38,6 +38,7 @@ export default function BusinessDocumentsPage() {
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [storageInfo, setStorageInfo] = useState<StorageInfo>({ used: 0, limit: 104857600, percentage: 0 })
   const [recentUpdates, setRecentUpdates] = useState<{ text: string; time: string }[]>([])
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
@@ -61,10 +62,13 @@ export default function BusinessDocumentsPage() {
   const fetchDocuments = async () => {
     try {
       setLoading(true)
+      setError(null)
+
       const response = await fetch("/api/user/documents/business")
 
       if (!response.ok) {
-        throw new Error("Failed to fetch documents")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch documents")
       }
 
       const data = await response.json()
@@ -84,9 +88,10 @@ export default function BusinessDocumentsPage() {
       }
     } catch (error) {
       console.error("Error fetching documents:", error)
+      setError(error instanceof Error ? error.message : "Failed to load documents")
       toast({
         title: "Error",
-        description: "Failed to load documents. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to load documents. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -101,8 +106,8 @@ export default function BusinessDocumentsPage() {
       const response = await fetch(`/api/user/documents/business/${document.id}/download`)
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || "Failed to download document")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to download document")
       }
 
       const data = await response.json()
@@ -170,6 +175,12 @@ export default function BusinessDocumentsPage() {
             <div className="p-6 border-b">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <h2 className="text-xl font-semibold">Document Library</h2>
+                {error && (
+                  <Button variant="outline" size="sm" onClick={fetchDocuments} className="flex items-center gap-2">
+                    <RefreshCcw className="h-4 w-4" />
+                    Retry
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -205,6 +216,13 @@ export default function BusinessDocumentsPage() {
               {loading ? (
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                </div>
+              ) : error ? (
+                <div className="text-center py-8">
+                  <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-3" />
+                  <h3 className="text-lg font-medium text-gray-900">Error Loading Documents</h3>
+                  <p className="text-gray-500 mt-1 mb-4">{error}</p>
+                  <Button onClick={fetchDocuments}>Try Again</Button>
                 </div>
               ) : filteredDocuments.length > 0 ? (
                 <div className="space-y-4">
@@ -298,16 +316,7 @@ export default function BusinessDocumentsPage() {
                     {formatBytes(storageInfo.used)} / {formatBytes(storageInfo.limit)}
                   </span>
                 </div>
-                <Progress
-                  value={storageInfo.percentage}
-                  className={
-                    storageInfo.percentage > 90
-                      ? "h-2 bg-gray-200 dark:bg-gray-700"
-                      : storageInfo.percentage > 70
-                        ? "h-2 bg-gray-200 dark:bg-gray-700"
-                        : "h-2 bg-gray-200 dark:bg-gray-700"
-                  }
-                />
+                <Progress value={storageInfo.percentage} className="h-2" />
 
                 {storageInfo.percentage > 90 && (
                   <div className="mt-2 flex items-start gap-2 text-red-600 text-sm">

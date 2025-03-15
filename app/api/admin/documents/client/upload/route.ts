@@ -75,6 +75,10 @@ export async function POST(req: NextRequest) {
     // Upload file to Cloudinary
     const fileUrl = await uploadToCloudinary(file)
 
+    if (!fileUrl) {
+      return NextResponse.json({ error: "Failed to upload file to storage" }, { status: 500 })
+    }
+
     // Create document in database
     const document = await prisma.document.create({
       data: {
@@ -85,6 +89,7 @@ export async function POST(req: NextRequest) {
         size: file.size.toString(),
         fileUrl,
         businessId: businessId as string,
+        status: "VERIFIED", // Set status to VERIFIED for admin uploads
       },
     })
 
