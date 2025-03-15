@@ -29,9 +29,6 @@ model User {
   verificationTokens VerificationToken[]
   phoneRequest       PhoneNumberRequest?
   accountManagerRequest AccountManagerRequest?
-  uploadedDocuments Document[]         @relation("DocumentUploader")
-  sharedDocuments   DocumentSharing[]
-  documentActivities DocumentActivity[]
   @@index([businessId], map: "User_businessId_fkey")
 }
 
@@ -92,9 +89,7 @@ model Business {
   businessId    String?        @unique
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  documents           Document[]
-  documentActivities  DocumentActivity[]
-  storage             BusinessStorage?
+  documents     Document[]
   subscriptions Subscription[]
   users         User[]
 }
@@ -117,66 +112,19 @@ model Subscription {
 }
 
 model Document {
-  id            String            @id @default(uuid())
-  name          String
-  description   String?           @db.Text
-  category      String
-  type          String            // File extension
-  size          String            // File size in bytes
-  fileUrl       String
-  isPermanent   Boolean           @default(false)
-  businessId    String
-  uploadedById  String
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  business      Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  uploadedBy    User              @relation("DocumentUploader", fields: [uploadedById], references: [id])
-  sharing       DocumentSharing[]
-  activities    DocumentActivity[]
+  id         String   @id @default(uuid())
+  name       String
+  category   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  businessId String
+  fileUrl    String
+  type       String
+  business   Business @relation(fields: [businessId], references: [id])
+
   @@index([businessId], map: "Document_businessId_fkey")
-  @@index([uploadedById])
-}
-model DocumentSharing {
-  id              String    @id @default(uuid())
-  documentId      String
-  sharedWithEmail String
-  sharedById      String
-  accessExpires   DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  document        Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  sharedBy        User      @relation(fields: [sharedById], references: [id])
-
-  @@index([documentId])
-  @@index([sharedById])
-  @@index([sharedWithEmail])
 }
 
-model DocumentActivity {
-  id          String    @id @default(uuid())
-  action      String    // UPLOAD, DOWNLOAD, SHARE, DELETE
-  documentId  String?
-  userId      String?
-  businessId  String
-  details     String?   @db.Text
-  createdAt   DateTime  @default(now())
-  document    Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
-  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  business    Business  @relation(fields: [businessId], references: [id])
-
-  @@index([documentId])
-  @@index([userId])
-  @@index([businessId])
-}
-model BusinessStorage {
-  id                String    @id @default(uuid())
-  businessId        String    @unique
-  totalStorageBytes Int       @default(0)
-  storageLimit      Int       @default(104857600) // 100MB in bytes
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  business          Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
-}
 model Ticket {
   id          String    @id @default(uuid())
   subject     String
