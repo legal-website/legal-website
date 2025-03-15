@@ -51,6 +51,26 @@ export default function BusinessDocumentsPage() {
     return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
   }
 
+  // Get category badge color
+  const getCategoryColor = (category: string): string => {
+    switch (category.toLowerCase()) {
+      case "formation":
+        return "bg-blue-100 text-blue-800"
+      case "tax":
+        return "bg-green-100 text-green-800"
+      case "compliance":
+        return "bg-purple-100 text-purple-800"
+      case "licenses":
+        return "bg-amber-100 text-amber-800"
+      case "financial":
+        return "bg-indigo-100 text-indigo-800"
+      case "hr":
+        return "bg-pink-100 text-pink-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
   // Fetch documents and storage info
   const fetchDocuments = async () => {
     try {
@@ -236,7 +256,12 @@ export default function BusinessDocumentsPage() {
                           <FileText className="h-5 w-5 text-blue-600" />
                         </div>
                         <div>
-                          <p className="font-medium">{doc.name}</p>
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-medium">{doc.name}</p>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${getCategoryColor(doc.category)}`}>
+                              {doc.category}
+                            </span>
+                          </div>
                           <div className="flex items-center gap-3 text-sm text-gray-500">
                             <span>{doc.type.toUpperCase()}</span>
                             <span>•</span>
