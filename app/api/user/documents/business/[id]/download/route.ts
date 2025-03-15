@@ -41,6 +41,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "Access denied to this document" }, { status: 403 })
     }
 
+    console.log("Document found:", {
+      id: document.id,
+      name: document.name,
+      type: document.type,
+      fileUrl: document.fileUrl,
+    })
+
     // Determine filename with extension
     let filename = document.name
     if (document.type && !filename.toLowerCase().endsWith(`.${document.type.toLowerCase()}`)) {
@@ -52,15 +59,23 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     console.log("Generated download URL for document:", document.id, downloadUrl)
 
+    // For debugging, let's also include the original URL
     return NextResponse.json({
       success: true,
       downloadUrl,
+      originalUrl: document.fileUrl,
       documentName: filename,
       documentType: document.type || "application/octet-stream",
     })
   } catch (error) {
     console.error("Error downloading document:", error)
-    return NextResponse.json({ error: "Failed to download document" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to download document",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    )
   }
 }
 

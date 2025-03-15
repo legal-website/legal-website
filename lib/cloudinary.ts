@@ -59,57 +59,71 @@ export async function uploadToCloudinary(file: File): Promise<string> {
  */
 export function getSignedDownloadUrl(url: string, filename: string, expiresIn = 3600): string {
   try {
-    console.log("Generating download URL for:", url)
+    console.log("Original Cloudinary URL:", url)
 
-    // Extract the public ID and resource type from the URL
-    const urlParts = url.split("/")
-    const resourceTypeIndex = urlParts.findIndex(
-      (part) => part === "image" || part === "video" || part === "raw" || part === "auto",
-    )
+    // The URL is likely in the format:
+    // https://res.cloudinary.com/cloud_name/image|video|raw/upload/v1234567890/folder/file.ext
 
+    // Extract the cloud name
+    const cloudNameMatch = url.match(/res\.cloudinary\.com\/([^/]+)\//)
+    const cloudName = cloudNameMatch ? cloudNameMatch[1] : process.env.CLOUDINARY_CLOUD_NAME
+
+    if (!cloudName) {
+      console.warn("Could not determine cloud name from URL:", url)
+      return url
+    }
+
+    // Determine if this is a private or public resource
+    const isPrivate = url.includes("/private/")
+    const deliveryType = isPrivate ? "private" : "upload"
+
+    // Extract the resource type (image, video, raw)
     let resourceType = "raw" // Default to raw for documents
+    if (url.includes("/image/")) resourceType = "image"
+    else if (url.includes("/video/")) resourceType = "video"
+
+    // Extract the public ID - this is the trickiest part
+    // The public ID is everything after upload/ or private/ and before any query parameters
     let publicId = ""
+    const uploadMatch = url.match(new RegExp(`/${deliveryType}/(?:v\\d+/)?(.+?)(?:\\?|$)`))
 
-    if (resourceTypeIndex !== -1) {
-      resourceType = urlParts[resourceTypeIndex]
-      // The public ID is everything after the upload/ part
-      const uploadIndex = urlParts.findIndex((part) => part === "upload")
-      if (uploadIndex !== -1 && uploadIndex + 1 < urlParts.length) {
-        publicId = urlParts.slice(uploadIndex + 1).join("/")
-        // Remove any file extension and query parameters
-        publicId = publicId.split(".")[0].split("?")[0]
-      }
+    if (uploadMatch && uploadMatch[1]) {
+      publicId = uploadMatch[1]
+
+      // Remove any transformation parameters if present
+      // These would be like s--XXXXX--/ at the beginning of the public ID
+      publicId = publicId.replace(/^s--[a-zA-Z0-9_-]+--\//, "")
+
+      // Remove file extension if present
+      publicId = publicId.replace(/\.[^/.]+$/, "")
     } else {
-      // Fallback extraction method
-      const lastPart = urlParts[urlParts.length - 1]
-      publicId = lastPart.split(".")[0].split("?")[0]
+      // Fallback: try to extract the UUID which is likely the public ID
+      const uuidMatch = url.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
+      if (uuidMatch) {
+        publicId = uuidMatch[1]
+      } else {
+        console.warn("Could not extract public ID from URL:", url)
+        return url
+      }
     }
 
-    if (!publicId) {
-      console.warn("Could not extract public ID from URL:", url)
-      return url // Return original URL if can't extract public ID
-    }
+    console.log("Extracted public ID:", publicId)
+    console.log("Resource type:", resourceType)
+    console.log("Delivery type:", deliveryType)
 
-    console.log("Extracted public ID:", publicId, "Resource type:", resourceType)
-
-    // For PDF and document files, ensure we're using the right resource type
-    const fileExtension = getFileExtension(url) || ""
-    if (["pdf", "doc", "docx", "xls", "xlsx", "txt"].includes(fileExtension.toLowerCase())) {
-      resourceType = "raw"
-    }
-
-    // Generate a direct download URL with fl_attachment flag
+    // Generate a direct download URL using the Cloudinary SDK
     const downloadUrl = cloudinary.url(publicId, {
+      cloud_name: cloudName,
       resource_type: resourceType,
-      type: "upload",
+      type: deliveryType,
       secure: true,
       sign_url: true,
-      flags: "attachment", // This forces download
-      download: filename, // Set the download filename
+      flags: "attachment", // Force download
+      download: filename, // Set download filename
       expires_at: Math.floor(Date.now() / 1000) + expiresIn,
     })
 
-    console.log("Generated signed download URL:", downloadUrl)
+    console.log("Generated download URL:", downloadUrl)
     return downloadUrl
   } catch (error) {
     console.error("Error generating signed download URL:", error)
@@ -117,7 +131,6 @@ export function getSignedDownloadUrl(url: string, filename: string, expiresIn = 
   }
 }
 
-// Add this function to maintain backward compatibility
 /**
  * Get a signed URL for a Cloudinary resource (legacy function)
  * @param url The Cloudinary URL

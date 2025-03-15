@@ -24,7 +24,7 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
-import type { Document, StorageInfo } from "@/types/document"
+import type { Document as BusinessDocument, StorageInfo } from "@/types/document"
 
 export default function BusinessDocumentsPage() {
   const { data: session, status } = useSession()
@@ -33,7 +33,7 @@ export default function BusinessDocumentsPage() {
 
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
-  const [documents, setDocuments] = useState<Document[]>([])
+  const [documents, setDocuments] = useState<BusinessDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [storageInfo, setStorageInfo] = useState<StorageInfo>({
@@ -52,7 +52,7 @@ export default function BusinessDocumentsPage() {
   const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
 
   // Helper function to check if a document is a template
-  const isTemplate = (doc: Document): boolean => {
+  const isTemplate = (doc: BusinessDocument): boolean => {
     // Check various conditions that might indicate a template
     const typeCheck = doc.type.toLowerCase().includes("template")
     const nameCheck = doc.name.toLowerCase().includes("template")
@@ -62,7 +62,7 @@ export default function BusinessDocumentsPage() {
   }
 
   // Estimate file size based on document type
-  const estimateFileSize = (doc: Document): number => {
+  const estimateFileSize = (doc: BusinessDocument): number => {
     // This is a rough estimate, in a real app you would store the actual file size
     const typeMap: Record<string, number> = {
       pdf: 500 * 1024, // 500KB
@@ -113,7 +113,7 @@ export default function BusinessDocumentsPage() {
   }
 
   // Calculate storage usage
-  const calculateStorageUsage = (docs: Document[]): StorageInfo => {
+  const calculateStorageUsage = (docs: BusinessDocument[]): StorageInfo => {
     const totalBytes = docs.reduce((total, doc) => total + estimateFileSize(doc), 0)
     const limit = 100 * 1024 * 1024 // 100MB limit (increased)
     const percentage = (totalBytes / limit) * 100
@@ -143,7 +143,7 @@ export default function BusinessDocumentsPage() {
       console.log("Received documents data:", data)
 
       // Filter out templates using our isTemplate helper function
-      const nonTemplateDocuments = data.documents.filter((doc: Document) => !isTemplate(doc))
+      const nonTemplateDocuments = data.documents.filter((doc: BusinessDocument) => !isTemplate(doc))
 
       console.log(`Filtered out ${data.documents.length - nonTemplateDocuments.length} templates`)
       console.log(`Remaining documents: ${nonTemplateDocuments.length}`)
@@ -172,12 +172,12 @@ export default function BusinessDocumentsPage() {
   }
 
   // Handle document download
-  const handleDownload = async (document: Document) => {
+  const handleDownload = async (doc: BusinessDocument) => {
     try {
-      setDownloadingId(document.id)
-      console.log("Downloading document:", document.id)
+      setDownloadingId(doc.id)
+      console.log("Downloading document:", doc.id)
 
-      const response = await fetch(`/api/user/documents/business/${document.id}/download`)
+      const response = await fetch(`/api/user/documents/business/${doc.id}/download`)
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -189,31 +189,42 @@ export default function BusinessDocumentsPage() {
 
       // Create a temporary link and trigger download
       if (typeof window !== "undefined") {
+        // For direct download, we'll use a different approach
         // Create a hidden anchor element
         const link = window.document.createElement("a")
+
+        // Set the href to the download URL
         link.href = data.downloadUrl
 
         // Set the download attribute with the document name
-        let filename = document.name
+        let filename = doc.name
 
         // Add file extension if not present
-        const fileExtension = document.type.toLowerCase()
+        const fileExtension = doc.type.toLowerCase()
         if (fileExtension && !filename.toLowerCase().endsWith(`.${fileExtension}`)) {
           filename = `${filename}.${fileExtension}`
         }
 
         link.setAttribute("download", filename)
 
+        // Set target to _blank to open in a new tab as a fallback
+        link.setAttribute("target", "_blank")
+
         // Add to body, click, and remove
         window.document.body.appendChild(link)
         link.click()
-        window.document.body.removeChild(link)
-      }
 
-      toast({
-        title: "Success",
-        description: "Document downloaded successfully",
-      })
+        // Small delay before removing the link
+        setTimeout(() => {
+          window.document.body.removeChild(link)
+        }, 100)
+
+        toast({
+          title: "Download Started",
+          description:
+            "Your document download has started. If it doesn't download automatically, check your browser settings.",
+        })
+      }
     } catch (error) {
       console.error("Error downloading document:", error)
       toast({
