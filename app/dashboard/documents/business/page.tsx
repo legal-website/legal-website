@@ -247,6 +247,8 @@ export default function BusinessDocumentsPage() {
     try {
       setDeletingIds(selectedDocuments)
 
+      console.log(`Attempting to delete ${selectedDocuments.length} documents:`, selectedDocuments)
+
       // Make API call to delete documents
       const response = await fetch("/api/user/documents/business/delete", {
         method: "DELETE",
@@ -256,25 +258,31 @@ export default function BusinessDocumentsPage() {
         body: JSON.stringify({ documentIds: selectedDocuments }),
       })
 
-      // Check if the response is ok before trying to parse JSON
+      console.log("Delete API response status:", response.status)
+
+      // Get response as text first
+      const responseText = await response.text()
+      console.log("Delete API response text:", responseText)
+
+      let data
+      try {
+        // Try to parse as JSON
+        data = JSON.parse(responseText)
+        console.log("Delete API response parsed:", data)
+      } catch (parseError) {
+        console.error("Error parsing response as JSON:", parseError)
+        throw new Error(`Server response is not valid JSON: ${responseText.substring(0, 100)}...`)
+      }
+
+      // Check if the response indicates an error
       if (!response.ok) {
-        const errorText = await response.text()
-        let errorMessage = "Failed to delete documents"
-
-        try {
-          // Try to parse the error as JSON
-          const errorData = JSON.parse(errorText)
-          errorMessage = errorData.error || errorData.message || errorMessage
-        } catch (parseError) {
-          // If parsing fails, use the raw text
-          errorMessage = errorText || errorMessage
-        }
-
+        const errorMessage = data.error || data.message || "Failed to delete documents"
+        console.error("Delete API error:", errorMessage, data)
         throw new Error(errorMessage)
       }
 
-      // Parse the successful response
-      const data = await response.json()
+      // Handle success
+      console.log("Documents deleted successfully:", data)
 
       // Remove deleted documents from state
       setDocuments((prev) => prev.filter((doc) => !selectedDocuments.includes(doc.id)))

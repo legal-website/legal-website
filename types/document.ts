@@ -1,22 +1,18 @@
 export interface Document {
   id: string
   name: string
-  category: string
-  createdAt: Date
-  updatedAt: Date
-  businessId: string
-  fileUrl: string
   type: string
+  category: string
+  description?: string
+  businessId: string
+  createdAt: Date | string
+  updatedAt: Date | string
+  url?: string
 }
 
 export interface StorageInfo {
   used: number
   limit: number
   percentage: number
-}
-
-export interface DocumentActivity {
-  text: string
-  time: string
 }
 
