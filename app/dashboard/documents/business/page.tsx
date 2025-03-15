@@ -177,114 +177,151 @@ export default function BusinessDocumentsPage() {
       setDownloadingId(doc.id)
       console.log("Downloading document:", doc.id)
 
+      // Check if document has a fileUrl
+      if (!doc.fileUrl) {
+        throw new Error("Document has no file URL")
+      }
+
       // Determine filename with extension
       let filename = doc.name
       if (doc.type && !filename.toLowerCase().endsWith(`.${doc.type.toLowerCase()}`)) {
         filename = `${filename}.${doc.type.toLowerCase()}`
       }
 
-      // Fetch the document
-      const response = await fetch(`/api/user/documents/business/${doc.id}/download`)
+      // Sanitize the filename to ensure it's valid for downloads
+      filename = filename.replace(/[/\\?%*:|"<>]/g, "-")
 
-      // Check if the response is JSON (fallback) or a file
-      const contentType = response.headers.get("content-type")
-
-      if (contentType && contentType.includes("application/json")) {
-        // This is a JSON response - likely a fallback URL
-        const data = await response.json()
-
-        if (data.fallbackUrl) {
-          console.log("Using fallback URL for download:", data.fallbackUrl)
-
-          // Create a temporary link and trigger download
-          const link = window.document.createElement("a")
-          link.href = data.fallbackUrl
-          link.download = filename
-          link.target = "_blank" // Open in new tab to avoid CORS issues
-
-          window.document.body.appendChild(link)
-          link.click()
-
-          // Clean up
-          window.document.body.removeChild(link)
-
-          toast({
-            title: "Download Started",
-            description: "Your download should begin in a new tab. If it doesn't, please check your popup blocker.",
-          })
-
-          return
-        } else if (data.error) {
-          throw new Error(data.error)
-        }
-      }
-
-      if (!response.ok) {
-        // Try to parse error response as JSON
-        try {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Failed to download document")
-        } catch (jsonError) {
-          // If not JSON, use status text
-          throw new Error(`Failed to download document: ${response.status} ${response.statusText}`)
-        }
-      }
-
-      // Get the blob from the response
-      const blob = await response.blob()
-
-      // Create a URL for the blob
-      const url = window.URL.createObjectURL(blob)
-
-      // Create a temporary link element
-      const link = window.document.createElement("a")
-      link.href = url
-      link.download = filename
-
-      // Append to the document, click it, and remove it
-      window.document.body.appendChild(link)
-      link.click()
-
-      // Clean up
-      window.document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-
-      toast({
-        title: "Success",
-        description: "Document downloaded successfully",
-      })
-    } catch (error) {
-      console.error("Error downloading document:", error)
-
-      // Fallback: Try to open the document URL directly
+      // Try our server-side download first
       try {
-        console.log("Attempting direct URL fallback for document:", doc.id)
+        console.log("Attempting server-side download")
+        const response = await fetch(`/api/user/documents/business/${doc.id}/download`)
 
-        // Create a temporary link and trigger download
+        // Check if the response is JSON (fallback) or a file
+        const contentType = response.headers.get("content-type")
+
+        if (contentType && contentType.includes("application/json")) {
+          // This is a JSON response - likely a fallback URL
+          const data = await response.json()
+
+          if (data.fallbackUrl) {
+            console.log("Using fallback URL for download:", data.fallbackUrl)
+
+            // Try to download using a different approach
+            await downloadWithFallback(data.fallbackUrl, filename)
+            return
+          } else if (data.error) {
+            throw new Error(data.error)
+          }
+        }
+
+        if (!response.ok) {
+          // Try to parse error response as JSON
+          try {
+            const errorData = await response.json()
+            throw new Error(errorData.error || "Failed to download document")
+          } catch (jsonError) {
+            // If not JSON, use status text
+            throw new Error(`Failed to download document: ${response.status} ${response.statusText}`)
+          }
+        }
+
+        // Get the blob from the response
+        const blob = await response.blob()
+
+        // Check if we got a valid file (not HTML)
+        if (blob.type === "text/html") {
+          const text = await blob.text()
+          if (text.includes("<html") || text.includes("<!DOCTYPE html")) {
+            console.error("Received HTML instead of file")
+            throw new Error("Received HTML instead of file content")
+          }
+        }
+
+        // Create a URL for the blob
+        const url = window.URL.createObjectURL(blob)
+
+        // Create a temporary link element
         const link = window.document.createElement("a")
-        link.href = doc.fileUrl
-        link.target = "_blank" // Open in new tab
+        link.href = url
+        link.download = filename
 
+        // Append to the document, click it, and remove it
         window.document.body.appendChild(link)
         link.click()
 
         // Clean up
         window.document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
 
         toast({
-          title: "Attempting Alternative Download",
-          description: "We're trying an alternative download method. Check your browser for a new tab.",
+          title: "Success",
+          description: "Document downloaded successfully",
         })
-      } catch (fallbackError) {
-        console.error("Fallback download also failed:", fallbackError)
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to download document",
-          variant: "destructive",
-        })
+      } catch (serverError) {
+        console.error("Server-side download failed:", serverError)
+
+        // Try direct download as fallback
+        await downloadWithFallback(doc.fileUrl, filename)
       }
+    } catch (error) {
+      console.error("All download methods failed:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to download document",
+        variant: "destructive",
+      })
     } finally {
       setDownloadingId(null)
+    }
+  }
+
+  // Helper function for fallback download methods
+  const downloadWithFallback = async (url: string, filename: string) => {
+    console.log("Attempting fallback download for:", url)
+
+    // Method 1: Try fetch API with blob
+    try {
+      const response = await fetch(url)
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+
+      const blob = await response.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+
+      const link = window.document.createElement("a")
+      link.href = blobUrl
+      link.download = filename
+      link.click()
+
+      window.URL.revokeObjectURL(blobUrl)
+
+      toast({
+        title: "Success",
+        description: "Document downloaded using fallback method",
+      })
+      return
+    } catch (fetchError) {
+      console.error("Fallback method 1 failed:", fetchError)
+    }
+
+    // Method 2: Open in new tab
+    try {
+      const link = window.document.createElement("a")
+      link.href = url
+      link.target = "_blank"
+      link.rel = "noopener noreferrer"
+
+      window.document.body.appendChild(link)
+      link.click()
+      window.document.body.removeChild(link)
+
+      toast({
+        title: "Download Attempted",
+        description: "The document should open in a new tab. You may need to save it manually.",
+      })
+      return
+    } catch (tabError) {
+      console.error("Fallback method 2 failed:", tabError)
+      throw new Error("All download methods failed. Please contact support.")
     }
   }
 

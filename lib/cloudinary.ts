@@ -61,6 +61,23 @@ export function getSignedDownloadUrl(url: string, filename: string, expiresIn = 
   try {
     console.log("Original Cloudinary URL:", url)
 
+    // Sanitize the filename to ensure it's valid for downloads
+    const sanitizedFilename = filename.replace(/[/\\?%*:|"<>]/g, "-")
+
+    // Check if this is actually a Cloudinary URL
+    if (!url.includes("cloudinary.com")) {
+      console.log("Not a Cloudinary URL, returning original URL")
+
+      // For non-Cloudinary URLs, try to add download parameters if possible
+      try {
+        const urlObj = new URL(url)
+        urlObj.searchParams.set("download", sanitizedFilename)
+        return urlObj.toString()
+      } catch (e) {
+        return url
+      }
+    }
+
     // The URL is likely in the format:
     // https://res.cloudinary.com/cloud_name/image|video|raw/upload/v1234567890/folder/file.ext
 
@@ -96,6 +113,10 @@ export function getSignedDownloadUrl(url: string, filename: string, expiresIn = 
 
       // Remove file extension if present
       publicId = publicId.replace(/\.[^/.]+$/, "")
+
+      // Handle special characters in the public ID
+      // Cloudinary uses URL encoding for special chars
+      publicId = decodeURIComponent(publicId)
     } else {
       // Fallback: try to extract the UUID which is likely the public ID
       const uuidMatch = url.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
@@ -119,7 +140,7 @@ export function getSignedDownloadUrl(url: string, filename: string, expiresIn = 
       secure: true,
       sign_url: true,
       flags: "attachment", // Force download
-      download: filename, // Set download filename
+      download: sanitizedFilename, // Set download filename
       expires_at: Math.floor(Date.now() / 1000) + expiresIn,
     })
 
@@ -238,3 +259,4 @@ export async function deleteFromCloudinary(publicId: string): Promise<boolean> {
     return false
   }
 }
+
