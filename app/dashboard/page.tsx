@@ -140,48 +140,34 @@ export default function DashboardPage() {
     }
   }, [session])
 
-  // Add this function to fetch user-specific download counts
-  const fetchUserDownloadCounts = async () => {
+  // Fix the incrementUserDownloadCount function to properly update localStorage
+  // Replace the existing incrementUserDownloadCount function with this improved version:
+
+  const incrementUserDownloadCount = async (templateId: string) => {
     try {
-      const response = await fetch("/api/user/templates/download-count")
-      if (response.ok) {
-        const data = await response.json()
-        if (data.downloadCounts) {
-          setUserDownloadCounts(data.downloadCounts)
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching user download counts:", error)
-      // If API fails, try to use localStorage as fallback
+      // First, get the latest counts from localStorage to ensure we have the most up-to-date data
+      let currentCounts = {}
       try {
         const storedCounts = localStorage.getItem("templateDownloadCounts")
         if (storedCounts) {
-          setUserDownloadCounts(JSON.parse(storedCounts))
+          currentCounts = JSON.parse(storedCounts)
         }
       } catch (localStorageError) {
         console.error("Error reading from localStorage:", localStorageError)
       }
-    }
-  }
 
-  // Function to increment user-specific download count
-  const incrementUserDownloadCount = async (templateId: string) => {
-    try {
-      // Update local state immediately for better UX
-      setUserDownloadCounts((prev) => ({
-        ...prev,
-        [templateId]: (prev[templateId] || 0) + 1,
-      }))
+      // Update the counts with the new increment
+      const updatedCounts = {
+        ...currentCounts,
+        [templateId]: ((currentCounts as any)[templateId] || 0) + 1,
+      }
 
-      // Try to store in localStorage as backup
+      // Update local state
+      setUserDownloadCounts(updatedCounts)
+
+      // Store in localStorage
       try {
-        localStorage.setItem(
-          "templateDownloadCounts",
-          JSON.stringify({
-            ...userDownloadCounts,
-            [templateId]: (userDownloadCounts[templateId] || 0) + 1,
-          }),
-        )
+        localStorage.setItem("templateDownloadCounts", JSON.stringify(updatedCounts))
       } catch (localStorageError) {
         console.error("Error writing to localStorage:", localStorageError)
       }
@@ -201,6 +187,45 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Error incrementing download count:", error)
       // Continue with download even if count increment fails
+    }
+  }
+
+  // Fix the fetchUserDownloadCounts function to properly retrieve from localStorage
+  // Replace the existing fetchUserDownloadCounts function with this improved version:
+
+  const fetchUserDownloadCounts = async () => {
+    // First try to get counts from localStorage for immediate display
+    try {
+      const storedCounts = localStorage.getItem("templateDownloadCounts")
+      if (storedCounts) {
+        const parsedCounts = JSON.parse(storedCounts)
+        setUserDownloadCounts(parsedCounts)
+      }
+    } catch (localStorageError) {
+      console.error("Error reading from localStorage:", localStorageError)
+    }
+
+    // Then try to fetch from API to ensure we have the latest data
+    try {
+      const response = await fetch("/api/user/templates/download-count")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.downloadCounts) {
+          // Merge API data with localStorage data to ensure we don't lose any counts
+          const mergedCounts = { ...userDownloadCounts, ...data.downloadCounts }
+          setUserDownloadCounts(mergedCounts)
+
+          // Update localStorage with the merged data
+          try {
+            localStorage.setItem("templateDownloadCounts", JSON.stringify(mergedCounts))
+          } catch (storageError) {
+            console.error("Error updating localStorage after API fetch:", storageError)
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user download counts from API:", error)
+      // We already loaded from localStorage, so we can continue
     }
   }
 
