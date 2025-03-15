@@ -67,6 +67,7 @@ interface Template {
   updatedAt: string
   status?: string
   usageCount?: number
+  downloadCount?: number // User-specific download count
 }
 
 // Attractive loader component
@@ -95,6 +96,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [requestingPhone, setRequestingPhone] = useState(false)
   const [templates, setTemplates] = useState<Template[]>([])
+  const [userDownloadCounts, setUserDownloadCounts] = useState<Record<string, number>>({})
   const [businessData, setBusinessData] = useState({
     name: "",
     businessId: "",
@@ -131,10 +133,75 @@ export default function DashboardPage() {
       fetchUserInvoices()
       fetchPhoneNumberRequest()
       fetchTemplates() // Add this to fetch templates
+      fetchUserDownloadCounts() // Add this to fetch user-specific download counts
     } else {
       setLoading(false)
     }
   }, [session])
+
+  // Add this function to fetch user-specific download counts
+  const fetchUserDownloadCounts = async () => {
+    try {
+      const response = await fetch("/api/user/templates/download-count")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.downloadCounts) {
+          setUserDownloadCounts(data.downloadCounts)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user download counts:", error)
+      // If API fails, try to use localStorage as fallback
+      try {
+        const storedCounts = localStorage.getItem("templateDownloadCounts")
+        if (storedCounts) {
+          setUserDownloadCounts(JSON.parse(storedCounts))
+        }
+      } catch (localStorageError) {
+        console.error("Error reading from localStorage:", localStorageError)
+      }
+    }
+  }
+
+  // Function to increment user-specific download count
+  const incrementUserDownloadCount = async (templateId: string) => {
+    try {
+      // Update local state immediately for better UX
+      setUserDownloadCounts((prev) => ({
+        ...prev,
+        [templateId]: (prev[templateId] || 0) + 1,
+      }))
+
+      // Try to store in localStorage as backup
+      try {
+        localStorage.setItem(
+          "templateDownloadCounts",
+          JSON.stringify({
+            ...userDownloadCounts,
+            [templateId]: (userDownloadCounts[templateId] || 0) + 1,
+          }),
+        )
+      } catch (localStorageError) {
+        console.error("Error writing to localStorage:", localStorageError)
+      }
+
+      // Send to server
+      const response = await fetch("/api/user/templates/download-count", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ templateId }),
+      })
+
+      if (!response.ok) {
+        console.warn("Failed to increment download count on server, but local state was updated")
+      }
+    } catch (error) {
+      console.error("Error incrementing download count:", error)
+      // Continue with download even if count increment fails
+    }
+  }
 
   // Add this function to fetch templates
   const fetchTemplates = async () => {
@@ -144,29 +211,7 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json()
         if (data.templates && data.templates.length > 0) {
-          // Fetch admin templates to get download counts
-          const adminTemplatesResponse = await fetch("/api/admin/templates/stats")
-          if (adminTemplatesResponse.ok) {
-            const adminData = await adminTemplatesResponse.json()
-
-            // Create a map of template IDs to download counts
-            const downloadCountMap = new Map()
-            if (adminData.templateStats && adminData.templateStats.length > 0) {
-              adminData.templateStats.forEach((template: any) => {
-                downloadCountMap.set(template.id, template.usageCount || 0)
-              })
-            }
-
-            // Update user templates with download counts from admin templates
-            const templatesWithCounts = data.templates.map((template: Template) => ({
-              ...template,
-              usageCount: downloadCountMap.get(template.id) || template.usageCount || 0,
-            }))
-
-            setTemplates(templatesWithCounts)
-          } else {
-            setTemplates(data.templates)
-          }
+          setTemplates(data.templates)
         } else {
           // If no templates found, try to fetch from admin templates
           await fetchTemplateStats()
@@ -183,7 +228,7 @@ export default function DashboardPage() {
   }
 
   // Function to fetch admin templates
-  const fetchAdminTemplates = async () => {
+  const fetchTemplateStats = async () => {
     try {
       const response = await fetch("/api/admin/templates")
       if (response.ok) {
@@ -226,27 +271,8 @@ export default function DashboardPage() {
         throw new Error("No template information available for download")
       }
 
-      // Increment usage count locally for immediate UI feedback
-      setTemplates((prevTemplates) =>
-        prevTemplates.map((t) => (t.id === template.id ? { ...t, usageCount: (t.usageCount || 0) + 1 } : t)),
-      )
-
-      // First, make a request to increment the download count on the server
-      try {
-        const incrementResponse = await fetch(`/api/admin/templates/${template.id}/increment-download`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
-
-        if (!incrementResponse.ok) {
-          console.warn("Failed to increment download count, but continuing with download")
-        }
-      } catch (incrementError) {
-        console.error("Error incrementing download count:", incrementError)
-        // Continue with download even if increment fails
-      }
+      // Increment user-specific download count
+      await incrementUserDownloadCount(template.id)
 
       const apiUrl = `/api/user/templates/${template.id}/download`
       const apiResponse = await fetch(apiUrl)
@@ -333,37 +359,6 @@ export default function DashboardPage() {
         description: "Failed to download document. Please try again or contact support.",
         variant: "destructive",
       })
-    }
-  }
-
-  const fetchTemplateStats = async () => {
-    try {
-      const response = await fetch("/api/admin/templates")
-      if (response.ok) {
-        const data = await response.json()
-        if (data.templates && data.templates.length > 0) {
-          // Create template objects from the admin data
-          const templatesFromAdmin = data.templates.map((template: any) => ({
-            id: template.id,
-            name: template.name,
-            description: template.description || `${template.name} template`,
-            category: template.category || "Document",
-            price: template.price || 0,
-            pricingTier: template.pricingTier || "Free",
-            isPurchased: true, // Assume all templates from admin are accessible
-            isPending: false,
-            isFree: template.price === 0 || template.pricingTier === "Free",
-            updatedAt: template.updatedAt || new Date().toISOString(),
-            usageCount: template.usageCount || 0,
-            status: template.status || "active",
-            fileUrl: template.fileUrl,
-          }))
-
-          setTemplates(templatesFromAdmin)
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching admin templates:", error)
     }
   }
 
@@ -860,9 +855,9 @@ export default function DashboardPage() {
                 <th className="pb-4 font-medium">Template Name</th>
                 <th className="pb-4 font-medium">Date</th>
                 <th className="pb-4 font-medium relative group">
-                  Total Downloads
+                  Your Downloads
                   <div className="absolute left-0 top-full mt-1 hidden group-hover:block bg-black text-white text-xs rounded p-2 w-48 z-10">
-                    Total number of times this template has been downloaded by all users
+                    Number of times you have downloaded this template
                   </div>
                 </th>
                 <th className="pb-4 font-medium">Download</th>
@@ -875,7 +870,7 @@ export default function DashboardPage() {
                     <td className="py-4 font-medium">{template.name}</td>
                     <td className="py-4">{new Date(template.updatedAt).toLocaleDateString()}</td>
                     <td className="py-4">
-                      <span className="font-medium">{template.usageCount || 0}</span>
+                      <span className="font-medium">{userDownloadCounts[template.id] || 0}</span>
                     </td>
                     <td className="py-4">
                       <Button variant="ghost" size="icon" onClick={() => handleDownload(template)}>
