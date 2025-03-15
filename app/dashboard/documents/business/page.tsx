@@ -28,6 +28,16 @@ export default function BusinessDocumentsPage() {
 
   const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
 
+  // Helper function to check if a document is a template
+  const isTemplate = (doc: Document): boolean => {
+    // Check various conditions that might indicate a template
+    const typeCheck = doc.type.toLowerCase().includes("template")
+    const nameCheck = doc.name.toLowerCase().includes("template")
+
+    // Return true if any condition is met
+    return typeCheck || nameCheck
+  }
+
   // Format bytes to human readable format
   const formatBytes = (bytes: number, decimals = 2) => {
     if (bytes === 0) return "0 Bytes"
@@ -58,12 +68,13 @@ export default function BusinessDocumentsPage() {
       const data = await response.json()
       console.log("Received documents data:", data)
 
-      // Filter out templates based on the type field
-      // Since we don't have uploadedByAdmin field, we'll assume all non-template documents
-      // uploaded by admin are meant to be shown to the client
-      const clientDocuments = data.documents.filter((doc: Document) => doc.type !== "template")
+      // Filter out templates using our isTemplate helper function
+      const nonTemplateDocuments = data.documents.filter((doc: Document) => !isTemplate(doc))
 
-      setDocuments(clientDocuments || [])
+      console.log(`Filtered out ${data.documents.length - nonTemplateDocuments.length} templates`)
+      console.log(`Remaining documents: ${nonTemplateDocuments.length}`)
+
+      setDocuments(nonTemplateDocuments || [])
 
       // Update storage info
       if (data.storage) {
