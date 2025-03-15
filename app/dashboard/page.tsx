@@ -2,22 +2,7 @@
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import {
-  Flag,
-  Building2,
-  Hash,
-  Bell,
-  FileText,
-  Phone,
-  MessageSquare,
-  User,
-  Calendar,
-  CheckCircle,
-  Copy,
-  Download,
-  ExternalLink,
-  Loader2,
-} from "lucide-react"
+import { Flag, Building2, Hash, Bell, FileText, Phone, MessageSquare, User, Calendar, CheckCircle, Copy, Download, ExternalLink, Loader2 } from 'lucide-react'
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -144,77 +129,54 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json()
         if (data.templates && data.templates.length > 0) {
-          // Fetch admin templates to get download counts
-          const adminTemplatesResponse = await fetch("/api/admin/templates")
-          if (adminTemplatesResponse.ok) {
-            const adminData = await adminTemplatesResponse.json()
-
-            // Create a map of template IDs to download counts
-            const downloadCountMap = new Map()
-            if (adminData.templates && adminData.templates.length > 0) {
-              adminData.templates.forEach((template: any) => {
-                downloadCountMap.set(template.id, template.usageCount || 0)
-              })
-            }
-
-            // Update user templates with download counts from admin templates
-            const templatesWithCounts = data.templates.map((template: Template) => ({
-              ...template,
-              usageCount: downloadCountMap.get(template.id) || template.usageCount || 0,
-            }))
-
-            setTemplates(templatesWithCounts)
-          } else {
-            setTemplates(data.templates)
-          }
+          setTemplates(data.templates)
         } else {
-          // If no templates found, try to fetch from admin templates
-          await fetchAdminTemplates()
+          // If no templates found, try to fetch from admin templates for download counts
+          await fetchTemplateStats()
         }
       } else {
         // If user templates endpoint fails, try admin endpoint
-        await fetchAdminTemplates()
+        await fetchTemplateStats()
       }
     } catch (error) {
       console.error("Error fetching templates:", error)
       // Try admin endpoint as fallback
-      await fetchAdminTemplates()
+      await fetchTemplateStats()
     }
   }
 
-  // Function to fetch admin templates
-  const fetchAdminTemplates = async () => {
+  // Add this function to fetch template stats from admin endpoint
+  const fetchTemplateStats = async () => {
     try {
-      const response = await fetch("/api/admin/templates")
+      const response = await fetch("/api/admin/templates/stats")
       if (response.ok) {
         const data = await response.json()
-        if (data.templates && data.templates.length > 0) {
-          // Create template objects from the admin data
-          const templatesFromAdmin = data.templates.map((template: any) => ({
-            id: template.id,
-            name: template.name,
-            description: template.description || `${template.name} template`,
-            category: template.category || "Document",
-            price: template.price || 0,
-            pricingTier: template.pricingTier || "Free",
-            isPurchased: true, // Assume all templates from admin are accessible
+        if (data.templateStats && data.templateStats.length > 0) {
+          // Create template objects from the stats data
+          const templatesFromStats = data.templateStats.map((stat: any) => ({
+            id: stat.id,
+            name: stat.name,
+            description: `${stat.name} template`,
+            category: stat.category || "Document",
+            price: stat.price || 0,
+            pricingTier: stat.pricingTier || "Free",
+            isPurchased: true, // Assume all templates from stats are accessible
             isPending: false,
-            isFree: template.price === 0 || template.pricingTier === "Free",
-            updatedAt: template.updatedAt || new Date().toISOString(),
-            usageCount: template.usageCount || 0,
-            status: template.status || "active",
-            fileUrl: template.fileUrl,
+            isFree: stat.price === 0 || stat.pricingTier === "Free",
+            updatedAt: stat.updatedAt || new Date().toISOString(),
+            usageCount: stat.usageCount || 0,
+            status: stat.status || "active",
           }))
 
-          setTemplates(templatesFromAdmin)
+          setTemplates(templatesFromStats)
         }
       }
     } catch (error) {
-      console.error("Error fetching admin templates:", error)
+      console.error("Error fetching template stats:", error)
     }
   }
 
-  // Update the handleDownload function to use the existing download functionality
+  // Add this function to handle template download
   const handleDownload = async (template: Template) => {
     try {
       toast({
@@ -225,6 +187,11 @@ export default function DashboardPage() {
       if (!template.id) {
         throw new Error("No template information available for download")
       }
+
+      // Increment usage count locally for immediate UI feedback
+      setTemplates((prevTemplates) =>
+        prevTemplates.map((t) => (t.id === template.id ? { ...t, usageCount: (t.usageCount || 0) + 1 } : t)),
+      )
 
       const apiUrl = `/api/user/templates/${template.id}/download`
       const apiResponse = await fetch(apiUrl)
@@ -270,28 +237,24 @@ export default function DashboardPage() {
         }
 
         // Create a blob URL and trigger download
-        const blobUrl = window.URL.createObjectURL(blob)
-        const link = document.createElement("a")
-        link.href = blobUrl
-        link.download = fileName
-        document.body.appendChild(link)
-        link.click()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.style.display = "none"
+        a.href = url
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
 
         // Clean up
         setTimeout(() => {
-          window.URL.revokeObjectURL(blobUrl)
-          document.body.removeChild(link)
+          window.URL.revokeObjectURL(url)
+          document.body.removeChild(a)
         }, 100)
 
         toast({
           title: "Download complete",
           description: "Your document has been downloaded successfully.",
         })
-
-        // Refresh templates to get updated download count
-        setTimeout(() => {
-          fetchTemplates()
-        }, 1000)
 
         return
       } catch (method1Error) {
@@ -309,11 +272,6 @@ export default function DashboardPage() {
         title: "Download initiated",
         description: "Your document should open in a new tab. If it doesn't, please check your popup blocker settings.",
       })
-
-      // Refresh templates to get updated download count
-      setTimeout(() => {
-        fetchTemplates()
-      }, 1000)
     } catch (error) {
       console.error("Error downloading template:", error)
       toast({
@@ -945,4 +903,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-
