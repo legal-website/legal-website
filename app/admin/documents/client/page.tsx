@@ -1,36 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useState, useEffect, useRef } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Search,
-  Filter,
-  Download,
-  Plus,
-  FileText,
-  MoreHorizontal,
-  Eye,
-  Edit,
-  Trash2,
-  Share2,
-  CheckCircle2,
-  Clock,
-  XCircle,
-  FileUp,
-  Mail,
-  Building,
-} from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,431 +20,363 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Label } from "@/components/ui/label"
-import Image from "next/image"
+import { useToast } from "@/components/ui/use-toast"
+import {
+  Search,
+  Filter,
+  Download,
+  Plus,
+  FileText,
+  MoreHorizontal,
+  Trash2,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  FileUp,
+  Mail,
+  Check,
+} from "lucide-react"
 
 // Define types for our data
-interface DocumentTag {
+interface Document {
   id: string
   name: string
-  color: string
-}
-
-interface DocumentVersion {
-  id: string
-  version: string
-  uploadedBy: string
-  uploadedAt: string
-  fileSize: string
-}
-
-interface DocumentData {
-  id: string
-  name: string
-  type: string
-  company: string
-  companyId: string
-  owner: {
-    name: string
-    email: string
-    profileImage?: string
-  }
+  description?: string
+  category: string
+  fileUrl: string
+  fileType: string
+  fileSize: number
+  status: "Verified" | "Pending" | "Rejected"
   uploadDate: string
   lastModified: string
-  status: "Verified" | "Pending" | "Rejected"
-  fileSize: string
-  fileType: "pdf" | "docx" | "xlsx" | "jpg" | "png"
-  tags: DocumentTag[]
-  versions?: DocumentVersion[]
-  notes?: string
-  sharedWith?: string[]
+  sharedWith?: {
+    email: string
+    sharedAt: string
+  }[]
+}
+
+interface User {
+  id: string
+  name: string | null
+  email: string
+  business?: {
+    id: string
+    name: string
+  } | null
 }
 
 export default function ClientDocumentsPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const { toast } = useToast()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [searchQuery, setSearchQuery] = useState("")
-  const [activeTab, setActiveTab] = useState("all")
-  const [selectedCompany, setSelectedCompany] = useState("All Companies")
-  const [selectedDocType, setSelectedDocType] = useState("All Types")
-  const [selectedDocument, setSelectedDocument] = useState<DocumentData | null>(null)
-  const [showDocumentDialog, setShowDocumentDialog] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState("All")
+  const [selectedStatus, setSelectedStatus] = useState("all")
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
   const [showUploadDialog, setShowUploadDialog] = useState(false)
+  const [showShareDialog, setShowShareDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
+  const [users, setUsers] = useState<User[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [searchUserQuery, setSearchUserQuery] = useState("")
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
 
-  // Sample document tags
-  const documentTags: DocumentTag[] = [
-    { id: "1", name: "Important", color: "red" },
-    { id: "2", name: "Compliance", color: "blue" },
-    { id: "3", name: "Tax", color: "green" },
-    { id: "4", name: "Legal", color: "purple" },
-    { id: "5", name: "Financial", color: "amber" },
-    { id: "6", name: "HR", color: "pink" },
-  ]
+  // Form states
+  const [uploadForm, setUploadForm] = useState({
+    name: "",
+    description: "",
+    category: "Formation",
+    file: null as File | null,
+    userId: "",
+  })
 
-  // Sample documents data
-  const documents: DocumentData[] = [
-    {
-      id: "doc1",
-      name: "Articles of Organization",
-      type: "Legal",
-      company: "Rapid Ventures LLC",
-      companyId: "comp1",
-      owner: {
-        name: "Sarah Johnson",
-        email: "sarah@rapidventures.com",
-      },
-      uploadDate: "Jan 15, 2023",
-      lastModified: "Jan 15, 2023",
-      status: "Verified",
-      fileSize: "1.2 MB",
-      fileType: "pdf",
-      tags: [documentTags[2], documentTags[3]],
-      versions: [
-        {
-          id: "v1",
-          version: "1.0",
-          uploadedBy: "Sarah Johnson",
-          uploadedAt: "Jan 15, 2023",
-          fileSize: "1.2 MB",
-        },
-      ],
-      notes: "Original filing document for Rapid Ventures LLC",
-    },
-    {
-      id: "doc2",
-      name: "Operating Agreement",
-      type: "Legal",
-      company: "Rapid Ventures LLC",
-      companyId: "comp1",
-      owner: {
-        name: "Sarah Johnson",
-        email: "sarah@rapidventures.com",
-      },
-      uploadDate: "Jan 15, 2023",
-      lastModified: "Jan 15, 2023",
-      status: "Verified",
-      fileSize: "2.5 MB",
-      fileType: "pdf",
-      tags: [documentTags[3]],
-      versions: [
-        {
-          id: "v1",
-          version: "1.0",
-          uploadedBy: "Sarah Johnson",
-          uploadedAt: "Jan 15, 2023",
-          fileSize: "2.5 MB",
-        },
-      ],
-    },
-    {
-      id: "doc3",
-      name: "EIN Confirmation",
-      type: "Tax",
-      company: "Rapid Ventures LLC",
-      companyId: "comp1",
-      owner: {
-        name: "Sarah Johnson",
-        email: "sarah@rapidventures.com",
-      },
-      uploadDate: "Jan 20, 2023",
-      lastModified: "Jan 20, 2023",
-      status: "Verified",
-      fileSize: "0.8 MB",
-      fileType: "pdf",
-      tags: [documentTags[2]],
-      versions: [
-        {
-          id: "v1",
-          version: "1.0",
-          uploadedBy: "Sarah Johnson",
-          uploadedAt: "Jan 20, 2023",
-          fileSize: "0.8 MB",
-        },
-      ],
-    },
-    {
-      id: "doc4",
-      name: "Annual Report 2024",
-      type: "Compliance",
-      company: "Rapid Ventures LLC",
-      companyId: "comp1",
-      owner: {
-        name: "Sarah Johnson",
-        email: "sarah@rapidventures.com",
-      },
-      uploadDate: "Mar 7, 2025",
-      lastModified: "Mar 7, 2025",
-      status: "Pending",
-      fileSize: "1.5 MB",
-      fileType: "pdf",
-      tags: [documentTags[1]],
-      versions: [
-        {
-          id: "v1",
-          version: "1.0",
-          uploadedBy: "Sarah Johnson",
-          uploadedAt: "Mar 7, 2025",
-          fileSize: "1.5 MB",
-        },
-      ],
-      notes: "Awaiting verification by compliance team",
-    },
-    {
-      id: "doc5",
-      name: "Articles of Organization",
-      type: "Legal",
-      company: "Blue Ocean Inc",
-      companyId: "comp2",
-      owner: {
-        name: "Michael Chen",
-        email: "michael@blueocean.com",
-      },
-      uploadDate: "Feb 10, 2023",
-      lastModified: "Feb 10, 2023",
-      status: "Verified",
-      fileSize: "1.3 MB",
-      fileType: "pdf",
-      tags: [documentTags[2], documentTags[3]],
-      versions: [
-        {
-          id: "v1",
-          version: "1.0",
-          uploadedBy: "Michael Chen",
-          uploadedAt: "Feb 10, 2023",
-          fileSize: "1.3 MB",
-        },
-      ],
-    },
-    {
-      id: "doc6",
-      name: "Operating Agreement",
-      type: "Legal",
-      company: "Blue Ocean Inc",
-      companyId: "comp2",
-      owner: {
-        name: "Michael Chen",
-        email: "michael@blueocean.com",
-      },
-      uploadDate: "Feb 10, 2023",
-      lastModified: "Feb 10, 2023",
-      status: "Verified",
-      fileSize: "2.2 MB",
-      fileType: "pdf",
-      tags: [documentTags[3]],
-      versions: [
-        {
-          id: "v1",
-          version: "1.0",
-          uploadedBy: "Michael Chen",
-          uploadedAt: "Feb 10, 2023",
-          fileSize: "2.2 MB",
-        },
-      ],
-    },
-    {
-      id: "doc7",
-      name: "Tax Filing Q1",
-      type: "Tax",
-      company: "Blue Ocean Inc",
-      companyId: "comp2",
-      owner: {
-        name: "Michael Chen",
-        email: "michael@blueocean.com",
-      },
-      uploadDate: "Mar 5, 2025",
-      lastModified: "Mar 5, 2025",
-      status: "Pending",
-      fileSize: "3.1 MB",
-      fileType: "pdf",
-      tags: [documentTags[2], documentTags[0]],
-      versions: [
-        {
-          id: "v1",
-          version: "1.0",
-          uploadedBy: "Michael Chen",
-          uploadedAt: "Mar 5, 2025",
-          fileSize: "3.1 MB",
-        },
-      ],
-      notes: "Quarterly tax filing for Q1 2025",
-    },
-    {
-      id: "doc8",
-      name: "Business License",
-      type: "Compliance",
-      company: "Summit Solutions",
-      companyId: "comp3",
-      owner: {
-        name: "Emily Rodriguez",
-        email: "emily@summitsolutions.com",
-      },
-      uploadDate: "Mar 10, 2023",
-      lastModified: "Mar 10, 2023",
-      status: "Verified",
-      fileSize: "1.1 MB",
-      fileType: "pdf",
-      tags: [documentTags[1], documentTags[3]],
-      versions: [
-        {
-          id: "v1",
-          version: "1.0",
-          uploadedBy: "Emily Rodriguez",
-          uploadedAt: "Mar 10, 2023",
-          fileSize: "1.1 MB",
-        },
-      ],
-    },
-    {
-      id: "doc9",
-      name: "Employee Handbook",
-      type: "HR",
-      company: "Summit Solutions",
-      companyId: "comp3",
-      owner: {
-        name: "Emily Rodriguez",
-        email: "emily@summitsolutions.com",
-      },
-      uploadDate: "Apr 5, 2023",
-      lastModified: "Feb 15, 2025",
-      status: "Verified",
-      fileSize: "4.5 MB",
-      fileType: "docx",
-      tags: [documentTags[5]],
-      versions: [
-        {
-          id: "v2",
-          version: "2.0",
-          uploadedBy: "Emily Rodriguez",
-          uploadedAt: "Feb 15, 2025",
-          fileSize: "4.5 MB",
-        },
-        {
-          id: "v1",
-          version: "1.0",
-          uploadedBy: "Emily Rodriguez",
-          uploadedAt: "Apr 5, 2023",
-          fileSize: "4.2 MB",
-        },
-      ],
-      notes: "Updated with new policies in February 2025",
-    },
-    {
-      id: "doc10",
-      name: "Financial Statement 2024",
-      type: "Financial",
-      company: "Horizon Group",
-      companyId: "comp4",
-      owner: {
-        name: "David Kim",
-        email: "david@horizongroup.com",
-      },
-      uploadDate: "Feb 10, 2025",
-      lastModified: "Feb 10, 2025",
-      status: "Rejected",
-      fileSize: "2.8 MB",
-      fileType: "xlsx",
-      tags: [documentTags[4]],
-      versions: [
-        {
-          id: "v1",
-          version: "1.0",
-          uploadedBy: "David Kim",
-          uploadedAt: "Feb 10, 2025",
-          fileSize: "2.8 MB",
-        },
-      ],
-      notes: "Rejected due to missing information. Please resubmit with complete data.",
-    },
-  ]
+  const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
 
-  // Get unique companies and document types for filters
-  const companies = ["All Companies", ...Array.from(new Set(documents.map((doc) => doc.company)))]
-  const documentTypes = ["All Types", ...Array.from(new Set(documents.map((doc) => doc.type)))]
+  // Format bytes to human readable format
+  const formatBytes = (bytes: number, decimals = 2) => {
+    if (bytes === 0) return "0 Bytes"
 
-  // Filter documents based on search query, tab, company, and document type
+    const k = 1024
+    const dm = decimals < 0 ? 0 : decimals
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"]
+
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
+  }
+
+  // Fetch documents
+  const fetchDocuments = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/admin/documents/client")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch documents")
+      }
+
+      const data = await response.json()
+      setDocuments(data.documents || [])
+    } catch (error) {
+      console.error("Error fetching documents:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load documents. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Search users
+  const searchUsers = async (query: string) => {
+    try {
+      setLoadingUsers(true)
+      const response = await fetch(`/api/admin/users/search?query=${encodeURIComponent(query)}`)
+
+      if (!response.ok) {
+        throw new Error("Failed to search users")
+      }
+
+      const data = await response.json()
+      setUsers(data.users || [])
+    } catch (error) {
+      console.error("Error searching users:", error)
+      toast({
+        title: "Error",
+        description: "Failed to search users. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
+
+  // Handle file selection
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+
+      // Check file size (max 10MB per file)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Maximum file size is 10MB",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setUploadForm({
+        ...uploadForm,
+        file,
+      })
+    }
+  }
+
+  // Handle document upload
+  const handleUpload = async () => {
+    if (!uploadForm.file || !uploadForm.name || !uploadForm.category || !uploadForm.userId) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields and select a file and user",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setUploading(true)
+
+      // Create form data
+      const formData = new FormData()
+      formData.append("name", uploadForm.name)
+      formData.append("description", uploadForm.description)
+      formData.append("category", uploadForm.category)
+      formData.append("userId", uploadForm.userId)
+      formData.append("file", uploadForm.file)
+
+      const response = await fetch("/api/admin/documents/client/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || "Failed to upload document")
+      }
+
+      // Reset form
+      setUploadForm({
+        name: "",
+        description: "",
+        category: "Formation",
+        file: null,
+        userId: "",
+      })
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+
+      setShowUploadDialog(false)
+      setSelectedUserId(null)
+      setSearchUserQuery("")
+
+      toast({
+        title: "Success",
+        description: "Document uploaded successfully",
+      })
+
+      // Refresh documents
+      fetchDocuments()
+    } catch (error) {
+      console.error("Error uploading document:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to upload document",
+        variant: "destructive",
+      })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  // Handle document deletion
+  const handleDelete = async (documentId: string) => {
+    try {
+      const response = await fetch(`/api/admin/documents/client/${documentId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || "Failed to delete document")
+      }
+
+      toast({
+        title: "Success",
+        description: "Document deleted successfully",
+      })
+
+      // Refresh documents
+      fetchDocuments()
+    } catch (error) {
+      console.error("Error deleting document:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete document",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Handle document download
+  const handleDownload = async (document: Document) => {
+    try {
+      const response = await fetch(`/api/admin/documents/client/${document.id}/download`)
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || "Failed to download document")
+      }
+
+      const data = await response.json()
+
+      // Create a temporary link and trigger download
+      if (typeof window !== "undefined") {
+        const link = window.document.createElement("a")
+        link.href = data.downloadUrl
+        link.setAttribute("download", document.name)
+        window.document.body.appendChild(link)
+        link.click()
+        window.document.body.removeChild(link)
+      }
+    } catch (error) {
+      console.error("Error downloading document:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to download document",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Handle document verification
+  const handleVerifyDocument = async (documentId: string) => {
+    try {
+      const response = await fetch(`/api/admin/documents/client/${documentId}/verify`, {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || "Failed to verify document")
+      }
+
+      toast({
+        title: "Success",
+        description: "Document verified successfully",
+      })
+
+      // Refresh documents
+      fetchDocuments()
+    } catch (error) {
+      console.error("Error verifying document:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to verify document",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Filter documents based on search, category, and status
   const filteredDocuments = documents.filter((doc) => {
     const matchesSearch =
       doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.owner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.owner.email.toLowerCase().includes(searchQuery.toLowerCase())
+      (doc.description || "").toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesCategory = selectedCategory === "All" || doc.category === selectedCategory
+    const matchesStatus =
+      selectedStatus === "all" ||
+      (selectedStatus === "verified" && doc.status === "Verified") ||
+      (selectedStatus === "pending" && doc.status === "Pending") ||
+      (selectedStatus === "rejected" && doc.status === "Rejected")
 
-    const matchesTab =
-      (activeTab === "verified" && doc.status === "Verified") ||
-      (activeTab === "pending" && doc.status === "Pending") ||
-      (activeTab === "rejected" && doc.status === "Rejected") ||
-      activeTab === "all"
-
-    const matchesCompany = selectedCompany === "All Companies" || doc.company === selectedCompany
-    const matchesType = selectedDocType === "All Types" || doc.type === selectedDocType
-
-    return matchesSearch && matchesTab && matchesCompany && matchesType
+    return matchesSearch && matchesCategory && matchesStatus
   })
 
-  const viewDocumentDetails = (document: DocumentData) => {
-    setSelectedDocument(document)
-    setShowDocumentDialog(true)
-  }
+  // Load documents on component mount
+  useEffect(() => {
+    if (status === "authenticated") {
+      if ((session.user as any).role !== "ADMIN" && (session.user as any).role !== "SUPER_ADMIN") {
+        router.push("/login?callbackUrl=/admin/documents/client")
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to access this page.",
+          variant: "destructive",
+        })
+      } else {
+        fetchDocuments()
+      }
+    } else if (status === "unauthenticated") {
+      router.push("/login?callbackUrl=/admin/documents/client")
+    }
+  }, [status, router, session, toast])
 
-  // Function to export documents data as CSV
-  const exportDocumentsData = () => {
-    // Define CSV headers
-    const headers = [
-      "Document ID",
-      "Document Name",
-      "Type",
-      "Company",
-      "Owner Name",
-      "Owner Email",
-      "Upload Date",
-      "Last Modified",
-      "Status",
-      "File Size",
-      "File Type",
-      "Tags",
-      "Notes",
-    ].join(",")
-
-    // Convert each document to CSV row
-    const csvRows = filteredDocuments.map((doc) => {
-      const tags = doc.tags.map((tag) => tag.name).join("; ")
-      const notes = doc.notes ? doc.notes.replace(/,/g, ";").replace(/\n/g, " ") : ""
-
-      return [
-        doc.id,
-        doc.name.replace(/,/g, ";"),
-        doc.type,
-        doc.company.replace(/,/g, ";"),
-        doc.owner.name.replace(/,/g, ";"),
-        doc.owner.email,
-        doc.uploadDate,
-        doc.lastModified,
-        doc.status,
-        doc.fileSize,
-        doc.fileType.toUpperCase(),
-        tags,
-        notes,
-      ].join(",")
-    })
-
-    // Combine headers and rows
-    const csvContent = [headers, ...csvRows].join("\n")
-
-    // Create a Blob with the CSV content
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-
-    // Create a download link
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-
-    // Set link properties
-    const date = new Date().toISOString().split("T")[0]
-    link.setAttribute("href", url)
-    link.setAttribute("download", `client-documents-${date}.csv`)
-    link.style.visibility = "hidden"
-
-    // Add link to document, trigger click, and remove
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  if (status === "loading" || loading) {
+    return (
+      <div className="p-6 text-center">
+        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+        <p>Loading documents...</p>
+      </div>
+    )
   }
 
   return (
@@ -475,7 +388,7 @@ export default function ClientDocumentsPage() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage all client documents in the system</p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <Button variant="outline" size="sm" className="flex items-center" onClick={exportDocumentsData}>
+          <Button variant="outline" size="sm" className="flex items-center">
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
@@ -499,31 +412,32 @@ export default function ClientDocumentsPage() {
         </div>
 
         <div>
-          <select
-            className="w-full h-10 px-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-            value={selectedCompany}
-            onChange={(e) => setSelectedCompany(e.target.value)}
-          >
-            {companies.map((company) => (
-              <option key={company} value={company}>
-                {company}
-              </option>
-            ))}
-          </select>
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
-          <select
-            className="w-full h-10 px-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-            value={selectedDocType}
-            onChange={(e) => setSelectedDocType(e.target.value)}
-          >
-            {documentTypes.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="verified">Verified</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex space-x-2">
@@ -534,489 +448,288 @@ export default function ClientDocumentsPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="all">All Documents</TabsTrigger>
-          <TabsTrigger value="verified">Verified</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all">
-          <DocumentsTable documents={filteredDocuments} viewDocumentDetails={viewDocumentDetails} />
-        </TabsContent>
-
-        <TabsContent value="verified">
-          <DocumentsTable documents={filteredDocuments} viewDocumentDetails={viewDocumentDetails} />
-        </TabsContent>
-
-        <TabsContent value="pending">
-          <DocumentsTable documents={filteredDocuments} viewDocumentDetails={viewDocumentDetails} />
-        </TabsContent>
-
-        <TabsContent value="rejected">
-          <DocumentsTable documents={filteredDocuments} viewDocumentDetails={viewDocumentDetails} />
-        </TabsContent>
-      </Tabs>
-
-      {/* Document Details Dialog */}
-      {selectedDocument && (
-        <Dialog open={showDocumentDialog} onOpenChange={setShowDocumentDialog}>
-          <DialogContent className="sm:max-w-[800px]">
-            <DialogHeader>
-              <DialogTitle>Document Details</DialogTitle>
-              <DialogDescription>Detailed information about {selectedDocument.name}</DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-6 py-4">
-              {/* Document Preview */}
-              <div className="flex flex-col md:flex-row gap-6">
-                <div className="md:w-1/3">
-                  <Card className="p-6">
-                    <div className="flex flex-col items-center text-center">
-                      <div className="w-24 h-24 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                        <FileText className="h-12 w-12 text-gray-500" />
+      {/* Documents Table */}
+      <Card>
+        <div className="overflow-x-auto">
+          {filteredDocuments.length > 0 ? (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-4 font-medium text-sm">Document</th>
+                  <th className="text-left p-4 font-medium text-sm">Category</th>
+                  <th className="text-left p-4 font-medium text-sm">Shared With</th>
+                  <th className="text-left p-4 font-medium text-sm">Upload Date</th>
+                  <th className="text-left p-4 font-medium text-sm">Status</th>
+                  <th className="text-left p-4 font-medium text-sm">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDocuments.map((doc) => (
+                  <tr key={doc.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <td className="p-4">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
+                          <FileText className="h-5 w-5 text-gray-500" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{doc.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {formatBytes(doc.fileSize)} • {doc.fileType.toUpperCase()}
+                          </p>
+                        </div>
                       </div>
-                      <h3 className="text-lg font-medium">{selectedDocument.name}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                        {selectedDocument.fileType.toUpperCase()} • {selectedDocument.fileSize}
-                      </p>
+                    </td>
+                    <td className="p-4">{doc.category}</td>
+                    <td className="p-4">
+                      {doc.sharedWith && doc.sharedWith.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {doc.sharedWith.map((user, index) => (
+                            <div key={index} className="flex items-center gap-1">
+                              <Mail className="h-3 w-3 text-gray-400" />
+                              <span className="text-sm">{user.email}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-500">Not shared</span>
+                      )}
+                    </td>
+                    <td className="p-4">{doc.uploadDate}</td>
+                    <td className="p-4">
                       <span
-                        className={`px-2 py-1 text-xs rounded-full flex items-center ${
-                          selectedDocument.status === "Verified"
+                        className={`px-2 py-1 text-xs rounded-full flex items-center w-fit ${
+                          doc.status === "Verified"
                             ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                            : selectedDocument.status === "Pending"
+                            : doc.status === "Pending"
                               ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
                               : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
                         }`}
                       >
-                        {selectedDocument.status === "Verified" ? (
+                        {doc.status === "Verified" ? (
                           <CheckCircle2 className="h-3 w-3 mr-1" />
-                        ) : selectedDocument.status === "Pending" ? (
+                        ) : doc.status === "Pending" ? (
                           <Clock className="h-3 w-3 mr-1" />
                         ) : (
                           <XCircle className="h-3 w-3 mr-1" />
                         )}
-                        {selectedDocument.status}
+                        {doc.status}
                       </span>
-
-                      <div className="mt-6 w-full">
-                        <Button variant="outline" className="w-full mb-2">
-                          <Eye className="h-4 w-4 mr-2" />
-                          Preview
+                    </td>
+                    <td className="p-4">
+                      <div className="flex space-x-2">
+                        <Button variant="ghost" size="sm" onClick={() => handleDownload(doc)}>
+                          <Download className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" className="w-full">
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-
-                <div className="md:w-2/3 space-y-6">
-                  {/* Document Info */}
-                  <Card className="p-6">
-                    <h3 className="text-lg font-medium mb-4">Document Information</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Document Type</p>
-                        <p className="font-medium">{selectedDocument.type}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Company</p>
-                        <p className="font-medium">{selectedDocument.company}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Upload Date</p>
-                        <p className="font-medium">{selectedDocument.uploadDate}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Last Modified</p>
-                        <p className="font-medium">{selectedDocument.lastModified}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Tags</p>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {selectedDocument.tags.map((tag) => (
-                            <span
-                              key={tag.id}
-                              className={`px-2 py-0.5 text-xs rounded-full bg-${tag.color}-100 text-${tag.color}-800 dark:bg-${tag.color}-900/30 dark:text-${tag.color}-400`}
-                            >
-                              {tag.name}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-
-                  {/* Owner Info */}
-                  <Card className="p-6">
-                    <h3 className="text-lg font-medium mb-4">Owner Information</h3>
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mr-3">
-                        {selectedDocument.owner.profileImage ? (
-                          <Image
-                            src={selectedDocument.owner.profileImage || "/placeholder.svg"}
-                            alt={selectedDocument.owner.name}
-                            width={40}
-                            height={40}
-                            className="rounded-full"
-                          />
-                        ) : (
-                          <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">
-                            {selectedDocument.owner.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium">{selectedDocument.owner.name}</p>
-                        <div className="flex items-center text-sm text-gray-500">
-                          <Mail className="h-3 w-3 mr-1" />
-                          {selectedDocument.owner.email}
-                        </div>
-                        <div className="flex items-center text-sm text-gray-500">
-                          <Building className="h-3 w-3 mr-1" />
-                          {selectedDocument.company}
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Versions and Notes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Versions */}
-                <Card>
-                  <div className="p-4 border-b">
-                    <h3 className="font-medium">Version History</h3>
-                  </div>
-                  <div className="p-4">
-                    {selectedDocument.versions && selectedDocument.versions.length > 0 ? (
-                      <div className="space-y-3">
-                        {selectedDocument.versions.map((version) => (
-                          <div key={version.id} className="flex items-center justify-between">
-                            <div className="flex items-center">
-                              <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-2">
-                                <span className="text-xs font-medium">{version.version}</span>
-                              </div>
-                              <div>
-                                <p className="text-sm font-medium">Version {version.version}</p>
-                                <p className="text-xs text-gray-500">
-                                  {version.uploadedBy} • {version.uploadedAt}
-                                </p>
-                              </div>
-                            </div>
-                            <Button variant="ghost" size="sm">
-                              <Download className="h-4 w-4" />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
                             </Button>
-                          </div>
-                        ))}
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleDownload(doc)}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
+                            </DropdownMenuItem>
+                            {doc.status === "Pending" && (
+                              <DropdownMenuItem
+                                className="text-green-600 dark:text-green-400"
+                                onClick={() => handleVerifyDocument(doc.id)}
+                              >
+                                <CheckCircle2 className="h-4 w-4 mr-2" />
+                                Verify
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-red-600 dark:text-red-400"
+                              onClick={() => handleDelete(doc.id)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                    ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">No version history available</p>
-                    )}
-                  </div>
-                </Card>
-
-                {/* Notes */}
-                <Card>
-                  <div className="p-4 border-b">
-                    <h3 className="font-medium">Notes</h3>
-                  </div>
-                  <div className="p-4">
-                    {selectedDocument.notes ? (
-                      <p className="text-sm">{selectedDocument.notes}</p>
-                    ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">No notes available</p>
-                    )}
-                  </div>
-                </Card>
-              </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="p-8 text-center">
+              <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium mb-2">No documents found</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">
+                No documents match your current filters. Try adjusting your search criteria.
+              </p>
             </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowDocumentDialog(false)}>
-                Close
-              </Button>
-              {selectedDocument.status === "Pending" && (
-                <Button className="bg-green-600 hover:bg-green-700">
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Verify Document
-                </Button>
-              )}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+          )}
+        </div>
+      </Card>
 
       {/* Upload Document Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Upload Document</DialogTitle>
-            <DialogDescription>Upload a new document for a client</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="document-name" className="text-right">
-                Document Name
-              </Label>
-              <Input id="document-name" placeholder="e.g. Articles of Organization" className="col-span-3" />
+            <div className="grid grid-cols-1 items-center gap-2">
+              <Label htmlFor="document-name">Document Name*</Label>
+              <Input
+                id="document-name"
+                placeholder="e.g. Articles of Organization"
+                value={uploadForm.name}
+                onChange={(e) => setUploadForm({ ...uploadForm, name: e.target.value })}
+                required
+              />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="document-type" className="text-right">
-                Document Type
-              </Label>
-              <select
-                id="document-type"
-                className="col-span-3 h-10 px-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+            <div className="grid grid-cols-1 items-center gap-2">
+              <Label htmlFor="document-category">Document Category*</Label>
+              <Select
+                value={uploadForm.category}
+                onValueChange={(value) => setUploadForm({ ...uploadForm, category: value })}
               >
-                {documentTypes
-                  .filter((t) => t !== "All Types")
-                  .map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories
+                    .filter((c) => c !== "All")
+                    .map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="company" className="text-right">
-                Company
-              </Label>
-              <select
-                id="company"
-                className="col-span-3 h-10 px-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-              >
-                {companies
-                  .filter((c) => c !== "All Companies")
-                  .map((company) => (
-                    <option key={company} value={company}>
-                      {company}
-                    </option>
-                  ))}
-              </select>
+            <div className="grid grid-cols-1 items-center gap-2">
+              <Label htmlFor="document-description">Description (Optional)</Label>
+              <Textarea
+                id="document-description"
+                placeholder="Brief description of the document"
+                value={uploadForm.description}
+                onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
+              />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">File</Label>
-              <div className="col-span-3">
-                <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-6 text-center">
-                  <FileUp className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-500 mb-2">Drag and drop your file here, or click to browse</p>
-                  <p className="text-xs text-gray-400">Supports PDF, DOCX, XLSX, JPG, PNG (Max 10MB)</p>
-                  <input type="file" className="hidden" />
+            <div className="grid grid-cols-1 items-center gap-2">
+              <Label>Client*</Label>
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Search clients by email..."
+                    className="pl-10"
+                    value={searchUserQuery}
+                    onChange={(e) => {
+                      setSearchUserQuery(e.target.value)
+                      if (e.target.value.length > 2) {
+                        searchUsers(e.target.value)
+                      }
+                    }}
+                  />
                 </div>
+
+                {loadingUsers && (
+                  <div className="py-2 text-center">
+                    <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent"></div>
+                    <span className="ml-2 text-sm text-gray-500">Searching users...</span>
+                  </div>
+                )}
+
+                {!loadingUsers && users.length > 0 && (
+                  <div className="max-h-60 overflow-y-auto border rounded-md mt-2">
+                    {users.map((user) => (
+                      <div
+                        key={user.id}
+                        className={`flex items-center justify-between p-2 hover:bg-gray-100 cursor-pointer ${
+                          selectedUserId === user.id ? "bg-purple-50" : ""
+                        }`}
+                        onClick={() => {
+                          setSelectedUserId(user.id)
+                          setUploadForm({ ...uploadForm, userId: user.id })
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                            <span className="text-xs text-gray-600 font-medium">
+                              {user.name
+                                ? user.name
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")
+                                    .toUpperCase()
+                                : user.email[0].toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{user.name || "Unnamed User"}</p>
+                            <p className="text-xs text-gray-500">{user.email}</p>
+                          </div>
+                        </div>
+                        {selectedUserId === user.id && (
+                          <div className="h-5 w-5 rounded-full bg-purple-200 flex items-center justify-center">
+                            <Check className="h-3 w-3 text-purple-600" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!loadingUsers && searchUserQuery.length > 2 && users.length === 0 && (
+                  <p className="text-sm text-gray-500 py-2">No users found. Try a different search term.</p>
+                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="tags" className="text-right">
-                Tags
-              </Label>
-              <div className="col-span-3">
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {documentTags.map((tag) => (
-                    <div
-                      key={tag.id}
-                      className={`px-2 py-1 text-xs rounded-full bg-${tag.color}-100 text-${tag.color}-800 dark:bg-${tag.color}-900/30 dark:text-${tag.color}-400 flex items-center cursor-pointer hover:bg-${tag.color}-200 dark:hover:bg-${tag.color}-900/50`}
-                    >
-                      <span>{tag.name}</span>
-                      <CheckCircle2 className="h-3 w-3 ml-1" />
-                    </div>
-                  ))}
-                </div>
+            <div className="grid grid-cols-1 items-center gap-2">
+              <Label>File*</Label>
+              <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-6 text-center">
+                <FileUp className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                <p className="text-sm text-gray-500 mb-2">Drag and drop your file here, or click to browse</p>
+                <p className="text-xs text-gray-400">Supports PDF, DOCX, XLSX, JPG, PNG (Max 10MB)</p>
+                <Input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+                <Button variant="outline" className="mt-4" onClick={() => fileInputRef.current?.click()}>
+                  Browse Files
+                </Button>
+                {uploadForm.file && (
+                  <div className="mt-4 text-left p-2 bg-gray-50 rounded flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm truncate">{uploadForm.file.name}</span>
+                    <span className="text-xs text-gray-500">({formatBytes(uploadForm.file.size)})</span>
+                  </div>
+                )}
               </div>
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="notes" className="text-right">
-                Notes (Optional)
-              </Label>
-              <Input id="notes" placeholder="Additional notes about this document" className="col-span-3" />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowUploadDialog(false)}>
+            <Button variant="outline" onClick={() => setShowUploadDialog(false)} disabled={uploading}>
               Cancel
             </Button>
-            <Button className="bg-purple-600 hover:bg-purple-700">Upload Document</Button>
+            <Button onClick={handleUpload} disabled={uploading}>
+              {uploading ? (
+                <>
+                  <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2"></div>
+                  Uploading...
+                </>
+              ) : (
+                "Upload Document"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
-
-// DocumentsTable component to display the documents
-const DocumentsTable = ({
-  documents,
-  viewDocumentDetails,
-}: {
-  documents: DocumentData[]
-  viewDocumentDetails: (doc: DocumentData) => void
-}) => {
-  if (documents.length === 0) {
-    return (
-      <Card className="p-8 text-center">
-        <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-        <h3 className="text-lg font-medium mb-2">No documents found</h3>
-        <p className="text-gray-500 dark:text-gray-400 mb-4">
-          No documents match your current filters. Try adjusting your search criteria.
-        </p>
-      </Card>
-    )
-  }
-
-  return (
-    <Card>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b">
-              <th className="text-left p-4 font-medium text-sm">Document</th>
-              <th className="text-left p-4 font-medium text-sm">Company</th>
-              <th className="text-left p-4 font-medium text-sm">Owner</th>
-              <th className="text-left p-4 font-medium text-sm">Upload Date</th>
-              <th className="text-left p-4 font-medium text-sm">Status</th>
-              <th className="text-left p-4 font-medium text-sm">Tags</th>
-              <th className="text-left p-4 font-medium text-sm">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {documents.map((doc) => (
-              <tr key={doc.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
-                <td className="p-4">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
-                      <FileText className="h-5 w-5 text-gray-500" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{doc.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {doc.fileSize} • {doc.fileType.toUpperCase()}
-                      </p>
-                    </div>
-                  </div>
-                </td>
-                <td className="p-4">{doc.company}</td>
-                <td className="p-4">
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mr-2">
-                      {doc.owner.profileImage ? (
-                        <Image
-                          src={doc.owner.profileImage || "/placeholder.svg"}
-                          alt={doc.owner.name}
-                          width={32}
-                          height={32}
-                          className="rounded-full"
-                        />
-                      ) : (
-                        <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">
-                          {doc.owner.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{doc.owner.name}</p>
-                      <p className="text-xs text-gray-500">{doc.owner.email}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="p-4">{doc.uploadDate}</td>
-                <td className="p-4">
-                  <span
-                    className={`px-2 py-1 text-xs rounded-full flex items-center w-fit ${
-                      doc.status === "Verified"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                        : doc.status === "Pending"
-                          ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                          : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                    }`}
-                  >
-                    {doc.status === "Verified" ? (
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                    ) : doc.status === "Pending" ? (
-                      <Clock className="h-3 w-3 mr-1" />
-                    ) : (
-                      <XCircle className="h-3 w-3 mr-1" />
-                    )}
-                    {doc.status}
-                  </span>
-                </td>
-                <td className="p-4">
-                  <div className="flex flex-wrap gap-1">
-                    {doc.tags.map((tag) => (
-                      <span
-                        key={tag.id}
-                        className={`px-2 py-0.5 text-xs rounded-full bg-${tag.color}-100 text-${tag.color}-800 dark:bg-${tag.color}-900/30 dark:text-${tag.color}-400`}
-                      >
-                        {tag.name}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-                <td className="p-4">
-                  <div className="flex space-x-2">
-                    <Button variant="ghost" size="sm" onClick={() => viewDocumentDetails(doc)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Share2 className="h-4 w-4 mr-2" />
-                          Share
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Details
-                        </DropdownMenuItem>
-                        {doc.status === "Pending" && (
-                          <DropdownMenuItem className="text-green-600 dark:text-green-400">
-                            <CheckCircle2 className="h-4 w-4 mr-2" />
-                            Verify
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600 dark:text-red-400">
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
   )
 }
 
