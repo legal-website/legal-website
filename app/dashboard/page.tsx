@@ -2,7 +2,22 @@
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Flag, Building2, Hash, Bell, FileText, Phone, MessageSquare, User, Calendar, CheckCircle, Copy, Download, ExternalLink, Loader2 } from 'lucide-react'
+import {
+  Flag,
+  Building2,
+  Hash,
+  Bell,
+  FileText,
+  Phone,
+  MessageSquare,
+  User,
+  Calendar,
+  CheckCircle,
+  Copy,
+  Download,
+  ExternalLink,
+  Loader2,
+} from "lucide-react"
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -129,9 +144,31 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json()
         if (data.templates && data.templates.length > 0) {
-          setTemplates(data.templates)
+          // Fetch admin templates to get download counts
+          const adminTemplatesResponse = await fetch("/api/admin/templates/stats")
+          if (adminTemplatesResponse.ok) {
+            const adminData = await adminTemplatesResponse.json()
+
+            // Create a map of template IDs to download counts
+            const downloadCountMap = new Map()
+            if (adminData.templateStats && adminData.templateStats.length > 0) {
+              adminData.templateStats.forEach((template: any) => {
+                downloadCountMap.set(template.id, template.usageCount || 0)
+              })
+            }
+
+            // Update user templates with download counts from admin templates
+            const templatesWithCounts = data.templates.map((template: Template) => ({
+              ...template,
+              usageCount: downloadCountMap.get(template.id) || template.usageCount || 0,
+            }))
+
+            setTemplates(templatesWithCounts)
+          } else {
+            setTemplates(data.templates)
+          }
         } else {
-          // If no templates found, try to fetch from admin templates for download counts
+          // If no templates found, try to fetch from admin templates
           await fetchTemplateStats()
         }
       } else {
@@ -145,38 +182,39 @@ export default function DashboardPage() {
     }
   }
 
-  // Add this function to fetch template stats from admin endpoint
-  const fetchTemplateStats = async () => {
+  // Function to fetch admin templates
+  const fetchAdminTemplates = async () => {
     try {
-      const response = await fetch("/api/admin/templates/stats")
+      const response = await fetch("/api/admin/templates")
       if (response.ok) {
         const data = await response.json()
-        if (data.templateStats && data.templateStats.length > 0) {
-          // Create template objects from the stats data
-          const templatesFromStats = data.templateStats.map((stat: any) => ({
-            id: stat.id,
-            name: stat.name,
-            description: `${stat.name} template`,
-            category: stat.category || "Document",
-            price: stat.price || 0,
-            pricingTier: stat.pricingTier || "Free",
-            isPurchased: true, // Assume all templates from stats are accessible
+        if (data.templates && data.templates.length > 0) {
+          // Create template objects from the admin data
+          const templatesFromAdmin = data.templates.map((template: any) => ({
+            id: template.id,
+            name: template.name,
+            description: template.description || `${template.name} template`,
+            category: template.category || "Document",
+            price: template.price || 0,
+            pricingTier: template.pricingTier || "Free",
+            isPurchased: true, // Assume all templates from admin are accessible
             isPending: false,
-            isFree: stat.price === 0 || stat.pricingTier === "Free",
-            updatedAt: stat.updatedAt || new Date().toISOString(),
-            usageCount: stat.usageCount || 0,
-            status: stat.status || "active",
+            isFree: template.price === 0 || template.pricingTier === "Free",
+            updatedAt: template.updatedAt || new Date().toISOString(),
+            usageCount: template.usageCount || 0,
+            status: template.status || "active",
+            fileUrl: template.fileUrl,
           }))
 
-          setTemplates(templatesFromStats)
+          setTemplates(templatesFromAdmin)
         }
       }
     } catch (error) {
-      console.error("Error fetching template stats:", error)
+      console.error("Error fetching admin templates:", error)
     }
   }
 
-  // Add this function to handle template download
+  // Update the handleDownload function to use the existing download functionality
   const handleDownload = async (template: Template) => {
     try {
       toast({
@@ -192,6 +230,23 @@ export default function DashboardPage() {
       setTemplates((prevTemplates) =>
         prevTemplates.map((t) => (t.id === template.id ? { ...t, usageCount: (t.usageCount || 0) + 1 } : t)),
       )
+
+      // First, make a request to increment the download count on the server
+      try {
+        const incrementResponse = await fetch(`/api/admin/templates/${template.id}/increment-download`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (!incrementResponse.ok) {
+          console.warn("Failed to increment download count, but continuing with download")
+        }
+      } catch (incrementError) {
+        console.error("Error incrementing download count:", incrementError)
+        // Continue with download even if increment fails
+      }
 
       const apiUrl = `/api/user/templates/${template.id}/download`
       const apiResponse = await fetch(apiUrl)
@@ -237,18 +292,17 @@ export default function DashboardPage() {
         }
 
         // Create a blob URL and trigger download
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.style.display = "none"
-        a.href = url
-        a.download = fileName
-        document.body.appendChild(a)
-        a.click()
+        const blobUrl = window.URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = blobUrl
+        link.download = fileName
+        document.body.appendChild(link)
+        link.click()
 
         // Clean up
         setTimeout(() => {
-          window.URL.revokeObjectURL(url)
-          document.body.removeChild(a)
+          window.URL.revokeObjectURL(blobUrl)
+          document.body.removeChild(link)
         }, 100)
 
         toast({
@@ -279,6 +333,37 @@ export default function DashboardPage() {
         description: "Failed to download document. Please try again or contact support.",
         variant: "destructive",
       })
+    }
+  }
+
+  const fetchTemplateStats = async () => {
+    try {
+      const response = await fetch("/api/admin/templates")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.templates && data.templates.length > 0) {
+          // Create template objects from the admin data
+          const templatesFromAdmin = data.templates.map((template: any) => ({
+            id: template.id,
+            name: template.name,
+            description: template.description || `${template.name} template`,
+            category: template.category || "Document",
+            price: template.price || 0,
+            pricingTier: template.pricingTier || "Free",
+            isPurchased: true, // Assume all templates from admin are accessible
+            isPending: false,
+            isFree: template.price === 0 || template.pricingTier === "Free",
+            updatedAt: template.updatedAt || new Date().toISOString(),
+            usageCount: template.usageCount || 0,
+            status: template.status || "active",
+            fileUrl: template.fileUrl,
+          }))
+
+          setTemplates(templatesFromAdmin)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching admin templates:", error)
     }
   }
 
@@ -903,3 +988,4 @@ export default function DashboardPage() {
     </div>
   )
 }
+
