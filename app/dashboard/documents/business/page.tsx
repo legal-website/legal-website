@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/components/ui/use-toast"
 import { AlertCircle, Clock, Download, File, FileText, Search, RefreshCcw } from "lucide-react"
-import type { Document, StorageInfo, DocumentActivity } from "@/types/document"
+import type { Document, StorageInfo } from "@/types/document"
 
 export default function BusinessDocumentsPage() {
   const { data: session, status } = useSession()
@@ -58,12 +58,12 @@ export default function BusinessDocumentsPage() {
       const data = await response.json()
       console.log("Received documents data:", data)
 
-      // ONLY show documents that were uploaded by an admin AND are not templates
-      const adminDocuments = data.documents.filter(
-        (doc: Document) => doc.uploadedByAdmin === true && doc.type !== "template" && doc.fileType !== "template",
-      )
+      // Filter out templates based on the type field
+      // Since we don't have uploadedByAdmin field, we'll assume all non-template documents
+      // uploaded by admin are meant to be shown to the client
+      const clientDocuments = data.documents.filter((doc: Document) => doc.type !== "template")
 
-      setDocuments(adminDocuments || [])
+      setDocuments(clientDocuments || [])
 
       // Update storage info
       if (data.storage) {
@@ -73,12 +73,9 @@ export default function BusinessDocumentsPage() {
         setStorageInfo({ used, limit, percentage })
       }
 
-      // Update recent updates - only for admin documents
+      // Update recent updates
       if (data.recentUpdates) {
-        const adminUpdates = data.recentUpdates.filter(
-          (update: DocumentActivity, index: number) => index < adminDocuments.length,
-        )
-        setRecentUpdates(adminUpdates)
+        setRecentUpdates(data.recentUpdates)
       }
     } catch (error) {
       console.error("Error fetching documents:", error)
@@ -137,9 +134,7 @@ export default function BusinessDocumentsPage() {
 
   // Filter documents based on search and category
   const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch =
-      doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (doc.description || "").toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === "All" || doc.category === selectedCategory
 
     return matchesSearch && matchesCategory
@@ -232,19 +227,14 @@ export default function BusinessDocumentsPage() {
                         <div>
                           <p className="font-medium">{doc.name}</p>
                           <div className="flex items-center gap-3 text-sm text-gray-500">
-                            <span>{(doc.fileType || doc.type || "Unknown").toUpperCase()}</span>
-                            <span>•</span>
-                            <span>{formatBytes(doc.fileSize || 0)}</span>
+                            <span>{doc.type.toUpperCase()}</span>
                             <span>•</span>
                             <span>
-                              {doc.uploadDate
-                                ? new Date(doc.uploadDate).toLocaleDateString()
-                                : doc.createdAt
-                                  ? new Date(doc.createdAt).toLocaleDateString()
-                                  : "Unknown date"}
+                              {doc.createdAt instanceof Date
+                                ? doc.createdAt.toLocaleDateString()
+                                : new Date(doc.createdAt).toLocaleDateString()}
                             </span>
                           </div>
-                          {doc.description && <p className="text-sm text-gray-500 mt-1">{doc.description}</p>}
                         </div>
                       </div>
                       <div className="flex gap-2">

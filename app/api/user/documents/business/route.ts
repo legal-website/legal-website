@@ -58,26 +58,6 @@ export async function GET(req: NextRequest) {
     const storageLimit = 104857600 // 100MB default
     const percentage = (totalStorageBytes / storageLimit) * 100
 
-    // Format documents
-    const formattedDocuments = documents.map((doc: any) => {
-      return {
-        id: doc.id,
-        name: doc.name,
-        description: doc.description || null,
-        category: doc.category,
-        fileUrl: doc.fileUrl,
-        fileType: doc.type,
-        type: doc.type,
-        fileSize: doc.fileSize || 0,
-        uploadDate: doc.createdAt.toISOString(),
-        lastModified: doc.updatedAt.toISOString(),
-        createdAt: doc.createdAt,
-        updatedAt: doc.updatedAt,
-        businessId: doc.businessId,
-        uploadedByAdmin: doc.uploadedByAdmin || false, // Make sure this field is included
-      }
-    })
-
     // Since we don't have DocumentActivity in the schema, we'll create some mock recent updates
     const recentUpdates = documents.slice(0, 5).map((doc: any) => {
       return {
@@ -87,7 +67,7 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.json({
-      documents: formattedDocuments,
+      documents,
       storage: {
         totalStorageBytes,
         storageLimit,

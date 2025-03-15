@@ -29,17 +29,24 @@ import {
   FileText,
   MoreHorizontal,
   Trash2,
-  CheckCircle2,
   Clock,
-  XCircle,
   FileUp,
   Check,
   RefreshCcw,
   AlertCircle,
 } from "lucide-react"
 
-// Add this import at the top of the file:
-import type { Document } from "@/types/document"
+// Define the Document type based on your Prisma schema
+interface Document {
+  id: string
+  name: string
+  category: string
+  createdAt: string
+  updatedAt: string
+  businessId: string
+  fileUrl: string
+  type: string
+}
 
 interface User {
   id: string
@@ -313,15 +320,12 @@ export default function ClientDocumentsPage() {
 
   // Filter documents based on search, category, and status
   const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch =
-      doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (doc.description || "").toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = selectedCategory === "All" || doc.category === selectedCategory
-    const matchesStatus =
-      selectedStatus === "all" ||
-      (selectedStatus === "verified" && doc.status === "Verified") ||
-      (selectedStatus === "pending" && doc.status === "Pending") ||
-      (selectedStatus === "rejected" && doc.status === "Rejected")
+
+    // Since we don't have a status field in our Document model, we'll use type as a proxy
+    // or just show all documents if status filter is "all"
+    const matchesStatus = selectedStatus === "all"
 
     return matchesSearch && matchesCategory && matchesStatus
   })
@@ -407,9 +411,7 @@ export default function ClientDocumentsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="verified">Verified</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
+              {/* Since we don't have status in our model, we'll just show "all" */}
             </SelectContent>
           </Select>
         </div>
@@ -445,7 +447,7 @@ export default function ClientDocumentsPage() {
                   <th className="text-left p-4 font-medium text-sm">Document</th>
                   <th className="text-left p-4 font-medium text-sm">Category</th>
                   <th className="text-left p-4 font-medium text-sm">Upload Date</th>
-                  <th className="text-left p-4 font-medium text-sm">Status</th>
+                  <th className="text-left p-4 font-medium text-sm">Type</th>
                   <th className="text-left p-4 font-medium text-sm">Actions</th>
                 </tr>
               </thead>
@@ -460,41 +462,22 @@ export default function ClientDocumentsPage() {
                         <div>
                           <p className="font-medium">{doc.name}</p>
                           <p className="text-sm text-gray-500">
-                            {formatBytes(doc.fileSize || 0)} • {(doc.fileType || doc.type || "Unknown").toUpperCase()}
+                            {/* Since we don't have fileSize, we'll just show the type */}
+                            {doc.type.toUpperCase()}
                           </p>
                         </div>
                       </div>
                     </td>
                     <td className="p-4">{doc.category}</td>
                     <td className="p-4">
-                      {doc.uploadDate
-                        ? new Date(doc.uploadDate).toLocaleDateString()
-                        : doc.createdAt
-                          ? new Date(doc.createdAt).toLocaleDateString()
-                          : "Unknown date"}
+                      {/* Use createdAt instead of uploadDate */}
+                      {new Date(doc.createdAt).toLocaleDateString()}
                     </td>
                     <td className="p-4">
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full flex items-center w-fit ${
-                          doc.status === "Verified"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                            : doc.status === "Pending"
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                              : doc.status === "Rejected"
-                                ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                                : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-                        }`}
-                      >
-                        {doc.status === "Verified" ? (
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                        ) : doc.status === "Pending" ? (
-                          <Clock className="h-3 w-3 mr-1" />
-                        ) : doc.status === "Rejected" ? (
-                          <XCircle className="h-3 w-3 mr-1" />
-                        ) : (
-                          <Clock className="h-3 w-3 mr-1" />
-                        )}
-                        {doc.status || "Pending"}
+                      {/* Since we don't have status, we'll use type */}
+                      <span className="px-2 py-1 text-xs rounded-full flex items-center w-fit bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {doc.type}
                       </span>
                     </td>
                     <td className="p-4">
