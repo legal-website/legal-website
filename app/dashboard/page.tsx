@@ -23,6 +23,7 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
+import SpendingAnalytics from "@/components/spending-analytics"
 
 interface Invoice {
   id: string
@@ -139,34 +140,48 @@ export default function DashboardPage() {
     }
   }, [session])
 
-  // Fix the incrementUserDownloadCount function to properly update localStorage
-  // Replace the existing incrementUserDownloadCount function with this improved version:
-
-  const incrementUserDownloadCount = async (templateId: string) => {
+  // Add this function to fetch user-specific download counts
+  const fetchUserDownloadCounts = async () => {
     try {
-      // First, get the latest counts from localStorage to ensure we have the most up-to-date data
-      let currentCounts = {}
+      const response = await fetch("/api/user/templates/download-count")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.downloadCounts) {
+          setUserDownloadCounts(data.downloadCounts)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user download counts:", error)
+      // If API fails, try to use localStorage as fallback
       try {
         const storedCounts = localStorage.getItem("templateDownloadCounts")
         if (storedCounts) {
-          currentCounts = JSON.parse(storedCounts)
+          setUserDownloadCounts(JSON.parse(storedCounts))
         }
       } catch (localStorageError) {
         console.error("Error reading from localStorage:", localStorageError)
       }
+    }
+  }
 
-      // Update the counts with the new increment
-      const updatedCounts = {
-        ...currentCounts,
-        [templateId]: ((currentCounts as any)[templateId] || 0) + 1,
-      }
+  // Function to increment user-specific download count
+  const incrementUserDownloadCount = async (templateId: string) => {
+    try {
+      // Update local state immediately for better UX
+      setUserDownloadCounts((prev) => ({
+        ...prev,
+        [templateId]: (prev[templateId] || 0) + 1,
+      }))
 
-      // Update local state
-      setUserDownloadCounts(updatedCounts)
-
-      // Store in localStorage
+      // Try to store in localStorage as backup
       try {
-        localStorage.setItem("templateDownloadCounts", JSON.stringify(updatedCounts))
+        localStorage.setItem(
+          "templateDownloadCounts",
+          JSON.stringify({
+            ...userDownloadCounts,
+            [templateId]: (userDownloadCounts[templateId] || 0) + 1,
+          }),
+        )
       } catch (localStorageError) {
         console.error("Error writing to localStorage:", localStorageError)
       }
@@ -186,45 +201,6 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Error incrementing download count:", error)
       // Continue with download even if count increment fails
-    }
-  }
-
-  // Fix the fetchUserDownloadCounts function to properly retrieve from localStorage
-  // Replace the existing fetchUserDownloadCounts function with this improved version:
-
-  const fetchUserDownloadCounts = async () => {
-    // First try to get counts from localStorage for immediate display
-    try {
-      const storedCounts = localStorage.getItem("templateDownloadCounts")
-      if (storedCounts) {
-        const parsedCounts = JSON.parse(storedCounts)
-        setUserDownloadCounts(parsedCounts)
-      }
-    } catch (localStorageError) {
-      console.error("Error reading from localStorage:", localStorageError)
-    }
-
-    // Then try to fetch from API to ensure we have the latest data
-    try {
-      const response = await fetch("/api/user/templates/download-count")
-      if (response.ok) {
-        const data = await response.json()
-        if (data.downloadCounts) {
-          // Merge API data with localStorage data to ensure we don't lose any counts
-          const mergedCounts = { ...userDownloadCounts, ...data.downloadCounts }
-          setUserDownloadCounts(mergedCounts)
-
-          // Update localStorage with the merged data
-          try {
-            localStorage.setItem("templateDownloadCounts", JSON.stringify(mergedCounts))
-          } catch (storageError) {
-            console.error("Error updating localStorage after API fetch:", storageError)
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching user download counts from API:", error)
-      // We already loaded from localStorage, so we can continue
     }
   }
 
@@ -961,18 +937,9 @@ export default function DashboardPage() {
 
       {/* Help Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-gradient-to-r from-pink-500 to-purple-500 text-white">
-          <div className="p-6">
-            <h3 className="text-2xl font-bold mb-4">Get $20</h3>
-            <p className="mb-6 text-base font-medium">
-              Earn rewards by referring your friends to experience our services. Unlock exclusive benefits when you
-              partner with Orizen!
-            </p>
-            <Button variant="secondary" className="bg-white text-purple-600 hover:bg-gray-100 font-medium">
-              Claim
-            </Button>
-          </div>
-        </Card>
+        <div>
+          <SpendingAnalytics />
+        </div>
 
         <Card>
           <div className="p-6">
