@@ -642,26 +642,6 @@ export default function BusinessDocumentsPage() {
               )}
             </div>
           </Card>
-
-          <Card>
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">Document Retention</h3>
-            </div>
-            <div className="p-6">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
-                  <div>
-                    <h4 className="font-medium text-amber-800">Document Retention</h4>
-                    <p className="text-sm text-amber-700">
-                      Keep your business documents for at least 7 years. Some documents like formation documents should
-                      be kept permanently.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
         </div>
       </div>
 
