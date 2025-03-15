@@ -7,58 +7,81 @@ import { Role } from "@prisma/client"
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id || (session.user as any).role !== Role.ADMIN) {
+
+    if (!session?.user || (session.user as any).role !== Role.ADMIN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const userId = params.id
 
-    // Get the account manager request for the user
-    const accountManagerRequest = await prisma.accountManagerRequest.findFirst({
+    // Use type assertion
+    const managerRequest = await (prisma as any).accountManagerRequest.findFirst({
       where: {
-        userId,
+        userId: userId,
       },
     })
 
-    return NextResponse.json({ request: accountManagerRequest || null })
+    return NextResponse.json({ request: managerRequest || null }, { status: 200 })
   } catch (error) {
     console.error("Error fetching account manager request:", error)
-    return NextResponse.json({ error: "Failed to fetch account manager request" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch request" }, { status: 500 })
   }
 }
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id || (session.user as any).role !== Role.ADMIN) {
+
+    if (!session?.user || (session.user as any).role !== Role.ADMIN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const userId = params.id
     const data = await request.json()
 
-    // Update or create the account manager request
-    const accountManagerRequest = await prisma.accountManagerRequest.upsert({
+    // Validate required fields
+    if (data.status === "approved" && (!data.managerName || !data.contactLink)) {
+      return NextResponse.json({ error: "Manager name and contact link are required for approval" }, { status: 400 })
+    }
+
+    // Use type assertion
+    const existingRequest = await (prisma as any).accountManagerRequest.findFirst({
       where: {
-        userId,
-      },
-      update: {
-        status: data.status,
-        managerName: data.managerName,
-        contactLink: data.contactLink,
-      },
-      create: {
-        userId,
-        status: data.status,
-        managerName: data.managerName,
-        contactLink: data.contactLink,
+        userId: userId,
       },
     })
 
-    return NextResponse.json({ request: accountManagerRequest })
+    let updatedRequest
+
+    if (existingRequest) {
+      // Use type assertion for update
+      updatedRequest = await (prisma as any).accountManagerRequest.update({
+        where: {
+          id: existingRequest.id,
+        },
+        data: {
+          status: data.status,
+          managerName: data.managerName,
+          contactLink: data.contactLink,
+          updatedAt: new Date(),
+        },
+      })
+    } else {
+      // Use type assertion for create
+      updatedRequest = await (prisma as any).accountManagerRequest.create({
+        data: {
+          userId: userId,
+          status: data.status,
+          managerName: data.managerName,
+          contactLink: data.contactLink,
+        },
+      })
+    }
+
+    return NextResponse.json({ message: "Account manager request updated", request: updatedRequest }, { status: 200 })
   } catch (error) {
     console.error("Error updating account manager request:", error)
-    return NextResponse.json({ error: "Failed to update account manager request" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to update request" }, { status: 500 })
   }
 }
 

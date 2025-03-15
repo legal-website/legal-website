@@ -28,7 +28,7 @@ model User {
   business           Business?           @relation(fields: [businessId], references: [id])
   verificationTokens VerificationToken[]
   phoneRequest       PhoneNumberRequest?
-
+  accountManagerRequest AccountManagerRequest?
   @@index([businessId], map: "User_businessId_fkey")
 }
 
@@ -206,17 +206,6 @@ model Invoice {
   @@index([userId], map: "Invoice_userId_fkey")
 }
 
-model PhoneNumberRequest {
-  id          String   @id @default(uuid())
-  userId      String   @unique
-  phoneNumber String?
-  status      String   @default("requested") // requested, pending, approved, rejected
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id])
-
-  @@index([userId], map: "PhoneNumberRequest_userId_fkey")
-}
 model AccountManagerRequest {
   id          String   @id @default(cuid())
   userId      String   @unique
@@ -228,12 +217,17 @@ model AccountManagerRequest {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// And add this to your User model
-model User {
-  // ... existing fields
-  accountManagerRequest AccountManagerRequest?
-}
+model PhoneNumberRequest {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  phoneNumber String?
+  status      String   @default("requested") // requested, pending, approved, rejected
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
 
+  @@index([userId], map: "PhoneNumberRequest_userId_fkey")
+}
 enum Role {
   ADMIN
   SUPPORT

@@ -24,6 +24,8 @@ import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
 import SpendingAnalytics from "@/components/spending-analytics"
+// Import the AccountManagerRequest component at the top of the file
+import { AccountManagerRequest } from "@/components/account-manager-request"
 
 interface Invoice {
   id: string
@@ -53,7 +55,7 @@ interface PhoneNumberRequest {
   updatedAt?: string
 }
 
-interface AccountManagerRequest {
+interface AccountManagerRequestType {
   id?: string
   status: "requested" | "pending" | "approved" | "rejected"
   managerName?: string
@@ -131,7 +133,7 @@ export default function DashboardPage() {
     customerCountry: "",
   })
   const [phoneNumberRequest, setPhoneNumberRequest] = useState<PhoneNumberRequest | null>(null)
-  const [accountManagerRequest, setAccountManagerRequest] = useState<AccountManagerRequest | null>(null)
+  const [accountManagerRequest, setAccountManagerRequest] = useState<AccountManagerRequestType | null>(null)
 
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -1109,7 +1111,7 @@ export default function DashboardPage() {
             <h3 className="text-2xl font-bold mb-6">Need help?</h3>
             <div className="space-y-4">
               {/* Replace the Contact account manager button with our new dynamic button */}
-              {renderAccountManagerButton()}
+              {session?.user?.id && <AccountManagerRequest userId={session.user.id} />}
 
               <Button variant="outline" className="w-full justify-start h-auto py-4">
                 <MessageSquare className="w-5 h-5 mr-3" />

@@ -12,7 +12,7 @@ export interface InvoiceItem {
   type?: string
 }
 
-// This is a workaround for TypeScript not recognizing the new model
+// This is a workaround for TypeScript not recognizing the new models
 declare global {
   namespace PrismaJson {
     interface PhoneNumberRequestModel {
@@ -20,6 +20,16 @@ declare global {
       userId: string
       phoneNumber?: string | null
       status: string
+      createdAt: Date
+      updatedAt: Date
+    }
+
+    interface AccountManagerRequestModel {
+      id: string
+      userId: string
+      status: string
+      managerName?: string | null
+      contactLink?: string | null
       createdAt: Date
       updatedAt: Date
     }
