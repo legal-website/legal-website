@@ -256,10 +256,25 @@ export default function BusinessDocumentsPage() {
         body: JSON.stringify({ documentIds: selectedDocuments }),
       })
 
+      // Check if the response is ok before trying to parse JSON
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to delete documents")
+        const errorText = await response.text()
+        let errorMessage = "Failed to delete documents"
+
+        try {
+          // Try to parse the error as JSON
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.error || errorData.message || errorMessage
+        } catch (parseError) {
+          // If parsing fails, use the raw text
+          errorMessage = errorText || errorMessage
+        }
+
+        throw new Error(errorMessage)
       }
+
+      // Parse the successful response
+      const data = await response.json()
 
       // Remove deleted documents from state
       setDocuments((prev) => prev.filter((doc) => !selectedDocuments.includes(doc.id)))
@@ -274,7 +289,7 @@ export default function BusinessDocumentsPage() {
 
       toast({
         title: "Success",
-        description: `${selectedDocuments.length} document(s) deleted successfully`,
+        description: data.message || `${selectedDocuments.length} document(s) deleted successfully`,
       })
     } catch (error) {
       console.error("Error deleting documents:", error)

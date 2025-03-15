@@ -31,10 +31,16 @@ export async function DELETE(req: NextRequest) {
     const businessId = user.business.id
 
     // Get document IDs to delete from request body
-    const body = await req.json()
-    const { documentIds } = body
+    let documentIds: string[] = []
+    try {
+      const body = await req.json()
+      documentIds = body.documentIds || []
+    } catch (error) {
+      console.error("Error parsing request body:", error)
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
 
-    if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
+    if (!documentIds.length) {
       return NextResponse.json({ error: "No document IDs provided" }, { status: 400 })
     }
 
@@ -58,13 +64,20 @@ export async function DELETE(req: NextRequest) {
       },
     })
 
+    // Return a successful response
     return NextResponse.json({
       success: true,
       message: `${documentIds.length} document(s) deleted successfully`,
     })
   } catch (error) {
     console.error("Error deleting documents:", error)
-    return NextResponse.json({ error: "Failed to delete documents" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to delete documents",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
 
