@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
-import { getSignedUrl } from "@/lib/cloudinary"
+import { getSignedDownloadUrl } from "@/lib/cloudinary"
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -41,14 +41,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "Access denied to this document" }, { status: 403 })
     }
 
-    // Generate signed URL for download
-    const downloadUrl = getSignedUrl(document.fileUrl, 3600) // 1 hour expiry
+    // Generate signed URL for download with document name
+    const downloadUrl = getSignedDownloadUrl(document.fileUrl, document.name, 3600) // 1 hour expiry
 
     console.log("Generated download URL for document:", document.id)
 
     return NextResponse.json({
       success: true,
       downloadUrl,
+      documentName: document.name,
+      documentType: document.type || "application/octet-stream",
     })
   } catch (error) {
     console.error("Error downloading document:", error)

@@ -18,7 +18,6 @@ import {
   Search,
   RefreshCcw,
   Tag,
-  Trash2,
   ChevronLeft,
   ChevronRight,
   HardDrive,
@@ -26,16 +25,6 @@ import {
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import type { Document, StorageInfo } from "@/types/document"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 
 export default function BusinessDocumentsPage() {
   const { data: session, status } = useSession()
@@ -47,12 +36,14 @@ export default function BusinessDocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [storageInfo, setStorageInfo] = useState<StorageInfo>({ used: 0, limit: 20 * 1024 * 1024, percentage: 0 }) // 20MB limit
+  const [storageInfo, setStorageInfo] = useState<StorageInfo>({
+    used: 0,
+    limit: 100 * 1024 * 1024, // Increased to 100MB
+    percentage: 0,
+  })
   const [recentUpdates, setRecentUpdates] = useState<{ text: string; time: string }[]>([])
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([])
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [deletingIds, setDeletingIds] = useState<string[]>([])
 
   // Pagination
   const itemsPerPage = 20
@@ -124,7 +115,7 @@ export default function BusinessDocumentsPage() {
   // Calculate storage usage
   const calculateStorageUsage = (docs: Document[]): StorageInfo => {
     const totalBytes = docs.reduce((total, doc) => total + estimateFileSize(doc), 0)
-    const limit = 20 * 1024 * 1024 // 20MB
+    const limit = 100 * 1024 * 1024 // 100MB limit (increased)
     const percentage = (totalBytes / limit) * 100
 
     return {
@@ -198,9 +189,17 @@ export default function BusinessDocumentsPage() {
 
       // Create a temporary link and trigger download
       if (typeof window !== "undefined") {
+        // Create a hidden anchor element
         const link = window.document.createElement("a")
         link.href = data.downloadUrl
         link.setAttribute("download", document.name)
+
+        // For PDF files, add the file extension if not present
+        if (document.type.toLowerCase() === "pdf" && !document.name.toLowerCase().endsWith(".pdf")) {
+          link.setAttribute("download", `${document.name}.pdf`)
+        }
+
+        // Add to body, click, and remove
         window.document.body.appendChild(link)
         link.click()
         window.document.body.removeChild(link)
@@ -239,76 +238,6 @@ export default function BusinessDocumentsPage() {
       setSelectedDocuments([])
     } else {
       setSelectedDocuments(paginatedDocuments.map((doc) => doc.id))
-    }
-  }
-
-  // Handle document deletion
-  const handleDeleteDocuments = async () => {
-    try {
-      setDeletingIds(selectedDocuments)
-
-      console.log(`Attempting to delete ${selectedDocuments.length} documents:`, selectedDocuments)
-
-      // Make API call to delete documents
-      const response = await fetch("/api/user/documents/business/delete", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ documentIds: selectedDocuments }),
-      })
-
-      console.log("Delete API response status:", response.status)
-
-      // Get response as text first
-      const responseText = await response.text()
-      console.log("Delete API response text:", responseText)
-
-      let data
-      try {
-        // Try to parse as JSON
-        data = JSON.parse(responseText)
-        console.log("Delete API response parsed:", data)
-      } catch (parseError) {
-        console.error("Error parsing response as JSON:", parseError)
-        throw new Error(`Server response is not valid JSON: ${responseText.substring(0, 100)}...`)
-      }
-
-      // Check if the response indicates an error
-      if (!response.ok) {
-        const errorMessage = data.error || data.message || "Failed to delete documents"
-        console.error("Delete API error:", errorMessage, data)
-        throw new Error(errorMessage)
-      }
-
-      // Handle success
-      console.log("Documents deleted successfully:", data)
-
-      // Remove deleted documents from state
-      setDocuments((prev) => prev.filter((doc) => !selectedDocuments.includes(doc.id)))
-
-      // Recalculate storage
-      const updatedDocs = documents.filter((doc) => !selectedDocuments.includes(doc.id))
-      const storageInfo = calculateStorageUsage(updatedDocs)
-      setStorageInfo(storageInfo)
-
-      // Clear selection
-      setSelectedDocuments([])
-
-      toast({
-        title: "Success",
-        description: data.message || `${selectedDocuments.length} document(s) deleted successfully`,
-      })
-    } catch (error) {
-      console.error("Error deleting documents:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete documents",
-        variant: "destructive",
-      })
-    } finally {
-      setDeletingIds([])
-      setIsDeleteDialogOpen(false)
     }
   }
 
@@ -367,17 +296,6 @@ export default function BusinessDocumentsPage() {
                     <Button variant="outline" size="sm" onClick={fetchDocuments} className="flex items-center gap-2">
                       <RefreshCcw className="h-4 w-4" />
                       Retry
-                    </Button>
-                  )}
-                  {selectedDocuments.length > 0 && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setIsDeleteDialogOpen(true)}
-                      className="flex items-center gap-2"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete Selected ({selectedDocuments.length})
                     </Button>
                   )}
                 </div>
@@ -466,6 +384,7 @@ export default function BusinessDocumentsPage() {
                                 {doc.category}
                               </span>
                             </div>
+                            {doc.description && <p className="text-sm text-gray-600 mb-1">{doc.description}</p>}
                             <div className="flex items-center gap-3 text-sm text-gray-500">
                               <span>{doc.type.toUpperCase()}</span>
                               <span>•</span>
@@ -484,7 +403,7 @@ export default function BusinessDocumentsPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleDownload(doc)}
-                            disabled={downloadingId === doc.id || deletingIds.includes(doc.id)}
+                            disabled={downloadingId === doc.id}
                           >
                             {downloadingId === doc.id ? (
                               <>
@@ -496,22 +415,6 @@ export default function BusinessDocumentsPage() {
                                 <Download className="h-4 w-4 mr-2" />
                                 Download
                               </>
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => {
-                              setSelectedDocuments([doc.id])
-                              setIsDeleteDialogOpen(true)
-                            }}
-                            disabled={deletingIds.includes(doc.id)}
-                          >
-                            {deletingIds.includes(doc.id) ? (
-                              <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
                             )}
                           </Button>
                         </div>
@@ -599,8 +502,8 @@ export default function BusinessDocumentsPage() {
                       <div>
                         <h4 className="font-medium text-red-800">Storage Almost Full</h4>
                         <p className="text-sm text-red-700 mt-1">
-                          You've used {storageInfo.percentage.toFixed(1)}% of your storage. Please delete some documents
-                          to free up space.
+                          You've used {storageInfo.percentage.toFixed(1)}% of your storage. Please contact your account
+                          manager to request additional storage.
                         </p>
                       </div>
                     </div>
@@ -667,31 +570,6 @@ export default function BusinessDocumentsPage() {
           </Card>
         </div>
       </div>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to delete?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You are about to delete {selectedDocuments.length} document(s). This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteDocuments} className="bg-red-600 hover:bg-red-700">
-              {deletingIds.length > 0 ? (
-                <>
-                  <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2"></div>
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

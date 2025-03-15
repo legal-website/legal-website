@@ -8,6 +8,7 @@ export interface Document {
   createdAt: Date | string
   updatedAt: Date | string
   url?: string
+  fileUrl?: string
 }
 
 export interface StorageInfo {
