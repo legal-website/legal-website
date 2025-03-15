@@ -1,19 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { db } from "@/lib/db"
 
-// Define the global type for our in-memory storage
-declare global {
-  // eslint-disable-next-line no-var
-  var userDownloads: Record<string, number>
-}
-
-// Initialize the global variable if it doesn't exist
-if (typeof global.userDownloads === "undefined") {
-  global.userDownloads = {}
-}
-
-// Type for the download count map
+// Define a type for the download count map
 type DownloadCountMap = Record<string, number>
 
 // GET endpoint to retrieve user's download counts
@@ -26,16 +16,22 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id
 
-    // Create a download count map from our in-memory storage
-    const downloadCountMap: DownloadCountMap = {}
-
-    // Extract downloads for this user from global storage
-    Object.entries(global.userDownloads).forEach(([key, count]) => {
-      if (key.startsWith(`${userId}:`)) {
-        const templateId = key.split(":")[1]
-        downloadCountMap[templateId] = count
-      }
+    // Get user's download counts from the database
+    const userDownloads = await db.userTemplateDownload.findMany({
+      where: {
+        userId: userId,
+      },
+      select: {
+        templateId: true,
+        downloadCount: true,
+      },
     })
+
+    // Convert to a map for easier consumption by the client
+    const downloadCountMap = userDownloads.reduce<DownloadCountMap>((acc, item) => {
+      acc[item.templateId] = item.downloadCount
+      return acc
+    }, {} as DownloadCountMap)
 
     return NextResponse.json({ success: true, downloadCounts: downloadCountMap })
   } catch (error) {
@@ -57,43 +53,88 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id
     const body = await request.json()
-    const { templateId } = body as { templateId: string }
+    const { templateId } = body
 
     if (!templateId) {
       return NextResponse.json({ error: "Template ID is required" }, { status: 400 })
     }
 
-    // Use our in-memory storage
-    const key = `${userId}:${templateId}`
-    global.userDownloads[key] = (global.userDownloads[key] || 0) + 1
-    const currentCount = global.userDownloads[key]
-
-    return NextResponse.json({
-      success: true,
-      downloadCount: currentCount,
-      fallback: true,
+    // Check if a record already exists
+    const existingRecord = await db.userTemplateDownload.findUnique({
+      where: {
+        userId_templateId: {
+          userId: userId,
+          templateId: templateId,
+        },
+      },
     })
+
+    if (existingRecord) {
+      // Update existing record
+      const updatedRecord = await db.userTemplateDownload.update({
+        where: {
+          userId_templateId: {
+            userId: userId,
+            templateId: templateId,
+          },
+        },
+        data: {
+          downloadCount: existingRecord.downloadCount + 1,
+          lastDownloaded: new Date(),
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        downloadCount: updatedRecord.downloadCount,
+      })
+    } else {
+      // Create new record
+      const newRecord = await db.userTemplateDownload.create({
+        data: {
+          userId: userId,
+          templateId: templateId,
+          downloadCount: 1,
+          lastDownloaded: new Date(),
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        downloadCount: newRecord.downloadCount,
+      })
+    }
   } catch (error) {
     console.error("Error incrementing download count:", error)
 
-    // Try a simpler approach if the main one fails
+    // If the table doesn't exist yet, create a simple in-memory storage as fallback
     try {
+      // Try to store in a simple key-value store
       const session = await getServerSession(authOptions)
       const userId = session?.user?.id
       const body = await request.json()
-      const templateId = (body as { templateId?: string }).templateId
+      const { templateId } = body
 
       if (!userId || !templateId) {
         throw new Error("Missing user ID or template ID")
       }
 
+      // Use localStorage-like approach with global variable
+      // Define the global type to avoid TypeScript errors
+      declare global {
+        var userDownloads: Record<string, number> | undefined
+      }
+
+      if (typeof global.userDownloads === "undefined") {
+        global.userDownloads = {}
+      }
+
       const key = `${userId}:${templateId}`
       global.userDownloads[key] = (global.userDownloads[key] || 0) + 1
-      const currentCount = global.userDownloads[key]
 
       return NextResponse.json({
         success: true,
-        downloadCount: currentCount,
+        downloadCount: global.userDownloads[key],
         fallback: true,
       })
     } catch (fallbackError) {
