@@ -9,44 +9,37 @@ cloudinary.config({
 })
 
 /**
- * Upload a file to Cloudinary
- * @param file The file to upload
- * @returns The URL of the uploaded file
+ * Extracts the public ID from a Cloudinary URL.
+ * @param url The Cloudinary URL.
+ * @returns The public ID, or null if it cannot be extracted.
  */
-export async function uploadToCloudinary(file: File): Promise<string> {
+function extractPublicId(url: string): string | null {
   try {
-    console.log("Starting Cloudinary upload for file:", file.name)
-
-    // Convert file to base64
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const base64Data = buffer.toString("base64")
-    const dataURI = `data:${file.type};base64,${base64Data}`
-
-    // Upload to Cloudinary
-    return new Promise((resolve, reject) => {
-      cloudinary.uploader.upload(
-        dataURI,
-        {
-          folder: "business_documents",
-          resource_type: "auto",
-          // Add attachment flag to ensure proper download
-          flags: "attachment",
-        },
-        (error, result) => {
-          if (error) {
-            console.error("Cloudinary upload error:", error)
-            reject(new Error("Failed to upload file to cloud storage"))
-          } else {
-            console.log("Cloudinary upload successful, URL:", result?.secure_url)
-            resolve(result?.secure_url || "")
-          }
-        },
-      )
-    })
+    const urlParts = url.split("/")
+    const imageName = urlParts[urlParts.length - 1]
+    const imageNameParts = imageName.split(".")
+    return imageNameParts[0]
   } catch (error) {
-    console.error("Error uploading to Cloudinary:", error)
-    throw new Error("Failed to upload file to cloud storage")
+    console.error("Error extracting public ID:", error)
+    return null
+  }
+}
+
+/**
+ * Gets the file extension from a URL.
+ * @param url The URL.
+ * @returns The file extension, or null if it cannot be determined.
+ */
+function getFileExtension(url: string): string | null {
+  try {
+    const urlParts = url.split(".")
+    if (urlParts.length > 1) {
+      return urlParts[urlParts.length - 1]
+    }
+    return null
+  } catch (error) {
+    console.error("Error getting file extension:", error)
+    return null
   }
 }
 
@@ -70,131 +63,52 @@ export function getSignedDownloadUrl(url: string, filename: string, expiresIn = 
     // Get file extension from URL
     const extension = getFileExtension(url)
 
-    // Generate signed URL with attachment flag and filename
-    const signedUrl = cloudinary.url(publicId, {
+    // For PDF files, we need to use a different approach
+    // Instead of modifying the URL, we'll create a direct download link
+    const resourceType = guessResourceType(url, extension)
+
+    // Generate a direct download URL
+    const downloadUrl = cloudinary.url(publicId, {
+      resource_type: resourceType,
       secure: true,
       sign_url: true,
+      type: "private",
       expires_at: Math.floor(Date.now() / 1000) + expiresIn,
-      attachment: true, // Force download
-      flags: "attachment", // Ensure browser treats as download
-      // Add filename with extension if available
-      format: extension || undefined,
+      attachment: true, // This is the key parameter for forcing download
     })
 
-    console.log("Generated signed download URL:", signedUrl)
-    return signedUrl
+    console.log("Generated signed download URL:", downloadUrl)
+    return downloadUrl
   } catch (error) {
     console.error("Error generating signed download URL:", error)
     return url // Return original URL on error
   }
 }
 
-// Add this function to maintain backward compatibility
 /**
- * Get a signed URL for a Cloudinary resource (legacy function)
- * @param url The Cloudinary URL
- * @param expiresIn Expiration time in seconds (default: 1 hour)
- * @returns A signed URL with a limited lifetime
- */
-export function getSignedUrl(url: string, expiresIn = 3600): string {
-  console.log("Warning: getSignedUrl is deprecated, use getSignedDownloadUrl instead")
-  return getSignedDownloadUrl(url, getFilenameFromUrl(url), expiresIn)
-}
-
-/**
- * Extract filename from URL
+ * Guess the resource type based on file extension
  * @param url The URL
- * @returns The filename
+ * @param extension The file extension
+ * @returns The resource type (image, video, raw, auto)
  */
-export function getFilenameFromUrl(url: string): string {
-  try {
-    const urlParts = url.split("/")
-    const filenameWithParams = urlParts[urlParts.length - 1]
-    const filename = filenameWithParams.split("?")[0]
-    return filename || "download"
-  } catch (error) {
-    console.error("Error extracting filename from URL:", error)
-    return "download"
+export function guessResourceType(url: string, extension: string | null): string {
+  // Default to 'raw' for documents
+  if (!extension) {
+    return "raw"
   }
-}
 
-/**
- * Get file extension from URL
- * @param url The URL
- * @returns The file extension or null
- */
-export function getFileExtension(url: string): string | null {
-  try {
-    const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|$)/)
-    return match ? match[1].toLowerCase() : null
-  } catch (error) {
-    console.error("Error extracting file extension:", error)
-    return null
+  // Check extension to determine resource type
+  const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff", "svg"]
+  const videoExtensions = ["mp4", "mov", "avi", "wmv", "flv", "webm"]
+
+  if (imageExtensions.includes(extension.toLowerCase())) {
+    return "image"
   }
-}
 
-/**
- * Extract the public ID from a Cloudinary URL
- * @param url The Cloudinary URL
- * @returns The public ID
- */
-export function extractPublicId(url: string): string | null {
-  try {
-    // Extract public ID from Cloudinary URL
-    // Format: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/folder/filename.ext
-
-    // First, try the standard format
-    let match = url.match(/\/v\d+\/(.+?)(?:\.\w+)?$/)
-
-    if (match && match[1]) {
-      return match[1]
-    }
-
-    // Try alternative format (without version number)
-    match = url.match(/\/upload\/(.+?)(?:\.\w+)?$/)
-
-    if (match && match[1]) {
-      return match[1]
-    }
-
-    console.warn("Could not extract public ID using regex from URL:", url)
-
-    // If regex fails, try a more basic approach
-    const urlParts = url.split("/")
-    const filename = urlParts[urlParts.length - 1].split(".")[0]
-    const folder = urlParts[urlParts.length - 2]
-
-    if (folder && filename && folder !== "upload") {
-      return `${folder}/${filename}`
-    }
-
-    return null
-  } catch (error) {
-    console.error("Error extracting public ID:", error)
-    return null
+  if (videoExtensions.includes(extension.toLowerCase())) {
+    return "video"
   }
-}
 
-/**
- * Delete a file from Cloudinary
- * @param publicId The public ID of the file to delete
- * @returns True if deletion was successful, false otherwise
- */
-export async function deleteFromCloudinary(publicId: string): Promise<boolean> {
-  try {
-    return new Promise((resolve, reject) => {
-      cloudinary.uploader.destroy(publicId, { resource_type: "auto" }, (error, result) => {
-        if (error) {
-          console.error("Cloudinary delete error:", error)
-          reject(new Error("Failed to delete file from cloud storage"))
-        } else {
-          resolve(result?.result === "ok")
-        }
-      })
-    })
-  } catch (error) {
-    console.error("Error deleting from Cloudinary:", error)
-    return false
-  }
+  // For PDFs and other documents, use 'raw'
+  return "raw"
 }
-
