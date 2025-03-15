@@ -53,6 +53,16 @@ interface PhoneNumberRequest {
   updatedAt?: string
 }
 
+interface AccountManagerRequest {
+  id?: string
+  status: "requested" | "pending" | "approved" | "rejected"
+  managerName?: string
+  contactLink?: string
+  userId: string
+  createdAt?: string
+  updatedAt?: string
+}
+
 interface Template {
   id: string
   name: string
@@ -96,6 +106,7 @@ export default function DashboardPage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [requestingPhone, setRequestingPhone] = useState(false)
+  const [requestingManager, setRequestingManager] = useState(false)
   const [templates, setTemplates] = useState<Template[]>([])
   const [userDownloadCounts, setUserDownloadCounts] = useState<Record<string, number>>({})
   const [businessData, setBusinessData] = useState({
@@ -120,6 +131,7 @@ export default function DashboardPage() {
     customerCountry: "",
   })
   const [phoneNumberRequest, setPhoneNumberRequest] = useState<PhoneNumberRequest | null>(null)
+  const [accountManagerRequest, setAccountManagerRequest] = useState<AccountManagerRequest | null>(null)
 
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -133,6 +145,7 @@ export default function DashboardPage() {
       fetchBusinessData()
       fetchUserInvoices()
       fetchPhoneNumberRequest()
+      fetchAccountManagerRequest() // Add this to fetch account manager request
       fetchTemplates() // Add this to fetch templates
       fetchUserDownloadCounts() // Add this to fetch user-specific download counts
     } else {
@@ -226,6 +239,61 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Error fetching user download counts from API:", error)
       // We already loaded from localStorage, so we can continue
+    }
+  }
+
+  // Add this function to fetch account manager request
+  const fetchAccountManagerRequest = async () => {
+    try {
+      const response = await fetch("/api/user/account-manager-request")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.request) {
+          setAccountManagerRequest(data.request)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching account manager request:", error)
+    }
+  }
+
+  // Add this function to handle account manager request
+  const handleRequestAccountManager = async () => {
+    if (!session?.user?.id) return
+
+    setRequestingManager(true)
+    try {
+      const response = await fetch("/api/user/account-manager-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: session.user.id,
+          status: "requested",
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to request account manager")
+      }
+
+      const data = await response.json()
+      setAccountManagerRequest(data.request)
+
+      toast({
+        title: "Request Submitted",
+        description: "Your dedicated account manager request has been submitted successfully.",
+      })
+    } catch (error) {
+      console.error("Error requesting account manager:", error)
+      toast({
+        title: "Request Failed",
+        description: "Failed to submit your account manager request. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setRequestingManager(false)
     }
   }
 
@@ -696,6 +764,76 @@ export default function DashboardPage() {
     )
   }
 
+  // Function to render the account manager button based on request status
+  const renderAccountManagerButton = () => {
+    if (!accountManagerRequest) {
+      return (
+        <Button
+          variant="outline"
+          className="w-full justify-start h-auto py-4"
+          onClick={handleRequestAccountManager}
+          disabled={requestingManager}
+        >
+          <User className="w-5 h-5 mr-3" />
+          <div className="text-left">
+            <p className="font-semibold">
+              {requestingManager ? "Submitting request..." : "Request a dedicated Account Manager"}
+            </p>
+            <p className="text-sm text-gray-600 font-medium">Get personalized support for your business</p>
+          </div>
+        </Button>
+      )
+    }
+
+    // If we have an assigned account manager, show contact button
+    if (accountManagerRequest.status === "approved" && accountManagerRequest.managerName) {
+      return (
+        <Button
+          variant="outline"
+          className="w-full justify-start h-auto py-4"
+          onClick={() => {
+            if (accountManagerRequest.contactLink) {
+              window.open(accountManagerRequest.contactLink, "_blank")
+            }
+          }}
+        >
+          <User className="w-5 h-5 mr-3 text-green-500" />
+          <div className="text-left">
+            <p className="font-semibold">Contact Account Manager</p>
+            <p className="text-sm text-gray-600 font-medium">
+              {accountManagerRequest.managerName} is your Orizen account manager
+            </p>
+          </div>
+        </Button>
+      )
+    }
+
+    // Otherwise show the status
+    const statusText = {
+      requested: "Dedicated Account Manager Requested",
+      pending: "Account Manager Request Pending",
+      approved: "Account Manager Request Approved",
+      rejected: "Account Manager Request Rejected",
+    }
+
+    const statusClass = {
+      requested: "text-blue-600",
+      pending: "text-yellow-600",
+      approved: "text-green-600",
+      rejected: "text-red-600",
+    }
+
+    return (
+      <Button variant="outline" className="w-full justify-start h-auto py-4" disabled>
+        <User className={`w-5 h-5 mr-3 ${statusClass[accountManagerRequest.status]}`} />
+        <div className="text-left">
+          <p className="font-semibold">{statusText[accountManagerRequest.status]}</p>
+          <p className="text-sm text-gray-600 font-medium">We'll process your request soon</p>
+        </div>
+      </Button>
+    )
+  }
+
   // Filter templates based on purchase status
   const hasPurchasedTemplates = templates.some((t) => t.isPurchased && !t.isFree)
 
@@ -970,13 +1108,8 @@ export default function DashboardPage() {
           <div className="p-6">
             <h3 className="text-2xl font-bold mb-6">Need help?</h3>
             <div className="space-y-4">
-              <Button variant="outline" className="w-full justify-start h-auto py-4">
-                <User className="w-5 h-5 mr-3" />
-                <div className="text-left">
-                  <p className="font-semibold">Contact account manager</p>
-                  <p className="text-sm text-gray-600 font-medium">Steve is your Orizen account manager.</p>
-                </div>
-              </Button>
+              {/* Replace the Contact account manager button with our new dynamic button */}
+              {renderAccountManagerButton()}
 
               <Button variant="outline" className="w-full justify-start h-auto py-4">
                 <MessageSquare className="w-5 h-5 mr-3" />

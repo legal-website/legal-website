@@ -217,6 +217,22 @@ model PhoneNumberRequest {
 
   @@index([userId], map: "PhoneNumberRequest_userId_fkey")
 }
+model AccountManagerRequest {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  status      String   @default("requested") // requested, pending, approved, rejected
+  managerName String?
+  contactLink String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// And add this to your User model
+model User {
+  // ... existing fields
+  accountManagerRequest AccountManagerRequest?
+}
 
 enum Role {
   ADMIN

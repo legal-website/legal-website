@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, Eye, Copy, ChevronLeft, ChevronRight, Phone } from "lucide-react"
+import { Search, Filter, Eye, Copy, ChevronLeft, ChevronRight, Phone, User } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -41,12 +41,23 @@ interface PendingUser {
     annualReportFrequency?: number
   }
   phoneRequest?: PhoneNumberRequest
+  accountManagerRequest?: AccountManagerRequest
 }
 
 interface PhoneNumberRequest {
   id?: string
   status: "requested" | "pending" | "approved" | "rejected"
   phoneNumber?: string
+  userId: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+interface AccountManagerRequest {
+  id?: string
+  status: "requested" | "pending" | "approved" | "rejected"
+  managerName?: string
+  contactLink?: string
   userId: string
   createdAt?: string
   updatedAt?: string
@@ -61,6 +72,7 @@ export default function PendingUsersPage() {
   const [selectedUser, setSelectedUser] = useState<PendingUser | null>(null)
   const [showUserDialog, setShowUserDialog] = useState(false)
   const [showPhoneDialog, setShowPhoneDialog] = useState(false)
+  const [showAccountManagerDialog, setShowAccountManagerDialog] = useState(false)
   const [loading, setLoading] = useState(true)
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
   // Get the tab from URL or default to "all"
@@ -81,8 +93,14 @@ export default function PendingUsersPage() {
     phoneNumber: "",
     status: "pending" as "requested" | "pending" | "approved" | "rejected",
   })
+  const [accountManagerFormData, setAccountManagerFormData] = useState({
+    managerName: "",
+    contactLink: "",
+    status: "pending" as "requested" | "pending" | "approved" | "rejected",
+  })
   const [processingAction, setProcessingAction] = useState(false)
   const [processingPhoneAction, setProcessingPhoneAction] = useState(false)
+  const [processingManagerAction, setProcessingManagerAction] = useState(false)
 
   // Add these new state variables after the existing state declarations
   const [sortOrder, setSortOrder] = useState("newest")
@@ -147,6 +165,8 @@ export default function PendingUsersPage() {
           const businessData = await fetchUserBusinessData(user.id)
           // Fetch phone request data for each user
           const phoneRequestData = await fetchUserPhoneRequest(user.id)
+          // Fetch account manager request data for each user
+          const accountManagerRequestData = await fetchUserAccountManagerRequest(user.id)
 
           return {
             id: user.id,
@@ -154,6 +174,7 @@ export default function PendingUsersPage() {
             email: user.email || "",
             business: businessData || undefined,
             phoneRequest: phoneRequestData || undefined,
+            accountManagerRequest: accountManagerRequestData || undefined,
           }
         }),
       )
@@ -240,6 +261,29 @@ export default function PendingUsersPage() {
     }
   }
 
+  // Add this function to fetch account manager request data
+  const fetchUserAccountManagerRequest = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/account-manager`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.request) {
+          return data.request
+        }
+      }
+      return null
+    } catch (error) {
+      console.error("Error fetching account manager request data:", error)
+      return null
+    }
+  }
+
   const generateBusinessId = () => {
     return Math.floor(10000000 + Math.random() * 90000000).toString()
   }
@@ -310,6 +354,29 @@ export default function PendingUsersPage() {
     setShowPhoneDialog(true)
   }
 
+  // Add this function to view account manager request
+  const viewAccountManagerRequest = async (user: PendingUser) => {
+    setSelectedUser(user)
+
+    // Initialize form data with existing account manager request if available
+    if (user.accountManagerRequest) {
+      setAccountManagerFormData({
+        managerName: user.accountManagerRequest.managerName || "",
+        contactLink: user.accountManagerRequest.contactLink || "",
+        status: user.accountManagerRequest.status,
+      })
+    } else {
+      // Reset form if no existing request
+      setAccountManagerFormData({
+        managerName: "",
+        contactLink: "",
+        status: "pending",
+      })
+    }
+
+    setShowAccountManagerDialog(true)
+  }
+
   // Update the handleInputChange function to handle numeric values
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -333,6 +400,12 @@ export default function PendingUsersPage() {
     setPhoneFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  // Handle account manager form input changes
+  const handleAccountManagerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setAccountManagerFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
   // Update the handleSelectChange function to handle numeric values
   const handleSelectChange = (name: string, value: string) => {
     if (name === "annualReportFrequency") {
@@ -348,6 +421,14 @@ export default function PendingUsersPage() {
   // Handle phone status select change
   const handlePhoneStatusChange = (value: string) => {
     setPhoneFormData((prev) => ({
+      ...prev,
+      status: value as "requested" | "pending" | "approved" | "rejected",
+    }))
+  }
+
+  // Handle account manager status select change
+  const handleAccountManagerStatusChange = (value: string) => {
+    setAccountManagerFormData((prev) => ({
       ...prev,
       status: value as "requested" | "pending" | "approved" | "rejected",
     }))
@@ -476,6 +557,62 @@ export default function PendingUsersPage() {
     }
   }
 
+  // Add this function to save account manager request data
+  const saveAccountManagerData = async () => {
+    if (!selectedUser) return
+
+    setProcessingManagerAction(true)
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/account-manager`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+        body: JSON.stringify(accountManagerFormData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update account manager information")
+      }
+
+      toast({
+        title: "Success",
+        description: "Account manager information updated successfully.",
+      })
+
+      // Update the local state
+      setPendingUsers((prev) =>
+        prev.map((user) => {
+          if (user.id === selectedUser.id) {
+            return {
+              ...user,
+              accountManagerRequest: {
+                ...(user.accountManagerRequest || { userId: user.id }),
+                managerName: accountManagerFormData.managerName,
+                contactLink: accountManagerFormData.contactLink,
+                status: accountManagerFormData.status,
+              },
+            }
+          }
+          return user
+        }),
+      )
+
+      setShowAccountManagerDialog(false)
+    } catch (error) {
+      console.error("Error updating account manager information:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update account manager information. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingManagerAction(false)
+    }
+  }
+
   // Add this function before the filteredUsers declaration
   const sortUsers = (users: PendingUser[]) => {
     return [...users].sort((a, b) => {
@@ -581,6 +718,19 @@ export default function PendingUsersPage() {
     }
 
     return "US Phone Number Request"
+  }
+
+  // Get account manager request button text
+  const getAccountManagerButtonText = (user: PendingUser) => {
+    if (!user.accountManagerRequest) {
+      return null // Don't show button if no request
+    }
+
+    if (user.accountManagerRequest.managerName) {
+      return "View Account Manager"
+    }
+
+    return "Account Manager Request"
   }
 
   if (sessionStatus === "loading" || !session) {
@@ -739,6 +889,7 @@ export default function PendingUsersPage() {
             users={paginatedUsers}
             onViewDetails={viewUserDetails}
             onViewPhoneRequest={viewPhoneRequest}
+            onViewAccountManagerRequest={viewAccountManagerRequest}
             copyToClipboard={copyToClipboard}
           />
           {totalPages > 1 && (
@@ -757,6 +908,7 @@ export default function PendingUsersPage() {
             users={paginatedUsers}
             onViewDetails={viewUserDetails}
             onViewPhoneRequest={viewPhoneRequest}
+            onViewAccountManagerRequest={viewAccountManagerRequest}
             copyToClipboard={copyToClipboard}
           />
           {totalPages > 1 && (
@@ -775,6 +927,7 @@ export default function PendingUsersPage() {
             users={paginatedUsers}
             onViewDetails={viewUserDetails}
             onViewPhoneRequest={viewPhoneRequest}
+            onViewAccountManagerRequest={viewAccountManagerRequest}
             copyToClipboard={copyToClipboard}
           />
           {totalPages > 1 && (
@@ -793,6 +946,7 @@ export default function PendingUsersPage() {
             users={paginatedUsers}
             onViewDetails={viewUserDetails}
             onViewPhoneRequest={viewPhoneRequest}
+            onViewAccountManagerRequest={viewAccountManagerRequest}
             copyToClipboard={copyToClipboard}
           />
           {totalPages > 1 && (
@@ -1076,6 +1230,98 @@ export default function PendingUsersPage() {
         </Dialog>
       )}
 
+      {/* Account Manager Request Dialog */}
+      {selectedUser && (
+        <Dialog open={showAccountManagerDialog} onOpenChange={setShowAccountManagerDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Account Manager Request</DialogTitle>
+              <DialogDescription>
+                {selectedUser.accountManagerRequest
+                  ? "Update the client's account manager request status"
+                  : "This client has not requested a dedicated account manager yet"}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Client Information</h3>
+                <Card className="p-4">
+                  <div className="space-y-2">
+                    <p className="font-medium">{selectedUser.name}</p>
+                    <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                    {selectedUser.accountManagerRequest && (
+                      <div className="mt-2 pt-2 border-t">
+                        <p className="text-sm text-gray-500">
+                          Request Status:{" "}
+                          <span className="font-medium capitalize">{selectedUser.accountManagerRequest.status}</span>
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Requested:{" "}
+                          {selectedUser.accountManagerRequest.createdAt
+                            ? new Date(selectedUser.accountManagerRequest.createdAt).toLocaleDateString()
+                            : "Unknown date"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="managerName">Account Manager Name</Label>
+                  <Input
+                    id="managerName"
+                    name="managerName"
+                    placeholder="e.g. John Smith"
+                    value={accountManagerFormData.managerName}
+                    onChange={handleAccountManagerInputChange}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="contactLink">Contact Link</Label>
+                  <Input
+                    id="contactLink"
+                    name="contactLink"
+                    placeholder="e.g. https://calendly.com/john-smith"
+                    value={accountManagerFormData.contactLink}
+                    onChange={handleAccountManagerInputChange}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="status">Request Status</Label>
+                  <Select value={accountManagerFormData.status} onValueChange={handleAccountManagerStatusChange}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="requested">Requested</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAccountManagerDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={saveAccountManagerData} disabled={processingManagerAction}>
+                {processingManagerAction ? "Saving..." : "Save Account Manager"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Pagination component */}
       {/* ... (pagination component remains the same) */}
     </div>
@@ -1214,11 +1460,13 @@ function UserList({
   users,
   onViewDetails,
   onViewPhoneRequest,
+  onViewAccountManagerRequest,
   copyToClipboard,
 }: {
   users: PendingUser[]
   onViewDetails: (user: PendingUser) => void
   onViewPhoneRequest: (user: PendingUser) => void
+  onViewAccountManagerRequest: (user: PendingUser) => void
   copyToClipboard: (text: string, label: string) => void
 }) {
   if (users.length === 0) {
@@ -1240,6 +1488,19 @@ function UserList({
     }
 
     return "US Phone Number Request"
+  }
+
+  // Get account manager request button text
+  const getAccountManagerButtonText = (user: PendingUser) => {
+    if (!user.accountManagerRequest) {
+      return null // Don't show button if no request
+    }
+
+    if (user.accountManagerRequest.managerName) {
+      return "View Account Manager"
+    }
+
+    return "Account Manager Request"
   }
 
   return (
@@ -1297,6 +1558,17 @@ function UserList({
                 >
                   <Phone className="h-4 w-4 mr-2" />
                   {getPhoneRequestButtonText(user)}
+                </Button>
+              )}
+              {getAccountManagerButtonText(user) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onViewAccountManagerRequest(user)}
+                  className={user.accountManagerRequest?.status === "requested" ? "border-blue-300 text-blue-600" : ""}
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  {getAccountManagerButtonText(user)}
                 </Button>
               )}
             </div>
