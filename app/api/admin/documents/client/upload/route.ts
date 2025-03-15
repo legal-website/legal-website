@@ -8,6 +8,8 @@ import { uploadToCloudinary } from "@/lib/cloudinary"
 // Upload a new document for a client
 export async function POST(req: NextRequest) {
   try {
+    console.log("Starting document upload process")
+
     const session = await getServerSession(authOptions)
 
     if (!session || !session.user) {
@@ -31,6 +33,8 @@ export async function POST(req: NextRequest) {
     const userId = formData.get("userId") as string
     const file = formData.get("file") as File
 
+    console.log("Form data received:", { name, category, userId, fileSize: file?.size })
+
     if (!name || !category || !file || !userId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
@@ -53,6 +57,8 @@ export async function POST(req: NextRequest) {
     // If user doesn't have a business, create one
     let businessId = user.businessId
     if (!businessId) {
+      console.log("Creating new business for user:", user.email)
+
       const business = await prisma.business.create({
         data: {
           name: `${user.name || user.email}'s Business`,
@@ -83,73 +89,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to upload file to storage" }, { status: 500 })
     }
 
-    // Create document in database
+    // Create document in database - using the schema fields we actually have
     const document = await prisma.document.create({
       data: {
         name,
-        description,
         category,
         type: fileType,
-        size: file.size.toString(),
         fileUrl,
         businessId: businessId as string,
-        status: "VERIFIED", // Set status to VERIFIED for admin uploads
       },
     })
 
-    // Create document sharing record
-    await prisma.documentSharing.create({
-      data: {
-        documentId: document.id,
-        sharedWithEmail: user.email,
-        sharedById: admin.id,
-      },
-    })
-
-    // Create activity record
-    await prisma.documentActivity.create({
-      data: {
-        action: "UPLOAD",
-        documentId: document.id,
-        userId: admin.id,
-        businessId: businessId as string,
-        details: `Uploaded by admin for ${user.email}`,
-      },
-    })
-
-    // Update business storage usage
-    const currentStorage = await prisma.businessStorage.findFirst({
-      where: { businessId: businessId as string },
-    })
-
-    if (currentStorage) {
-      await prisma.businessStorage.update({
-        where: { id: currentStorage.id },
-        data: {
-          totalStorageBytes: currentStorage.totalStorageBytes + file.size,
-        },
-      })
-    } else {
-      await prisma.businessStorage.create({
-        data: {
-          businessId: businessId as string,
-          totalStorageBytes: file.size,
-          storageLimit: 104857600, // 100MB default
-        },
-      })
-    }
+    console.log("Document created in database:", document.id)
 
     return NextResponse.json({
       success: true,
       document: {
         id: document.id,
         name: document.name,
-        description: document.description,
+        description: description || null,
         category: document.category,
         fileUrl: document.fileUrl,
         fileType: document.type,
-        fileSize: Number.parseInt(document.size),
-        status: "Verified",
+        fileSize: file.size,
         uploadDate: document.createdAt.toISOString(),
         lastModified: document.updatedAt.toISOString(),
       },

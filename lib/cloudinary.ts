@@ -15,6 +15,8 @@ cloudinary.config({
  */
 export async function uploadToCloudinary(file: File): Promise<string> {
   try {
+    console.log("Starting Cloudinary upload for file:", file.name)
+
     // Convert file to base64
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
@@ -34,6 +36,7 @@ export async function uploadToCloudinary(file: File): Promise<string> {
             console.error("Cloudinary upload error:", error)
             reject(new Error("Failed to upload file to cloud storage"))
           } else {
+            console.log("Cloudinary upload successful, URL:", result?.secure_url)
             resolve(result?.secure_url || "")
           }
         },
@@ -119,3 +122,4 @@ export async function deleteFromCloudinary(publicId: string): Promise<boolean> {
     return false
   }
 }
+

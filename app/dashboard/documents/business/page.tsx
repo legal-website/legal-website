@@ -10,24 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/components/ui/use-toast"
 import { AlertCircle, Clock, Download, File, FileText, Search, RefreshCcw } from "lucide-react"
-
-interface Document {
-  id: string
-  name: string
-  description?: string
-  category: string
-  fileUrl: string
-  fileType: string
-  fileSize: number
-  uploadDate: string
-  lastModified: string
-}
-
-interface StorageInfo {
-  used: number
-  limit: number
-  percentage: number
-}
+import type { Document, StorageInfo } from "@/types/document"
 
 export default function BusinessDocumentsPage() {
   const { data: session, status } = useSession()
@@ -64,6 +47,7 @@ export default function BusinessDocumentsPage() {
       setLoading(true)
       setError(null)
 
+      console.log("Fetching business documents")
       const response = await fetch("/api/user/documents/business")
 
       if (!response.ok) {
@@ -72,6 +56,8 @@ export default function BusinessDocumentsPage() {
       }
 
       const data = await response.json()
+      console.log("Received documents data:", data)
+
       setDocuments(data.documents || [])
 
       // Update storage info
@@ -103,6 +89,8 @@ export default function BusinessDocumentsPage() {
   const handleDownload = async (document: Document) => {
     try {
       setDownloadingId(document.id)
+      console.log("Downloading document:", document.id)
+
       const response = await fetch(`/api/user/documents/business/${document.id}/download`)
 
       if (!response.ok) {
@@ -111,6 +99,7 @@ export default function BusinessDocumentsPage() {
       }
 
       const data = await response.json()
+      console.log("Download response:", data)
 
       // Create a temporary link and trigger download
       if (typeof window !== "undefined") {
@@ -235,11 +224,17 @@ export default function BusinessDocumentsPage() {
                         <div>
                           <p className="font-medium">{doc.name}</p>
                           <div className="flex items-center gap-3 text-sm text-gray-500">
-                            <span>{doc.fileType.toUpperCase()}</span>
+                            <span>{(doc.fileType || doc.type || "Unknown").toUpperCase()}</span>
                             <span>•</span>
-                            <span>{formatBytes(doc.fileSize)}</span>
+                            <span>{formatBytes(doc.fileSize || 0)}</span>
                             <span>•</span>
-                            <span>{new Date(doc.uploadDate).toLocaleDateString()}</span>
+                            <span>
+                              {doc.uploadDate
+                                ? new Date(doc.uploadDate).toLocaleDateString()
+                                : doc.createdAt
+                                  ? new Date(doc.createdAt).toLocaleDateString()
+                                  : "Unknown date"}
+                            </span>
                           </div>
                           {doc.description && <p className="text-sm text-gray-500 mt-1">{doc.description}</p>}
                         </div>

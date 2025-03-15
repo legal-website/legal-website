@@ -33,29 +33,13 @@ import {
   Clock,
   XCircle,
   FileUp,
-  Mail,
   Check,
   RefreshCcw,
   AlertCircle,
 } from "lucide-react"
 
-// Define types for our data
-interface Document {
-  id: string
-  name: string
-  description?: string
-  category: string
-  fileUrl: string
-  fileType: string
-  fileSize: number
-  status: "Verified" | "Pending" | "Rejected"
-  uploadDate: string
-  lastModified: string
-  sharedWith?: {
-    email: string
-    sharedAt: string
-  }[]
-}
+// Add this import at the top of the file:
+import type { Document } from "@/types/document"
 
 interface User {
   id: string
@@ -81,8 +65,6 @@ export default function ClientDocumentsPage() {
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [showUploadDialog, setShowUploadDialog] = useState(false)
-  const [showShareDialog, setShowShareDialog] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
@@ -119,6 +101,7 @@ export default function ClientDocumentsPage() {
       setLoading(true)
       setError(null)
 
+      console.log("Fetching client documents")
       const response = await fetch("/api/admin/documents/client")
 
       if (!response.ok) {
@@ -127,6 +110,8 @@ export default function ClientDocumentsPage() {
       }
 
       const data = await response.json()
+      console.log("Received documents data:", data)
+
       setDocuments(data.documents || [])
     } catch (error) {
       console.error("Error fetching documents:", error)
@@ -295,6 +280,8 @@ export default function ClientDocumentsPage() {
   // Handle document download
   const handleDownload = async (document: Document) => {
     try {
+      console.log("Downloading document:", document.id)
+
       const response = await fetch(`/api/admin/documents/client/${document.id}/download`)
 
       if (!response.ok) {
@@ -303,6 +290,7 @@ export default function ClientDocumentsPage() {
       }
 
       const data = await response.json()
+      console.log("Download response:", data)
 
       // Create a temporary link and trigger download
       if (typeof window !== "undefined") {
@@ -318,35 +306,6 @@ export default function ClientDocumentsPage() {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to download document",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Handle document verification
-  const handleVerifyDocument = async (documentId: string) => {
-    try {
-      const response = await fetch(`/api/admin/documents/client/${documentId}/verify`, {
-        method: "POST",
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to verify document")
-      }
-
-      toast({
-        title: "Success",
-        description: "Document verified successfully",
-      })
-
-      // Refresh documents
-      fetchDocuments()
-    } catch (error) {
-      console.error("Error verifying document:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to verify document",
         variant: "destructive",
       })
     }
@@ -485,7 +444,6 @@ export default function ClientDocumentsPage() {
                 <tr className="border-b">
                   <th className="text-left p-4 font-medium text-sm">Document</th>
                   <th className="text-left p-4 font-medium text-sm">Category</th>
-                  <th className="text-left p-4 font-medium text-sm">Shared With</th>
                   <th className="text-left p-4 font-medium text-sm">Upload Date</th>
                   <th className="text-left p-4 font-medium text-sm">Status</th>
                   <th className="text-left p-4 font-medium text-sm">Actions</th>
@@ -502,27 +460,19 @@ export default function ClientDocumentsPage() {
                         <div>
                           <p className="font-medium">{doc.name}</p>
                           <p className="text-sm text-gray-500">
-                            {formatBytes(doc.fileSize)} • {doc.fileType.toUpperCase()}
+                            {formatBytes(doc.fileSize || 0)} • {(doc.fileType || doc.type || "Unknown").toUpperCase()}
                           </p>
                         </div>
                       </div>
                     </td>
                     <td className="p-4">{doc.category}</td>
                     <td className="p-4">
-                      {doc.sharedWith && doc.sharedWith.length > 0 ? (
-                        <div className="flex flex-col gap-1">
-                          {doc.sharedWith.map((user, index) => (
-                            <div key={index} className="flex items-center gap-1">
-                              <Mail className="h-3 w-3 text-gray-400" />
-                              <span className="text-sm">{user.email}</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-500">Not shared</span>
-                      )}
+                      {doc.uploadDate
+                        ? new Date(doc.uploadDate).toLocaleDateString()
+                        : doc.createdAt
+                          ? new Date(doc.createdAt).toLocaleDateString()
+                          : "Unknown date"}
                     </td>
-                    <td className="p-4">{doc.uploadDate}</td>
                     <td className="p-4">
                       <span
                         className={`px-2 py-1 text-xs rounded-full flex items-center w-fit ${
@@ -530,17 +480,21 @@ export default function ClientDocumentsPage() {
                             ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                             : doc.status === "Pending"
                               ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                              : doc.status === "Rejected"
+                                ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
                         }`}
                       >
                         {doc.status === "Verified" ? (
                           <CheckCircle2 className="h-3 w-3 mr-1" />
                         ) : doc.status === "Pending" ? (
                           <Clock className="h-3 w-3 mr-1" />
-                        ) : (
+                        ) : doc.status === "Rejected" ? (
                           <XCircle className="h-3 w-3 mr-1" />
+                        ) : (
+                          <Clock className="h-3 w-3 mr-1" />
                         )}
-                        {doc.status}
+                        {doc.status || "Pending"}
                       </span>
                     </td>
                     <td className="p-4">
@@ -561,15 +515,6 @@ export default function ClientDocumentsPage() {
                               <Download className="h-4 w-4 mr-2" />
                               Download
                             </DropdownMenuItem>
-                            {doc.status === "Pending" && (
-                              <DropdownMenuItem
-                                className="text-green-600 dark:text-green-400"
-                                onClick={() => handleVerifyDocument(doc.id)}
-                              >
-                                <CheckCircle2 className="h-4 w-4 mr-2" />
-                                Verify
-                              </DropdownMenuItem>
-                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-red-600 dark:text-red-400"
