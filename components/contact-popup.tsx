@@ -1,9 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { FileText, Mail, Phone, MessageSquare, X } from "lucide-react"
+import { FileText, Mail, Phone, MessageSquare } from "lucide-react"
 
 export function ContactPopup() {
   const [isOpen, setIsOpen] = useState(false)
@@ -37,14 +37,7 @@ export function ContactPopup() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold flex items-center">
-            <span className="flex-1">Contact Orizen Support</span>
-            <DialogClose asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogClose>
-          </DialogTitle>
+          <DialogTitle className="text-xl font-bold">Contact Orizen Support</DialogTitle>
         </DialogHeader>
 
         <div className="py-4">
