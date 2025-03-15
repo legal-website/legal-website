@@ -181,6 +181,8 @@ export default function ClientDocumentsPage() {
         return
       }
 
+      console.log("Selected file:", file.name, file.type, file.size)
+
       setUploadForm({
         ...uploadForm,
         file,
@@ -210,6 +212,8 @@ export default function ClientDocumentsPage() {
       formData.append("userId", uploadForm.userId)
       formData.append("file", uploadForm.file)
 
+      console.log("Uploading document:", uploadForm.name, "for user:", uploadForm.userId)
+
       const response = await fetch("/api/admin/documents/client/upload", {
         method: "POST",
         body: formData,
@@ -219,6 +223,9 @@ export default function ClientDocumentsPage() {
         const errorData = await response.json()
         throw new Error(errorData.error || "Failed to upload document")
       }
+
+      const data = await response.json()
+      console.log("Upload response:", data)
 
       // Reset form
       setUploadForm({

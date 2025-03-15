@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 
-// Add these interfaces at the top of the file, after the imports
+// Define interfaces for type safety
 interface DocumentSharingWithDetails {
   documentId: string
   sharedWithEmail: string
@@ -57,6 +57,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "User email not found" }, { status: 400 })
     }
 
+    console.log("Fetching documents for user:", userEmail)
+
     // Get user's business
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -81,6 +83,8 @@ export async function GET(req: NextRequest) {
         },
       },
     })
+
+    console.log(`Found ${documentSharing.length} shared documents`)
 
     // Get document IDs
     const documentIds = documentSharing.map((sharing: DocumentSharingWithDetails) => sharing.documentId)

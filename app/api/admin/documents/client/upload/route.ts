@@ -72,8 +72,12 @@ export async function POST(req: NextRequest) {
     // Get file type
     const fileType = file.name.split(".").pop()?.toLowerCase() || "unknown"
 
+    console.log("Uploading file to Cloudinary:", file.name, file.type, file.size)
+
     // Upload file to Cloudinary
     const fileUrl = await uploadToCloudinary(file)
+
+    console.log("Cloudinary upload successful, URL:", fileUrl)
 
     if (!fileUrl) {
       return NextResponse.json({ error: "Failed to upload file to storage" }, { status: 500 })
@@ -112,6 +116,28 @@ export async function POST(req: NextRequest) {
         details: `Uploaded by admin for ${user.email}`,
       },
     })
+
+    // Update business storage usage
+    const currentStorage = await prisma.businessStorage.findFirst({
+      where: { businessId: businessId as string },
+    })
+
+    if (currentStorage) {
+      await prisma.businessStorage.update({
+        where: { id: currentStorage.id },
+        data: {
+          totalStorageBytes: currentStorage.totalStorageBytes + file.size,
+        },
+      })
+    } else {
+      await prisma.businessStorage.create({
+        data: {
+          businessId: businessId as string,
+          totalStorageBytes: file.size,
+          storageLimit: 104857600, // 100MB default
+        },
+      })
+    }
 
     return NextResponse.json({
       success: true,

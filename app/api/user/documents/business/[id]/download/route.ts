@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma"
 import { getSignedUrl } from "@/lib/cloudinary"
 
 // GET /api/user/documents/business/[id]/download
-// Generate a download URL for a business document
+// Get a signed download URL for a document
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
@@ -16,38 +16,45 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     const userId = (session.user as any).id
     const userEmail = session.user.email
+    const documentId = params.id
 
     if (!userEmail) {
       return NextResponse.json({ error: "User email not found" }, { status: 400 })
     }
 
-    const documentId = params.id
+    console.log("Generating download URL for document:", documentId)
 
-    // Check if document exists and user has access to it
-    const documentSharing = await prisma.documentSharing.findFirst({
+    // Get the document
+    const document = await prisma.document.findUnique({
+      where: { id: documentId },
+    })
+
+    if (!document) {
+      return NextResponse.json({ error: "Document not found" }, { status: 404 })
+    }
+
+    // Check if document is shared with this user
+    const isSharedWithUser = await prisma.documentSharing.findFirst({
       where: {
         documentId,
         sharedWithEmail: userEmail,
       },
-      include: {
-        document: true,
-      },
     })
 
-    if (!documentSharing) {
-      return NextResponse.json({ error: "Document not found or access denied" }, { status: 404 })
+    if (!isSharedWithUser) {
+      return NextResponse.json({ error: "You don't have access to this document" }, { status: 403 })
     }
-
-    const document = documentSharing.document
 
     // Generate a signed URL for download (valid for 1 hour)
     const downloadUrl = getSignedUrl(document.fileUrl, 3600)
 
-    // Record download activity
+    console.log("Generated download URL:", downloadUrl)
+
+    // Create activity record
     await prisma.documentActivity.create({
       data: {
         action: "DOWNLOAD",
-        documentId: document.id,
+        documentId,
         userId,
         businessId: document.businessId,
         details: `Downloaded by ${userEmail}`,
@@ -57,7 +64,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({
       success: true,
       downloadUrl,
-      fileName: document.name,
     })
   } catch (error) {
     console.error("Error generating download URL:", error)
