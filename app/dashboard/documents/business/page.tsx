@@ -183,8 +183,41 @@ export default function BusinessDocumentsPage() {
         filename = `${filename}.${doc.type.toLowerCase()}`
       }
 
-      // Fetch the document as a blob
+      // Fetch the document
       const response = await fetch(`/api/user/documents/business/${doc.id}/download`)
+
+      // Check if the response is JSON (fallback) or a file
+      const contentType = response.headers.get("content-type")
+
+      if (contentType && contentType.includes("application/json")) {
+        // This is a JSON response - likely a fallback URL
+        const data = await response.json()
+
+        if (data.fallbackUrl) {
+          console.log("Using fallback URL for download:", data.fallbackUrl)
+
+          // Create a temporary link and trigger download
+          const link = window.document.createElement("a")
+          link.href = data.fallbackUrl
+          link.download = filename
+          link.target = "_blank" // Open in new tab to avoid CORS issues
+
+          window.document.body.appendChild(link)
+          link.click()
+
+          // Clean up
+          window.document.body.removeChild(link)
+
+          toast({
+            title: "Download Started",
+            description: "Your download should begin in a new tab. If it doesn't, please check your popup blocker.",
+          })
+
+          return
+        } else if (data.error) {
+          throw new Error(data.error)
+        }
+      }
 
       if (!response.ok) {
         // Try to parse error response as JSON
@@ -222,11 +255,34 @@ export default function BusinessDocumentsPage() {
       })
     } catch (error) {
       console.error("Error downloading document:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to download document",
-        variant: "destructive",
-      })
+
+      // Fallback: Try to open the document URL directly
+      try {
+        console.log("Attempting direct URL fallback for document:", doc.id)
+
+        // Create a temporary link and trigger download
+        const link = window.document.createElement("a")
+        link.href = doc.fileUrl
+        link.target = "_blank" // Open in new tab
+
+        window.document.body.appendChild(link)
+        link.click()
+
+        // Clean up
+        window.document.body.removeChild(link)
+
+        toast({
+          title: "Attempting Alternative Download",
+          description: "We're trying an alternative download method. Check your browser for a new tab.",
+        })
+      } catch (fallbackError) {
+        console.error("Fallback download also failed:", fallbackError)
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to download document",
+          variant: "destructive",
+        })
+      }
     } finally {
       setDownloadingId(null)
     }
