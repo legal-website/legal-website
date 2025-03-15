@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -10,9 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +28,6 @@ import {
   File,
   FileText,
   Search,
-  Upload,
   Trash2,
   Share2,
   Lock,
@@ -149,104 +145,6 @@ export default function BusinessDocumentsPage() {
       })
     } finally {
       setLoading(false)
-    }
-  }
-
-  // Handle file selection
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]
-
-      // Check file size (max 10MB per file)
-      if (file.size > 10 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Maximum file size is 10MB",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Check if adding this file would exceed storage limit
-      if (storageInfo.used + file.size > storageInfo.limit) {
-        toast({
-          title: "Storage limit exceeded",
-          description: "You don't have enough storage space. Please delete some files first.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      setUploadForm({
-        ...uploadForm,
-        file,
-      })
-    }
-  }
-
-  // Handle document upload
-  const handleUpload = async () => {
-    if (!uploadForm.file || !uploadForm.name || !uploadForm.category) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in all required fields and select a file",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      setUploading(true)
-
-      // Create form data
-      const formData = new FormData()
-      formData.append("name", uploadForm.name)
-      formData.append("description", uploadForm.description)
-      formData.append("category", uploadForm.category)
-      formData.append("isPermanent", uploadForm.isPermanent.toString())
-      formData.append("file", uploadForm.file)
-
-      const response = await fetch("/api/user/documents/business/upload", {
-        method: "POST",
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || "Failed to upload document")
-      }
-
-      // Reset form
-      setUploadForm({
-        name: "",
-        description: "",
-        category: "Formation",
-        file: null,
-        isPermanent: false,
-      })
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
-
-      setShowUploadDialog(false)
-
-      toast({
-        title: "Success",
-        description: "Document uploaded successfully",
-      })
-
-      // Refresh documents
-      fetchDocuments()
-    } catch (error) {
-      console.error("Error uploading document:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to upload document",
-        variant: "destructive",
-      })
-    } finally {
-      setUploading(false)
     }
   }
 
@@ -413,100 +311,6 @@ export default function BusinessDocumentsPage() {
             <div className="p-6 border-b">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <h2 className="text-xl font-semibold">Document Library</h2>
-                <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload Document
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Upload New Document</DialogTitle>
-                    </DialogHeader>
-                    <form className="space-y-4 mt-4">
-                      <div>
-                        <Label htmlFor="doc-name">Document Name*</Label>
-                        <Input
-                          id="doc-name"
-                          placeholder="Enter document name"
-                          value={uploadForm.name}
-                          onChange={(e) => setUploadForm({ ...uploadForm, name: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="doc-description">Description (Optional)</Label>
-                        <Textarea
-                          id="doc-description"
-                          placeholder="Enter document description"
-                          value={uploadForm.description}
-                          onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="doc-category">Category*</Label>
-                        <Select
-                          value={uploadForm.category}
-                          onValueChange={(value) => setUploadForm({ ...uploadForm, category: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories
-                              .filter((c) => c !== "All")
-                              .map((category) => (
-                                <SelectItem key={category} value={category}>
-                                  {category}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="doc-file">File*</Label>
-                        <Input id="doc-file" type="file" ref={fileInputRef} onChange={handleFileChange} required />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Maximum file size: 10MB. Supported formats: PDF, DOCX, XLSX, JPG, PNG
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="is-permanent"
-                          checked={uploadForm.isPermanent}
-                          onCheckedChange={(checked) => setUploadForm({ ...uploadForm, isPermanent: checked === true })}
-                        />
-                        <Label
-                          htmlFor="is-permanent"
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          Mark as permanent document (cannot be deleted)
-                        </Label>
-                      </div>
-                      <DialogFooter>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setShowUploadDialog(false)}
-                          disabled={uploading}
-                        >
-                          Cancel
-                        </Button>
-                        <Button type="button" onClick={handleUpload} disabled={uploading}>
-                          {uploading ? (
-                            <>
-                              <span className="animate-spin mr-2">⏳</span>
-                              Uploading...
-                            </>
-                          ) : (
-                            "Upload"
-                          )}
-                        </Button>
-                      </DialogFooter>
-                    </form>
-                  </DialogContent>
-                </Dialog>
               </div>
             </div>
 
