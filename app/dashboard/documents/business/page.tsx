@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/components/ui/use-toast"
-import { AlertCircle, Clock, Download, File, FileText, Search, RefreshCcw } from "lucide-react"
+import { AlertCircle, Clock, Download, File, FileText, Search, RefreshCcw, Upload } from "lucide-react"
 import type { Document, StorageInfo } from "@/types/document"
 
 export default function BusinessDocumentsPage() {
@@ -58,7 +58,12 @@ export default function BusinessDocumentsPage() {
       const data = await response.json()
       console.log("Received documents data:", data)
 
-      setDocuments(data.documents || [])
+      // Filter out templates only, but keep admin-uploaded documents
+      const filteredDocuments = data.documents.filter(
+        (doc: Document) => doc.type !== "template" && doc.fileType !== "template",
+      )
+
+      setDocuments(filteredDocuments || [])
 
       // Update storage info
       if (data.storage) {
@@ -164,12 +169,23 @@ export default function BusinessDocumentsPage() {
             <div className="p-6 border-b">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <h2 className="text-xl font-semibold">Document Library</h2>
-                {error && (
-                  <Button variant="outline" size="sm" onClick={fetchDocuments} className="flex items-center gap-2">
-                    <RefreshCcw className="h-4 w-4" />
-                    Retry
+                <div className="flex gap-2">
+                  {error && (
+                    <Button variant="outline" size="sm" onClick={fetchDocuments} className="flex items-center gap-2">
+                      <RefreshCcw className="h-4 w-4" />
+                      Retry
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                    onClick={() => router.push("/dashboard/documents/upload")}
+                  >
+                    <Upload className="h-4 w-4" />
+                    Upload Document
                   </Button>
-                )}
+                </div>
               </div>
             </div>
 
@@ -266,7 +282,17 @@ export default function BusinessDocumentsPage() {
                 <div className="text-center py-8">
                   <File className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <h3 className="text-lg font-medium text-gray-900">No documents found</h3>
-                  <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
+                  <p className="text-gray-500 mt-1">
+                    {searchTerm || selectedCategory !== "All"
+                      ? "Try adjusting your search or filters"
+                      : "No documents available yet"}
+                  </p>
+                  {!searchTerm && selectedCategory === "All" && (
+                    <Button className="mt-4" onClick={() => router.push("/dashboard/documents/upload")}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Document
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

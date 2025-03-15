@@ -13,6 +13,7 @@ export interface Document {
   lastModified?: string
   updatedAt: Date
   businessId: string
+  uploadedByAdmin?: boolean
   sharedWith?: {
     email: string
     sharedAt: string
