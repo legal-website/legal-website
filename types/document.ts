@@ -1,4 +1,5 @@
 export interface Document {
+  isPermanent: any
   size: any
   id: string
   name: string

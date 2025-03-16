@@ -108,6 +108,7 @@ export default function ClientDocumentsPage() {
     category: "Formation",
     file: null as File | null,
     userId: "",
+    isPermanent: false,
   })
 
   const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
@@ -270,6 +271,7 @@ export default function ClientDocumentsPage() {
       formData.append("description", uploadForm.description)
       formData.append("category", uploadForm.category)
       formData.append("userId", uploadForm.userId)
+      formData.append("isPermanent", uploadForm.isPermanent.toString())
       formData.append("file", uploadForm.file)
 
       console.log("Uploading document:", uploadForm.name, "for user:", uploadForm.userId)
@@ -294,6 +296,7 @@ export default function ClientDocumentsPage() {
         category: "Formation",
         file: null,
         userId: "",
+        isPermanent: false,
       })
 
       if (fileInputRef.current) {
@@ -656,7 +659,15 @@ export default function ClientDocumentsPage() {
                           />
                         </div>
                         <div>
-                          <p className="font-medium">{doc.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{doc.name}</p>
+                            {doc.isPermanent && (
+                              <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 flex items-center">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Permanent
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-500">
                             {formatBytes(doc.fileSize || 0)} • {(doc.fileType || doc.type || "Unknown").toUpperCase()}
                           </p>
@@ -799,7 +810,7 @@ export default function ClientDocumentsPage() {
 
       {/* Upload Document Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-[95vw]">
           <DialogHeader>
             <DialogTitle>Upload Document</DialogTitle>
           </DialogHeader>
@@ -845,6 +856,19 @@ export default function ClientDocumentsPage() {
                 value={uploadForm.description}
                 onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
               />
+            </div>
+
+            <div className="grid grid-cols-1 items-center gap-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="document-permanent"
+                  checked={uploadForm.isPermanent}
+                  onCheckedChange={(checked) => setUploadForm({ ...uploadForm, isPermanent: checked === true })}
+                />
+                <Label htmlFor="document-permanent" className="text-sm font-medium">
+                  Document is permanent
+                </Label>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 items-center gap-2">
