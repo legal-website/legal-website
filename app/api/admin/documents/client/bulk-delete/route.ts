@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma"
 
 type DocumentWithIdAndBusiness = {
   id: string
-  businessId: string
+  businessId: string | null // Make businessId nullable since it might be null
 }
 
 // POST /api/admin/documents/client/bulk-delete
@@ -28,11 +28,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Get document IDs from request body
-    const { documentIds } = await req.json()
+    const body = await req.json()
+    const { documentIds } = body
 
     if (!Array.isArray(documentIds) || documentIds.length === 0) {
       return NextResponse.json({ error: "No document IDs provided" }, { status: 400 })
     }
+
+    console.log("Deleting documents with IDs:", documentIds)
 
     // Get the documents to verify they exist and to log activity
     const documents = await prisma.document.findMany({
@@ -44,34 +47,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No documents found with the provided IDs" }, { status: 404 })
     }
 
-    // Create activity records for each document
-    const activityRecords = documents.map((doc: DocumentWithIdAndBusiness) => ({
-      action: "DELETE",
-      documentId: doc.id,
-      userId: user.id,
-      businessId: doc.businessId,
-      details: "Deleted by admin (bulk delete)",
-    }))
+    console.log("Found documents to delete:", documents.length)
 
-    // Create all activity records
-    await prisma.documentActivity.createMany({
-      data: activityRecords,
-    })
+    try {
+      // Create activity records for each document
+      for (const doc of documents) {
+        await prisma.documentActivity.create({
+          data: {
+            action: "DELETE",
+            documentId: doc.id,
+            userId: user.id,
+            businessId: doc.businessId || undefined,
+            details: "Deleted by admin (bulk delete)",
+          },
+        })
+      }
 
-    // Delete all documents
-    const deleteResult = await prisma.document.deleteMany({
-      where: { id: { in: documentIds } },
-    })
+      // Delete all documents
+      const deleteResult = await prisma.document.deleteMany({
+        where: { id: { in: documentIds } },
+      })
 
-    return NextResponse.json({
-      success: true,
-      deletedCount: deleteResult.count,
-    })
+      console.log("Delete result:", deleteResult)
+
+      return NextResponse.json({
+        success: true,
+        deletedCount: deleteResult.count,
+      })
+    } catch (innerError) {
+      console.error("Error in database operations:", innerError)
+      return NextResponse.json(
+        {
+          error: "Database operation failed",
+          details: innerError instanceof Error ? innerError.message : "Unknown error",
+        },
+        { status: 500 },
+      )
+    }
   } catch (error) {
-    console.error("Error deleting documents:", error)
+    console.error("Error in bulk delete route:", error)
     return NextResponse.json(
       {
-        error: "Failed to delete documents",
+        error: "Failed to process request",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },

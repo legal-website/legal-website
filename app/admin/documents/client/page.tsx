@@ -341,12 +341,12 @@ export default function ClientDocumentsPage() {
         method: "DELETE",
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to delete document")
+        throw new Error(data.error || "Failed to delete document")
       }
 
-      const data = await response.json()
       console.log("Delete response:", data)
 
       toast({
@@ -381,6 +381,7 @@ export default function ClientDocumentsPage() {
       console.log(`Deleting ${selectedDocuments.size} documents`)
 
       const documentIds = Array.from(selectedDocuments)
+      console.log("Document IDs to delete:", documentIds)
 
       const response = await fetch(`/api/admin/documents/client/bulk-delete`, {
         method: "POST",
@@ -390,12 +391,12 @@ export default function ClientDocumentsPage() {
         body: JSON.stringify({ documentIds }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to delete documents")
+        throw new Error(data.error || "Failed to delete documents")
       }
 
-      const data = await response.json()
       console.log("Bulk delete response:", data)
 
       toast({
