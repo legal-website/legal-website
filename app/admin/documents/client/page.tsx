@@ -123,7 +123,7 @@ export default function ClientDocumentsPage() {
   }
 
   // Format bytes to human readable format
-  const formatBytes = (bytes: number, decimals = 2) => {
+  const formatBytes = (bytes: number | undefined, decimals = 2) => {
     if (!bytes || bytes === 0) return "0 Bytes"
 
     const k = 1024

@@ -3,11 +3,6 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 
-type DocumentWithIdAndBusiness = {
-  id: string
-  businessId: string | null // Make businessId nullable since it might be null
-}
-
 // POST /api/admin/documents/client/bulk-delete
 // Delete multiple documents at once (admin access)
 export async function POST(req: NextRequest) {
@@ -37,10 +32,10 @@ export async function POST(req: NextRequest) {
 
     console.log("Deleting documents with IDs:", documentIds)
 
-    // Get the documents to verify they exist and to log activity
+    // Get the documents to verify they exist
     const documents = await prisma.document.findMany({
       where: { id: { in: documentIds } },
-      select: { id: true, businessId: true },
+      select: { id: true, businessId: true, name: true },
     })
 
     if (documents.length === 0) {
@@ -50,19 +45,6 @@ export async function POST(req: NextRequest) {
     console.log("Found documents to delete:", documents.length)
 
     try {
-      // Create activity records for each document
-      for (const doc of documents) {
-        await prisma.documentActivity.create({
-          data: {
-            action: "DELETE",
-            documentId: doc.id,
-            userId: user.id,
-            businessId: doc.businessId || undefined,
-            details: "Deleted by admin (bulk delete)",
-          },
-        })
-      }
-
       // Delete all documents
       const deleteResult = await prisma.document.deleteMany({
         where: { id: { in: documentIds } },
@@ -73,6 +55,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         deletedCount: deleteResult.count,
+        message: `Successfully deleted ${deleteResult.count} documents`,
       })
     } catch (innerError) {
       console.error("Error in database operations:", innerError)

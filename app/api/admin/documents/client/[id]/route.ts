@@ -25,7 +25,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     const documentId = params.id
     console.log("Deleting document with ID:", documentId)
 
-    // Get the document to verify it exists and to log activity
+    // Get the document to verify it exists
     const document = await prisma.document.findUnique({
       where: { id: documentId },
     })
@@ -37,17 +37,6 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     console.log("Found document to delete:", document.id)
 
     try {
-      // Create activity record
-      await prisma.documentActivity.create({
-        data: {
-          action: "DELETE",
-          documentId,
-          userId: user.id,
-          businessId: document.businessId || undefined,
-          details: "Deleted by admin",
-        },
-      })
-
       // Delete the document
       await prisma.document.delete({
         where: { id: documentId },
