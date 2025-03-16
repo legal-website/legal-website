@@ -28,6 +28,16 @@ export default function BusinessDocumentsPage() {
 
   const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
 
+  // Helper function to check if a document is a template
+  const isTemplate = (doc: Document): boolean => {
+    // Check various conditions that might indicate a template
+    const typeCheck = doc.type.toLowerCase().includes("template")
+    const nameCheck = doc.name.toLowerCase().includes("template")
+
+    // Return true if any condition is met
+    return typeCheck || nameCheck
+  }
+
   // Format bytes to human readable format
   const formatBytes = (bytes: number, decimals = 2) => {
     if (bytes === 0) return "0 Bytes"
@@ -39,6 +49,26 @@ export default function BusinessDocumentsPage() {
     const i = Math.floor(Math.log(bytes) / Math.log(k))
 
     return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
+  }
+
+  // Get category badge color
+  const getCategoryColor = (category: string): string => {
+    switch (category.toLowerCase()) {
+      case "formation":
+        return "bg-blue-100 text-blue-800"
+      case "tax":
+        return "bg-green-100 text-green-800"
+      case "compliance":
+        return "bg-purple-100 text-purple-800"
+      case "licenses":
+        return "bg-amber-100 text-amber-800"
+      case "financial":
+        return "bg-indigo-100 text-indigo-800"
+      case "hr":
+        return "bg-pink-100 text-pink-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
   }
 
   // Fetch documents and storage info
@@ -58,7 +88,13 @@ export default function BusinessDocumentsPage() {
       const data = await response.json()
       console.log("Received documents data:", data)
 
-      setDocuments(data.documents || [])
+      // Filter out templates using our isTemplate helper function
+      const nonTemplateDocuments = data.documents.filter((doc: Document) => !isTemplate(doc))
+
+      console.log(`Filtered out ${data.documents.length - nonTemplateDocuments.length} templates`)
+      console.log(`Remaining documents: ${nonTemplateDocuments.length}`)
+
+      setDocuments(nonTemplateDocuments || [])
 
       // Update storage info
       if (data.storage) {
@@ -129,9 +165,7 @@ export default function BusinessDocumentsPage() {
 
   // Filter documents based on search and category
   const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch =
-      doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (doc.description || "").toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === "All" || doc.category === selectedCategory
 
     return matchesSearch && matchesCategory
@@ -222,21 +256,21 @@ export default function BusinessDocumentsPage() {
                           <FileText className="h-5 w-5 text-blue-600" />
                         </div>
                         <div>
-                          <p className="font-medium">{doc.name}</p>
-                          <div className="flex items-center gap-3 text-sm text-gray-500">
-                            <span>{(doc.fileType || doc.type || "Unknown").toUpperCase()}</span>
-                            <span>•</span>
-                            <span>{formatBytes(doc.fileSize || 0)}</span>
-                            <span>•</span>
-                            <span>
-                              {doc.uploadDate
-                                ? new Date(doc.uploadDate).toLocaleDateString()
-                                : doc.createdAt
-                                  ? new Date(doc.createdAt).toLocaleDateString()
-                                  : "Unknown date"}
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-medium">{doc.name}</p>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${getCategoryColor(doc.category)}`}>
+                              {doc.category}
                             </span>
                           </div>
-                          {doc.description && <p className="text-sm text-gray-500 mt-1">{doc.description}</p>}
+                          <div className="flex items-center gap-3 text-sm text-gray-500">
+                            <span>{doc.type.toUpperCase()}</span>
+                            <span>•</span>
+                            <span>
+                              {doc.createdAt instanceof Date
+                                ? doc.createdAt.toLocaleDateString()
+                                : new Date(doc.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -266,7 +300,11 @@ export default function BusinessDocumentsPage() {
                 <div className="text-center py-8">
                   <File className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <h3 className="text-lg font-medium text-gray-900">No documents found</h3>
-                  <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
+                  <p className="text-gray-500 mt-1">
+                    {searchTerm || selectedCategory !== "All"
+                      ? "Try adjusting your search or filters"
+                      : "No documents have been uploaded by your account manager yet"}
+                  </p>
                 </div>
               )}
             </div>
