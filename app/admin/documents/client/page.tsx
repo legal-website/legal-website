@@ -1,9 +1,9 @@
 "use client"
 
-import React from "react"
-import type { Document } from "@/types/document"
+import type React from "react"
 
-import { useState, useEffect, useRef } from "react"
+import type { Document } from "@/types/document"
+import { Fragment, useState, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
@@ -40,7 +41,10 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
+  Loader2,
+  Trash,
 } from "lucide-react"
+import { FileTypeIcon } from "@/components/file-type-icon"
 
 interface User {
   id: string
@@ -81,6 +85,11 @@ export default function ClientDocumentsPage() {
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false)
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // Bulk selection states
+  const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set())
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
@@ -124,6 +133,22 @@ export default function ClientDocumentsPage() {
     const i = Math.floor(Math.log(bytes) / Math.log(k))
 
     return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
+  }
+
+  // Get file extension from name or type
+  const getFileExtension = (doc: Document): string => {
+    if (doc.fileType) {
+      return doc.fileType.toLowerCase().replace("application/", "").replace("image/", "")
+    }
+
+    if (doc.name) {
+      const parts = doc.name.split(".")
+      if (parts.length > 1) {
+        return parts[parts.length - 1].toLowerCase()
+      }
+    }
+
+    return "unknown"
   }
 
   // Fetch documents
@@ -347,6 +372,78 @@ export default function ClientDocumentsPage() {
     }
   }
 
+  // Handle bulk document deletion
+  const handleBulkDelete = async () => {
+    if (selectedDocuments.size === 0) return
+
+    try {
+      setBulkDeleting(true)
+      console.log(`Deleting ${selectedDocuments.size} documents`)
+
+      const documentIds = Array.from(selectedDocuments)
+
+      const response = await fetch(`/api/admin/documents/client/bulk-delete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ documentIds }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete documents")
+      }
+
+      const data = await response.json()
+      console.log("Bulk delete response:", data)
+
+      toast({
+        title: "Success",
+        description: `${selectedDocuments.size} documents deleted successfully`,
+      })
+
+      // Close the dialog and clear selections
+      setShowBulkDeleteConfirm(false)
+      setSelectedDocuments(new Set())
+
+      // Refresh documents
+      fetchDocuments()
+    } catch (error) {
+      console.error("Error deleting documents:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete documents",
+        variant: "destructive",
+      })
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
+
+  // Handle document selection for bulk actions
+  const toggleDocumentSelection = (docId: string) => {
+    const newSelection = new Set(selectedDocuments)
+    if (newSelection.has(docId)) {
+      newSelection.delete(docId)
+    } else {
+      newSelection.add(docId)
+    }
+    setSelectedDocuments(newSelection)
+  }
+
+  // Select/deselect all documents
+  const toggleSelectAll = () => {
+    if (selectedDocuments.size === filteredDocuments.length) {
+      // Deselect all
+      setSelectedDocuments(new Set())
+    } else {
+      // Select all
+      const allIds = filteredDocuments.map((doc) => doc.id)
+      setSelectedDocuments(new Set(allIds))
+    }
+  }
+
   // Handle document download
   const handleDownload = async (document: Document) => {
     try {
@@ -412,9 +509,15 @@ export default function ClientDocumentsPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="p-6 text-center">
-        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-        <p>Loading documents...</p>
+      <div className="p-6 flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="relative w-20 h-20">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Loader2 className="w-10 h-10 text-purple-500 animate-spin" />
+          </div>
+          <div className="absolute inset-0 border-t-4 border-purple-500 rounded-full animate-pulse opacity-75"></div>
+        </div>
+        <p className="mt-4 text-lg font-medium text-gray-700 dark:text-gray-300">Loading documents...</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Please wait while we fetch your documents</p>
       </div>
     )
   }
@@ -428,6 +531,17 @@ export default function ClientDocumentsPage() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage all client documents in the system</p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
+          {selectedDocuments.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="flex items-center"
+              onClick={() => setShowBulkDeleteConfirm(true)}
+            >
+              <Trash className="mr-2 h-4 w-4" />
+              Delete Selected ({selectedDocuments.size})
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="flex items-center">
             <Download className="mr-2 h-4 w-4" />
             Export
@@ -506,6 +620,13 @@ export default function ClientDocumentsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b">
+                  <th className="p-4 w-10">
+                    <Checkbox
+                      checked={selectedDocuments.size === filteredDocuments.length && filteredDocuments.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all documents"
+                    />
+                  </th>
                   <th className="text-left p-4 font-medium text-sm">Document</th>
                   <th className="text-left p-4 font-medium text-sm">Category</th>
                   <th className="text-left p-4 font-medium text-sm">Upload Date</th>
@@ -517,9 +638,21 @@ export default function ClientDocumentsPage() {
                 {filteredDocuments.map((doc: Document) => (
                   <tr key={doc.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
                     <td className="p-4">
+                      <Checkbox
+                        checked={selectedDocuments.has(doc.id)}
+                        onCheckedChange={() => toggleDocumentSelection(doc.id)}
+                        aria-label={`Select ${doc.name}`}
+                      />
+                    </td>
+                    <td className="p-4">
                       <div className="flex items-center">
                         <div className="w-10 h-10 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
-                          <FileText className="h-5 w-5 text-gray-500" />
+                          <FileTypeIcon
+                            fileType={doc.fileType}
+                            fileName={doc.name}
+                            size={20}
+                            className="text-gray-500"
+                          />
                         </div>
                         <div>
                           <p className="font-medium">{doc.name}</p>
@@ -637,7 +770,7 @@ export default function ClientDocumentsPage() {
                   const showEllipsisAfter = index < array.length - 1 && array[index + 1] !== page + 1
 
                   return (
-                    <React.Fragment key={page}>
+                    <Fragment key={page}>
                       {showEllipsisBefore && <span className="px-2">...</span>}
                       <Button
                         variant={pagination.page === page ? "default" : "outline"}
@@ -647,7 +780,7 @@ export default function ClientDocumentsPage() {
                         {page}
                       </Button>
                       {showEllipsisAfter && <span className="px-2">...</span>}
-                    </React.Fragment>
+                    </Fragment>
                   )
                 })}
               <Button
@@ -796,7 +929,12 @@ export default function ClientDocumentsPage() {
                 </Button>
                 {uploadForm.file && (
                   <div className="mt-4 text-left p-2 bg-gray-50 rounded flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-gray-500" />
+                    <FileTypeIcon
+                      fileType={uploadForm.file.type}
+                      fileName={uploadForm.file.name}
+                      size={16}
+                      className="text-gray-500"
+                    />
                     <span className="text-sm truncate">{uploadForm.file.name}</span>
                     <span className="text-xs text-gray-500">({formatBytes(uploadForm.file.size)})</span>
                   </div>
@@ -812,7 +950,7 @@ export default function ClientDocumentsPage() {
             <Button onClick={handleUpload} disabled={uploading}>
               {uploading ? (
                 <>
-                  <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2"></div>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Uploading...
                 </>
               ) : (
@@ -858,11 +996,60 @@ export default function ClientDocumentsPage() {
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
               {deleting ? (
                 <>
-                  <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2"></div>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Deleting...
                 </>
               ) : (
                 "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Confirm Bulk Deletion
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>Are you sure you want to delete {selectedDocuments.size} selected documents?</p>
+            <div className="mt-2 p-3 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
+              <ul className="space-y-1">
+                {Array.from(selectedDocuments).map((id) => {
+                  const doc = documents.find((d) => d.id === id)
+                  return doc ? (
+                    <li key={id} className="text-sm flex items-center gap-2">
+                      <FileTypeIcon
+                        fileType={doc.fileType}
+                        fileName={doc.name}
+                        size={14}
+                        className="text-gray-500 flex-shrink-0"
+                      />
+                      <span className="truncate">{doc.name}</span>
+                    </li>
+                  ) : null
+                })}
+              </ul>
+            </div>
+            <p className="mt-4 text-sm text-red-500">This action cannot be undone.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkDeleteConfirm(false)} disabled={bulkDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleting}>
+              {bulkDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete All Selected"
               )}
             </Button>
           </DialogFooter>
