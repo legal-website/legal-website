@@ -39,9 +39,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get all documents
+    // Get URL parameters for pagination
+    const url = new URL(req.url)
+    const page = Number.parseInt(url.searchParams.get("page") || "1")
+    const limit = Number.parseInt(url.searchParams.get("limit") || "10")
+    const skip = (page - 1) * limit
+
+    // Get total count for pagination
+    const totalCount = await prisma.document.count()
+
+    // Get documents with pagination
     const documents = await prisma.document.findMany({
       orderBy: { updatedAt: "desc" },
+      skip,
+      take: limit,
       include: {
         business: {
           select: {
@@ -53,6 +64,16 @@ export async function GET(req: NextRequest) {
 
     // Format documents
     const formattedDocuments = documents.map((doc: PrismaDocument) => {
+      // Try to parse the size as a number, or use a default value
+      let fileSize = 0
+      if (doc.size) {
+        try {
+          fileSize = Number.parseInt(doc.size, 10)
+        } catch (e) {
+          console.error("Error parsing file size:", e)
+        }
+      }
+
       return {
         id: doc.id,
         name: doc.name,
@@ -61,7 +82,7 @@ export async function GET(req: NextRequest) {
         fileUrl: doc.fileUrl,
         fileType: doc.type,
         type: doc.type,
-        fileSize: doc.size ? Number.parseInt(doc.size, 10) : 0,
+        fileSize: fileSize,
         status: "Verified", // Default status for now
         uploadDate: doc.createdAt.toISOString(),
         createdAt: doc.createdAt.toISOString(),
@@ -74,6 +95,12 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       documents: formattedDocuments,
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        pages: Math.ceil(totalCount / limit),
+      },
     })
   } catch (error) {
     console.error("Error fetching client documents:", error)

@@ -33,37 +33,26 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       return NextResponse.json({ error: "Document not found" }, { status: 404 })
     }
 
-    // Delete document sharing records
-    await prisma.documentSharing.deleteMany({
-      where: { documentId },
-    })
-
-    // Delete document activities
-    await prisma.documentActivity.deleteMany({
-      where: { documentId },
-    })
-
     // Delete document
     await prisma.document.delete({
       where: { id: documentId },
     })
 
-    // Create activity record for deletion
-    await prisma.documentActivity.create({
-      data: {
-        action: "DELETE",
-        userId: user.id,
-        businessId: document.businessId,
-        details: `Document "${document.name}" deleted by admin`,
-      },
-    })
+    console.log(`Document ${documentId} deleted successfully`)
 
     return NextResponse.json({
       success: true,
+      message: "Document deleted successfully",
     })
   } catch (error) {
     console.error("Error deleting document:", error)
-    return NextResponse.json({ error: "Failed to delete document" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to delete document",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
 

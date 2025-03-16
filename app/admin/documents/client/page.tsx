@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 import type { Document } from "@/types/document"
 
 import { useState, useEffect, useRef } from "react"
@@ -37,6 +37,9 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
 } from "lucide-react"
 
 interface User {
@@ -47,6 +50,13 @@ interface User {
     id: string
     name: string
   } | null
+}
+
+interface PaginationData {
+  total: number
+  page: number
+  limit: number
+  pages: number
 }
 
 export default function ClientDocumentsPage() {
@@ -68,6 +78,19 @@ export default function ClientDocumentsPage() {
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [searchUserQuery, setSearchUserQuery] = useState("")
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false)
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [pagination, setPagination] = useState<PaginationData>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    pages: 1,
+  })
 
   // Form states
   const [uploadForm, setUploadForm] = useState({
@@ -92,7 +115,7 @@ export default function ClientDocumentsPage() {
 
   // Format bytes to human readable format
   const formatBytes = (bytes: number, decimals = 2) => {
-    if (bytes === 0) return "0 Bytes"
+    if (!bytes || bytes === 0) return "0 Bytes"
 
     const k = 1024
     const dm = decimals < 0 ? 0 : decimals
@@ -104,13 +127,13 @@ export default function ClientDocumentsPage() {
   }
 
   // Fetch documents
-  const fetchDocuments = async () => {
+  const fetchDocuments = async (page = currentPage, limit = itemsPerPage) => {
     try {
       setLoading(true)
       setError(null)
 
-      console.log("Fetching client documents")
-      const response = await fetch("/api/admin/documents/client")
+      console.log(`Fetching client documents (page ${page}, limit ${limit})`)
+      const response = await fetch(`/api/admin/documents/client?page=${page}&limit=${limit}`)
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -124,6 +147,11 @@ export default function ClientDocumentsPage() {
         // Filter out templates
         const nonTemplateDocuments = data.documents.filter((doc: Document) => !isTemplate(doc))
         setDocuments(nonTemplateDocuments)
+
+        // Set pagination data
+        if (data.pagination) {
+          setPagination(data.pagination)
+        }
       } else {
         console.error("Invalid documents data format:", data)
         setError("Invalid data format received from server")
@@ -139,6 +167,13 @@ export default function ClientDocumentsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > pagination.pages) return
+    setCurrentPage(newPage)
+    fetchDocuments(newPage, itemsPerPage)
   }
 
   // Search users
@@ -263,10 +298,21 @@ export default function ClientDocumentsPage() {
     }
   }
 
+  // Confirm document deletion
+  const confirmDelete = (doc: Document) => {
+    setDocumentToDelete(doc)
+    setShowDeleteConfirmDialog(true)
+  }
+
   // Handle document deletion
-  const handleDelete = async (documentId: string) => {
+  const handleDelete = async () => {
+    if (!documentToDelete) return
+
     try {
-      const response = await fetch(`/api/admin/documents/client/${documentId}`, {
+      setDeleting(true)
+      console.log("Deleting document:", documentToDelete.id)
+
+      const response = await fetch(`/api/admin/documents/client/${documentToDelete.id}`, {
         method: "DELETE",
       })
 
@@ -275,10 +321,17 @@ export default function ClientDocumentsPage() {
         throw new Error(errorData.error || "Failed to delete document")
       }
 
+      const data = await response.json()
+      console.log("Delete response:", data)
+
       toast({
         title: "Success",
         description: "Document deleted successfully",
       })
+
+      // Close the dialog
+      setShowDeleteConfirmDialog(false)
+      setDocumentToDelete(null)
 
       // Refresh documents
       fetchDocuments()
@@ -289,6 +342,8 @@ export default function ClientDocumentsPage() {
         description: error instanceof Error ? error.message : "Failed to delete document",
         variant: "destructive",
       })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -348,7 +403,7 @@ export default function ClientDocumentsPage() {
           variant: "destructive",
         })
       } else {
-        fetchDocuments()
+        fetchDocuments(currentPage, itemsPerPage)
       }
     } else if (status === "unauthenticated") {
       router.push("/login?callbackUrl=/admin/documents/client")
@@ -429,7 +484,7 @@ export default function ClientDocumentsPage() {
             More Filters
           </Button>
           {error && (
-            <Button variant="outline" onClick={fetchDocuments}>
+            <Button variant="outline" onClick={() => fetchDocuments()}>
               <RefreshCcw className="mr-2 h-4 w-4" />
               Retry
             </Button>
@@ -445,7 +500,7 @@ export default function ClientDocumentsPage() {
               <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
               <h3 className="text-lg font-medium mb-2">Error Loading Documents</h3>
               <p className="text-gray-500 dark:text-gray-400 mb-4">{error}</p>
-              <Button onClick={fetchDocuments}>Try Again</Button>
+              <Button onClick={() => fetchDocuments()}>Try Again</Button>
             </div>
           ) : filteredDocuments.length > 0 ? (
             <table className="w-full">
@@ -527,7 +582,7 @@ export default function ClientDocumentsPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-red-600 dark:text-red-400"
-                              onClick={() => handleDelete(doc.id)}
+                              onClick={() => confirmDelete(doc)}
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete
@@ -550,6 +605,62 @@ export default function ClientDocumentsPage() {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {pagination.pages > 1 && (
+          <div className="flex items-center justify-between px-4 py-4 border-t">
+            <div className="text-sm text-gray-500">
+              Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
+              {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} documents
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={pagination.page === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {Array.from({ length: pagination.pages }, (_, i) => i + 1)
+                .filter((page) => {
+                  // Show first page, last page, current page, and pages around current page
+                  return (
+                    page === 1 ||
+                    page === pagination.pages ||
+                    (page >= pagination.page - 1 && page <= pagination.page + 1)
+                  )
+                })
+                .map((page, index, array) => {
+                  // Add ellipsis if there are gaps
+                  const showEllipsisBefore = index > 0 && array[index - 1] !== page - 1
+                  const showEllipsisAfter = index < array.length - 1 && array[index + 1] !== page + 1
+
+                  return (
+                    <React.Fragment key={page}>
+                      {showEllipsisBefore && <span className="px-2">...</span>}
+                      <Button
+                        variant={pagination.page === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(page)}
+                      >
+                        {page}
+                      </Button>
+                      {showEllipsisAfter && <span className="px-2">...</span>}
+                    </React.Fragment>
+                  )
+                })}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={pagination.page === pagination.pages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Upload Document Dialog */}
@@ -706,6 +817,52 @@ export default function ClientDocumentsPage() {
                 </>
               ) : (
                 "Upload Document"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Confirm Deletion
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>Are you sure you want to delete this document?</p>
+            {documentToDelete && (
+              <div className="mt-2 p-3 bg-gray-50 rounded-md">
+                <p className="font-medium">{documentToDelete.name}</p>
+                <p className="text-sm text-gray-500">
+                  {documentToDelete.category} • {formatBytes(documentToDelete.fileSize || 0)}
+                </p>
+              </div>
+            )}
+            <p className="mt-4 text-sm text-red-500">This action cannot be undone.</p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteConfirmDialog(false)
+                setDocumentToDelete(null)
+              }}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? (
+                <>
+                  <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2"></div>
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
               )}
             </Button>
           </DialogFooter>
