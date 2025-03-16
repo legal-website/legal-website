@@ -9,22 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/components/ui/use-toast"
-import {
-  AlertCircle,
-  Clock,
-  Download,
-  File,
-  FileText,
-  Search,
-  RefreshCcw,
-  Tag,
-  ChevronLeft,
-  ChevronRight,
-  HardDrive,
-  AlertTriangle,
-} from "lucide-react"
-import { Checkbox } from "@/components/ui/checkbox"
-import type { Document as BusinessDocument, StorageInfo } from "@/types/document"
+import { AlertCircle, Clock, Download, File, FileText, Search, RefreshCcw } from "lucide-react"
+import type { Document, StorageInfo } from "@/types/document"
 
 export default function BusinessDocumentsPage() {
   const { data: session, status } = useSession()
@@ -33,50 +19,23 @@ export default function BusinessDocumentsPage() {
 
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
-  const [documents, setDocuments] = useState<BusinessDocument[]>([])
+  const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [storageInfo, setStorageInfo] = useState<StorageInfo>({
-    used: 0,
-    limit: 100 * 1024 * 1024, // Increased to 100MB
-    percentage: 0,
-  })
+  const [storageInfo, setStorageInfo] = useState<StorageInfo>({ used: 0, limit: 104857600, percentage: 0 })
   const [recentUpdates, setRecentUpdates] = useState<{ text: string; time: string }[]>([])
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
-  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([])
-
-  // Pagination
-  const itemsPerPage = 20
-  const [currentPage, setCurrentPage] = useState(1)
 
   const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
 
   // Helper function to check if a document is a template
-  const isTemplate = (doc: BusinessDocument): boolean => {
+  const isTemplate = (doc: Document): boolean => {
     // Check various conditions that might indicate a template
     const typeCheck = doc.type.toLowerCase().includes("template")
     const nameCheck = doc.name.toLowerCase().includes("template")
 
     // Return true if any condition is met
     return typeCheck || nameCheck
-  }
-
-  // Estimate file size based on document type
-  const estimateFileSize = (doc: BusinessDocument): number => {
-    // This is a rough estimate, in a real app you would store the actual file size
-    const typeMap: Record<string, number> = {
-      pdf: 500 * 1024, // 500KB
-      doc: 300 * 1024, // 300KB
-      docx: 300 * 1024, // 300KB
-      xls: 250 * 1024, // 250KB
-      xlsx: 250 * 1024, // 250KB
-      jpg: 1 * 1024 * 1024, // 1MB
-      png: 800 * 1024, // 800KB
-      txt: 50 * 1024, // 50KB
-    }
-
-    const fileExtension = doc.type.toLowerCase()
-    return typeMap[fileExtension] || 300 * 1024 // Default to 300KB if type is unknown
   }
 
   // Format bytes to human readable format
@@ -90,39 +49,6 @@ export default function BusinessDocumentsPage() {
     const i = Math.floor(Math.log(bytes) / Math.log(k))
 
     return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
-  }
-
-  // Get category badge color
-  const getCategoryColor = (category: string): string => {
-    switch (category.toLowerCase()) {
-      case "formation":
-        return "bg-blue-100 text-blue-800"
-      case "tax":
-        return "bg-green-100 text-green-800"
-      case "compliance":
-        return "bg-purple-100 text-purple-800"
-      case "licenses":
-        return "bg-amber-100 text-amber-800"
-      case "financial":
-        return "bg-indigo-100 text-indigo-800"
-      case "hr":
-        return "bg-pink-100 text-pink-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  // Calculate storage usage
-  const calculateStorageUsage = (docs: BusinessDocument[]): StorageInfo => {
-    const totalBytes = docs.reduce((total, doc) => total + estimateFileSize(doc), 0)
-    const limit = 100 * 1024 * 1024 // 100MB limit (increased)
-    const percentage = (totalBytes / limit) * 100
-
-    return {
-      used: totalBytes,
-      limit,
-      percentage: Math.min(percentage, 100), // Cap at 100%
-    }
   }
 
   // Fetch documents and storage info
@@ -143,16 +69,20 @@ export default function BusinessDocumentsPage() {
       console.log("Received documents data:", data)
 
       // Filter out templates using our isTemplate helper function
-      const nonTemplateDocuments = data.documents.filter((doc: BusinessDocument) => !isTemplate(doc))
+      const nonTemplateDocuments = data.documents.filter((doc: Document) => !isTemplate(doc))
 
       console.log(`Filtered out ${data.documents.length - nonTemplateDocuments.length} templates`)
       console.log(`Remaining documents: ${nonTemplateDocuments.length}`)
 
       setDocuments(nonTemplateDocuments || [])
 
-      // Calculate storage usage
-      const storageInfo = calculateStorageUsage(nonTemplateDocuments)
-      setStorageInfo(storageInfo)
+      // Update storage info
+      if (data.storage) {
+        const used = data.storage.totalStorageBytes
+        const limit = data.storage.storageLimit
+        const percentage = (used / limit) * 100
+        setStorageInfo({ used, limit, percentage })
+      }
 
       // Update recent updates
       if (data.recentUpdates) {
@@ -172,99 +102,37 @@ export default function BusinessDocumentsPage() {
   }
 
   // Handle document download
-  const handleDownload = async (doc: BusinessDocument) => {
+  const handleDownload = async (document: Document) => {
     try {
-      setDownloadingId(doc.id)
-      console.log("Downloading document:", doc.id)
+      setDownloadingId(document.id)
+      console.log("Downloading document:", document.id)
 
-      // Check if document has a fileUrl
-      if (!doc.fileUrl) {
-        throw new Error("Document has no file URL")
+      const response = await fetch(`/api/user/documents/business/${document.id}/download`)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to download document")
       }
 
-      // Determine filename with extension
-      let filename = doc.name
-      if (doc.type && !filename.toLowerCase().endsWith(`.${doc.type.toLowerCase()}`)) {
-        filename = `${filename}.${doc.type.toLowerCase()}`
-      }
+      const data = await response.json()
+      console.log("Download response:", data)
 
-      // Sanitize the filename to ensure it's valid for downloads
-      filename = filename.replace(/[/\\?%*:|"<>]/g, "-")
-
-      // Try our server-side download first
-      try {
-        console.log("Attempting server-side download")
-        const response = await fetch(`/api/user/documents/business/${doc.id}/download`)
-
-        // Check if the response is JSON (fallback) or a file
-        const contentType = response.headers.get("content-type")
-
-        if (contentType && contentType.includes("application/json")) {
-          // This is a JSON response - likely a fallback URL
-          const data = await response.json()
-
-          if (data.fallbackUrl) {
-            console.log("Using fallback URL for download:", data.fallbackUrl)
-
-            // Try to download using a different approach
-            await downloadWithFallback(data.fallbackUrl, filename)
-            return
-          } else if (data.error) {
-            throw new Error(data.error)
-          }
-        }
-
-        if (!response.ok) {
-          // Try to parse error response as JSON
-          try {
-            const errorData = await response.json()
-            throw new Error(errorData.error || "Failed to download document")
-          } catch (jsonError) {
-            // If not JSON, use status text
-            throw new Error(`Failed to download document: ${response.status} ${response.statusText}`)
-          }
-        }
-
-        // Get the blob from the response
-        const blob = await response.blob()
-
-        // Check if we got a valid file (not HTML)
-        if (blob.type === "text/html") {
-          const text = await blob.text()
-          if (text.includes("<html") || text.includes("<!DOCTYPE html")) {
-            console.error("Received HTML instead of file")
-            throw new Error("Received HTML instead of file content")
-          }
-        }
-
-        // Create a URL for the blob
-        const url = window.URL.createObjectURL(blob)
-
-        // Create a temporary link element
+      // Create a temporary link and trigger download
+      if (typeof window !== "undefined") {
         const link = window.document.createElement("a")
-        link.href = url
-        link.download = filename
-
-        // Append to the document, click it, and remove it
+        link.href = data.downloadUrl
+        link.setAttribute("download", document.name)
         window.document.body.appendChild(link)
         link.click()
-
-        // Clean up
         window.document.body.removeChild(link)
-        window.URL.revokeObjectURL(url)
-
-        toast({
-          title: "Success",
-          description: "Document downloaded successfully",
-        })
-      } catch (serverError) {
-        console.error("Server-side download failed:", serverError)
-
-        // Try direct download as fallback
-        await downloadWithFallback(doc.fileUrl, filename)
       }
+
+      toast({
+        title: "Success",
+        description: "Document downloaded successfully",
+      })
     } catch (error) {
-      console.error("All download methods failed:", error)
+      console.error("Error downloading document:", error)
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to download document",
@@ -272,76 +140,6 @@ export default function BusinessDocumentsPage() {
       })
     } finally {
       setDownloadingId(null)
-    }
-  }
-
-  // Helper function for fallback download methods
-  const downloadWithFallback = async (url: string, filename: string) => {
-    console.log("Attempting fallback download for:", url)
-
-    // Method 1: Try fetch API with blob
-    try {
-      const response = await fetch(url)
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-
-      const blob = await response.blob()
-      const blobUrl = window.URL.createObjectURL(blob)
-
-      const link = window.document.createElement("a")
-      link.href = blobUrl
-      link.download = filename
-      link.click()
-
-      window.URL.revokeObjectURL(blobUrl)
-
-      toast({
-        title: "Success",
-        description: "Document downloaded using fallback method",
-      })
-      return
-    } catch (fetchError) {
-      console.error("Fallback method 1 failed:", fetchError)
-    }
-
-    // Method 2: Open in new tab
-    try {
-      const link = window.document.createElement("a")
-      link.href = url
-      link.target = "_blank"
-      link.rel = "noopener noreferrer"
-
-      window.document.body.appendChild(link)
-      link.click()
-      window.document.body.removeChild(link)
-
-      toast({
-        title: "Download Attempted",
-        description: "The document should open in a new tab. You may need to save it manually.",
-      })
-      return
-    } catch (tabError) {
-      console.error("Fallback method 2 failed:", tabError)
-      throw new Error("All download methods failed. Please contact support.")
-    }
-  }
-
-  // Handle document selection
-  const toggleDocumentSelection = (docId: string) => {
-    setSelectedDocuments((prev) => {
-      if (prev.includes(docId)) {
-        return prev.filter((id) => id !== docId)
-      } else {
-        return [...prev, docId]
-      }
-    })
-  }
-
-  // Handle select all documents
-  const toggleSelectAll = () => {
-    if (selectedDocuments.length === paginatedDocuments.length) {
-      setSelectedDocuments([])
-    } else {
-      setSelectedDocuments(paginatedDocuments.map((doc) => doc.id))
     }
   }
 
@@ -353,16 +151,6 @@ export default function BusinessDocumentsPage() {
     return matchesSearch && matchesCategory
   })
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage)
-  const paginatedDocuments = filteredDocuments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-
-  // Handle page change
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-    setSelectedDocuments([])
-  }
-
   // Load documents on component mount
   useEffect(() => {
     if (status === "authenticated") {
@@ -371,11 +159,6 @@ export default function BusinessDocumentsPage() {
       router.push("/login")
     }
   }, [status, router])
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, selectedCategory])
 
   if (status === "loading") {
     return (
@@ -395,14 +178,12 @@ export default function BusinessDocumentsPage() {
             <div className="p-6 border-b">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <h2 className="text-xl font-semibold">Document Library</h2>
-                <div className="flex gap-2">
-                  {error && (
-                    <Button variant="outline" size="sm" onClick={fetchDocuments} className="flex items-center gap-2">
-                      <RefreshCcw className="h-4 w-4" />
-                      Retry
-                    </Button>
-                  )}
-                </div>
+                {error && (
+                  <Button variant="outline" size="sm" onClick={fetchDocuments} className="flex items-center gap-2">
+                    <RefreshCcw className="h-4 w-4" />
+                    Retry
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -436,17 +217,8 @@ export default function BusinessDocumentsPage() {
 
             <div className="p-6">
               {loading ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="relative w-24 h-24 mb-4">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <FileText className="h-8 w-8 text-blue-600 animate-pulse" />
-                    </div>
-                  </div>
-                  <p className="text-lg font-medium text-gray-700">Loading your documents...</p>
-                  <p className="text-sm text-gray-500 mt-1">This may take a moment</p>
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
                 </div>
               ) : error ? (
                 <div className="text-center py-8">
@@ -456,116 +228,49 @@ export default function BusinessDocumentsPage() {
                   <Button onClick={fetchDocuments}>Try Again</Button>
                 </div>
               ) : filteredDocuments.length > 0 ? (
-                <>
-                  <div className="mb-4 flex items-center">
-                    <Checkbox
-                      id="select-all"
-                      checked={selectedDocuments.length === paginatedDocuments.length && paginatedDocuments.length > 0}
-                      onCheckedChange={toggleSelectAll}
-                      className="mr-2"
-                    />
-                    <label htmlFor="select-all" className="text-sm text-gray-600">
-                      Select all on this page
-                    </label>
-                  </div>
-                  <div className="space-y-4">
-                    {paginatedDocuments.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            id={`doc-${doc.id}`}
-                            checked={selectedDocuments.includes(doc.id)}
-                            onCheckedChange={() => toggleDocumentSelection(doc.id)}
-                            className="mr-2"
-                          />
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <FileText className="h-5 w-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-medium">{doc.name}</p>
-                              <span className={`text-xs px-2 py-0.5 rounded-full ${getCategoryColor(doc.category)}`}>
-                                {doc.category}
-                              </span>
-                            </div>
-                            {doc.description && <p className="text-sm text-gray-600 mb-1">{doc.description}</p>}
-                            <div className="flex items-center gap-3 text-sm text-gray-500">
-                              <span>{doc.type.toUpperCase()}</span>
-                              <span>•</span>
-                              <span>{formatBytes(estimateFileSize(doc))}</span>
-                              <span>•</span>
-                              <span>
-                                {doc.createdAt instanceof Date
-                                  ? doc.createdAt.toLocaleDateString()
-                                  : new Date(doc.createdAt).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
+                <div className="space-y-4">
+                  {filteredDocuments.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <FileText className="h-5 w-5 text-blue-600" />
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDownload(doc)}
-                            disabled={downloadingId === doc.id}
-                          >
-                            {downloadingId === doc.id ? (
-                              <>
-                                <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2"></div>
-                                Downloading...
-                              </>
-                            ) : (
-                              <>
-                                <Download className="h-4 w-4 mr-2" />
-                                Download
-                              </>
-                            )}
-                          </Button>
+                        <div>
+                          <p className="font-medium">{doc.name}</p>
+                          <div className="flex items-center gap-3 text-sm text-gray-500">
+                            <span>{doc.type.toUpperCase()}</span>
+                            <span>•</span>
+                            <span>
+                              {doc.createdAt instanceof Date
+                                ? doc.createdAt.toLocaleDateString()
+                                : new Date(doc.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-6">
-                      <p className="text-sm text-gray-500">
-                        Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-                        {Math.min(currentPage * itemsPerPage, filteredDocuments.length)} of {filteredDocuments.length}{" "}
-                        documents
-                      </p>
-                      <div className="flex items-center gap-2">
+                      <div className="flex gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handlePageChange(currentPage - 1)}
-                          disabled={currentPage === 1}
+                          onClick={() => handleDownload(doc)}
+                          disabled={downloadingId === doc.id}
                         >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                          <Button
-                            key={page}
-                            variant={page === currentPage ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => handlePageChange(page)}
-                            className="w-8 h-8 p-0"
-                          >
-                            {page}
-                          </Button>
-                        ))}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePageChange(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                        >
-                          <ChevronRight className="h-4 w-4" />
+                          {downloadingId === doc.id ? (
+                            <>
+                              <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2"></div>
+                              Downloading...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>
-                  )}
-                </>
+                  ))}
+                </div>
               ) : (
                 <div className="text-center py-8">
                   <File className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -582,72 +287,6 @@ export default function BusinessDocumentsPage() {
         </div>
 
         <div>
-          <Card className="mb-6">
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">Document Storage</h3>
-            </div>
-            <div className="p-6">
-              <div className="mb-4">
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm text-gray-600">Used Storage</span>
-                  <span className="text-sm font-medium">
-                    {formatBytes(storageInfo.used)} / {formatBytes(storageInfo.limit)}
-                  </span>
-                </div>
-                <Progress
-                  value={storageInfo.percentage}
-                  className={`h-2 ${storageInfo.percentage > 90 ? "[&>div]:bg-red-500" : ""}`}
-                />
-
-                {storageInfo.percentage > 90 && (
-                  <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <h4 className="font-medium text-red-800">Storage Almost Full</h4>
-                        <p className="text-sm text-red-700 mt-1">
-                          You've used {storageInfo.percentage.toFixed(1)}% of your storage. Please contact your account
-                          manager to request additional storage.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-full">
-                      <HardDrive className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <span className="text-sm font-medium">Total Documents</span>
-                  </div>
-                  <span className="text-sm font-bold">{documents.length}</span>
-                </div>
-
-                {categories
-                  .filter((cat) => cat !== "All")
-                  .map((category) => {
-                    const count = documents.filter((doc) => doc.category === category).length
-                    if (count === 0) return null
-
-                    return (
-                      <div key={category} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-full ${getCategoryColor(category)}`}>
-                            <Tag className="h-4 w-4" />
-                          </div>
-                          <span className="text-sm font-medium">{category}</span>
-                        </div>
-                        <span className="text-sm font-bold">{count}</span>
-                      </div>
-                    )
-                  })}
-              </div>
-            </div>
-          </Card>
-
           <Card className="mb-6">
             <div className="p-6 border-b">
               <h3 className="text-lg font-semibold">Recent Updates</h3>
@@ -670,6 +309,43 @@ export default function BusinessDocumentsPage() {
               ) : (
                 <p className="text-sm text-gray-500">No recent updates</p>
               )}
+            </div>
+          </Card>
+
+          <Card>
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">Document Storage</h3>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm text-gray-600">Used Storage</span>
+                  <span className="text-sm font-medium">
+                    {formatBytes(storageInfo.used)} / {formatBytes(storageInfo.limit)}
+                  </span>
+                </div>
+                <Progress value={storageInfo.percentage} className="h-2" />
+
+                {storageInfo.percentage > 90 && (
+                  <div className="mt-2 flex items-start gap-2 text-red-600 text-sm">
+                    <AlertCircle className="h-4 w-4 mt-0.5" />
+                    <span>Storage almost full! Please contact support for more storage.</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-amber-800">Document Retention</h4>
+                    <p className="text-sm text-amber-700">
+                      Keep your business documents for at least 7 years. Some documents like formation documents should
+                      be kept permanently.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </Card>
         </div>
