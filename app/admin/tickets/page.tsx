@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,6 @@ import {
   Clock,
   CheckCircle2,
   ChevronRight,
-  MoreHorizontal,
   Send,
   Paperclip,
   Tag,
@@ -19,15 +18,24 @@ import {
   AlertCircle,
   TicketIcon,
   FileText,
+  Bell,
+  Users,
+  RefreshCw,
 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { toast } from "@/components/ui/use-toast"
+import { toast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { FileUpload } from "@/components/file-upload"
-import { getAllTickets, getSupportUsers, getTicketStats } from "@/lib/actions/admin-ticket-actions"
+import {
+  getAllTickets,
+  getSupportUsers,
+  getTicketStats,
+  getClients,
+  getUnreadMessageCounts,
+} from "@/lib/actions/admin-ticket-actions"
 import { getTicketDetails, createMessage, updateTicket, deleteTicket } from "@/lib/actions/ticket-actions"
 import type { Ticket, TicketStatus, TicketPriority } from "@/types/ticket"
 
@@ -36,6 +44,18 @@ interface SupportUser {
   name: string | null
   email: string
   role: string
+}
+
+interface Client {
+  id: string
+  name: string | null
+  email: string
+  business?: {
+    name: string
+  } | null
+  _count: {
+    tickets: number
+  }
 }
 
 interface TicketStats {
@@ -62,6 +82,14 @@ export default function AdminTicketsPage() {
   const [ticketStats, setTicketStats] = useState<TicketStats | null>(null)
   const [newMessage, setNewMessage] = useState("")
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
+  const [clients, setClients] = useState<Client[]>([])
+  const [clientFilter, setClientFilter] = useState("all")
+  const [showClientFilterDialog, setShowClientFilterDialog] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [hasNewMessages, setHasNewMessages] = useState(false)
+  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Filter states
   const [priorityFilter, setPriorityFilter] = useState("all")
@@ -109,11 +137,146 @@ export default function AdminTicketsPage() {
         setTicketStats(statsResult as TicketStats)
       }
 
+      // Fetch clients for filtering
+      const clientsResult = await getClients()
+      if (clientsResult.error) {
+        toast({
+          title: "Error",
+          description: clientsResult.error,
+          variant: "destructive",
+        })
+      } else if (clientsResult.clients) {
+        setClients(clientsResult.clients as Client[])
+      }
+
+      // Fetch unread message counts
+      await fetchUnreadCounts()
+
       setIsLoading(false)
     }
 
     fetchData()
+
+    // Set up auto-refresh timer
+    refreshTimerRef.current = setInterval(refreshData, 30000) // Refresh every 30 seconds
+
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current)
+      }
+    }
   }, [])
+
+  // Fetch unread message counts
+  const fetchUnreadCounts = async () => {
+    const currentUserId = "current-user-id" // Replace with actual current user ID
+    const unreadResult = await getUnreadMessageCounts(currentUserId)
+
+    if (!unreadResult.error && unreadResult.unreadCounts) {
+      // Compare with previous unread counts to see if there are new messages
+      const previousUnreadTotal: number = Object.values(unreadCounts).reduce(
+        (sum: number, count) => sum + Number(count),
+        0,
+      )
+      const newUnreadTotal: number = Object.values(unreadResult.unreadCounts).reduce(
+        (sum: number, count) => sum + Number(count),
+        0,
+      )
+
+      if (newUnreadTotal > previousUnreadTotal) {
+        setHasNewMessages(true)
+      }
+
+      setUnreadCounts(unreadResult.unreadCounts)
+    }
+  }
+
+  // Refresh data function
+  const refreshData = async () => {
+    if (isRefreshing) return
+
+    setIsRefreshing(true)
+
+    // Fetch tickets
+    const ticketsResult = await getAllTickets()
+    if (!ticketsResult.error && ticketsResult.tickets) {
+      const newTickets = ticketsResult.tickets as Ticket[]
+
+      // Check if there are new messages by comparing with current tickets
+      const hasNewMessages = newTickets.some((newTicket) => {
+        const currentTicket = tickets.find((t) => t.id === newTicket.id)
+        if (!currentTicket) return true // New ticket
+
+        // Check if the latest message is newer
+        if (
+          newTicket.messages &&
+          newTicket.messages.length > 0 &&
+          (!currentTicket.messages || currentTicket.messages.length === 0)
+        ) {
+          return true
+        }
+
+        if (
+          newTicket.messages &&
+          newTicket.messages.length > 0 &&
+          currentTicket.messages &&
+          currentTicket.messages.length > 0
+        ) {
+          const newLatestMessage = newTicket.messages[0]
+          const currentLatestMessage = currentTicket.messages[0]
+          return new Date(newLatestMessage.createdAt) > new Date(currentLatestMessage.createdAt)
+        }
+
+        return false
+      })
+
+      if (hasNewMessages) {
+        setHasNewMessages(true)
+        // If the ticket dialog is open, refresh the selected ticket
+        if (showTicketDialog && selectedTicket) {
+          await refreshSelectedTicket()
+        }
+      }
+
+      setTickets(newTickets)
+    }
+
+    // Fetch ticket stats
+    const statsResult = await getTicketStats()
+    if (!statsResult.error) {
+      setTicketStats(statsResult as TicketStats)
+    }
+
+    // Fetch unread counts
+    await fetchUnreadCounts()
+
+    setIsRefreshing(false)
+  }
+
+  // Refresh selected ticket
+  const refreshSelectedTicket = async () => {
+    if (!selectedTicket) return
+
+    const result = await getTicketDetails(selectedTicket.id)
+
+    if (!result.error && result.ticket) {
+      setSelectedTicket(result.ticket as Ticket)
+      // Scroll to bottom of messages
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+      }, 100)
+    }
+  }
+
+  // Manual refresh button handler
+  const handleManualRefresh = async () => {
+    setHasNewMessages(false)
+    await refreshData()
+    toast({
+      title: "Refreshed",
+      description: "Ticket data has been refreshed",
+    })
+  }
 
   // Fetch ticket details when a ticket is selected
   useEffect(() => {
@@ -129,6 +292,10 @@ export default function AdminTicketsPage() {
           })
         } else if (result.ticket) {
           setSelectedTicket(result.ticket as Ticket)
+          // Scroll to bottom of messages
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+          }, 100)
         }
       }
 
@@ -161,12 +328,15 @@ export default function AdminTicketsPage() {
       (assigneeFilter === "me" && ticket.assigneeId === "current-user-id") || // Replace with actual current user ID
       ticket.assigneeId === assigneeFilter
 
-    return matchesSearch && matchesTab && matchesPriority && matchesCategory && matchesAssignee
+    const matchesClient = clientFilter === "all" || ticket.creatorId === clientFilter
+
+    return matchesSearch && matchesTab && matchesPriority && matchesCategory && matchesAssignee && matchesClient
   })
 
   const viewTicketDetails = (ticket: Ticket) => {
     setSelectedTicket(ticket)
     setShowTicketDialog(true)
+    setHasNewMessages(false) // Reset new message indicator when viewing a ticket
   }
 
   // Handle sending a new message
@@ -188,6 +358,10 @@ export default function AdminTicketsPage() {
       const ticketResult = await getTicketDetails(selectedTicket.id)
       if (ticketResult.ticket) {
         setSelectedTicket(ticketResult.ticket as Ticket)
+        // Scroll to bottom of messages
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+        }, 100)
       }
 
       // Reset form
@@ -399,27 +573,59 @@ export default function AdminTicketsPage() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage and respond to customer support requests</p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
+          <Dialog open={showClientFilterDialog} onOpenChange={setShowClientFilterDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center">
+                <Users className="mr-2 h-4 w-4" />
+                Client Filter
+                {clientFilter !== "all" && (
+                  <Badge className="ml-2 bg-primary" variant="secondary">
+                    1
+                  </Badge>
+                )}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Filter by Client</DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                <Select value={clientFilter} onValueChange={setClientFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name || client.email} {client.business?.name ? `(${client.business.name})` : ""}
+                        {client._count.tickets > 0 && ` - ${client._count.tickets} tickets`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button onClick={() => setShowClientFilterDialog(false)}>Apply Filter</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <Button
-            variant="outline"
+            variant={hasNewMessages ? "default" : "outline"}
             size="sm"
             className="flex items-center"
-            onClick={async () => {
-              setIsLoading(true)
-              const result = await getAllTickets()
-              if (result.tickets) {
-                setTickets(result.tickets as Ticket[])
-              }
-
-              const statsResult = await getTicketStats()
-              if (!statsResult.error) {
-                setTicketStats(statsResult as TicketStats)
-              }
-
-              setIsLoading(false)
-            }}
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
           >
-            <Clock className="mr-2 h-4 w-4" />
-            Refresh
+            {isRefreshing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : hasNewMessages ? (
+              <Bell className="mr-2 h-4 w-4" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            {hasNewMessages ? "New Messages" : "Refresh"}
           </Button>
         </div>
       </div>
@@ -560,7 +766,11 @@ export default function AdminTicketsPage() {
                   <TicketIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
                   <h3 className="font-medium text-lg mb-1">No tickets found</h3>
                   <p className="text-gray-500 text-sm mb-4">
-                    {searchQuery || priorityFilter !== "all" || categoryFilter !== "all" || assigneeFilter !== "anyone"
+                    {searchQuery ||
+                    priorityFilter !== "all" ||
+                    categoryFilter !== "all" ||
+                    assigneeFilter !== "anyone" ||
+                    clientFilter !== "all"
                       ? "Try adjusting your filters"
                       : "There are no tickets in this category"}
                   </p>
@@ -590,7 +800,16 @@ export default function AdminTicketsPage() {
                         <td className="p-4">
                           <span className="font-mono text-sm">{ticket.id.substring(0, 8)}</span>
                         </td>
-                        <td className="p-4 font-medium">{ticket.subject}</td>
+                        <td className="p-4 font-medium">
+                          <div className="flex items-center">
+                            {ticket.subject}
+                            {unreadCounts[ticket.id] > 0 && (
+                              <Badge className="ml-2 bg-red-500" variant="secondary">
+                                {unreadCounts[ticket.id]}
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
                         <td className="p-4">
                           <div>
                             <p>{ticket.creator?.name || "Unknown"}</p>
@@ -745,8 +964,9 @@ export default function AdminTicketsPage() {
                 >
                   Delete Ticket
                 </Button>
-                <Button variant="outline" size="sm" className="ml-auto">
-                  <MoreHorizontal className="h-4 w-4" />
+                <Button variant="outline" size="sm" className="ml-auto" onClick={refreshSelectedTicket}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
                 </Button>
               </div>
 
@@ -805,6 +1025,7 @@ export default function AdminTicketsPage() {
                       )}
                     </div>
                   ))}
+                <div ref={messagesEndRef} />
               </div>
 
               {/* Reply Form */}
