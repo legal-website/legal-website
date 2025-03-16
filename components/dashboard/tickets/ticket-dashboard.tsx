@@ -146,7 +146,7 @@ export default function TicketDashboard({ initialTickets }: { initialTickets: Ti
   })
 
   return (
-    <div className="h-full flex flex-col md:flex-row">
+    <div className="h-full flex flex-col md:flex-row mb-48">
       {/* Sidebar with ticket list */}
       <div className="w-full md:w-80 lg:w-96 border-r flex flex-col overflow-hidden">
         <div className="p-4 border-b">
