@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,7 +21,6 @@ import {
   Filter,
   Clock,
   AlertCircle,
-  MessageCircle,
   Paperclip,
   MoreVertical,
   User,
@@ -29,243 +28,85 @@ import {
   RefreshCw,
   TicketIcon,
   FileText,
+  Send,
+  Loader2,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-// Define types
-interface Ticket {
-  id: string
-  subject: string
-  description: string
-  status: "open" | "in-progress" | "resolved" | "closed"
-  priority: "low" | "medium" | "high" | "urgent"
-  category: string
-  createdAt: string
-  updatedAt: string
-  messages: Message[]
-  attachments: Attachment[]
-}
-
-interface Message {
-  id: string
-  sender: "client" | "support"
-  senderName: string
-  content: string
-  timestamp: string
-  attachments: Attachment[]
-}
-
-interface Attachment {
-  id: string
-  name: string
-  size: string
-  type: string
-  url: string
-}
+import { toast } from "@/components/ui/use-toast"
+import { FileUpload } from "@/components/file-upload"
+import {
+  createTicket,
+  getUserTickets,
+  getTicketDetails,
+  createMessage,
+  deleteTicket,
+} from "@/lib/actions/ticket-actions"
+import type { Ticket, TicketPriority, TicketStatus } from "@/types/ticket"
 
 export default function TicketsPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [newMessage, setNewMessage] = useState("")
+  const [ticketToDelete, setTicketToDelete] = useState<string | null>(null)
+
   const [newTicket, setNewTicket] = useState({
     subject: "",
     description: "",
     category: "",
-    priority: "medium",
+    priority: "medium" as TicketPriority,
   })
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
-  const [newMessage, setNewMessage] = useState("")
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [ticketToDelete, setTicketToDelete] = useState<string | null>(null)
 
-  // Sample ticket data
-  const [tickets, setTickets] = useState<Ticket[]>([
-    {
-      id: "TKT-2025-001",
-      subject: "Need help with business name change",
-      description: "I need to update my business name. What documents do I need to submit?",
-      status: "open",
-      priority: "medium",
-      category: "Business Changes",
-      createdAt: "2025-03-08T14:30:00Z",
-      updatedAt: "2025-03-08T14:30:00Z",
-      messages: [
-        {
-          id: "msg-001",
-          sender: "client",
-          senderName: "John Smith",
-          content: "I need to update my business name. What documents do I need to submit?",
-          timestamp: "2025-03-08T14:30:00Z",
-          attachments: [],
-        },
-        {
-          id: "msg-002",
-          sender: "support",
-          senderName: "Sarah Johnson",
-          content:
-            "Thank you for reaching out. To change your business name, you'll need to submit an amendment to your Articles of Organization. I can help guide you through this process. Could you please provide your current business name and the new name you'd like to use?",
-          timestamp: "2025-03-08T15:45:00Z",
-          attachments: [
-            {
-              id: "att-001",
-              name: "name_change_guide.pdf",
-              size: "1.2 MB",
-              type: "application/pdf",
-              url: "#",
-            },
-          ],
-        },
-        {
-          id: "msg-003",
-          sender: "client",
-          senderName: "John Smith",
-          content:
-            "My current business name is 'Rapid Ventures LLC' and I'd like to change it to 'Rapid Innovations LLC'. I've attached my current Articles of Organization for reference.",
-          timestamp: "2025-03-08T16:30:00Z",
-          attachments: [
-            {
-              id: "att-002",
-              name: "current_articles.pdf",
-              size: "2.4 MB",
-              type: "application/pdf",
-              url: "#",
-            },
-          ],
-        },
-      ],
-      attachments: [
-        {
-          id: "att-002",
-          name: "current_articles.pdf",
-          size: "2.4 MB",
-          type: "application/pdf",
-          url: "#",
-        },
-      ],
-    },
-    {
-      id: "TKT-2025-002",
-      subject: "Annual report filing issue",
-      description: "I'm having trouble submitting my annual report through the portal.",
-      status: "in-progress",
-      priority: "high",
-      category: "Compliance",
-      createdAt: "2025-03-05T10:15:00Z",
-      updatedAt: "2025-03-07T11:20:00Z",
-      messages: [
-        {
-          id: "msg-004",
-          sender: "client",
-          senderName: "John Smith",
-          content:
-            "I'm having trouble submitting my annual report through the portal. I keep getting an error message when I try to submit the payment.",
-          timestamp: "2025-03-05T10:15:00Z",
-          attachments: [
-            {
-              id: "att-003",
-              name: "error_screenshot.png",
-              size: "856 KB",
-              type: "image/png",
-              url: "#",
-            },
-          ],
-        },
-        {
-          id: "msg-005",
-          sender: "support",
-          senderName: "Michael Chen",
-          content:
-            "I'm sorry you're experiencing issues with the annual report submission. I can see from your screenshot that there might be an issue with our payment processor. Let me check this with our technical team and get back to you shortly.",
-          timestamp: "2025-03-05T11:30:00Z",
-          attachments: [],
-        },
-        {
-          id: "msg-006",
-          sender: "support",
-          senderName: "Michael Chen",
-          content:
-            "Our technical team has identified the issue and it should be resolved now. Could you please try submitting your annual report again? If you continue to experience problems, please let me know.",
-          timestamp: "2025-03-07T11:20:00Z",
-          attachments: [],
-        },
-      ],
-      attachments: [
-        {
-          id: "att-003",
-          name: "error_screenshot.png",
-          size: "856 KB",
-          type: "image/png",
-          url: "#",
-        },
-      ],
-    },
-    {
-      id: "TKT-2025-003",
-      subject: "Tax ID verification",
-      description: "Need help verifying my tax ID for a new contract.",
-      status: "resolved",
-      priority: "medium",
-      category: "Tax",
-      createdAt: "2025-02-28T09:45:00Z",
-      updatedAt: "2025-03-02T14:10:00Z",
-      messages: [
-        {
-          id: "msg-007",
-          sender: "client",
-          senderName: "John Smith",
-          content:
-            "I need help verifying my tax ID for a new contract I'm signing. The other party is requesting verification of my EIN.",
-          timestamp: "2025-02-28T09:45:00Z",
-          attachments: [],
-        },
-        {
-          id: "msg-008",
-          sender: "support",
-          senderName: "Emily Rodriguez",
-          content:
-            "I'd be happy to help you with the tax ID verification. We can provide you with an EIN verification letter. To proceed, could you please confirm your business name and EIN for security purposes?",
-          timestamp: "2025-02-28T10:30:00Z",
-          attachments: [],
-        },
-        {
-          id: "msg-009",
-          sender: "client",
-          senderName: "John Smith",
-          content: "My business name is 'Rapid Ventures LLC' and the EIN is 93-4327510.",
-          timestamp: "2025-02-28T11:15:00Z",
-          attachments: [],
-        },
-        {
-          id: "msg-010",
-          sender: "support",
-          senderName: "Emily Rodriguez",
-          content:
-            "Thank you for confirming. I've generated an EIN verification letter for you. You can download it from the attachment below. Please let me know if you need anything else!",
-          timestamp: "2025-03-02T14:10:00Z",
-          attachments: [
-            {
-              id: "att-004",
-              name: "ein_verification_letter.pdf",
-              size: "1.1 MB",
-              type: "application/pdf",
-              url: "#",
-            },
-          ],
-        },
-      ],
-      attachments: [
-        {
-          id: "att-004",
-          name: "ein_verification_letter.pdf",
-          size: "1.1 MB",
-          type: "application/pdf",
-          url: "#",
-        },
-      ],
-    },
-  ])
+  // Fetch tickets on component mount
+  useEffect(() => {
+    const fetchTickets = async () => {
+      setIsLoading(true)
+      const result = await getUserTickets()
+
+      if (result.error) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        })
+      } else if (result.tickets) {
+        setTickets(result.tickets as Ticket[])
+      }
+
+      setIsLoading(false)
+    }
+
+    fetchTickets()
+  }, [])
+
+  // Fetch ticket details when a ticket is selected
+  useEffect(() => {
+    if (selectedTicket?.id) {
+      const fetchTicketDetails = async () => {
+        const result = await getTicketDetails(selectedTicket.id)
+
+        if (result.error) {
+          toast({
+            title: "Error",
+            description: result.error,
+            variant: "destructive",
+          })
+        } else if (result.ticket) {
+          setSelectedTicket(result.ticket as Ticket)
+        }
+      }
+
+      fetchTicketDetails()
+    }
+  }, [selectedTicket?.id])
 
   // Filter tickets based on search query and active tab
   const filteredTickets = tickets.filter((ticket) => {
@@ -283,79 +124,121 @@ export default function TicketsPage() {
   })
 
   // Handle creating a new ticket
-  const handleCreateTicket = () => {
-    const newMsg: Message = {
-      id: `msg-${Date.now()}`,
-      sender: "client",
-      senderName: "John Smith",
-      content: newTicket.description,
-      timestamp: new Date().toISOString(),
-      attachments: [],
+  const handleCreateTicket = async () => {
+    if (!newTicket.subject || !newTicket.description || !newTicket.category) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
     }
 
-    const newTicketObj: Ticket = {
-      id: `TKT-2025-${String(tickets.length + 1).padStart(3, "0")}`,
-      subject: newTicket.subject,
-      description: newTicket.description,
-      status: "open",
-      priority: newTicket.priority as "low" | "medium" | "high" | "urgent",
-      category: newTicket.category,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      messages: [newMsg],
-      attachments: [],
+    setIsSubmitting(true)
+
+    const result = await createTicket(newTicket)
+
+    if (result.error) {
+      toast({
+        title: "Error",
+        description: result.error,
+        variant: "destructive",
+      })
+    } else {
+      toast({
+        title: "Success",
+        description: "Ticket created successfully",
+      })
+
+      // Refresh tickets
+      const ticketsResult = await getUserTickets()
+      if (ticketsResult.tickets) {
+        setTickets(ticketsResult.tickets as Ticket[])
+      }
+
+      // Reset form
+      setNewTicket({
+        subject: "",
+        description: "",
+        category: "",
+        priority: "medium",
+      })
+
+      setIsCreateDialogOpen(false)
     }
 
-    setTickets([newTicketObj, ...tickets])
-    setIsCreateDialogOpen(false)
-    setNewTicket({
-      subject: "",
-      description: "",
-      category: "",
-      priority: "medium",
-    })
+    setIsSubmitting(false)
   }
 
   // Handle sending a new message
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!selectedTicket || !newMessage.trim()) return
 
-    const newMsg: Message = {
-      id: `msg-${Date.now()}`,
-      sender: "client",
-      senderName: "John Smith",
-      content: newMessage,
-      timestamp: new Date().toISOString(),
-      attachments: [],
+    setIsSubmitting(true)
+
+    const result = await createMessage({ content: newMessage, ticketId: selectedTicket.id }, selectedFiles)
+
+    if (result.error) {
+      toast({
+        title: "Error",
+        description: result.error,
+        variant: "destructive",
+      })
+    } else {
+      // Refresh ticket details
+      const ticketResult = await getTicketDetails(selectedTicket.id)
+      if (ticketResult.ticket) {
+        setSelectedTicket(ticketResult.ticket as Ticket)
+      }
+
+      // Reset form
+      setNewMessage("")
+      setSelectedFiles([])
     }
 
-    const updatedTicket: Ticket = {
-      ...selectedTicket,
-      messages: [...selectedTicket.messages, newMsg],
-      status:
-        selectedTicket.status === "resolved" || selectedTicket.status === "closed" ? "open" : selectedTicket.status,
-      updatedAt: new Date().toISOString(),
-    }
-
-    setTickets(tickets.map((ticket) => (ticket.id === selectedTicket.id ? updatedTicket : ticket)))
-    setSelectedTicket(updatedTicket)
-    setNewMessage("")
+    setIsSubmitting(false)
   }
 
   // Handle deleting a ticket
-  const handleDeleteTicket = () => {
+  const handleDeleteTicket = async () => {
     if (!ticketToDelete) return
 
-    setTickets(tickets.filter((ticket) => ticket.id !== ticketToDelete))
-    setIsDeleteDialogOpen(false)
-    setTicketToDelete(null)
-    if (selectedTicket && selectedTicket.id === ticketToDelete) {
-      setSelectedTicket(null)
+    setIsSubmitting(true)
+
+    const result = await deleteTicket(ticketToDelete)
+
+    if (result.error) {
+      toast({
+        title: "Error",
+        description: result.error,
+        variant: "destructive",
+      })
+    } else {
+      toast({
+        title: "Success",
+        description: "Ticket deleted successfully",
+      })
+
+      // Refresh tickets
+      const ticketsResult = await getUserTickets()
+      if (ticketsResult.tickets) {
+        setTickets(ticketsResult.tickets as Ticket[])
+      }
+
+      // Reset selected ticket if it was deleted
+      if (selectedTicket && selectedTicket.id === ticketToDelete) {
+        setSelectedTicket(null)
+      }
+
+      setIsDeleteDialogOpen(false)
+      setTicketToDelete(null)
     }
+
+    setIsSubmitting(false)
   }
 
   // Format date for display
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | Date) => {
     const date = new Date(dateString)
     return date.toLocaleDateString("en-US", {
       year: "numeric",
@@ -367,7 +250,7 @@ export default function TicketsPage() {
   }
 
   // Get status badge color
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: TicketStatus) => {
     switch (status) {
       case "open":
         return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">Open</Badge>
@@ -385,7 +268,7 @@ export default function TicketsPage() {
   }
 
   // Get priority badge color
-  const getPriorityBadge = (priority: string) => {
+  const getPriorityBadge = (priority: TicketPriority) => {
     switch (priority) {
       case "low":
         return (
@@ -431,7 +314,19 @@ export default function TicketsPage() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage your support requests and track their status</p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <Button variant="outline" size="sm" className="flex items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center"
+            onClick={async () => {
+              setIsLoading(true)
+              const result = await getUserTickets()
+              if (result.tickets) {
+                setTickets(result.tickets as Ticket[])
+              }
+              setIsLoading(false)
+            }}
+          >
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
@@ -476,7 +371,12 @@ export default function TicketsPage() {
                 </TabsList>
                 <TabsContent value={activeTab} className="m-0">
                   <div className="max-h-[600px] overflow-y-auto">
-                    {filteredTickets.length === 0 ? (
+                    {isLoading ? (
+                      <div className="p-6 text-center">
+                        <Loader2 className="h-8 w-8 mx-auto animate-spin text-gray-400 mb-3" />
+                        <p className="text-gray-500">Loading tickets...</p>
+                      </div>
+                    ) : filteredTickets.length === 0 ? (
                       <div className="p-6 text-center">
                         <TicketIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
                         <h3 className="font-medium text-lg mb-1">No tickets found</h3>
@@ -502,13 +402,13 @@ export default function TicketsPage() {
                             >
                               <div className="flex justify-between items-start mb-2">
                                 <div className="font-medium truncate mr-2">{ticket.subject}</div>
-                                <div className="flex-shrink-0">{getStatusBadge(ticket.status)}</div>
+                                <div className="flex-shrink-0">{getStatusBadge(ticket.status as TicketStatus)}</div>
                               </div>
                               <div className="flex justify-between items-center text-sm">
                                 <div className="text-gray-500 dark:text-gray-400">
-                                  {ticket.id} • {formatDate(ticket.createdAt).split(",")[0]}
+                                  {ticket.id.substring(0, 8)} • {formatDate(ticket.createdAt).split(",")[0]}
                                 </div>
-                                <div>{getPriorityBadge(ticket.priority)}</div>
+                                <div>{getPriorityBadge(ticket.priority as TicketPriority)}</div>
                               </div>
                             </button>
                           </li>
@@ -535,7 +435,7 @@ export default function TicketsPage() {
                     </CardDescription>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {getStatusBadge(selectedTicket.status)}
+                    {getStatusBadge(selectedTicket.status as TicketStatus)}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm">
@@ -580,52 +480,76 @@ export default function TicketsPage() {
                     <h3 className="font-medium">Conversation</h3>
                   </div>
                   <div className="p-4 max-h-[400px] overflow-y-auto space-y-6">
-                    {selectedTicket.messages.map((message) => (
-                      <div key={message.id} className={`flex ${message.sender === "client" ? "justify-end" : ""}`}>
+                    {selectedTicket.messages &&
+                      selectedTicket.messages.map((message) => (
                         <div
-                          className={`max-w-[80%] ${message.sender === "client" ? "bg-purple-50 dark:bg-purple-900/20 rounded-tl-lg rounded-bl-lg rounded-br-lg" : "bg-gray-100 dark:bg-gray-800 rounded-tr-lg rounded-br-lg rounded-bl-lg"} p-4`}
+                          key={message.id}
+                          className={`flex ${message.sender === selectedTicket.creatorId ? "justify-end" : ""}`}
                         >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center">
-                              <User className="h-4 w-4 mr-2 text-gray-500" />
-                              <span className="font-medium">{message.senderName}</span>
-                              <span
-                                className={`ml-2 text-xs px-2 py-0.5 rounded-full ${message.sender === "client" ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"}`}
-                              >
-                                {message.sender === "client" ? "You" : "Support"}
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-500">{formatDate(message.timestamp).split(", ")[1]}</div>
-                          </div>
-                          <p className="whitespace-pre-wrap">{message.content}</p>
-                          {message.attachments.length > 0 && (
-                            <div className="mt-3 pt-3 border-t">
-                              <div className="flex items-center text-sm text-gray-500 mb-2">
-                                <Paperclip className="h-4 w-4 mr-1" />
-                                <span>Attachments ({message.attachments.length})</span>
+                          <div
+                            className={`max-w-[80%] ${
+                              message.sender === selectedTicket.creatorId
+                                ? "bg-purple-50 dark:bg-purple-900/20 rounded-tl-lg rounded-bl-lg rounded-br-lg"
+                                : message.sender === "system"
+                                  ? "bg-gray-100 dark:bg-gray-800 rounded-lg text-center mx-auto"
+                                  : "bg-gray-100 dark:bg-gray-800 rounded-tr-lg rounded-br-lg rounded-bl-lg"
+                            } p-4`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center">
+                                <User className="h-4 w-4 mr-2 text-gray-500" />
+                                <span className="font-medium">{message.senderName}</span>
+                                <span
+                                  className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                                    message.sender === selectedTicket.creatorId
+                                      ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
+                                      : message.sender === "system"
+                                        ? "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                                        : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                                  }`}
+                                >
+                                  {message.sender === selectedTicket.creatorId
+                                    ? "You"
+                                    : message.sender === "system"
+                                      ? "System"
+                                      : "Support"}
+                                </span>
                               </div>
-                              <div className="space-y-2">
-                                {message.attachments.map((attachment) => (
-                                  <div
-                                    key={attachment.id}
-                                    className="flex items-center p-2 border rounded-md bg-gray-50 dark:bg-gray-800"
-                                  >
-                                    <FileText className="h-4 w-4 mr-2 text-gray-500" />
-                                    <div className="flex-1 min-w-0">
-                                      <div className="truncate font-medium text-sm">{attachment.name}</div>
-                                      <div className="text-xs text-gray-500">{attachment.size}</div>
+                              <div className="text-xs text-gray-500">
+                                {formatDate(message.createdAt).split(", ")[1]}
+                              </div>
+                            </div>
+                            <p className="whitespace-pre-wrap">{message.content}</p>
+                            {message.attachments && message.attachments.length > 0 && (
+                              <div className="mt-3 pt-3 border-t">
+                                <div className="flex items-center text-sm text-gray-500 mb-2">
+                                  <Paperclip className="h-4 w-4 mr-1" />
+                                  <span>Attachments ({message.attachments.length})</span>
+                                </div>
+                                <div className="space-y-2">
+                                  {message.attachments.map((attachment) => (
+                                    <div
+                                      key={attachment.id}
+                                      className="flex items-center p-2 border rounded-md bg-gray-50 dark:bg-gray-800"
+                                    >
+                                      <FileText className="h-4 w-4 mr-2 text-gray-500" />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="truncate font-medium text-sm">{attachment.name}</div>
+                                        <div className="text-xs text-gray-500">{attachment.size}</div>
+                                      </div>
+                                      <Button variant="ghost" size="sm" asChild>
+                                        <a href={attachment.fileUrl} target="_blank" rel="noopener noreferrer">
+                                          Download
+                                        </a>
+                                      </Button>
                                     </div>
-                                    <Button variant="ghost" size="sm">
-                                      Download
-                                    </Button>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </div>
                 <div className="space-y-4">
@@ -635,14 +559,24 @@ export default function TicketsPage() {
                     onChange={(e) => setNewMessage(e.target.value)}
                     className="min-h-[100px]"
                   />
-                  <div className="flex justify-between items-center">
-                    <Button variant="outline" size="sm">
-                      <Paperclip className="h-4 w-4 mr-2" />
-                      Attach File
-                    </Button>
-                    <Button onClick={handleSendMessage} disabled={!newMessage.trim()}>
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Send Message
+                  <FileUpload onFilesSelected={setSelectedFiles} maxFiles={5} maxSizeMB={10} />
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!newMessage.trim() || isSubmitting}
+                      className="bg-[#22c984] hover:bg-[#0f442e]"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-2" />
+                          Send Message
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -713,7 +647,7 @@ export default function TicketsPage() {
               </Label>
               <Select
                 value={newTicket.priority}
-                onValueChange={(value) => setNewTicket({ ...newTicket, priority: value })}
+                onValueChange={(value) => setNewTicket({ ...newTicket, priority: value as TicketPriority })}
               >
                 <SelectTrigger id="ticket-priority" className="col-span-3">
                   <SelectValue placeholder="Select priority" />
@@ -739,15 +673,6 @@ export default function TicketsPage() {
                 onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Attachments</Label>
-              <div className="col-span-3">
-                <Button variant="outline" type="button" className="w-full">
-                  <Paperclip className="mr-2 h-4 w-4" />
-                  Add Attachments
-                </Button>
-              </div>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
@@ -755,9 +680,17 @@ export default function TicketsPage() {
             </Button>
             <Button
               onClick={handleCreateTicket}
-              disabled={!newTicket.subject || !newTicket.description || !newTicket.category}
+              disabled={!newTicket.subject || !newTicket.description || !newTicket.category || isSubmitting}
+              className="bg-[#22c984] hover:bg-[#0f442e]"
             >
-              Create Ticket
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Ticket"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -776,8 +709,15 @@ export default function TicketsPage() {
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteTicket}>
-              Delete
+            <Button variant="destructive" onClick={handleDeleteTicket} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
             </Button>
           </div>
         </DialogContent>
