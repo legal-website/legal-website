@@ -5,7 +5,15 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import AdminSidebar from "@/components/admin/sidebar"
 import AdminHeader, { NotificationProvider } from "@/components/admin/header"
 import { ThemeProvider } from "@/context/theme-context"
-import { Role } from "@prisma/client"
+
+// Define the Role enum locally if needed
+enum Role {
+  ADMIN = "ADMIN",
+  SUPPORT = "SUPPORT",
+  CLIENT = "CLIENT",
+}
+// Import the UnreadMessagesIndicator component
+import { UnreadMessagesIndicator } from "@/components/unread-messages-indicator"
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   try {
@@ -19,7 +27,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
     // Check if user has admin role
     const userRole = session.user.role
-    if (userRole !== Role.ADMIN) {
+    if (userRole !== "ADMIN") {
       redirect("/dashboard")
     }
 
@@ -30,7 +38,10 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             <AdminSidebar />
             <div className="flex flex-col flex-1 overflow-hidden">
               <AdminHeader />
-              <div className="flex-1 overflow-y-auto">{children}</div>
+              <div className="flex-1 overflow-y-auto">
+                {children}
+                <UnreadMessagesIndicator />
+              </div>
             </div>
           </div>
         </NotificationProvider>

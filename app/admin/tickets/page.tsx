@@ -102,6 +102,7 @@ export default function AdminTicketsPage() {
   const [hasNewMessages, setHasNewMessages] = useState(false)
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [totalUnreadMessages, setTotalUnreadMessages] = useState(0)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -191,25 +192,35 @@ export default function AdminTicketsPage() {
 
   // Fetch unread message counts
   const fetchUnreadCounts = async () => {
-    const currentUserId = "current-user-id" // Replace with actual current user ID from session
-    const unreadResult = await getUnreadMessageCounts(currentUserId)
+    // Remove the hardcoded user ID and let the server action use the session
+    const unreadResult = await getUnreadMessageCounts()
 
-    if (!unreadResult.error && unreadResult.unreadCounts) {
-      // Compare with previous unread counts to see if there are new messages
-      const previousUnreadTotal: number = Object.values(unreadCounts).reduce(
-        (sum: number, count) => sum + Number(count),
-        0,
-      )
-      const newUnreadTotal: number = Object.values(unreadResult.unreadCounts).reduce(
-        (sum: number, count) => sum + Number(count),
-        0,
-      )
+    if (!unreadResult.error) {
+      if (unreadResult.unreadCounts) {
+        // Compare with previous unread counts to see if there are new messages
+        const previousUnreadTotal = Object.values(unreadCounts).reduce((sum: number, count) => sum + Number(count), 0)
 
-      if (newUnreadTotal > previousUnreadTotal) {
-        setHasNewMessages(true)
+        const newUnreadTotal =
+          unreadResult.totalUnread ||
+          Object.values(unreadResult.unreadCounts).reduce((sum: number, count) => sum + Number(count), 0)
+
+        setTotalUnreadMessages(newUnreadTotal)
+
+        if (newUnreadTotal > previousUnreadTotal) {
+          setHasNewMessages(true)
+
+          // Show a toast notification for new messages if not already viewing the ticket
+          if (newUnreadTotal > 0 && (!selectedTicket || !showTicketDialog)) {
+            toast({
+              title: "New Messages",
+              description: `You have ${newUnreadTotal} unread message${newUnreadTotal === 1 ? "" : "s"}`,
+              variant: "default",
+            })
+          }
+        }
+
+        setUnreadCounts(unreadResult.unreadCounts)
       }
-
-      setUnreadCounts(unreadResult.unreadCounts)
     }
   }
 
@@ -594,7 +605,14 @@ export default function AdminTicketsPage() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Support Tickets</h1>
+          <h1 className="text-2xl font-bold">
+            Support Tickets
+            {totalUnreadMessages > 0 && (
+              <Badge className="ml-2 bg-red-500 text-white" variant="secondary">
+                {totalUnreadMessages}
+              </Badge>
+            )}
+          </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage and respond to customer support requests</p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
@@ -650,7 +668,7 @@ export default function AdminTicketsPage() {
             ) : (
               <RefreshCw className="mr-2 h-4 w-4" />
             )}
-            {hasNewMessages ? "New Messages" : "Refresh"}
+            {hasNewMessages ? `New Messages (${totalUnreadMessages})` : "Refresh"}
           </Button>
         </div>
       </div>
@@ -845,7 +863,7 @@ export default function AdminTicketsPage() {
                           <div className="flex items-center">
                             {ticket.subject}
                             {unreadCounts[ticket.id] > 0 && (
-                              <Badge className="ml-2 bg-red-500" variant="secondary">
+                              <Badge className="ml-2 bg-red-500 text-white animate-pulse" variant="secondary">
                                 {unreadCounts[ticket.id]}
                               </Badge>
                             )}
@@ -1199,6 +1217,31 @@ export default function AdminTicketsPage() {
                 "Delete"
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* New Messages Notification Dialog */}
+      <Dialog
+        open={hasNewMessages && totalUnreadMessages > 0 && !showTicketDialog}
+        onOpenChange={(open) => {
+          if (!open) setHasNewMessages(false)
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Bell className="h-5 w-5 mr-2 text-red-500" />
+              New Messages
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>
+              You have {totalUnreadMessages} unread message{totalUnreadMessages === 1 ? "" : "s"} across your tickets.
+            </p>
+            <p className="mt-2 text-sm text-gray-500">Check your tickets to view the new messages.</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setHasNewMessages(false)}>Dismiss</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
