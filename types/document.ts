@@ -1,19 +1,32 @@
 export interface Document {
   id: string
   name: string
-  type: string
+  description?: string | null
   category: string
-  description?: string
+  fileUrl: string
+  fileType?: string
+  type: string // This is the actual field in the database
+  fileSize?: number
+  status?: "Verified" | "Pending" | "Rejected"
+  uploadDate?: string
+  createdAt: Date
+  lastModified?: string
+  updatedAt: Date
   businessId: string
-  createdAt: Date | string
-  updatedAt: Date | string
-  url?: string
-  fileUrl?: string
+  sharedWith?: {
+    email: string
+    sharedAt: string
+  }[]
 }
 
 export interface StorageInfo {
   used: number
   limit: number
   percentage: number
+}
+
+export interface DocumentActivity {
+  text: string
+  time: string
 }
 
