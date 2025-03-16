@@ -1,4 +1,5 @@
 export interface Document {
+  size: any
   id: string
   name: string
   description?: string | null

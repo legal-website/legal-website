@@ -22,8 +22,9 @@ import {
   ChevronRight,
   HardDrive,
   AlertTriangle,
+  Image,
+  Archive,
 } from "lucide-react"
-import { Checkbox } from "@/components/ui/checkbox"
 import type { Document as BusinessDocument, StorageInfo } from "@/types/document"
 
 export default function BusinessDocumentsPage() {
@@ -47,7 +48,6 @@ export default function BusinessDocumentsPage() {
   // Pagination
   const itemsPerPage = 20
   const [currentPage, setCurrentPage] = useState(1)
-  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([])
 
   const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
 
@@ -148,6 +148,48 @@ export default function BusinessDocumentsPage() {
         return "bg-pink-100 text-pink-800"
       default:
         return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  // Get file type icon
+  const getFileTypeIcon = (doc: BusinessDocument) => {
+    const fileType = doc.type.toLowerCase()
+
+    // Extract extension from filename if type is generic
+    let extension = fileType
+    if (fileType === "document" || fileType === "file") {
+      const nameParts = doc.name.split(".")
+      if (nameParts.length > 1) {
+        extension = nameParts[nameParts.length - 1].toLowerCase()
+      }
+    }
+
+    switch (extension) {
+      case "pdf":
+        return <FileText className="h-5 w-5 text-red-600" />
+      case "doc":
+      case "docx":
+        return <FileText className="h-5 w-5 text-blue-600" />
+      case "xls":
+      case "xlsx":
+      case "csv":
+        return <FileText className="h-5 w-5 text-green-600" />
+      case "ppt":
+      case "pptx":
+        return <FileText className="h-5 w-5 text-orange-600" />
+      case "jpg":
+      case "jpeg":
+      case "png":
+      case "gif":
+      case "svg":
+        return <Image className="h-5 w-5 text-purple-600" />
+      case "txt":
+        return <FileText className="h-5 w-5 text-gray-600" />
+      case "zip":
+      case "rar":
+        return <Archive className="h-5 w-5 text-yellow-600" />
+      default:
+        return <File className="h-5 w-5 text-blue-600" />
     }
   }
 
@@ -337,30 +379,9 @@ export default function BusinessDocumentsPage() {
     }
   }
 
-  // Handle document selection
-  const toggleDocumentSelection = (docId: string) => {
-    setSelectedDocuments((prev) => {
-      if (prev.includes(docId)) {
-        return prev.filter((id) => id !== docId)
-      } else {
-        return [...prev, docId]
-      }
-    })
-  }
-
-  // Handle select all documents
-  const toggleSelectAll = () => {
-    if (selectedDocuments.length === paginatedDocuments.length) {
-      setSelectedDocuments([])
-    } else {
-      setSelectedDocuments(paginatedDocuments.map((doc) => doc.id))
-    }
-  }
-
   // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
-    setSelectedDocuments([])
   }
 
   // Filter documents based on search and category
@@ -469,30 +490,11 @@ export default function BusinessDocumentsPage() {
                 </div>
               ) : filteredDocuments.length > 0 ? (
                 <>
-                  <div className="mb-4 flex items-center">
-                    <Checkbox
-                      id="select-all"
-                      checked={selectedDocuments.length === paginatedDocuments.length && paginatedDocuments.length > 0}
-                      onCheckedChange={toggleSelectAll}
-                      className="mr-2"
-                    />
-                    <label htmlFor="select-all" className="text-sm text-gray-600">
-                      Select all on this page
-                    </label>
-                  </div>
                   <div className="space-y-4">
                     {paginatedDocuments.map((doc) => (
                       <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-3">
-                          <Checkbox
-                            id={`doc-${doc.id}`}
-                            checked={selectedDocuments.includes(doc.id)}
-                            onCheckedChange={() => toggleDocumentSelection(doc.id)}
-                            className="mr-2"
-                          />
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <FileText className="h-5 w-5 text-blue-600" />
-                          </div>
+                          <div className="p-2 bg-blue-100 rounded-lg">{getFileTypeIcon(doc)}</div>
                           <div>
                             <div className="flex items-center gap-2 mb-1">
                               <p className="font-medium">{doc.name}</p>
