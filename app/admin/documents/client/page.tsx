@@ -80,6 +80,16 @@ export default function ClientDocumentsPage() {
 
   const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
 
+  // Helper function to check if a document is a template
+  const isTemplate = (doc: Document): boolean => {
+    // Check various conditions that might indicate a template
+    const typeCheck = doc.type?.toLowerCase().includes("template") || false
+    const nameCheck = doc.name?.toLowerCase().includes("template") || false
+
+    // Return true if any condition is met
+    return typeCheck || nameCheck
+  }
+
   // Format bytes to human readable format
   const formatBytes = (bytes: number, decimals = 2) => {
     if (bytes === 0) return "0 Bytes"
@@ -111,7 +121,9 @@ export default function ClientDocumentsPage() {
       console.log("Received documents data:", data)
 
       if (Array.isArray(data.documents)) {
-        setDocuments(data.documents)
+        // Filter out templates
+        const nonTemplateDocuments = data.documents.filter((doc: Document) => !isTemplate(doc))
+        setDocuments(nonTemplateDocuments)
       } else {
         console.error("Invalid documents data format:", data)
         setError("Invalid data format received from server")
@@ -315,7 +327,7 @@ export default function ClientDocumentsPage() {
   }
 
   // Filter documents based on search, category, and status
-  const filteredDocuments = documents.filter((doc) => {
+  const filteredDocuments = documents.filter((doc: Document) => {
     const matchesSearch =
       doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (doc.description || "").toLowerCase().includes(searchQuery.toLowerCase())
@@ -447,7 +459,7 @@ export default function ClientDocumentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredDocuments.map((doc) => (
+                {filteredDocuments.map((doc: Document) => (
                   <tr key={doc.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
                     <td className="p-4">
                       <div className="flex items-center">
