@@ -420,7 +420,7 @@ export default function BusinessDocumentsPage() {
 
   return (
     <div className="p-8 mb-40">
-      <h1 className="text-3xl font-bold mb-6">Business Documents</h1>
+      <h1 className="text-3xl font-bold mb-6">My Documents</h1>
 
       <div className="grid md:grid-cols-3 gap-8">
         <div className="md:col-span-2">
@@ -429,6 +429,25 @@ export default function BusinessDocumentsPage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <h2 className="text-xl font-semibold">Document Library</h2>
                 <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchDocuments}
+                    className="flex items-center gap-2"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                        Refreshing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCcw className="h-4 w-4" />
+                        Refresh
+                      </>
+                    )}
+                  </Button>
                   {error && (
                     <Button variant="outline" size="sm" onClick={fetchDocuments} className="flex items-center gap-2">
                       <RefreshCcw className="h-4 w-4" />
