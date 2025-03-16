@@ -28,16 +28,6 @@ export default function BusinessDocumentsPage() {
 
   const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
 
-  // Helper function to check if a document is a template
-  const isTemplate = (doc: Document): boolean => {
-    // Check various conditions that might indicate a template
-    const typeCheck = doc.type.toLowerCase().includes("template")
-    const nameCheck = doc.name.toLowerCase().includes("template")
-
-    // Return true if any condition is met
-    return typeCheck || nameCheck
-  }
-
   // Format bytes to human readable format
   const formatBytes = (bytes: number, decimals = 2) => {
     if (bytes === 0) return "0 Bytes"
@@ -68,13 +58,7 @@ export default function BusinessDocumentsPage() {
       const data = await response.json()
       console.log("Received documents data:", data)
 
-      // Filter out templates using our isTemplate helper function
-      const nonTemplateDocuments = data.documents.filter((doc: Document) => !isTemplate(doc))
-
-      console.log(`Filtered out ${data.documents.length - nonTemplateDocuments.length} templates`)
-      console.log(`Remaining documents: ${nonTemplateDocuments.length}`)
-
-      setDocuments(nonTemplateDocuments || [])
+      setDocuments(data.documents || [])
 
       // Update storage info
       if (data.storage) {
@@ -145,7 +129,9 @@ export default function BusinessDocumentsPage() {
 
   // Filter documents based on search and category
   const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch =
+      doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (doc.description || "").toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === "All" || doc.category === selectedCategory
 
     return matchesSearch && matchesCategory
@@ -238,14 +224,19 @@ export default function BusinessDocumentsPage() {
                         <div>
                           <p className="font-medium">{doc.name}</p>
                           <div className="flex items-center gap-3 text-sm text-gray-500">
-                            <span>{doc.type.toUpperCase()}</span>
+                            <span>{(doc.fileType || doc.type || "Unknown").toUpperCase()}</span>
+                            <span>•</span>
+                            <span>{formatBytes(doc.fileSize || 0)}</span>
                             <span>•</span>
                             <span>
-                              {doc.createdAt instanceof Date
-                                ? doc.createdAt.toLocaleDateString()
-                                : new Date(doc.createdAt).toLocaleDateString()}
+                              {doc.uploadDate
+                                ? new Date(doc.uploadDate).toLocaleDateString()
+                                : doc.createdAt
+                                  ? new Date(doc.createdAt).toLocaleDateString()
+                                  : "Unknown date"}
                             </span>
                           </div>
+                          {doc.description && <p className="text-sm text-gray-500 mt-1">{doc.description}</p>}
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -275,11 +266,7 @@ export default function BusinessDocumentsPage() {
                 <div className="text-center py-8">
                   <File className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <h3 className="text-lg font-medium text-gray-900">No documents found</h3>
-                  <p className="text-gray-500 mt-1">
-                    {searchTerm || selectedCategory !== "All"
-                      ? "Try adjusting your search or filters"
-                      : "No documents have been uploaded by your account manager yet"}
-                  </p>
+                  <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
                 </div>
               )}
             </div>

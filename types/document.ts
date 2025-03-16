@@ -5,7 +5,7 @@ export interface Document {
   category: string
   fileUrl: string
   fileType?: string
-  type: string // This is the actual field in the database
+  type: string
   fileSize?: number
   status?: "Verified" | "Pending" | "Rejected"
   uploadDate?: string
