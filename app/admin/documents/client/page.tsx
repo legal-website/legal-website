@@ -1,8 +1,6 @@
 "use client"
 
 import type React from "react"
-
-import type { Document } from "@/types/document"
 import { Fragment, useState, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -33,20 +31,21 @@ import {
   Trash2,
   Clock,
   FileUp,
-  Check,
   RefreshCcw,
   AlertCircle,
   CheckCircle2,
   XCircle,
   ChevronLeft,
   ChevronRight,
-  AlertTriangle,
   Loader2,
   Trash,
+  Mail,
+  LockIcon,
+  Check,
 } from "lucide-react"
 import { FileTypeIcon } from "@/components/file-type-icon"
 
-interface User {
+interface ClientUser {
   id: string
   name: string | null
   email: string
@@ -63,6 +62,25 @@ interface PaginationData {
   pages: number
 }
 
+interface Document {
+  id: string
+  name: string
+  description?: string
+  category: string
+  fileUrl: string
+  fileType?: string
+  type?: string
+  fileSize?: number
+  status?: string
+  uploadDate?: string
+  createdAt?: string
+  updatedAt?: string
+  businessName?: string
+  businessId: string
+  sharedWith?: any[]
+  isPermanent?: boolean
+}
+
 export default function ClientDocumentsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -70,6 +88,7 @@ export default function ClientDocumentsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [searchQuery, setSearchQuery] = useState("")
+  const [clientEmailFilter, setClientEmailFilter] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [documents, setDocuments] = useState<Document[]>([])
@@ -78,13 +97,15 @@ export default function ClientDocumentsPage() {
   const [uploading, setUploading] = useState(false)
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
-  const [users, setUsers] = useState<User[]>([])
+  const [users, setUsers] = useState<ClientUser[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [searchUserQuery, setSearchUserQuery] = useState("")
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false)
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
 
   // Bulk selection states
   const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set())
@@ -108,6 +129,7 @@ export default function ClientDocumentsPage() {
     category: "Formation",
     file: null as File | null,
     userId: "",
+    isPermanent: false,
   })
 
   const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
@@ -157,8 +179,15 @@ export default function ClientDocumentsPage() {
       setLoading(true)
       setError(null)
 
-      console.log(`Fetching client documents (page ${page}, limit ${limit})`)
-      const response = await fetch(`/api/admin/documents/client?page=${page}&limit=${limit}`)
+      let url = `/api/admin/documents/client?page=${page}&limit=${limit}`
+
+      // Add client email filter if provided
+      if (clientEmailFilter) {
+        url += `&clientEmail=${encodeURIComponent(clientEmailFilter)}`
+      }
+
+      console.log(`Fetching client documents: ${url}`)
+      const response = await fetch(url)
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -255,7 +284,7 @@ export default function ClientDocumentsPage() {
     if (!uploadForm.file || !uploadForm.name || !uploadForm.category || !uploadForm.userId) {
       toast({
         title: "Missing information",
-        description: "Please fill in all required fields and select a file and user",
+        description: "Please fill in all required fields, select a client, and select a file",
         variant: "destructive",
       })
       return
@@ -267,9 +296,10 @@ export default function ClientDocumentsPage() {
       // Create form data
       const formData = new FormData()
       formData.append("name", uploadForm.name)
-      formData.append("description", uploadForm.description)
+      formData.append("description", uploadForm.description || "")
       formData.append("category", uploadForm.category)
       formData.append("userId", uploadForm.userId)
+      formData.append("isPermanent", uploadForm.isPermanent.toString())
       formData.append("file", uploadForm.file)
 
       console.log("Uploading document:", uploadForm.name, "for user:", uploadForm.userId)
@@ -294,6 +324,7 @@ export default function ClientDocumentsPage() {
         category: "Formation",
         file: null,
         userId: "",
+        isPermanent: false,
       })
 
       if (fileInputRef.current) {
@@ -325,6 +356,14 @@ export default function ClientDocumentsPage() {
 
   // Confirm document deletion
   const confirmDelete = (doc: Document) => {
+    if (doc.isPermanent) {
+      toast({
+        title: "Cannot Delete",
+        description: "This document is marked as permanent and cannot be deleted.",
+        variant: "destructive",
+      })
+      return
+    }
     setDocumentToDelete(doc)
     setShowDeleteConfirmDialog(true)
   }
@@ -424,6 +463,16 @@ export default function ClientDocumentsPage() {
 
   // Handle document selection for bulk actions
   const toggleDocumentSelection = (docId: string) => {
+    const doc = documents.find((d) => d.id === docId)
+    if (doc?.isPermanent) {
+      toast({
+        title: "Cannot Select",
+        description: "Permanent documents cannot be selected for bulk operations.",
+        variant: "destructive",
+      })
+      return
+    }
+
     const newSelection = new Set(selectedDocuments)
     if (newSelection.has(docId)) {
       newSelection.delete(docId)
@@ -435,12 +484,12 @@ export default function ClientDocumentsPage() {
 
   // Select/deselect all documents
   const toggleSelectAll = () => {
-    if (selectedDocuments.size === filteredDocuments.length) {
+    if (selectedDocuments.size === filteredDocuments.filter((doc) => !doc.isPermanent).length) {
       // Deselect all
       setSelectedDocuments(new Set())
     } else {
-      // Select all
-      const allIds = filteredDocuments.map((doc) => doc.id)
+      // Select all non-permanent documents
+      const allIds = filteredDocuments.filter((doc) => !doc.isPermanent).map((doc) => doc.id)
       setSelectedDocuments(new Set(allIds))
     }
   }
@@ -477,6 +526,24 @@ export default function ClientDocumentsPage() {
         variant: "destructive",
       })
     }
+  }
+
+  // Apply filters
+  const applyFilters = () => {
+    setCurrentPage(1)
+    fetchDocuments(1, itemsPerPage)
+    setShowFilters(false)
+  }
+
+  // Reset filters
+  const resetFilters = () => {
+    setClientEmailFilter("")
+    setSelectedCategory("All")
+    setSelectedStatus("all")
+    setSearchQuery("")
+    setCurrentPage(1)
+    fetchDocuments(1, itemsPerPage)
+    setShowFilters(false)
   }
 
   // Filter documents based on search, category, and status
@@ -594,7 +661,7 @@ export default function ClientDocumentsPage() {
         </div>
 
         <div className="flex space-x-2">
-          <Button variant="outline" className="flex-1">
+          <Button variant="outline" className="flex-1" onClick={() => setShowFilters(true)}>
             <Filter className="mr-2 h-4 w-4" />
             More Filters
           </Button>
@@ -606,6 +673,37 @@ export default function ClientDocumentsPage() {
           )}
         </div>
       </div>
+
+      {/* Advanced Filters Dialog */}
+      <Dialog open={showFilters} onOpenChange={setShowFilters}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Advanced Filters</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-1 items-center gap-2">
+              <Label htmlFor="client-email">Client Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="client-email"
+                  placeholder="Filter by client email..."
+                  className="pl-10"
+                  value={clientEmailFilter}
+                  onChange={(e) => setClientEmailFilter(e.target.value)}
+                />
+              </div>
+              <p className="text-xs text-gray-500">Enter a client email to see only their documents</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={resetFilters}>
+              Reset Filters
+            </Button>
+            <Button onClick={applyFilters}>Apply Filters</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Documents Table */}
       <Card>
@@ -657,6 +755,12 @@ export default function ClientDocumentsPage() {
                         </div>
                         <div>
                           <p className="font-medium">{doc.name}</p>
+                          {doc.isPermanent && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 mt-1">
+                              <LockIcon className="h-3 w-3 mr-1" />
+                              Permanent
+                            </span>
+                          )}
                           <p className="text-sm text-gray-500">
                             {formatBytes(doc.fileSize || 0)} • {(doc.fileType || doc.type || "Unknown").toUpperCase()}
                           </p>
@@ -715,11 +819,12 @@ export default function ClientDocumentsPage() {
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              className="text-red-600 dark:text-red-400"
-                              onClick={() => confirmDelete(doc)}
+                              className={`${doc.isPermanent ? "text-gray-400 cursor-not-allowed" : "text-red-600 dark:text-red-400"}`}
+                              onClick={() => !doc.isPermanent && confirmDelete(doc)}
+                              disabled={doc.isPermanent}
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
+                              {doc.isPermanent ? "Cannot Delete (Permanent)" : "Delete"}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -799,7 +904,7 @@ export default function ClientDocumentsPage() {
 
       {/* Upload Document Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Upload Document</DialogTitle>
           </DialogHeader>
@@ -835,6 +940,25 @@ export default function ClientDocumentsPage() {
                     ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid grid-cols-1 items-center gap-2">
+              <Label htmlFor="document-sensitivity">Document Sensitivity*</Label>
+              <Select
+                value={uploadForm.isPermanent ? "permanent" : "temporary"}
+                onValueChange={(value) => setUploadForm({ ...uploadForm, isPermanent: value === "permanent" })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select sensitivity" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="temporary">Temporary (Can be deleted)</SelectItem>
+                  <SelectItem value="permanent">Permanent (Cannot be deleted)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500">
+                Permanent documents cannot be deleted and are preserved for compliance purposes.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 items-center gap-2">
@@ -956,101 +1080,6 @@ export default function ClientDocumentsPage() {
                 </>
               ) : (
                 "Upload Document"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-              Confirm Deletion
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p>Are you sure you want to delete this document?</p>
-            {documentToDelete && (
-              <div className="mt-2 p-3 bg-gray-50 rounded-md">
-                <p className="font-medium">{documentToDelete.name}</p>
-                <p className="text-sm text-gray-500">
-                  {documentToDelete.category} • {formatBytes(documentToDelete.fileSize || 0)}
-                </p>
-              </div>
-            )}
-            <p className="mt-4 text-sm text-red-500">This action cannot be undone.</p>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowDeleteConfirmDialog(false)
-                setDocumentToDelete(null)
-              }}
-              disabled={deleting}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Bulk Delete Confirmation Dialog */}
-      <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-              Confirm Bulk Deletion
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p>Are you sure you want to delete {selectedDocuments.size} selected documents?</p>
-            <div className="mt-2 p-3 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
-              <ul className="space-y-1">
-                {Array.from(selectedDocuments).map((id) => {
-                  const doc = documents.find((d) => d.id === id)
-                  return doc ? (
-                    <li key={id} className="text-sm flex items-center gap-2">
-                      <FileTypeIcon
-                        fileType={doc.fileType}
-                        fileName={doc.name}
-                        size={14}
-                        className="text-gray-500 flex-shrink-0"
-                      />
-                      <span className="truncate">{doc.name}</span>
-                    </li>
-                  ) : null
-                })}
-              </ul>
-            </div>
-            <p className="mt-4 text-sm text-red-500">This action cannot be undone.</p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBulkDeleteConfirm(false)} disabled={bulkDeleting}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleting}>
-              {bulkDeleting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete All Selected"
               )}
             </Button>
           </DialogFooter>

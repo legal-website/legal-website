@@ -15,6 +15,7 @@ interface PrismaDocument {
   createdAt: Date
   updatedAt: Date
   businessId: string
+  isPermanent: boolean
   business?: {
     name: string | null
   } | null
@@ -90,6 +91,7 @@ export async function GET(req: NextRequest) {
         businessName: doc.business?.name || "Unknown Business",
         businessId: doc.businessId,
         sharedWith: [], // Default since we don't have sharing info
+        isPermanent: doc.isPermanent || false,
       }
     })
 
