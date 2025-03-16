@@ -1,14 +1,37 @@
 export type TicketStatus = "open" | "in-progress" | "resolved" | "closed"
 export type TicketPriority = "low" | "medium" | "high" | "urgent"
+export type TicketCategory = string
 
-export interface TicketMessage {
+export interface Ticket {
+  id: string
+  subject: string
+  description: string
+  status: TicketStatus
+  priority: TicketPriority
+  category: TicketCategory
+  creatorId: string
+  assigneeId?: string | null
+  createdAt: Date
+  updatedAt: Date
+  creator?: {
+    name?: string | null
+    email: string
+  }
+  assignee?: {
+    name?: string | null
+    email: string
+  } | null
+  messages?: Message[]
+}
+
+export interface Message {
   id: string
   content: string
   sender: string
   senderName: string
   ticketId: string
   createdAt: Date
-  attachments: Attachment[]
+  attachments?: Attachment[]
 }
 
 export interface Attachment {
@@ -21,33 +44,11 @@ export interface Attachment {
   createdAt: Date
 }
 
-export interface Ticket {
-  id: string
-  subject: string
-  description: string
-  status: TicketStatus
-  priority: TicketPriority
-  category: string
-  creatorId: string
-  assigneeId: string | null
-  createdAt: Date
-  updatedAt: Date
-  creator?: {
-    name: string | null
-    email: string
-  }
-  assignee?: {
-    name: string | null
-    email: string
-  }
-  messages?: TicketMessage[]
-}
-
 export interface CreateTicketInput {
   subject: string
   description: string
-  category: string
   priority: TicketPriority
+  category: TicketCategory
 }
 
 export interface CreateMessageInput {

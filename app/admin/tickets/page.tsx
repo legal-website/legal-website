@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge"
 import { FileUpload } from "@/components/file-upload"
 import { getAllTickets, getSupportUsers, getTicketStats } from "@/lib/actions/admin-ticket-actions"
 import { getTicketDetails, createMessage, updateTicket, deleteTicket } from "@/lib/actions/ticket-actions"
-import type { Ticket, TicketPriority, TicketStatus } from "@/types/ticket"
+import type { Ticket, TicketStatus, TicketPriority } from "@/types/ticket"
 
 interface SupportUser {
   id: string
@@ -598,10 +598,10 @@ export default function AdminTicketsPage() {
                           </div>
                         </td>
                         <td className="p-4">
-                          <TicketStatusBadge status={ticket.status as TicketStatus} />
+                          <TicketStatusBadge status={ticket.status} />
                         </td>
                         <td className="p-4">
-                          <TicketPriorityBadge priority={ticket.priority as TicketPriority} />
+                          <TicketPriorityBadge priority={ticket.priority} />
                         </td>
                         <td className="p-4">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
@@ -706,8 +706,8 @@ export default function AdminTicketsPage() {
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-1">Assigned To</h3>
                   <Select
-                    value={selectedTicket.assigneeId || ""}
-                    onValueChange={(value) => handleAssignTicket(value || null)}
+                    value={selectedTicket.assigneeId || "unassigned"}
+                    onValueChange={(value) => handleAssignTicket(value === "unassigned" ? null : value)}
                     disabled={isSubmitting}
                   >
                     <SelectTrigger className="h-8">
