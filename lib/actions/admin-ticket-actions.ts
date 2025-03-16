@@ -233,7 +233,7 @@ export async function getClients() {
 }
 
 // Improved function to get unread message counts
-export async function getUnreadMessageCounts(adminId?: string) {
+export async function getUnreadMessageCounts(adminId: string) {
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id) {
@@ -245,15 +245,12 @@ export async function getUnreadMessageCounts(adminId?: string) {
     return { error: "Unauthorized" }
   }
 
-  // Use the provided adminId or fall back to the session user id
-  const userId = adminId || session.user.id
-
   try {
     // Get the last viewed timestamp for each ticket by this admin
     // @ts-ignore - Prisma client type issue
     const ticketViews = await db.ticketView.findMany({
       where: {
-        userId: userId,
+        userId: adminId,
       },
       select: {
         ticketId: true,
@@ -276,7 +273,7 @@ export async function getUnreadMessageCounts(adminId?: string) {
           where: {
             // Messages not from this admin (i.e., from clients or other admins)
             NOT: {
-              sender: userId,
+              sender: adminId,
             },
           },
           select: {
@@ -293,19 +290,19 @@ export async function getUnreadMessageCounts(adminId?: string) {
 
     // Create a map of ticket ID to unread count
     const unreadCounts: Record<string, number> = {}
-    let totalUnread = 0
 
-    tickets.forEach((ticket: any) => {
+    tickets.forEach((ticket: TicketWithMessages) => {
       const lastViewed = lastViewedMap[ticket.id] || new Date(0) // If never viewed, use epoch time
 
       // Count messages that were created after the last viewed timestamp
-      const unreadMessages = ticket.messages.filter((message: any) => new Date(message.createdAt) > lastViewed)
+      const unreadMessages = ticket.messages.filter(
+        (message: { id: string; sender: string; createdAt: Date }) => new Date(message.createdAt) > lastViewed,
+      )
 
       unreadCounts[ticket.id] = unreadMessages.length
-      totalUnread += unreadMessages.length
     })
 
-    return { unreadCounts, totalUnread }
+    return { unreadCounts }
   } catch (error) {
     console.error("Error fetching unread message counts:", error)
     return { error: "Failed to fetch unread message counts" }

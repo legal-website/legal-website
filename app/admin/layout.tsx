@@ -5,7 +5,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import AdminSidebar from "@/components/admin/sidebar"
 import AdminHeader, { NotificationProvider } from "@/components/admin/header"
 import { ThemeProvider } from "@/context/theme-context"
-import { SimpleMessageAlert } from "@/components/simple-message-alert"
+import { Role } from "@prisma/client"
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   try {
@@ -19,7 +19,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
     // Check if user has admin role
     const userRole = session.user.role
-    if (userRole !== "ADMIN") {
+    if (userRole !== Role.ADMIN) {
       redirect("/dashboard")
     }
 
@@ -31,8 +31,6 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             <div className="flex flex-col flex-1 overflow-hidden">
               <AdminHeader />
               <div className="flex-1 overflow-y-auto">{children}</div>
-              {/* Add the simple message alert component */}
-              <SimpleMessageAlert />
             </div>
           </div>
         </NotificationProvider>
