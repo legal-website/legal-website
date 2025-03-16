@@ -46,7 +46,7 @@ export default function BusinessDocumentsPage() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   // Pagination
-  const itemsPerPage = 20
+  const itemsPerPage = 10
   const [currentPage, setCurrentPage] = useState(1)
 
   const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
