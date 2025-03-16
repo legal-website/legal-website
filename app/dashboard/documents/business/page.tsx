@@ -61,22 +61,48 @@ export default function BusinessDocumentsPage() {
     return typeCheck || nameCheck
   }
 
-  // Estimate file size based on document type
+  // Estimate file size based on document type and name
   const estimateFileSize = (doc: BusinessDocument): number => {
-    // This is a rough estimate, in a real app you would store the actual file size
+    // If the document has an actual size property, use it
+    if (doc.size && typeof doc.size === "number") {
+      return doc.size
+    }
+
+    // Otherwise estimate based on type and potentially content length
     const typeMap: Record<string, number> = {
       pdf: 500 * 1024, // 500KB
       doc: 300 * 1024, // 300KB
-      docx: 300 * 1024, // 300KB
+      docx: 350 * 1024, // 350KB
       xls: 250 * 1024, // 250KB
-      xlsx: 250 * 1024, // 250KB
-      jpg: 1 * 1024 * 1024, // 1MB
+      xlsx: 300 * 1024, // 300KB
+      jpg: 1.2 * 1024 * 1024, // 1.2MB
+      jpeg: 1.2 * 1024 * 1024, // 1.2MB
       png: 800 * 1024, // 800KB
       txt: 50 * 1024, // 50KB
+      csv: 100 * 1024, // 100KB
+      ppt: 2 * 1024 * 1024, // 2MB
+      pptx: 2.5 * 1024 * 1024, // 2.5MB
     }
 
-    const fileExtension = doc.type.toLowerCase()
-    return typeMap[fileExtension] || 300 * 1024 // Default to 300KB if type is unknown
+    // Get file extension from type or from name if type is generic
+    let fileExtension = doc.type.toLowerCase()
+
+    // If type is generic (like "document"), try to extract from name
+    if (fileExtension === "document" || fileExtension === "file") {
+      const nameParts = doc.name.split(".")
+      if (nameParts.length > 1) {
+        const extractedExt = nameParts[nameParts.length - 1].toLowerCase()
+        if (extractedExt in typeMap) {
+          fileExtension = extractedExt
+        }
+      }
+    }
+
+    // Adjust size based on document name length (longer names might indicate more content)
+    const baseSize = typeMap[fileExtension] || 300 * 1024 // Default to 300KB if type is unknown
+    const nameMultiplier = Math.min(1.5, Math.max(0.8, doc.name.length / 20)) // Between 0.8 and 1.5
+
+    return Math.round(baseSize * nameMultiplier)
   }
 
   // Calculate storage usage
@@ -150,17 +176,16 @@ export default function BusinessDocumentsPage() {
 
       setDocuments(nonTemplateDocuments || [])
 
-      // Calculate storage usage if not provided by API
-      if (data.storage) {
-        const used = data.storage.totalStorageBytes
-        const limit = data.storage.storageLimit
-        const percentage = (used / limit) * 100
-        setStorageInfo({ used, limit, percentage })
-      } else {
-        // Calculate storage usage
-        const storageInfo = calculateStorageUsage(nonTemplateDocuments)
-        setStorageInfo(storageInfo)
+      // Always calculate storage usage based on actual documents
+      const calculatedStorageInfo = calculateStorageUsage(nonTemplateDocuments)
+
+      // If API provides storage info, use the limit from API but calculated usage
+      if (data.storage && data.storage.storageLimit) {
+        calculatedStorageInfo.limit = data.storage.storageLimit
+        calculatedStorageInfo.percentage = (calculatedStorageInfo.used / calculatedStorageInfo.limit) * 100
       }
+
+      setStorageInfo(calculatedStorageInfo)
 
       // Update recent updates
       if (data.recentUpdates) {
@@ -571,6 +596,31 @@ export default function BusinessDocumentsPage() {
         <div>
           <Card className="mb-6">
             <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">Recent Updates</h3>
+            </div>
+            <div className="p-6">
+              {recentUpdates.length > 0 ? (
+                <div className="space-y-4">
+                  {recentUpdates.map((update, index) => (
+                    <div key={index} className="flex items-start gap-3">
+                      <div className="p-2 bg-gray-100 rounded-full">
+                        <Clock className="h-4 w-4 text-gray-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm">{update.text}</p>
+                        <p className="text-xs text-gray-500 mt-1">{update.time}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No recent updates</p>
+              )}
+            </div>
+          </Card>
+
+          <Card className="mb-6">
+            <div className="p-6 border-b">
               <h3 className="text-lg font-semibold">Document Storage</h3>
             </div>
             <div className="p-6">
@@ -632,31 +682,6 @@ export default function BusinessDocumentsPage() {
                     )
                   })}
               </div>
-            </div>
-          </Card>
-
-          <Card className="mb-6">
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">Recent Updates</h3>
-            </div>
-            <div className="p-6">
-              {recentUpdates.length > 0 ? (
-                <div className="space-y-4">
-                  {recentUpdates.map((update, index) => (
-                    <div key={index} className="flex items-start gap-3">
-                      <div className="p-2 bg-gray-100 rounded-full">
-                        <Clock className="h-4 w-4 text-gray-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm">{update.text}</p>
-                        <p className="text-xs text-gray-500 mt-1">{update.time}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">No recent updates</p>
-              )}
             </div>
           </Card>
         </div>
