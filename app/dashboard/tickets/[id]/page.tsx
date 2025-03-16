@@ -1,8 +1,8 @@
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { redirect } from "next/navigation"
-import { getTicketDetails } from "@/lib/actions/ticket-actions"
-import TicketDetailClient from "@/components/dashboard/tickets/ticket-detail-client"
+import { getUserTickets, getTicketDetails } from "@/lib/actions/ticket-actions"
+import TicketDashboard from "@/components/dashboard/tickets/ticket-dashboard"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -21,12 +21,13 @@ export default async function TicketDetailPage({
     redirect("/login")
   }
 
+  const { tickets } = await getUserTickets()
   const { ticket, error } = await getTicketDetails(params.id)
 
   if (error) {
-    throw new Error(error)
+    redirect("/dashboard/tickets")
   }
 
-  return <TicketDetailClient ticket={ticket} />
+  return <TicketDashboard initialTickets={tickets || []} />
 }
 

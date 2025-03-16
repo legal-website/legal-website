@@ -22,7 +22,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PlusIcon } from "lucide-react"
 
-export default function CreateTicketButton() {
+interface CreateTicketButtonProps {
+  children?: React.ReactNode
+  onSuccess?: (ticketId: string) => void
+}
+
+export default function CreateTicketButton({ children, onSuccess }: CreateTicketButtonProps) {
   const [open, setOpen] = useState(false)
   const [subject, setSubject] = useState("")
   const [description, setDescription] = useState("")
@@ -75,6 +80,11 @@ export default function CreateTicketButton() {
       description: "Your support ticket has been created successfully",
     })
 
+    // Call the onSuccess callback if provided
+    if (onSuccess && result.ticketId) {
+      onSuccess(result.ticketId)
+    }
+
     router.refresh()
 
     // Navigate to the new ticket
@@ -86,10 +96,12 @@ export default function CreateTicketButton() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          New Ticket
-        </Button>
+        {children || (
+          <Button>
+            <PlusIcon className="h-4 w-4 mr-2" />
+            New Ticket
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <form onSubmit={handleSubmit}>

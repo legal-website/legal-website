@@ -1,8 +1,7 @@
+import type React from "react"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { redirect } from "next/navigation"
-import { getUserTickets } from "@/lib/actions/ticket-actions"
-import TicketDashboard from "@/components/dashboard/tickets/ticket-dashboard"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -10,19 +9,21 @@ export const metadata: Metadata = {
   description: "View and manage your support tickets",
 }
 
-export default async function TicketsPage() {
+export default async function TicketsLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const session = await getServerSession(authOptions)
 
   if (!session?.user) {
     redirect("/login")
   }
 
-  const { tickets, error } = await getUserTickets()
-
-  if (error) {
-    throw new Error(error)
-  }
-
-  return <TicketDashboard initialTickets={tickets || []} />
+  return (
+    <div className="h-[calc(100vh-4rem)] flex flex-col">
+      <div className="flex-1 overflow-hidden">{children}</div>
+    </div>
+  )
 }
 
