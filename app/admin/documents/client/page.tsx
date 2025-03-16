@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import type { Document } from "@/types/document"
 
 import { useState, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
@@ -29,17 +30,14 @@ import {
   FileText,
   MoreHorizontal,
   Trash2,
-  CheckCircle2,
   Clock,
-  XCircle,
   FileUp,
   Check,
   RefreshCcw,
   AlertCircle,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react"
-
-// Add this import at the top of the file:
-import type { Document } from "@/types/document"
 
 interface User {
   id: string
@@ -112,7 +110,12 @@ export default function ClientDocumentsPage() {
       const data = await response.json()
       console.log("Received documents data:", data)
 
-      setDocuments(data.documents || [])
+      if (Array.isArray(data.documents)) {
+        setDocuments(data.documents)
+      } else {
+        console.error("Invalid documents data format:", data)
+        setError("Invalid data format received from server")
+      }
     } catch (error) {
       console.error("Error fetching documents:", error)
       setError(error instanceof Error ? error.message : "Failed to load documents")
@@ -317,11 +320,7 @@ export default function ClientDocumentsPage() {
       doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (doc.description || "").toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = selectedCategory === "All" || doc.category === selectedCategory
-    const matchesStatus =
-      selectedStatus === "all" ||
-      (selectedStatus === "verified" && doc.status === "Verified") ||
-      (selectedStatus === "pending" && doc.status === "Pending") ||
-      (selectedStatus === "rejected" && doc.status === "Rejected")
+    const matchesStatus = selectedStatus === "all" || (doc.status && selectedStatus === doc.status.toLowerCase())
 
     return matchesSearch && matchesCategory && matchesStatus
   })
@@ -407,9 +406,7 @@ export default function ClientDocumentsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="verified">Verified</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
+              {/* Since we don't have status in our model, we'll just show "all" */}
             </SelectContent>
           </Select>
         </div>
@@ -445,7 +442,7 @@ export default function ClientDocumentsPage() {
                   <th className="text-left p-4 font-medium text-sm">Document</th>
                   <th className="text-left p-4 font-medium text-sm">Category</th>
                   <th className="text-left p-4 font-medium text-sm">Upload Date</th>
-                  <th className="text-left p-4 font-medium text-sm">Status</th>
+                  <th className="text-left p-4 font-medium text-sm">Type</th>
                   <th className="text-left p-4 font-medium text-sm">Actions</th>
                 </tr>
               </thead>

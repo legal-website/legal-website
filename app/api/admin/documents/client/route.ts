@@ -3,29 +3,20 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 
-// Add these interfaces at the top of the file, after the imports
-interface DocumentWithBusiness {
+// Define a type for the document from Prisma
+interface PrismaDocument {
   id: string
   name: string
-  description: string | null
+  description?: string | null
   category: string
   fileUrl: string
   type: string
-  size: string | null
+  size?: string | null
   createdAt: Date
   updatedAt: Date
-  business: {
+  businessId: string
+  business?: {
     name: string | null
-  } | null
-}
-
-interface DocumentSharing {
-  documentId: string
-  sharedWithEmail: string
-  createdAt: Date
-  sharedBy: {
-    name: string | null
-    email: string | null
   } | null
 }
 
@@ -60,27 +51,8 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    // Get document sharing info
-    const documentIds = documents.map((doc: DocumentWithBusiness) => doc.id)
-    const documentSharing = await prisma.documentSharing.findMany({
-      where: {
-        documentId: { in: documentIds },
-      },
-      include: {
-        sharedBy: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
-    })
-
     // Format documents
-    const formattedDocuments = documents.map((doc: DocumentWithBusiness) => {
-      // Get sharing info for this document
-      const sharing = documentSharing.filter((s: DocumentSharing) => s.documentId === doc.id)
-
+    const formattedDocuments = documents.map((doc: PrismaDocument) => {
       return {
         id: doc.id,
         name: doc.name,
@@ -88,15 +60,15 @@ export async function GET(req: NextRequest) {
         category: doc.category,
         fileUrl: doc.fileUrl,
         fileType: doc.type,
-        fileSize: Number.parseInt(doc.size || "0"),
+        type: doc.type,
+        fileSize: doc.size ? Number.parseInt(doc.size, 10) : 0,
         status: "Verified", // Default status for now
         uploadDate: doc.createdAt.toISOString(),
-        lastModified: doc.updatedAt.toISOString(),
+        createdAt: doc.createdAt.toISOString(),
+        updatedAt: doc.updatedAt.toISOString(),
         businessName: doc.business?.name || "Unknown Business",
-        sharedWith: sharing.map((s: DocumentSharing) => ({
-          email: s.sharedWithEmail,
-          sharedAt: s.createdAt.toISOString(),
-        })),
+        businessId: doc.businessId,
+        sharedWith: [], // Default since we don't have sharing info
       }
     })
 

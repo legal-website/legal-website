@@ -13,6 +13,7 @@ export interface Document {
   createdAt: Date
   lastModified?: string
   updatedAt: Date
+  businessName?: string
   businessId: string
   sharedWith?: {
     email: string
