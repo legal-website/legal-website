@@ -1,6 +1,8 @@
 "use client"
 
 import type React from "react"
+
+import type { Document } from "@/types/document"
 import { Fragment, useState, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -31,22 +33,20 @@ import {
   Trash2,
   Clock,
   FileUp,
+  Check,
   RefreshCcw,
   AlertCircle,
   CheckCircle2,
   XCircle,
   ChevronLeft,
   ChevronRight,
+  AlertTriangle,
   Loader2,
   Trash,
-  Mail,
-  LockIcon,
-  Check,
-  UserIcon,
 } from "lucide-react"
 import { FileTypeIcon } from "@/components/file-type-icon"
 
-interface ClientUser {
+interface User {
   id: string
   name: string | null
   email: string
@@ -63,25 +63,6 @@ interface PaginationData {
   pages: number
 }
 
-interface Document {
-  id: string
-  name: string
-  description?: string
-  category: string
-  fileUrl: string
-  fileType?: string
-  type?: string
-  fileSize?: number
-  status?: string
-  uploadDate?: string
-  createdAt?: string
-  updatedAt?: string
-  businessName?: string
-  businessId: string
-  sharedWith?: any[]
-  isPermanent?: boolean
-}
-
 export default function ClientDocumentsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -89,7 +70,6 @@ export default function ClientDocumentsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [searchQuery, setSearchQuery] = useState("")
-  const [clientEmailFilter, setClientEmailFilter] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [documents, setDocuments] = useState<Document[]>([])
@@ -98,15 +78,13 @@ export default function ClientDocumentsPage() {
   const [uploading, setUploading] = useState(false)
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
-  const [users, setUsers] = useState<ClientUser[]>([])
+  const [users, setUsers] = useState<User[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [searchUserQuery, setSearchUserQuery] = useState("")
-  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false)
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [showFilters, setShowFilters] = useState(false)
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
 
   // Bulk selection states
   const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set())
@@ -130,17 +108,9 @@ export default function ClientDocumentsPage() {
     category: "Formation",
     file: null as File | null,
     userId: "",
-    isPermanent: false,
   })
 
   const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
-
-  // Add these new state variables with the other state variables (around line 80-90)
-  const [selectedClientFilter, setSelectedClientFilter] = useState<string | null>(null)
-  const [clientsForFilter, setClientsForFilter] = useState<ClientUser[]>([])
-  const [loadingClientsFilter, setLoadingClientsFilter] = useState(false)
-  const [clientFilterQuery, setClientFilterQuery] = useState("")
-  const [showClientFilterDialog, setShowClientFilterDialog] = useState(false)
 
   // Helper function to check if a document is a template
   const isTemplate = (doc: Document): boolean => {
@@ -181,47 +151,14 @@ export default function ClientDocumentsPage() {
     return "unknown"
   }
 
-  // Add this function after the other fetch/search functions
-  const fetchClientsForFilter = async (query = "") => {
-    try {
-      setLoadingClientsFilter(true)
-      const response = await fetch(`/api/admin/users/search?query=${encodeURIComponent(query)}`)
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to fetch clients")
-      }
-
-      const data = await response.json()
-      setClientsForFilter(data.users || [])
-    } catch (error) {
-      console.error("Error fetching clients:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load clients. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoadingClientsFilter(false)
-    }
-  }
-
-  // Modify the fetchDocuments function to include the client filter
-  // Update the fetchDocuments function to include the client filter parameter
+  // Fetch documents
   const fetchDocuments = async (page = currentPage, limit = itemsPerPage) => {
     try {
       setLoading(true)
       setError(null)
 
-      let url = `/api/admin/documents/client?page=${page}&limit=${limit}`
-
-      // Add selected client filter if provided
-      if (selectedClientFilter) {
-        url += `&userId=${encodeURIComponent(selectedClientFilter)}`
-      }
-
-      console.log(`Fetching client documents: ${url}`)
-      const response = await fetch(url)
+      console.log(`Fetching client documents (page ${page}, limit ${limit})`)
+      const response = await fetch(`/api/admin/documents/client?page=${page}&limit=${limit}`)
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -318,7 +255,7 @@ export default function ClientDocumentsPage() {
     if (!uploadForm.file || !uploadForm.name || !uploadForm.category || !uploadForm.userId) {
       toast({
         title: "Missing information",
-        description: "Please fill in all required fields, select a client, and select a file",
+        description: "Please fill in all required fields and select a file and user",
         variant: "destructive",
       })
       return
@@ -330,10 +267,9 @@ export default function ClientDocumentsPage() {
       // Create form data
       const formData = new FormData()
       formData.append("name", uploadForm.name)
-      formData.append("description", uploadForm.description || "")
+      formData.append("description", uploadForm.description)
       formData.append("category", uploadForm.category)
       formData.append("userId", uploadForm.userId)
-      formData.append("isPermanent", uploadForm.isPermanent.toString())
       formData.append("file", uploadForm.file)
 
       console.log("Uploading document:", uploadForm.name, "for user:", uploadForm.userId)
@@ -358,7 +294,6 @@ export default function ClientDocumentsPage() {
         category: "Formation",
         file: null,
         userId: "",
-        isPermanent: false,
       })
 
       if (fileInputRef.current) {
@@ -390,14 +325,6 @@ export default function ClientDocumentsPage() {
 
   // Confirm document deletion
   const confirmDelete = (doc: Document) => {
-    if (doc.isPermanent) {
-      toast({
-        title: "Cannot Delete",
-        description: "This document is marked as permanent and cannot be deleted.",
-        variant: "destructive",
-      })
-      return
-    }
     setDocumentToDelete(doc)
     setShowDeleteConfirmDialog(true)
   }
@@ -497,16 +424,6 @@ export default function ClientDocumentsPage() {
 
   // Handle document selection for bulk actions
   const toggleDocumentSelection = (docId: string) => {
-    const doc = documents.find((d) => d.id === docId)
-    if (doc?.isPermanent) {
-      toast({
-        title: "Cannot Select",
-        description: "Permanent documents cannot be selected for bulk operations.",
-        variant: "destructive",
-      })
-      return
-    }
-
     const newSelection = new Set(selectedDocuments)
     if (newSelection.has(docId)) {
       newSelection.delete(docId)
@@ -518,12 +435,12 @@ export default function ClientDocumentsPage() {
 
   // Select/deselect all documents
   const toggleSelectAll = () => {
-    if (selectedDocuments.size === filteredDocuments.filter((doc) => !doc.isPermanent).length) {
+    if (selectedDocuments.size === filteredDocuments.length) {
       // Deselect all
       setSelectedDocuments(new Set())
     } else {
-      // Select all non-permanent documents
-      const allIds = filteredDocuments.filter((doc) => !doc.isPermanent).map((doc) => doc.id)
+      // Select all
+      const allIds = filteredDocuments.map((doc) => doc.id)
       setSelectedDocuments(new Set(allIds))
     }
   }
@@ -562,25 +479,7 @@ export default function ClientDocumentsPage() {
     }
   }
 
-  // Apply filters
-  const applyFilters = () => {
-    setCurrentPage(1)
-    fetchDocuments(1, itemsPerPage)
-    setShowFilters(false)
-  }
-
-  // Reset filters
-  const resetFilters = () => {
-    setClientEmailFilter("")
-    setSelectedCategory("All")
-    setSelectedStatus("all")
-    setSearchQuery("")
-    setCurrentPage(1)
-    fetchDocuments(1, itemsPerPage)
-    setShowFilters(false)
-  }
-
-  // Modify the filteredDocuments function to include client filter
+  // Filter documents based on search, category, and status
   const filteredDocuments = documents.filter((doc: Document) => {
     const matchesSearch =
       doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -608,13 +507,6 @@ export default function ClientDocumentsPage() {
       router.push("/login?callbackUrl=/admin/documents/client")
     }
   }, [status, router, session, toast])
-
-  // Add this useEffect after the other useEffect
-  useEffect(() => {
-    if (status === "authenticated") {
-      fetchClientsForFilter()
-    }
-  }, [status])
 
   if (status === "loading" || loading) {
     return (
@@ -663,7 +555,7 @@ export default function ClientDocumentsPage() {
       </div>
 
       {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -690,37 +582,19 @@ export default function ClientDocumentsPage() {
         </div>
 
         <div>
-          <Button
-            variant="outline"
-            className="w-full flex items-center justify-between"
-            onClick={() => setShowClientFilterDialog(true)}
-          >
-            <span className="flex items-center">
-              <Search className="mr-2 h-4 w-4" />
-              {selectedClientFilter
-                ? clientsForFilter.find((c) => c.id === selectedClientFilter)?.email?.slice(0, 15) + "..." ||
-                  "Filter by Client"
-                : "Filter by Client"}
-            </span>
-            {selectedClientFilter && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 ml-2"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setSelectedClientFilter(null)
-                  fetchDocuments()
-                }}
-              >
-                <XCircle className="h-4 w-4" />
-              </Button>
-            )}
-          </Button>
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              {/* Since we don't have status in our model, we'll just show "all" */}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex space-x-2">
-          <Button variant="outline" className="flex-1" onClick={() => setShowFilters(true)}>
+          <Button variant="outline" className="flex-1">
             <Filter className="mr-2 h-4 w-4" />
             More Filters
           </Button>
@@ -732,37 +606,6 @@ export default function ClientDocumentsPage() {
           )}
         </div>
       </div>
-
-      {/* Advanced Filters Dialog */}
-      <Dialog open={showFilters} onOpenChange={setShowFilters}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Advanced Filters</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-1 items-center gap-2">
-              <Label htmlFor="client-email">Client Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  id="client-email"
-                  placeholder="Filter by client email..."
-                  className="pl-10"
-                  value={clientEmailFilter}
-                  onChange={(e) => setClientEmailFilter(e.target.value)}
-                />
-              </div>
-              <p className="text-xs text-gray-500">Enter a client email to see only their documents</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={resetFilters}>
-              Reset Filters
-            </Button>
-            <Button onClick={applyFilters}>Apply Filters</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Documents Table */}
       <Card>
@@ -814,12 +657,6 @@ export default function ClientDocumentsPage() {
                         </div>
                         <div>
                           <p className="font-medium">{doc.name}</p>
-                          {doc.isPermanent && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 mt-1">
-                              <LockIcon className="h-3 w-3 mr-1" />
-                              Permanent
-                            </span>
-                          )}
                           <p className="text-sm text-gray-500">
                             {formatBytes(doc.fileSize || 0)} • {(doc.fileType || doc.type || "Unknown").toUpperCase()}
                           </p>
@@ -878,12 +715,11 @@ export default function ClientDocumentsPage() {
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              className={`${doc.isPermanent ? "text-gray-400 cursor-not-allowed" : "text-red-600 dark:text-red-400"}`}
-                              onClick={() => !doc.isPermanent && confirmDelete(doc)}
-                              disabled={doc.isPermanent}
+                              className="text-red-600 dark:text-red-400"
+                              onClick={() => confirmDelete(doc)}
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
-                              {doc.isPermanent ? "Cannot Delete (Permanent)" : "Delete"}
+                              Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -963,7 +799,7 @@ export default function ClientDocumentsPage() {
 
       {/* Upload Document Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Upload Document</DialogTitle>
           </DialogHeader>
@@ -999,25 +835,6 @@ export default function ClientDocumentsPage() {
                     ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="grid grid-cols-1 items-center gap-2">
-              <Label htmlFor="document-sensitivity">Document Sensitivity*</Label>
-              <Select
-                value={uploadForm.isPermanent ? "permanent" : "temporary"}
-                onValueChange={(value) => setUploadForm({ ...uploadForm, isPermanent: value === "permanent" })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select sensitivity" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="temporary">Temporary (Can be deleted)</SelectItem>
-                  <SelectItem value="permanent">Permanent (Cannot be deleted)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-500">
-                Permanent documents cannot be deleted and are preserved for compliance purposes.
-              </p>
             </div>
 
             <div className="grid grid-cols-1 items-center gap-2">
@@ -1145,97 +962,97 @@ export default function ClientDocumentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Client Filter Dialog */}
-      <Dialog open={showClientFilterDialog} onOpenChange={setShowClientFilterDialog}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Filter by Client</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Confirm Deletion
+            </DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-1 items-center gap-2">
-              <Label>Search Clients</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search by name or email..."
-                  className="pl-10"
-                  value={clientFilterQuery}
-                  onChange={(e) => {
-                    setClientFilterQuery(e.target.value)
-                    if (e.target.value.length > 2) {
-                      fetchClientsForFilter(e.target.value)
-                    }
-                  }}
-                />
-              </div>
-            </div>
-
-            {loadingClientsFilter ? (
-              <div className="py-4 text-center">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto text-gray-400" />
-                <p className="text-sm text-gray-500 mt-2">Loading clients...</p>
-              </div>
-            ) : clientsForFilter.length > 0 ? (
-              <div className="border rounded-md overflow-hidden">
-                <div className="max-h-[300px] overflow-y-auto">
-                  {clientsForFilter.map((client) => (
-                    <div
-                      key={client.id}
-                      className={`flex items-center justify-between p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0 ${
-                        selectedClientFilter === client.id ? "bg-purple-50" : ""
-                      }`}
-                      onClick={() => {
-                        setSelectedClientFilter(client.id)
-                        setShowClientFilterDialog(false)
-                        fetchDocuments(1, itemsPerPage)
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                          <span className="text-xs text-gray-600 font-medium">
-                            {client.name
-                              ? client.name
-                                  .split(" ")
-                                  .map((n) => n[0])
-                                  .join("")
-                                  .toUpperCase()
-                              : client.email[0].toUpperCase()}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{client.name || "Unnamed User"}</p>
-                          <p className="text-xs text-gray-500">{client.email}</p>
-                          {client.business && <p className="text-xs text-gray-500">{client.business.name}</p>}
-                        </div>
-                      </div>
-                      {selectedClientFilter === client.id && <Check className="h-4 w-4 text-purple-600" />}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="py-8 text-center">
-                <UserIcon className="h-10 w-10 mx-auto text-gray-400 mb-2" />
-                <p className="text-gray-500">
-                  {clientFilterQuery.length > 0
-                    ? "No clients found matching your search"
-                    : "Search for clients to filter documents"}
+          <div className="py-4">
+            <p>Are you sure you want to delete this document?</p>
+            {documentToDelete && (
+              <div className="mt-2 p-3 bg-gray-50 rounded-md">
+                <p className="font-medium">{documentToDelete.name}</p>
+                <p className="text-sm text-gray-500">
+                  {documentToDelete.category} • {formatBytes(documentToDelete.fileSize || 0)}
                 </p>
               </div>
             )}
+            <p className="mt-4 text-sm text-red-500">This action cannot be undone.</p>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
-                setSelectedClientFilter(null)
-                setShowClientFilterDialog(false)
-                fetchDocuments()
+                setShowDeleteConfirmDialog(false)
+                setDocumentToDelete(null)
               }}
+              disabled={deleting}
             >
-              Clear Filter
+              Cancel
             </Button>
-            <Button onClick={() => setShowClientFilterDialog(false)}>Close</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Confirm Bulk Deletion
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>Are you sure you want to delete {selectedDocuments.size} selected documents?</p>
+            <div className="mt-2 p-3 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
+              <ul className="space-y-1">
+                {Array.from(selectedDocuments).map((id) => {
+                  const doc = documents.find((d) => d.id === id)
+                  return doc ? (
+                    <li key={id} className="text-sm flex items-center gap-2">
+                      <FileTypeIcon
+                        fileType={doc.fileType}
+                        fileName={doc.name}
+                        size={14}
+                        className="text-gray-500 flex-shrink-0"
+                      />
+                      <span className="truncate">{doc.name}</span>
+                    </li>
+                  ) : null
+                })}
+              </ul>
+            </div>
+            <p className="mt-4 text-sm text-red-500">This action cannot be undone.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkDeleteConfirm(false)} disabled={bulkDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleting}>
+              {bulkDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete All Selected"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
