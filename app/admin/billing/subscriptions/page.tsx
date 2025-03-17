@@ -126,6 +126,10 @@ export default function SubscriptionsPage() {
   const [selectedSubscription, setSelectedSubscription] = useState<CustomerSubscription | null>(null)
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false)
 
+  // Add these pagination state variables after the other state declarations (around line 70)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+
   // State for pricing data
   const {
     pricingData,
@@ -154,6 +158,9 @@ export default function SubscriptionsPage() {
     }
   }
 
+  // Update the fetchCustomerSubscriptions function to filter out invoices starting with "temp"
+  // Find the existing fetchCustomerSubscriptions function and modify it:
+
   // Fetch customer subscriptions
   const fetchCustomerSubscriptions = async () => {
     try {
@@ -179,7 +186,7 @@ export default function SubscriptionsPage() {
 
       // Process the invoices to create subscription data
       const subscriptions = data.invoices
-        .filter((invoice: any) => invoice.status === "paid") // Only include paid invoices
+        .filter((invoice: any) => invoice.status === "paid" && !invoice.invoiceNumber.toLowerCase().startsWith("temp")) // Filter out temp invoices
         .map((invoice: any) => {
           // Parse items if they're stored as a JSON string
           let parsedItems = invoice.items
@@ -215,6 +222,8 @@ export default function SubscriptionsPage() {
         })
 
       setCustomerSubscriptions(subscriptions)
+      // Reset to first page when fetching new data
+      setCurrentPage(1)
     } catch (error: any) {
       console.error("Error fetching customer subscriptions:", error)
       setSubscriptionError(error.message || "Failed to load customer subscriptions")
@@ -457,6 +466,32 @@ export default function SubscriptionsPage() {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       }
     })
+
+  // Add pagination logic after the filteredSubscriptions declaration
+  // Find the existing filteredSubscriptions code and add this after it:
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentSubscriptions = filteredSubscriptions.slice(indexOfFirstItem, indexOfLastItem)
+  const totalPages = Math.ceil(filteredSubscriptions.length / itemsPerPage)
+
+  // Add pagination navigation functions
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const goToPage = (pageNumber: number) => {
+    setCurrentPage(pageNumber)
+  }
 
   // Export subscriptions to CSV
   const exportSubscriptions = () => {
@@ -745,6 +780,28 @@ export default function SubscriptionsPage() {
                 />
               </div>
 
+              {/* In the Search and Sort section, add items per page selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 whitespace-nowrap">Items per page:</span>
+                <Select
+                  value={itemsPerPage.toString()}
+                  onValueChange={(value) => {
+                    setItemsPerPage(Number(value))
+                    setCurrentPage(1) // Reset to first page when changing items per page
+                  }}
+                >
+                  <SelectTrigger className="w-[80px]">
+                    <SelectValue placeholder="10" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-500 whitespace-nowrap">Sort by:</span>
                 <Select value={sortOrder} onValueChange={setSortOrder}>
@@ -774,6 +831,7 @@ export default function SubscriptionsPage() {
                 </div>
               </div>
             ) : (
+              // Replace the Card component with this updated version that includes pagination
               <Card>
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -795,7 +853,7 @@ export default function SubscriptionsPage() {
                           </td>
                         </tr>
                       ) : (
-                        filteredSubscriptions.map((subscription) => (
+                        currentSubscriptions.map((subscription) => (
                           <tr key={subscription.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
                             <td className="p-4">
                               <div className="flex items-center">
@@ -826,6 +884,54 @@ export default function SubscriptionsPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Pagination Controls */}
+                {filteredSubscriptions.length > 0 && (
+                  <div className="flex items-center justify-between p-4 border-t">
+                    <div className="text-sm text-gray-500">
+                      Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredSubscriptions.length)} of{" "}
+                      {filteredSubscriptions.length} subscriptions
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button variant="outline" size="sm" onClick={prevPage} disabled={currentPage === 1}>
+                        Previous
+                      </Button>
+
+                      {/* Page number buttons */}
+                      <div className="flex items-center space-x-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          // Show pages around the current page
+                          let pageToShow: number
+                          if (totalPages <= 5) {
+                            pageToShow = i + 1
+                          } else if (currentPage <= 3) {
+                            pageToShow = i + 1
+                          } else if (currentPage >= totalPages - 2) {
+                            pageToShow = totalPages - 4 + i
+                          } else {
+                            pageToShow = currentPage - 2 + i
+                          }
+
+                          return (
+                            <Button
+                              key={pageToShow}
+                              variant={currentPage === pageToShow ? "default" : "outline"}
+                              size="sm"
+                              className="w-8 h-8 p-0"
+                              onClick={() => goToPage(pageToShow)}
+                            >
+                              {pageToShow}
+                            </Button>
+                          )
+                        })}
+                      </div>
+
+                      <Button variant="outline" size="sm" onClick={nextPage} disabled={currentPage === totalPages}>
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </Card>
             )}
           </div>
