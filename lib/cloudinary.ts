@@ -123,3 +123,49 @@ export async function deleteFromCloudinary(publicId: string): Promise<boolean> {
   }
 }
 
+/**
+ * Extract Cloudinary details from a URL
+ * @param url The Cloudinary URL
+ * @returns Object containing publicId, resourceType, and folderPath
+ */
+export function extractCloudinaryDetails(url: string) {
+  try {
+    // Default values
+    let publicId = ""
+    let resourceType = "auto"
+    let folderPath = ""
+
+    // Check if this is a Cloudinary URL
+    if (!url.includes("cloudinary.com")) {
+      return { publicId, resourceType, folderPath }
+    }
+
+    // Extract resource type (image, video, raw)
+    if (url.includes("/image/")) resourceType = "image"
+    else if (url.includes("/video/")) resourceType = "video"
+    else if (url.includes("/raw/")) resourceType = "raw"
+
+    // Extract public ID and folder path
+    // Format: https://res.cloudinary.com/cloud_name/resource_type/upload/v1234567890/folder/filename.ext
+    const regex = /\/(?:v\d+\/)?(.+?)(?:\.\w+)?(?:\?|$)/
+    const match = url.match(regex)
+
+    if (match && match[1]) {
+      publicId = match[1]
+
+      // Extract folder path if present
+      const pathParts = publicId.split("/")
+      if (pathParts.length > 1) {
+        folderPath = pathParts.slice(0, -1).join("/")
+      }
+    }
+
+    return { publicId, resourceType, folderPath }
+  } catch (error) {
+    console.error("Error extracting Cloudinary details:", error)
+    return { publicId: "", resourceType: "auto", folderPath: "" }
+  }
+}
+
+export default cloudinary
+
