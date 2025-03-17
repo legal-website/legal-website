@@ -10,7 +10,22 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
-import { Edit, Trash2, Plus, Save, X, Check, RefreshCw, AlertCircle } from "lucide-react"
+import {
+  Edit,
+  Trash2,
+  Plus,
+  Save,
+  X,
+  Check,
+  RefreshCw,
+  AlertCircle,
+  Search,
+  Download,
+  Eye,
+  FileText,
+  CheckCircle2,
+  Clock,
+} from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -66,6 +81,31 @@ interface PricingData {
   stateDescriptions: StateDescriptions
 }
 
+// Define types for customer subscriptions
+interface InvoiceItem {
+  id: string
+  tier: string
+  price: number
+  stateFee?: number
+  state?: string
+  discount?: number
+  templateId?: string
+  type?: string
+}
+
+interface CustomerSubscription {
+  id: string
+  invoiceNumber: string
+  customerName: string
+  customerEmail: string
+  amount: number
+  status: string
+  items: InvoiceItem[] | string
+  paymentDate?: string
+  createdAt: string
+  packageName: string
+}
+
 export default function SubscriptionsPage() {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("plans")
@@ -78,6 +118,13 @@ export default function SubscriptionsPage() {
   const [deletingPlanId, setDeletingPlanId] = useState<number | null>(null)
   const [editingState, setEditingState] = useState<string | null>(null)
   const [newFeature, setNewFeature] = useState("")
+  const [customerSubscriptions, setCustomerSubscriptions] = useState<CustomerSubscription[]>([])
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(true)
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sortOrder, setSortOrder] = useState<string>("newest")
+  const [selectedSubscription, setSelectedSubscription] = useState<CustomerSubscription | null>(null)
+  const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false)
 
   // State for pricing data
   const {
@@ -107,8 +154,78 @@ export default function SubscriptionsPage() {
     }
   }
 
+  // Fetch customer subscriptions
+  const fetchCustomerSubscriptions = async () => {
+    try {
+      setLoadingSubscriptions(true)
+      setSubscriptionError(null)
+
+      const response = await fetch("/api/admin/invoices", {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch subscriptions: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (!data.invoices) {
+        throw new Error("Invalid response format")
+      }
+
+      // Process the invoices to create subscription data
+      const subscriptions = data.invoices
+        .filter((invoice: any) => invoice.status === "paid") // Only include paid invoices
+        .map((invoice: any) => {
+          // Parse items if they're stored as a JSON string
+          let parsedItems = invoice.items
+          try {
+            if (typeof invoice.items === "string") {
+              parsedItems = JSON.parse(invoice.items)
+            }
+          } catch (e) {
+            console.error(`Error parsing items for invoice ${invoice.id}:`, e)
+            parsedItems = []
+          }
+
+          // Extract package name from items
+          let packageName = "Unknown Package"
+          if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+            packageName = parsedItems[0].tier || "Unknown Package"
+          } else if (typeof parsedItems === "object" && parsedItems !== null) {
+            packageName = parsedItems.tier || "Unknown Package"
+          }
+
+          return {
+            id: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
+            customerName: invoice.customerName,
+            customerEmail: invoice.customerEmail,
+            amount: invoice.amount,
+            status: invoice.status,
+            items: parsedItems,
+            paymentDate: invoice.paymentDate || invoice.updatedAt,
+            createdAt: invoice.createdAt,
+            packageName,
+          }
+        })
+
+      setCustomerSubscriptions(subscriptions)
+    } catch (error: any) {
+      console.error("Error fetching customer subscriptions:", error)
+      setSubscriptionError(error.message || "Failed to load customer subscriptions")
+    } finally {
+      setLoadingSubscriptions(false)
+    }
+  }
+
   useEffect(() => {
     fetchPricingData()
+    fetchCustomerSubscriptions()
   }, [])
 
   // Save pricing data to the API
@@ -310,6 +427,78 @@ export default function SubscriptionsPage() {
     setEditingState(null)
   }
 
+  // View subscription details
+  const viewSubscriptionDetails = (subscription: CustomerSubscription) => {
+    setSelectedSubscription(subscription)
+    setShowSubscriptionDialog(true)
+  }
+
+  // Filter and sort subscriptions
+  const filteredSubscriptions = customerSubscriptions
+    .filter((subscription) => {
+      return (
+        subscription.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        subscription.customerEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        subscription.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        subscription.packageName.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    })
+    .sort((a, b) => {
+      switch (sortOrder) {
+        case "newest":
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        case "oldest":
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        case "highest":
+          return b.amount - a.amount
+        case "lowest":
+          return a.amount - b.amount
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      }
+    })
+
+  // Export subscriptions to CSV
+  const exportSubscriptions = () => {
+    // Create CSV header
+    let csv = "Invoice Number,Customer,Email,Package,Amount,Payment Date\n"
+
+    // Add each subscription as a row
+    filteredSubscriptions.forEach((subscription) => {
+      const paymentDate = subscription.paymentDate
+        ? new Date(subscription.paymentDate).toLocaleDateString()
+        : new Date(subscription.createdAt).toLocaleDateString()
+
+      csv += `${subscription.invoiceNumber},"${subscription.customerName}","${subscription.customerEmail}","${subscription.packageName}",${subscription.amount},${paymentDate}\n`
+    })
+
+    // Create a blob and download link
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", "customer_subscriptions.csv")
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    toast({
+      title: "Export Complete",
+      description: `${filteredSubscriptions.length} subscriptions exported to CSV`,
+    })
+  }
+
+  // Format date helper
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
+  }
+
   // Show loading state
   if (loading) {
     return (
@@ -372,6 +561,7 @@ export default function SubscriptionsPage() {
         <TabsList>
           <TabsTrigger value="plans">Subscription Plans</TabsTrigger>
           <TabsTrigger value="states">State Filing Fees</TabsTrigger>
+          <TabsTrigger value="customers">Customer Subscriptions</TabsTrigger>
         </TabsList>
 
         <TabsContent value="plans" className="mt-6">
@@ -518,6 +708,127 @@ export default function SubscriptionsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="customers" className="mt-6">
+          {/* Customer Subscriptions Section */}
+          <div className="mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+              <h2 className="text-xl font-semibold">Customer Subscriptions</h2>
+              <div className="flex items-center space-x-3 mt-4 md:mt-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center"
+                  onClick={fetchCustomerSubscriptions}
+                  disabled={loadingSubscriptions}
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${loadingSubscriptions ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+                <Button variant="outline" size="sm" className="flex items-center" onClick={exportSubscriptions}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export CSV
+                </Button>
+              </div>
+            </div>
+
+            {/* Search and Sort */}
+            <div className="flex flex-wrap items-center gap-4 mb-4">
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search subscriptions..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 whitespace-nowrap">Sort by:</span>
+                <Select value={sortOrder} onValueChange={setSortOrder}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Sort order" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Most Recent</SelectItem>
+                    <SelectItem value="oldest">Oldest First</SelectItem>
+                    <SelectItem value="highest">Highest Amount</SelectItem>
+                    <SelectItem value="lowest">Lowest Amount</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {loadingSubscriptions ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-600"></div>
+              </div>
+            ) : subscriptionError ? (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6 flex items-start">
+                <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">Error</p>
+                  <p>{subscriptionError}</p>
+                </div>
+              </div>
+            ) : (
+              <Card>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-4 font-medium text-sm">Invoice</th>
+                        <th className="text-left p-4 font-medium text-sm">Customer</th>
+                        <th className="text-left p-4 font-medium text-sm">Package</th>
+                        <th className="text-left p-4 font-medium text-sm">Amount</th>
+                        <th className="text-left p-4 font-medium text-sm">Payment Date</th>
+                        <th className="text-left p-4 font-medium text-sm">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSubscriptions.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-4 text-center text-gray-500">
+                            No subscriptions found
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredSubscriptions.map((subscription) => (
+                          <tr key={subscription.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            <td className="p-4">
+                              <div className="flex items-center">
+                                <FileText className="h-4 w-4 mr-2 text-gray-400" />
+                                <span>{subscription.invoiceNumber}</span>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div>
+                                <p className="font-medium">{subscription.customerName}</p>
+                                <p className="text-sm text-gray-500">{subscription.customerEmail}</p>
+                              </div>
+                            </td>
+                            <td className="p-4 font-medium">{subscription.packageName}</td>
+                            <td className="p-4 font-medium">${subscription.amount.toFixed(2)}</td>
+                            <td className="p-4 text-gray-500">
+                              {formatDate(subscription.paymentDate || subscription.createdAt)}
+                            </td>
+                            <td className="p-4">
+                              <Button variant="ghost" size="sm" onClick={() => viewSubscriptionDetails(subscription)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                View
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -715,7 +1026,147 @@ export default function SubscriptionsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Subscription Details Dialog */}
+      {selectedSubscription && (
+        <Dialog open={showSubscriptionDialog} onOpenChange={setShowSubscriptionDialog}>
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="sticky top-0 bg-white dark:bg-gray-950 pt-4 pb-2 z-10">
+              <DialogTitle>Subscription Details</DialogTitle>
+              <DialogDescription>Viewing details for invoice {selectedSubscription.invoiceNumber}</DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4">
+              {/* Subscription Header */}
+              <div className="flex flex-col md:flex-row md:justify-between mb-8">
+                <div>
+                  <h3 className="text-lg font-bold mb-1">Customer Information</h3>
+                  <p className="font-medium">{selectedSubscription.customerName}</p>
+                  <p className="text-gray-500">{selectedSubscription.customerEmail}</p>
+                </div>
+
+                <div className="mt-4 md:mt-0 md:text-right">
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-500">Status</p>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Paid
+                    </span>
+                  </div>
+                  <div className="mb-2">
+                    <p className="text-sm text-gray-500">Payment Date</p>
+                    <p>{formatDate(selectedSubscription.paymentDate || selectedSubscription.createdAt)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Invoice Number</p>
+                    <p>{selectedSubscription.invoiceNumber}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Subscription Details */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold mb-4">Subscription Details</h3>
+                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Package</p>
+                      <p className="font-medium">{selectedSubscription.packageName}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Amount</p>
+                      <p className="font-medium">${selectedSubscription.amount.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Subscription Items */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold mb-4">Items</h3>
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2 font-medium text-sm">Item</th>
+                      <th className="text-right p-2 font-medium text-sm">Price</th>
+                      <th className="text-right p-2 font-medium text-sm">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.isArray(selectedSubscription.items) ? (
+                      selectedSubscription.items.map((item, index) => (
+                        <tr key={index} className="border-b">
+                          <td className="p-2">
+                            <div>
+                              <p>{item.tier} Package</p>
+                              {item.state && <p className="text-sm text-gray-500">{item.state} State Filing Fee</p>}
+                            </div>
+                          </td>
+                          <td className="p-2 text-right">
+                            <div>
+                              <p>${item.price.toFixed(2)}</p>
+                              {item.stateFee && <p className="text-sm text-gray-500">${item.stateFee.toFixed(2)}</p>}
+                            </div>
+                          </td>
+                          <td className="p-2 text-right">
+                            ${(item.price + (item.stateFee || 0) - (item.discount || 0)).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="p-2 text-center text-gray-500">
+                          No items found or invalid items format
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={2} className="p-2 text-right font-medium">
+                        Total
+                      </td>
+                      <td className="p-2 text-right font-bold">${selectedSubscription.amount.toFixed(2)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            <DialogFooter className="sticky bottom-0 bg-white dark:bg-gray-950 pt-2 pb-4 z-10">
+              <Button variant="outline" onClick={() => setShowSubscriptionDialog(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
+}
+
+function InvoiceStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case "paid":
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+          <CheckCircle2 className="h-3 w-3 mr-1" />
+          Paid
+        </span>
+      )
+    case "pending":
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+          <Clock className="h-3 w-3 mr-1" />
+          Pending
+        </span>
+      )
+    default:
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
+          {status}
+        </span>
+      )
+  }
 }
 
