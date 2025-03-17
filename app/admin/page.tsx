@@ -39,12 +39,12 @@ import {
   getTicketStats,
   getClients,
   getUnreadMessageCounts,
+  updateTicketLastViewed,
 } from "@/lib/actions/admin-ticket-actions"
 import { getTicketDetails, createMessage, updateTicket, deleteTicket } from "@/lib/actions/ticket-actions"
 import type { Ticket, TicketStatus, TicketPriority } from "@/types/ticket"
 import { useNotifications } from "@/components/admin/header"
 import { ticketEvents, getLastSeenTickets, updateLastSeenTickets } from "@/lib/ticket-notifications"
-import { getTicketsWithNewMessages } from "@/lib/local-storage"
 
 interface SupportUser {
   id: string
@@ -102,7 +102,6 @@ export default function AdminTicketsPage() {
   const [showClientFilterDialog, setShowClientFilterDialog] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [hasNewMessages, setHasNewMessages] = useState(false)
-  // Fix the refreshTimerRef type issue
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -118,7 +117,11 @@ export default function AdminTicketsPage() {
   const [sortField, setSortField] = useState<string>("updatedAt")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
 
+  // State for tickets with new messages
   const [ticketsWithNewMessages, setTicketsWithNewMessages] = useState<string[]>([])
+
+  // Previous message counts for comparison
+  const prevMessageCountsRef = useRef<Record<string, number>>({})
 
   // Get the notification context
   const { addNotification } = useNotifications()
@@ -138,9 +141,32 @@ export default function AdminTicketsPage() {
         })
       } else if (ticketsResult.tickets) {
         const fetchedTickets = ticketsResult.tickets as Ticket[]
+
+        // Check for new messages by comparing message counts
+        const newTicketsWithMessages: string[] = []
+
+        fetchedTickets.forEach((ticket) => {
+          const currentCount = ticket.messages?.length || 0
+          const prevCount = prevMessageCountsRef.current[ticket.id] || 0
+
+          // If message count increased, add to new messages list
+          if (currentCount > prevCount) {
+            newTicketsWithMessages.push(ticket.id)
+            console.log(`Ticket ${ticket.id} has new messages: ${currentCount} > ${prevCount}`)
+          }
+
+          // Update the stored count
+          prevMessageCountsRef.current[ticket.id] = currentCount
+        })
+
+        // Update tickets with new messages
+        if (newTicketsWithMessages.length > 0) {
+          setTicketsWithNewMessages((prev) => [...new Set([...prev, ...newTicketsWithMessages])])
+          setHasNewMessages(true)
+        }
+
         setTickets(fetchedTickets)
-        // Track message count changes
-        trackMessageCountChanges(fetchedTickets)
+
         // Check if pagination exists before accessing it
         if ("pagination" in ticketsResult && ticketsResult.pagination) {
           setPagination(ticketsResult.pagination as PaginationData)
@@ -204,10 +230,6 @@ export default function AdminTicketsPage() {
       // Fetch unread message counts
       await fetchUnreadCounts()
 
-      // Load tickets with new messages
-      const newMessagesTickets = getTicketsWithNewMessages()
-      setTicketsWithNewMessages(newMessagesTickets)
-
       setIsLoading(false)
     }
 
@@ -247,65 +269,6 @@ export default function AdminTicketsPage() {
     }
   }
 
-  // Track message count changes and update new messages list
-  const trackMessageCountChanges = (tickets: Ticket[]) => {
-    // Get previous message counts from localStorage
-    const prevMessageCounts = JSON.parse(localStorage.getItem("ticketMessageCounts") || "{}")
-    const newTicketsWithMessages: string[] = []
-
-    // Check each ticket for message count changes
-    tickets.forEach((ticket) => {
-      const currentCount = ticket.messages?.length || 0
-      const prevCount = prevMessageCounts[ticket.id]?.count || 0
-
-      // If message count increased, add to new messages list
-      if (currentCount > prevCount) {
-        newTicketsWithMessages.push(ticket.id)
-        console.log(`Ticket ${ticket.id} has new messages: ${currentCount} > ${prevCount}`)
-      }
-
-      // Update the stored count
-      prevMessageCounts[ticket.id] = {
-        count: currentCount,
-        lastChecked: new Date().toISOString(),
-        subject: ticket.subject,
-      }
-    })
-
-    // Save updated counts to localStorage
-    localStorage.setItem("ticketMessageCounts", JSON.stringify(prevMessageCounts))
-
-    // Update tickets with new messages
-    if (newTicketsWithMessages.length > 0) {
-      const currentNewMessages = getTicketsWithNewMessages()
-      const updatedNewMessages = [...new Set([...currentNewMessages, ...newTicketsWithMessages])]
-      updateTicketsWithNewMessages(updatedNewMessages)
-      setTicketsWithNewMessages(updatedNewMessages)
-      setHasNewMessages(true)
-    }
-  }
-
-  // Function to get tickets with new messages from localStorage
-  const getTicketsWithNewMessages = (): string[] => {
-    if (typeof window === "undefined") return []
-    const stored = localStorage.getItem("ticketsWithNewMessages")
-    return stored ? JSON.parse(stored) : []
-  }
-
-  // Function to update tickets with new messages in localStorage
-  const updateTicketsWithNewMessages = (ticketIds: string[]) => {
-    if (typeof window === "undefined") return
-    localStorage.setItem("ticketsWithNewMessages", JSON.stringify(ticketIds))
-  }
-
-  // Function to mark a ticket as read (no new messages)
-  const markTicketAsRead = (ticketId: string) => {
-    const current = getTicketsWithNewMessages()
-    const updated = current.filter((id) => id !== ticketId)
-    updateTicketsWithNewMessages(updated)
-    setTicketsWithNewMessages(updated)
-  }
-
   // Refresh data function
   const refreshData = async () => {
     if (isRefreshing) return
@@ -316,13 +279,34 @@ export default function AdminTicketsPage() {
     const ticketsResult = await getAllTickets(currentPage, itemsPerPage)
     if (!ticketsResult.error && ticketsResult.tickets) {
       const newTickets = ticketsResult.tickets as Ticket[]
+
+      // Check for new messages by comparing message counts
+      const newTicketsWithMessages: string[] = []
+
+      newTickets.forEach((ticket) => {
+        const currentCount = ticket.messages?.length || 0
+        const prevCount = prevMessageCountsRef.current[ticket.id] || 0
+
+        // If message count increased, add to new messages list
+        if (currentCount > prevCount) {
+          newTicketsWithMessages.push(ticket.id)
+          console.log(`Ticket ${ticket.id} has new messages: ${currentCount} > ${prevCount}`)
+        }
+
+        // Update the stored count
+        prevMessageCountsRef.current[ticket.id] = currentCount
+      })
+
+      // Update tickets with new messages
+      if (newTicketsWithMessages.length > 0) {
+        setTicketsWithNewMessages((prev) => [...new Set([...prev, ...newTicketsWithMessages])])
+        setHasNewMessages(true)
+      }
+
       // Check if pagination exists before accessing it
       if ("pagination" in ticketsResult && ticketsResult.pagination) {
         setPagination(ticketsResult.pagination as PaginationData)
       }
-
-      // Track message count changes and update new messages list
-      trackMessageCountChanges(newTickets)
 
       setTickets(newTickets)
     }
@@ -432,17 +416,11 @@ export default function AdminTicketsPage() {
 
   const viewTicketDetails = (ticket: Ticket) => {
     // Mark this ticket as read (no new messages)
-    markTicketAsRead(ticket.id)
+    setTicketsWithNewMessages((prev) => prev.filter((id) => id !== ticket.id))
 
     setSelectedTicket(ticket)
     setShowTicketDialog(true)
     setHasNewMessages(false) // Reset new message indicator when viewing a ticket
-
-    // Mark this ticket as read (no new messages)
-    markTicketAsRead(ticket.id)
-
-    // Update the local state
-    setTicketsWithNewMessages((prev) => prev.filter((id) => id !== ticket.id))
   }
 
   // Handle sending a new message
@@ -681,21 +659,6 @@ export default function AdminTicketsPage() {
     ) : (
       <ChevronDown className="h-4 w-4 inline ml-1" />
     )
-  }
-
-  // Add this function inside the component
-  const updateTicketLastViewed = async (ticketId: string) => {
-    try {
-      // This is a placeholder implementation since the actual function doesn't exist
-      // You would typically call an API endpoint here
-      console.log(`Marking ticket ${ticketId} as viewed`)
-
-      // We can't access setUnreadCounts here, so we'll just return success
-      return { success: true }
-    } catch (error) {
-      console.error("Error updating ticket last viewed:", error)
-      return { error: "Failed to update ticket last viewed status" }
-    }
   }
 
   return (
@@ -974,7 +937,7 @@ export default function AdminTicketsPage() {
                               </Badge>
                             )}
                             {ticketsWithNewMessages.includes(ticket.id) && (
-                              <Badge className="ml-2 bg-blue-500" variant="secondary">
+                              <Badge className="ml-2 bg-green-500" variant="secondary">
                                 New
                               </Badge>
                             )}
