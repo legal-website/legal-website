@@ -190,22 +190,20 @@ export default function AdminTicketsPage() {
     }
   }, [currentPage, itemsPerPage])
 
-  // Function to store ticket notifications for the header component
-  const storeTicketNotification = (count: number) => {
-    if (count <= 0) return
-
+  // Add a function to store ticket notifications for the header component
+  const storeTicketNotification = (title: string, description: string) => {
     const notifications = []
 
     notifications.push({
-      title: `New ticket message${count > 1 ? "s" : ""}`,
-      description: `You have ${count} unread message${count > 1 ? "s" : ""} in your tickets`,
+      title: title,
+      description: description,
       source: "tickets",
     })
 
     localStorage.setItem("ticketNotifications", JSON.stringify(notifications))
   }
 
-  // Fetch unread message counts
+  // Update the fetchUnreadCounts function to notify about new messages
   const fetchUnreadCounts = async () => {
     // Remove the hardcoded user ID and let the server action use the session
     const unreadResult = await getUnreadMessageCounts()
@@ -225,7 +223,11 @@ export default function AdminTicketsPage() {
           setHasNewMessages(true)
 
           // Store notification for header component
-          storeTicketNotification(newUnreadTotal - previousUnreadTotal)
+          const newMessages = newUnreadTotal - previousUnreadTotal
+          storeTicketNotification(
+            `New ticket message${newMessages > 1 ? "s" : ""}`,
+            `You have ${newMessages} new unread message${newMessages > 1 ? "s" : ""} in your tickets`,
+          )
 
           // Show a toast notification for new messages if not already viewing the ticket
           if (newUnreadTotal > 0 && (!selectedTicket || !showTicketDialog)) {
@@ -241,6 +243,58 @@ export default function AdminTicketsPage() {
       }
     }
   }
+
+  // Function to store ticket notifications for the header component
+  // const storeTicketNotification = (count: number) => {
+  //   if (count <= 0) return
+
+  //   const notifications = []
+
+  //   notifications.push({
+  //     title: `New ticket message${count > 1 ? "s" : ""}`,
+  //     description: `You have ${count} unread message${count > 1 ? "s" : ""} in your tickets`,
+  //     source: "tickets",
+  //   })
+
+  //   localStorage.setItem("ticketNotifications", JSON.stringify(notifications))
+  // }
+
+  // // Fetch unread message counts
+  // const fetchUnreadCounts = async () => {
+  //   // Remove the hardcoded user ID and let the server action use the session
+  //   const unreadResult = await getUnreadMessageCounts()
+
+  //   if (!unreadResult.error) {
+  //     if (unreadResult.unreadCounts) {
+  //       // Compare with previous unread counts to see if there are new messages
+  //       const previousUnreadTotal = Object.values(unreadCounts).reduce((sum: number, count) => sum + Number(count), 0)
+
+  //       const newUnreadTotal =
+  //         unreadResult.totalUnread ||
+  //         Object.values(unreadResult.unreadCounts).reduce((sum: number, count) => sum + Number(count), 0)
+
+  //       setTotalUnreadMessages(newUnreadTotal)
+
+  //       if (newUnreadTotal > previousUnreadTotal) {
+  //         setHasNewMessages(true)
+
+  //         // Store notification for header component
+  //         storeTicketNotification(newUnreadTotal - previousUnreadTotal)
+
+  //         // Show a toast notification for new messages if not already viewing the ticket
+  //         if (newUnreadTotal > 0 && (!selectedTicket || !showTicketDialog)) {
+  //           toast({
+  //             title: "New Messages",
+  //             description: `You have ${newUnreadTotal} unread message${newUnreadTotal === 1 ? "" : "s"}`,
+  //             variant: "default",
+  //           })
+  //         }
+  //       }
+
+  //       setUnreadCounts(unreadResult.unreadCounts)
+  //     }
+  //   }
+  // }
 
   // Refresh data function
   const refreshData = async () => {
@@ -406,7 +460,7 @@ export default function AdminTicketsPage() {
     setHasNewMessages(false) // Reset new message indicator when viewing a ticket
   }
 
-  // Handle sending a new message
+  // Add notification when a new message is sent
   const handleSendMessage = async () => {
     if (!selectedTicket || !newMessage.trim()) return
 
@@ -421,6 +475,9 @@ export default function AdminTicketsPage() {
         variant: "destructive",
       })
     } else {
+      // Create notification for new message
+      storeTicketNotification("Message sent", `You replied to ticket #${selectedTicket.id.substring(0, 8)}`)
+
       // Refresh ticket details
       const ticketResult = await getTicketDetails(selectedTicket.id)
       if (ticketResult.ticket) {
@@ -439,7 +496,7 @@ export default function AdminTicketsPage() {
     setIsSubmitting(false)
   }
 
-  // Handle updating ticket status
+  // Add notification when ticket status changes
   const handleUpdateTicketStatus = async (status: TicketStatus) => {
     if (!selectedTicket) return
 
@@ -462,6 +519,12 @@ export default function AdminTicketsPage() {
         description: `Ticket status updated to ${status}`,
       })
 
+      // Create notification for status change
+      storeTicketNotification(
+        "Ticket status updated",
+        `Ticket #${selectedTicket.id.substring(0, 8)} status changed to ${status}`,
+      )
+
       // Refresh ticket details
       const ticketResult = await getTicketDetails(selectedTicket.id)
       if (ticketResult.ticket) {
@@ -475,7 +538,7 @@ export default function AdminTicketsPage() {
     setIsSubmitting(false)
   }
 
-  // Handle updating ticket priority
+  // Add notification when ticket priority changes
   const handleUpdateTicketPriority = async (priority: TicketPriority) => {
     if (!selectedTicket) return
 
@@ -498,6 +561,12 @@ export default function AdminTicketsPage() {
         description: `Ticket priority updated to ${priority}`,
       })
 
+      // Create notification for priority change
+      storeTicketNotification(
+        "Ticket priority updated",
+        `Ticket #${selectedTicket.id.substring(0, 8)} priority changed to ${priority}`,
+      )
+
       // Refresh ticket details
       const ticketResult = await getTicketDetails(selectedTicket.id)
       if (ticketResult.ticket) {
@@ -511,7 +580,7 @@ export default function AdminTicketsPage() {
     setIsSubmitting(false)
   }
 
-  // Handle assigning ticket to user
+  // Add notification when ticket is assigned
   const handleAssignTicket = async (userId: string | null) => {
     if (!selectedTicket) return
 
@@ -534,6 +603,12 @@ export default function AdminTicketsPage() {
         description: userId ? "Ticket assigned successfully" : "Ticket unassigned",
       })
 
+      // Create notification for assignment
+      storeTicketNotification(
+        userId ? "Ticket assigned" : "Ticket unassigned",
+        `Ticket #${selectedTicket.id.substring(0, 8)} ${userId ? "has been assigned" : "is now unassigned"}`,
+      )
+
       // Refresh ticket details
       const ticketResult = await getTicketDetails(selectedTicket.id)
       if (ticketResult.ticket) {
@@ -547,7 +622,7 @@ export default function AdminTicketsPage() {
     setIsSubmitting(false)
   }
 
-  // Handle deleting a ticket
+  // Add notification when a ticket is deleted
   const handleDeleteTicket = async () => {
     if (!ticketToDelete) return
 
@@ -567,6 +642,9 @@ export default function AdminTicketsPage() {
         description: "Ticket deleted successfully",
       })
 
+      // Create notification for ticket deletion
+      storeTicketNotification("Ticket deleted", `Ticket #${ticketToDelete.substring(0, 8)} has been deleted`)
+
       // Reset selected ticket if it was deleted
       if (selectedTicket && selectedTicket.id === ticketToDelete) {
         setSelectedTicket(null)
@@ -582,6 +660,183 @@ export default function AdminTicketsPage() {
 
     setIsSubmitting(false)
   }
+
+  // Handle sending a new message
+  // const handleSendMessage = async () => {
+  //   if (!selectedTicket || !newMessage.trim()) return
+
+  //   setIsSubmitting(true)
+
+  //   const result = await createMessage({ content: newMessage, ticketId: selectedTicket.id }, selectedFiles)
+
+  //   if (result.error) {
+  //     toast({
+  //       title: "Error",
+  //       description: result.error,
+  //       variant: "destructive",
+  //     })
+  //   } else {
+  //     // Refresh ticket details
+  //     const ticketResult = await getTicketDetails(selectedTicket.id)
+  //     if (ticketResult.ticket) {
+  //       setSelectedTicket(ticketResult.ticket as Ticket)
+  //       // Scroll to bottom of messages
+  //       setTimeout(() => {
+  //         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  //       }, 100)
+  //     }
+
+  //     // Reset form
+  //     setNewMessage("")
+  //     setSelectedFiles([])
+  //   }
+
+  //   setIsSubmitting(false)
+  // }
+
+  // Handle updating ticket status
+  // const handleUpdateTicketStatus = async (status: TicketStatus) => {
+  //   if (!selectedTicket) return
+
+  //   setIsSubmitting(true)
+
+  //   const result = await updateTicket({
+  //     id: selectedTicket.id,
+  //     status,
+  //   })
+
+  //   if (result.error) {
+  //     toast({
+  //       title: "Error",
+  //       description: result.error,
+  //       variant: "destructive",
+  //     })
+  //   } else {
+  //     toast({
+  //       title: "Success",
+  //       description: `Ticket status updated to ${status}`,
+  //     })
+
+  //     // Refresh ticket details
+  //     const ticketResult = await getTicketDetails(selectedTicket.id)
+  //     if (ticketResult.ticket) {
+  //       setSelectedTicket(ticketResult.ticket as Ticket)
+  //     }
+
+  //     // Refresh all tickets
+  //     await refreshData()
+  //   }
+
+  //   setIsSubmitting(false)
+  // }
+
+  // Handle updating ticket priority
+  // const handleUpdateTicketPriority = async (priority: TicketPriority) => {
+  //   if (!selectedTicket) return
+
+  //   setIsSubmitting(true)
+
+  //   const result = await updateTicket({
+  //     id: selectedTicket.id,
+  //     priority,
+  //   })
+
+  //   if (result.error) {
+  //     toast({
+  //       title: "Error",
+  //       description: result.error,
+  //       variant: "destructive",
+  //     })
+  //   } else {
+  //     toast({
+  //       title: "Success",
+  //       description: `Ticket priority updated to ${priority}`,
+  //     })
+
+  //     // Refresh ticket details
+  //     const ticketResult = await getTicketDetails(selectedTicket.id)
+  //     if (ticketResult.ticket) {
+  //       setSelectedTicket(ticketResult.ticket as Ticket)
+  //     }
+
+  //     // Refresh all tickets
+  //     await refreshData()
+  //   }
+
+  //   setIsSubmitting(false)
+  // }
+
+  // Handle assigning ticket to user
+  // const handleAssignTicket = async (userId: string | null) => {
+  //   if (!selectedTicket) return
+
+  //   setIsSubmitting(true)
+
+  //   const result = await updateTicket({
+  //     id: selectedTicket.id,
+  //     assigneeId: userId,
+  //   })
+
+  //   if (result.error) {
+  //     toast({
+  //       title: "Error",
+  //       description: result.error,
+  //       variant: "destructive",
+  //     })
+  //   } else {
+  //     toast({
+  //       title: "Success",
+  //       description: userId ? "Ticket assigned successfully" : "Ticket unassigned",
+  //     })
+
+  //     // Refresh ticket details
+  //     const ticketResult = await getTicketDetails(selectedTicket.id)
+  //     if (ticketResult.ticket) {
+  //       setSelectedTicket(ticketResult.ticket as Ticket)
+  //     }
+
+  //     // Refresh all tickets
+  //     await refreshData()
+  //   }
+
+  //   setIsSubmitting(false)
+  // }
+
+  // Handle deleting a ticket
+  // const handleDeleteTicket = async () => {
+  //   if (!ticketToDelete) return
+
+  //   setIsSubmitting(true)
+
+  //   const result = await deleteTicket(ticketToDelete)
+
+  //   if (result.error) {
+  //     toast({
+  //       title: "Error",
+  //       description: result.error,
+  //       variant: "destructive",
+  //     })
+  //   } else {
+  //     toast({
+  //       title: "Success",
+  //       description: "Ticket deleted successfully",
+  //     })
+
+  //     // Reset selected ticket if it was deleted
+  //     if (selectedTicket && selectedTicket.id === ticketToDelete) {
+  //       setSelectedTicket(null)
+  //       setShowTicketDialog(false)
+  //     }
+
+  //     // Refresh all tickets and stats
+  //     await refreshData()
+
+  //     setIsDeleteDialogOpen(false)
+  //     setTicketToDelete(null)
+  //   }
+
+  //   setIsSubmitting(false)
+  // }
 
   // Format date for display
   const formatDate = (dateString: string | Date) => {
