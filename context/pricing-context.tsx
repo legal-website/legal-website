@@ -41,15 +41,22 @@ interface PricingContextType {
   refreshPricingData: () => Promise<void>
 }
 
-const PricingContext = createContext<PricingContextType | undefined>(undefined)
+const defaultPricingData: PricingData = {
+  plans: [],
+  stateFilingFees: {},
+  stateDiscounts: {},
+  stateDescriptions: {},
+}
+
+const PricingContext = createContext<PricingContextType>({
+  pricingData: defaultPricingData,
+  loading: true,
+  error: null,
+  refreshPricingData: async () => {},
+})
 
 export function PricingProvider({ children }: { children: ReactNode }) {
-  const [pricingData, setPricingData] = useState<PricingData>({
-    plans: [],
-    stateFilingFees: {},
-    stateDiscounts: {},
-    stateDescriptions: {},
-  })
+  const [pricingData, setPricingData] = useState<PricingData>(defaultPricingData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -65,9 +72,9 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       const data = await response.json()
       setPricingData(data)
       setError(null)
-    } catch (error) {
-      console.error("Error fetching pricing data:", error)
-      setError("Failed to load pricing information")
+    } catch (err) {
+      console.error("Error fetching pricing data:", err)
+      setError("Failed to load pricing data")
     } finally {
       setLoading(false)
     }
@@ -91,11 +98,5 @@ export function PricingProvider({ children }: { children: ReactNode }) {
   )
 }
 
-export function usePricing() {
-  const context = useContext(PricingContext)
-  if (context === undefined) {
-    throw new Error("usePricing must be used within a PricingProvider")
-  }
-  return context
-}
+export const usePricing = () => useContext(PricingContext)
 
