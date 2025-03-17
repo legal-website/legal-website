@@ -21,10 +21,6 @@ import {
   Bell,
   Users,
   RefreshCw,
-  Trash2,
-  ChevronLeft,
-  ChevronUp,
-  ChevronDown,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
@@ -39,7 +35,6 @@ import {
   getTicketStats,
   getClients,
   getUnreadMessageCounts,
-  updateTicketLastViewed,
 } from "@/lib/actions/admin-ticket-actions"
 import { getTicketDetails, createMessage, updateTicket, deleteTicket } from "@/lib/actions/ticket-actions"
 import type { Ticket, TicketStatus, TicketPriority } from "@/types/ticket"
@@ -73,13 +68,6 @@ interface TicketStats {
   urgentPriorityTickets: number
 }
 
-interface PaginationData {
-  total: number
-  pages: number
-  current: number
-  perPage: number
-}
-
 export default function AdminTicketsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
@@ -103,25 +91,18 @@ export default function AdminTicketsPage() {
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(15)
-  const [pagination, setPagination] = useState<PaginationData | null>(null)
-
   // Filter states
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [assigneeFilter, setAssigneeFilter] = useState("anyone")
-  const [sortField, setSortField] = useState<string>("updatedAt")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
 
   // Fetch tickets, support users, and stats on component mount
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true)
 
-      // Fetch tickets with pagination
-      const ticketsResult = await getAllTickets(currentPage, itemsPerPage)
+      // Fetch tickets
+      const ticketsResult = await getAllTickets()
       if (ticketsResult.error) {
         toast({
           title: "Error",
@@ -130,9 +111,6 @@ export default function AdminTicketsPage() {
         })
       } else if (ticketsResult.tickets) {
         setTickets(ticketsResult.tickets as Ticket[])
-        if (ticketsResult.pagination) {
-          setPagination(ticketsResult.pagination as PaginationData)
-        }
       }
 
       // Fetch support users
@@ -187,11 +165,11 @@ export default function AdminTicketsPage() {
         clearInterval(refreshTimerRef.current)
       }
     }
-  }, [currentPage, itemsPerPage])
+  }, [])
 
   // Fetch unread message counts
   const fetchUnreadCounts = async () => {
-    const currentUserId = "current-user-id" // Replace with actual current user ID from session
+    const currentUserId = "current-user-id" // Replace with actual current user ID
     const unreadResult = await getUnreadMessageCounts(currentUserId)
 
     if (!unreadResult.error && unreadResult.unreadCounts) {
@@ -219,13 +197,10 @@ export default function AdminTicketsPage() {
 
     setIsRefreshing(true)
 
-    // Fetch tickets with pagination
-    const ticketsResult = await getAllTickets(currentPage, itemsPerPage)
+    // Fetch tickets
+    const ticketsResult = await getAllTickets()
     if (!ticketsResult.error && ticketsResult.tickets) {
       const newTickets = ticketsResult.tickets as Ticket[]
-      if (ticketsResult.pagination) {
-        setPagination(ticketsResult.pagination as PaginationData)
-      }
 
       // Check if there are new messages by comparing with current tickets
       const hasNewMessages = newTickets.some((newTicket) => {
@@ -317,13 +292,6 @@ export default function AdminTicketsPage() {
           })
         } else if (result.ticket) {
           setSelectedTicket(result.ticket as Ticket)
-
-          // Mark ticket as viewed to reset unread count
-          await updateTicketLastViewed(selectedTicket.id)
-
-          // Refresh unread counts
-          await fetchUnreadCounts()
-
           // Scroll to bottom of messages
           setTimeout(() => {
             messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -334,12 +302,6 @@ export default function AdminTicketsPage() {
       fetchTicketDetails()
     }
   }, [selectedTicket?.id, showTicketDialog])
-
-  // Handle page change
-  const handlePageChange = (page: number) => {
-    if (page < 1 || (pagination && page > pagination.pages)) return
-    setCurrentPage(page)
-  }
 
   // Filter tickets based on search query, active tab, and filters
   const filteredTickets = tickets.filter((ticket) => {
@@ -440,7 +402,16 @@ export default function AdminTicketsPage() {
       }
 
       // Refresh all tickets
-      await refreshData()
+      const ticketsResult = await getAllTickets()
+      if (ticketsResult.tickets) {
+        setTickets(ticketsResult.tickets as Ticket[])
+      }
+
+      // Refresh ticket stats
+      const statsResult = await getTicketStats()
+      if (!statsResult.error) {
+        setTicketStats(statsResult as TicketStats)
+      }
     }
 
     setIsSubmitting(false)
@@ -476,7 +447,16 @@ export default function AdminTicketsPage() {
       }
 
       // Refresh all tickets
-      await refreshData()
+      const ticketsResult = await getAllTickets()
+      if (ticketsResult.tickets) {
+        setTickets(ticketsResult.tickets as Ticket[])
+      }
+
+      // Refresh ticket stats
+      const statsResult = await getTicketStats()
+      if (!statsResult.error) {
+        setTicketStats(statsResult as TicketStats)
+      }
     }
 
     setIsSubmitting(false)
@@ -512,7 +492,16 @@ export default function AdminTicketsPage() {
       }
 
       // Refresh all tickets
-      await refreshData()
+      const ticketsResult = await getAllTickets()
+      if (ticketsResult.tickets) {
+        setTickets(ticketsResult.tickets as Ticket[])
+      }
+
+      // Refresh ticket stats
+      const statsResult = await getTicketStats()
+      if (!statsResult.error) {
+        setTicketStats(statsResult as TicketStats)
+      }
     }
 
     setIsSubmitting(false)
@@ -538,14 +527,23 @@ export default function AdminTicketsPage() {
         description: "Ticket deleted successfully",
       })
 
+      // Refresh all tickets
+      const ticketsResult = await getAllTickets()
+      if (ticketsResult.tickets) {
+        setTickets(ticketsResult.tickets as Ticket[])
+      }
+
+      // Refresh ticket stats
+      const statsResult = await getTicketStats()
+      if (!statsResult.error) {
+        setTicketStats(statsResult as TicketStats)
+      }
+
       // Reset selected ticket if it was deleted
       if (selectedTicket && selectedTicket.id === ticketToDelete) {
         setSelectedTicket(null)
         setShowTicketDialog(false)
       }
-
-      // Refresh all tickets and stats
-      await refreshData()
 
       setIsDeleteDialogOpen(false)
       setTicketToDelete(null)
@@ -564,29 +562,6 @@ export default function AdminTicketsPage() {
       hour: "2-digit",
       minute: "2-digit",
     })
-  }
-
-  // Handle sorting
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      // Toggle direction if clicking the same field
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
-    } else {
-      // Set new field and default to descending
-      setSortField(field)
-      setSortDirection("desc")
-    }
-  }
-
-  // Get sort icon
-  const getSortIcon = (field: string) => {
-    if (sortField !== field) return null
-
-    return sortDirection === "asc" ? (
-      <ChevronUp className="h-4 w-4 inline ml-1" />
-    ) : (
-      <ChevronDown className="h-4 w-4 inline ml-1" />
-    )
   }
 
   return (
@@ -804,44 +779,28 @@ export default function AdminTicketsPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("id")}>
-                          ID {getSortIcon("id")}
-                        </button>
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("subject")}>
-                          Subject {getSortIcon("subject")}
-                        </button>
-                      </th>
+                      <th className="text-left p-4 font-medium text-sm">ID</th>
+                      <th className="text-left p-4 font-medium text-sm">Subject</th>
                       <th className="text-left p-4 font-medium text-sm">Customer</th>
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("status")}>
-                          Status {getSortIcon("status")}
-                        </button>
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("priority")}>
-                          Priority {getSortIcon("priority")}
-                        </button>
-                      </th>
+                      <th className="text-left p-4 font-medium text-sm">Status</th>
+                      <th className="text-left p-4 font-medium text-sm">Priority</th>
                       <th className="text-left p-4 font-medium text-sm">Category</th>
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("updatedAt")}>
-                          Last Updated {getSortIcon("updatedAt")}
-                        </button>
-                      </th>
+                      <th className="text-left p-4 font-medium text-sm">Last Updated</th>
                       <th className="text-left p-4 font-medium text-sm">Assigned To</th>
                       <th className="text-left p-4 font-medium text-sm">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredTickets.map((ticket) => (
-                      <tr key={ticket.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
+                      <tr
+                        key={ticket.id}
+                        className="border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                        onClick={() => viewTicketDetails(ticket)}
+                      >
+                        <td className="p-4">
                           <span className="font-mono text-sm">{ticket.id.substring(0, 8)}</span>
                         </td>
-                        <td className="p-4 font-medium" onClick={() => viewTicketDetails(ticket)}>
+                        <td className="p-4 font-medium">
                           <div className="flex items-center">
                             {ticket.subject}
                             {unreadCounts[ticket.id] > 0 && (
@@ -851,28 +810,26 @@ export default function AdminTicketsPage() {
                             )}
                           </div>
                         </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
+                        <td className="p-4">
                           <div>
                             <p>{ticket.creator?.name || "Unknown"}</p>
                             <p className="text-sm text-gray-500">{ticket.creator?.email}</p>
                           </div>
                         </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
+                        <td className="p-4">
                           <TicketStatusBadge status={ticket.status} />
                         </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
+                        <td className="p-4">
                           <TicketPriorityBadge priority={ticket.priority} />
                         </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
+                        <td className="p-4">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
                             <Tag className="h-3 w-3 mr-1" />
                             {ticket.category}
                           </span>
                         </td>
-                        <td className="p-4 text-gray-500 text-sm" onClick={() => viewTicketDetails(ticket)}>
-                          {formatDate(ticket.updatedAt)}
-                        </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
+                        <td className="p-4 text-gray-500 text-sm">{formatDate(ticket.updatedAt)}</td>
+                        <td className="p-4">
                           {ticket.assignee ? (
                             <div className="flex items-center">
                               <Avatar className="h-6 w-6 mr-2">
@@ -889,23 +846,9 @@ export default function AdminTicketsPage() {
                           )}
                         </td>
                         <td className="p-4">
-                          <div className="flex space-x-2">
-                            <Button variant="ghost" size="sm" onClick={() => viewTicketDetails(ticket)}>
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-700"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setTicketToDelete(ticket.id)
-                                setIsDeleteDialogOpen(true)
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <Button variant="ghost" size="sm">
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -913,62 +856,6 @@ export default function AdminTicketsPage() {
                 </table>
               )}
             </div>
-
-            {/* Pagination */}
-            {pagination && pagination.pages > 1 && (
-              <div className="flex items-center justify-between px-4 py-4 border-t">
-                <div className="text-sm text-gray-500">
-                  Showing {(pagination.current - 1) * pagination.perPage + 1} to{" "}
-                  {Math.min(pagination.current * pagination.perPage, pagination.total)} of {pagination.total} tickets
-                </div>
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
-                  </Button>
-                  <div className="flex items-center space-x-1">
-                    {Array.from({ length: pagination.pages }, (_, i) => i + 1)
-                      .filter((page) => {
-                        // Show first page, last page, current page, and pages around current page
-                        return page === 1 || page === pagination.pages || Math.abs(page - currentPage) <= 1
-                      })
-                      .map((page, index, array) => {
-                        // Add ellipsis if there are gaps
-                        const prevPage = array[index - 1]
-                        const showEllipsisBefore = prevPage && page - prevPage > 1
-
-                        return (
-                          <div key={page} className="flex items-center">
-                            {showEllipsisBefore && <span className="px-2 text-gray-400">...</span>}
-                            <Button
-                              variant={currentPage === page ? "default" : "outline"}
-                              size="sm"
-                              className="w-8 h-8 p-0"
-                              onClick={() => handlePageChange(page)}
-                            >
-                              {page}
-                            </Button>
-                          </div>
-                        )
-                      })}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={pagination && currentPage === pagination.pages}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
           </Card>
         </TabsContent>
       </Tabs>
