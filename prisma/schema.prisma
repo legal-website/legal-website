@@ -234,6 +234,7 @@ enum Role {
   CLIENT
 }
 model SystemSettings {
-  key   String @id
-  value String @db.LongText
+  id    Int     @id @default(autoincrement())
+  key   String  @unique
+  value String  @db.Text
 }

@@ -1,48 +1,30 @@
 import { NextResponse } from "next/server"
+import prisma from "@/lib/prisma"
 import type { PricingData } from "@/context/pricing-context"
-import { writeFile, readFile, mkdir } from "fs/promises"
-import path from "path"
 
-// Define the path for storing pricing data
-const DATA_DIR = path.join(process.cwd(), "data")
-const PRICING_FILE = path.join(DATA_DIR, "pricing.json")
-
-// GET handler to retrieve pricing data
+// GET handler to retrieve pricing data from database
 export async function GET() {
   try {
-    console.log("Fetching pricing data...")
+    console.log("Fetching pricing data from database...")
 
-    // Try to read the pricing data from the file
-    try {
-      await mkdir(DATA_DIR, { recursive: true }) // Ensure the data directory exists
-      const fileData = await readFile(PRICING_FILE, "utf-8")
-      const pricingData = JSON.parse(fileData)
-      console.log("Pricing data fetched successfully from file")
-      return NextResponse.json(pricingData)
-    } catch (fileError) {
-      // If file doesn't exist or can't be read, return default data
-      if (fileError instanceof Error && "code" in fileError && fileError.code === "ENOENT") {
-        console.log("No pricing data file found, returning default data")
-        const defaultData = getDefaultPricingData()
+    // Try to find the pricing data in the database
+    const pricingRecord = await prisma.systemSettings.findFirst({
+      where: { key: "pricing_data" },
+    })
 
-        // Save default data to file for future use
-        try {
-          await writeFile(PRICING_FILE, JSON.stringify(defaultData, null, 2), "utf-8")
-          console.log("Default pricing data saved to file")
-        } catch (saveError) {
-          console.error("Error saving default pricing data to file:", saveError)
-          // Continue even if saving fails
-        }
-
-        return NextResponse.json(defaultData)
-      }
-
-      // For other file errors, log and throw
-      console.error("Error reading pricing data file:", fileError)
-      throw fileError
+    if (!pricingRecord) {
+      console.log("No pricing data found in database, returning default data")
+      // Return default data if not found
+      return NextResponse.json(getDefaultPricingData())
     }
+
+    // Parse the JSON data
+    const pricingData = JSON.parse(pricingRecord.value)
+    console.log("Pricing data fetched successfully from database")
+
+    return NextResponse.json(pricingData)
   } catch (error) {
-    console.error("Error retrieving pricing data:", error)
+    console.error("Error reading pricing data from database:", error)
     return NextResponse.json(
       {
         error: "Failed to retrieve pricing data",
@@ -53,25 +35,11 @@ export async function GET() {
   }
 }
 
-// POST handler to update pricing data
+// POST handler to update pricing data in database
 export async function POST(request: Request) {
   try {
-    console.log("Received POST request to update pricing data")
-
-    // Parse the request body
-    let data
-    try {
-      data = await request.json()
-    } catch (parseError) {
-      console.error("Error parsing request JSON:", parseError)
-      return NextResponse.json(
-        {
-          error: "Invalid JSON in request body",
-          details: parseError instanceof Error ? parseError.message : String(parseError),
-        },
-        { status: 400 },
-      )
-    }
+    console.log("Received POST request to update pricing data in database")
+    const data = await request.json()
 
     console.log("Validating data structure...")
     // Validate the data structure (basic validation)
@@ -85,25 +53,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid data format: stateFilingFees object is required" }, { status: 400 })
     }
 
-    // Save the pricing data to the file
-    console.log("Saving pricing data to file...")
-    try {
-      await mkdir(DATA_DIR, { recursive: true }) // Ensure the data directory exists
-      await writeFile(PRICING_FILE, JSON.stringify(data, null, 2), "utf-8")
-      console.log("Pricing data updated successfully in file")
-      return NextResponse.json({ success: true })
-    } catch (fileError) {
-      console.error("File error when saving pricing data:", fileError)
-      return NextResponse.json(
-        {
-          error: "File error when saving pricing data",
-          details: fileError instanceof Error ? fileError.message : String(fileError),
-        },
-        { status: 500 },
-      )
-    }
+    // Save the pricing data to the database
+    console.log("Saving pricing data to database...")
+    await prisma.systemSettings.upsert({
+      where: { key: "pricing_data" },
+      update: { value: JSON.stringify(data) },
+      create: {
+        key: "pricing_data",
+        value: JSON.stringify(data),
+      },
+    })
+
+    console.log("Pricing data updated successfully in database")
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error processing pricing data update:", error)
+    console.error("Error updating pricing data in database:", error)
     return NextResponse.json(
       {
         error: "Failed to update pricing data",
