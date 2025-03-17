@@ -44,6 +44,13 @@ import { getTicketDetails, createMessage, updateTicket, deleteTicket } from "@/l
 import type { Ticket, TicketStatus, TicketPriority } from "@/types/ticket"
 import { useNotifications } from "@/components/admin/header"
 import { ticketEvents, getLastSeenTickets, updateLastSeenTickets } from "@/lib/ticket-notifications"
+import {
+  getTicketsWithNewMessages,
+  updateTicketsWithNewMessages,
+  markTicketAsRead,
+  getStoredMessageCounts,
+  updateStoredMessageCounts,
+} from "@/lib/local-storage"
 
 interface SupportUser {
   id: string
@@ -101,6 +108,7 @@ export default function AdminTicketsPage() {
   const [showClientFilterDialog, setShowClientFilterDialog] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [hasNewMessages, setHasNewMessages] = useState(false)
+  // Fix the refreshTimerRef type issue
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -115,6 +123,8 @@ export default function AdminTicketsPage() {
   const [assigneeFilter, setAssigneeFilter] = useState("anyone")
   const [sortField, setSortField] = useState<string>("updatedAt")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
+
+  const [ticketsWithNewMessages, setTicketsWithNewMessages] = useState<string[]>([])
 
   // Get the notification context
   const { addNotification } = useNotifications()
@@ -197,6 +207,10 @@ export default function AdminTicketsPage() {
 
       // Fetch unread message counts
       await fetchUnreadCounts()
+
+      // Load tickets with new messages
+      const newMessagesTickets = getTicketsWithNewMessages()
+      setTicketsWithNewMessages(newMessagesTickets)
 
       setIsLoading(false)
     }
@@ -317,6 +331,47 @@ export default function AdminTicketsPage() {
         }
       }
 
+      // Track message counts and detect new messages
+      const storedMessageCounts = getStoredMessageCounts()
+      const newTicketsWithMessages: string[] = []
+
+      newTickets.forEach((ticket) => {
+        const messageCount = ticket.messages?.length || 0
+        const storedTicket = storedMessageCounts[ticket.id]
+
+        // If we have a stored count and the new count is higher, we have new messages
+        if (storedTicket && messageCount > storedTicket.count) {
+          // This ticket has new messages
+          newTicketsWithMessages.push(ticket.id)
+
+          // Add notification for new messages
+          if (ticket.messages && ticket.messages.length > 0) {
+            const latestMessage = ticket.messages[0]
+            addNotification(ticketEvents.newMessage(ticket.id, ticket.subject, latestMessage.senderName))
+          }
+        }
+
+        // Update the stored count
+        storedMessageCounts[ticket.id] = {
+          count: messageCount,
+          lastChecked: new Date().toISOString(),
+          subject: ticket.subject,
+        }
+      })
+
+      // Update the stored message counts
+      updateStoredMessageCounts(storedMessageCounts)
+
+      // Update tickets with new messages
+      const currentNewMessages = getTicketsWithNewMessages()
+      const updatedNewMessages = [...new Set([...currentNewMessages, ...newTicketsWithMessages])]
+      updateTicketsWithNewMessages(updatedNewMessages)
+      setTicketsWithNewMessages(updatedNewMessages)
+
+      if (newTicketsWithMessages.length > 0) {
+        setHasNewMessages(true)
+      }
+
       setTickets(newTickets)
     }
 
@@ -408,6 +463,7 @@ export default function AdminTicketsPage() {
       (activeTab === "in-progress" && ticket.status === "in-progress") ||
       (activeTab === "resolved" && ticket.status === "resolved") ||
       (activeTab === "closed" && ticket.status === "closed") ||
+      (activeTab === "new-messages" && ticketsWithNewMessages.includes(ticket.id)) ||
       activeTab === "all"
 
     const matchesPriority = priorityFilter === "all" || ticket.priority === priorityFilter
@@ -429,6 +485,12 @@ export default function AdminTicketsPage() {
     setSelectedTicket(ticket)
     setShowTicketDialog(true)
     setHasNewMessages(false) // Reset new message indicator when viewing a ticket
+
+    // Mark this ticket as read (no new messages)
+    markTicketAsRead(ticket.id)
+
+    // Update the local state
+    setTicketsWithNewMessages((prev) => prev.filter((id) => id !== ticket.id))
 
     // Add notification for viewing ticket
     addNotification(ticketEvents.ticketUpdated(ticket.id, ticket.subject))
@@ -874,6 +936,16 @@ export default function AdminTicketsPage() {
           <TabsTrigger value="in-progress">In Progress</TabsTrigger>
           <TabsTrigger value="resolved">Resolved</TabsTrigger>
           <TabsTrigger value="closed">Closed</TabsTrigger>
+          <TabsTrigger
+            value="new-messages"
+            className={
+              ticketsWithNewMessages.length > 0
+                ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                : ""
+            }
+          >
+            New Messages {ticketsWithNewMessages.length > 0 && `(${ticketsWithNewMessages.length})`}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab}>
@@ -935,7 +1007,12 @@ export default function AdminTicketsPage() {
                   </thead>
                   <tbody>
                     {filteredTickets.map((ticket) => (
-                      <tr key={ticket.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+                      <tr
+                        key={ticket.id}
+                        className={`border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer ${
+                          ticketsWithNewMessages.includes(ticket.id) ? "bg-blue-50 dark:bg-blue-900/20" : ""
+                        }`}
+                      >
                         <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
                           <span className="font-mono text-sm">{ticket.id.substring(0, 8)}</span>
                         </td>
@@ -945,6 +1022,11 @@ export default function AdminTicketsPage() {
                             {unreadCounts[ticket.id] > 0 && (
                               <Badge className="ml-2 bg-red-500" variant="secondary">
                                 {unreadCounts[ticket.id]}
+                              </Badge>
+                            )}
+                            {ticketsWithNewMessages.includes(ticket.id) && (
+                              <Badge className="ml-2 bg-blue-500" variant="secondary">
+                                New
                               </Badge>
                             )}
                           </div>

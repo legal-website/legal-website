@@ -21,6 +21,7 @@ export interface Notification {
 
 // Create a context for notifications that can be used across the app
 import { createContext, useContext } from "react"
+import { getTicketsWithNewMessages, getStoredMessageCounts, formatTicketId } from "@/lib/ticket-notifications"
 
 interface NotificationContextType {
   notifications: Notification[]
@@ -152,7 +153,34 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Add this function near the other notification check functions
   const checkForTicketNotifications = () => {
     try {
-      // Check if there are any unread ticket messages in localStorage
+      // Check if there are any tickets with new messages
+      const ticketsWithNewMessages = getTicketsWithNewMessages()
+      if (ticketsWithNewMessages.length > 0) {
+        // Get the stored message counts to get ticket subjects
+        const storedCounts = getStoredMessageCounts()
+
+        // If there's just one ticket with new messages
+        if (ticketsWithNewMessages.length === 1) {
+          const ticketId = ticketsWithNewMessages[0]
+          const ticketInfo = storedCounts[ticketId]
+          if (ticketInfo) {
+            addNotification({
+              title: "New Message in Ticket",
+              description: `You have a new message in ticket #${formatTicketId(ticketId)}: ${ticketInfo.subject}`,
+              source: "tickets",
+            })
+          }
+        } else {
+          // Multiple tickets with new messages
+          addNotification({
+            title: "New Messages in Tickets",
+            description: `You have new messages in ${ticketsWithNewMessages.length} tickets`,
+            source: "tickets",
+          })
+        }
+      }
+
+      // Check for unread ticket messages count
       const unreadTicketsData = localStorage.getItem("unreadTicketMessages")
       if (unreadTicketsData) {
         const unreadTickets = JSON.parse(unreadTicketsData)
@@ -210,11 +238,31 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 }
 
 export default function AdminHeader() {
+  // At the top of the AdminHeader component, add:
+  const [newMessageTicketsCount, setNewMessageTicketsCount] = useState(0)
+
+  // Add a useEffect to check for tickets with new messages
+  useEffect(() => {
+    const checkNewMessageTickets = () => {
+      const ticketsWithNewMessages = getTicketsWithNewMessages()
+      setNewMessageTicketsCount(ticketsWithNewMessages.length)
+    }
+
+    // Check on mount
+    checkNewMessageTickets()
+
+    // Set up interval to check regularly
+    const intervalId = setInterval(checkNewMessageTickets, 10000) // Check every 10 seconds
+
+    return () => clearInterval(intervalId)
+  }, [])
+
   const { notifications, markAsRead, clearAllRead } = useNotifications()
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
 
-  const unreadCount = notifications.filter((notification) => !notification.read).length
+  // Update the unreadCount calculation
+  const unreadCount = notifications.filter((notification) => !notification.read).length + newMessageTicketsCount
 
   const handleClearAllRead = () => {
     clearAllRead()
