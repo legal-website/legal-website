@@ -4,24 +4,40 @@ import type { Subscription } from "@/types/subscription"
 
 export async function GET() {
   try {
-    // Get all subscriptions
-    const subscriptions = await prisma.subscription.findMany()
+    // Get total subscriptions
+    const totalSubscriptions = await prisma.subscription.count()
 
-    // Calculate statistics
-    const totalSubscriptions = subscriptions.length
-    const activeSubscriptions = subscriptions.filter((sub: Subscription) => sub.status === "active").length
-    const canceledSubscriptions = subscriptions.filter((sub: Subscription) => sub.status === "canceled").length
+    // Get active subscriptions
+    const activeSubscriptions = await prisma.subscription.count({
+      where: { status: "active" },
+    })
 
-    // Calculate revenue
-    const monthlyRecurringRevenue = subscriptions
-      .filter((sub: Subscription) => sub.status === "active" && sub.billingCycle === "monthly")
-      .reduce((sum: number, sub: Subscription) => sum + sub.price, 0)
+    // Get canceled subscriptions
+    const canceledSubscriptions = await prisma.subscription.count({
+      where: { status: "canceled" },
+    })
 
-    const annualRecurringRevenue = subscriptions
-      .filter((sub: Subscription) => sub.status === "active" && sub.billingCycle === "annual")
-      .reduce((sum: number, sub: Subscription) => sum + sub.price, 0)
+    // Calculate monthly recurring revenue (MRR)
+    const monthlySubscriptions = await prisma.subscription.findMany({
+      where: {
+        status: "active",
+        billingCycle: "monthly",
+      },
+    })
+    const monthlyRecurringRevenue = monthlySubscriptions.reduce((sum: number, sub: Subscription) => sum + sub.price, 0)
 
-    const totalRevenue = subscriptions.reduce((sum: number, sub: Subscription) => sum + sub.price, 0)
+    // Calculate annual recurring revenue (ARR)
+    const annualSubscriptions = await prisma.subscription.findMany({
+      where: {
+        status: "active",
+        billingCycle: "annual",
+      },
+    })
+    const annualRecurringRevenue = annualSubscriptions.reduce((sum: number, sub: Subscription) => sum + sub.price, 0)
+
+    // Calculate total revenue (including one-time payments)
+    const allSubscriptions = await prisma.subscription.findMany()
+    const totalRevenue = allSubscriptions.reduce((sum: number, sub: Subscription) => sum + sub.price, 0)
 
     return NextResponse.json({
       totalSubscriptions,
