@@ -87,7 +87,7 @@ const menuItems: MenuItem[] = [
     href: "/admin/billing",
     subItems: [
       { label: "Invoices", href: "/admin/billing/invoices" },
-      { label: "Subscriptions", href: "/admin/billing/payment-methods" },
+      { label: "Subscriptions", href: "/admin/billing/subscriptions" },
       { label: "Payment Methods", href: "/admin/billing/payment-methods" },
     ],
   },
