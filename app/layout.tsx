@@ -11,6 +11,7 @@ import { CartProvider } from "@/context/cart-context"
 import { ThemeProvider } from "@/context/theme-context"
 import { AuthProvider } from "@/context/auth-context"
 import { SessionProvider } from "@/components/session-provider"
+import { PricingProvider } from "@/context/pricing-context"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -32,6 +33,7 @@ export default function RootLayout({
         <ThemeProvider>
           <SessionProvider>
             <AuthProvider>
+            <PricingProvider>
               <CartProvider>
                 <Toaster />
                 <TopBar /> {/* Topbar at the top */}
@@ -40,10 +42,13 @@ export default function RootLayout({
                 <main>{children}</main> {/* Main content */}
                 <Footer /> {/* Footer at the bottom */}
                 <ScrollToTopButton /> {/* Scroll to top button */}
+                
               </CartProvider>
+              </PricingProvider>
             </AuthProvider>
           </SessionProvider>
         </ThemeProvider>
+      
       </body>
     </html>
   )

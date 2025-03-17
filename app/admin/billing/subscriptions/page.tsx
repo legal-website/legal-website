@@ -18,7 +18,11 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Save,
+  X,
   RefreshCw,
+  DollarSign,
+  Users,
+  Calendar,
 } from "lucide-react"
 import {
   Dialog,
@@ -42,68 +46,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import PricingCards from "@/components/pricing"
-
-// Define the SubscriptionPlan type
-interface SubscriptionPlan {
-  id: number
-  name: string
-  price: string
-  billingCycle: "monthly" | "annual"
-  features: string[]
-  activeSubscribers: number
-  growth: string
-  trend: "up" | "down"
-  revenue: string
-}
-
-// Define types for pricing data
-interface PricingTier {
-  id: number | string
-  name: string
-  price: number
-  displayPrice?: string
-  description: string
-  features: string[]
-  isRecommended?: boolean
-  includesPackage?: string
-  hasAssistBadge?: boolean
-  billingCycle: string
-}
-
-interface StateFilingFees {
-  [state: string]: number
-}
-
-interface StateDiscounts {
-  [state: string]: number
-}
-
-interface StateDescriptions {
-  [state: string]: string
-}
-
-interface PricingData {
-  plans: PricingTier[]
-  stateFilingFees: StateFilingFees
-  stateDiscounts: StateDiscounts
-  stateDescriptions: StateDescriptions
-}
-
-// Define customer subscription type
-interface CustomerSubscription {
-  id: string
-  customer: string
-  email: string
-  plan: string
-  price: string
-  startDate: string
-  nextBillingDate: string
-  status: "Active" | "Past Due" | "Canceled"
-  paymentMethod: string
-  cancellationDate?: string
-  cancellationReason?: string
-}
+import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
+import { format } from "date-fns"
+import { usePricing } from "@/context/pricing-context"
+import { PricingCards } from "@/components/pricing"
+import type { Subscription, SubscriptionPlan, SubscriptionStats, PricingData } from "@/types/subscription"
+import {
+  getSubscriptions,
+  getSubscriptionStats,
+  cancelSubscription,
+  createSubscriptionPlan,
+  updateSubscriptionPlan,
+  deleteSubscriptionPlan,
+} from "@/lib/subscription-client"
 
 export default function SubscriptionsPage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -116,404 +72,133 @@ export default function SubscriptionsPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [showPricingEditor, setShowPricingEditor] = useState(false)
   const [showStateEditor, setShowStateEditor] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [pricingData, setPricingData] = useState<PricingData>({
-    plans: [],
-    stateFilingFees: {},
-    stateDiscounts: {},
-    stateDescriptions: {},
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([])
+  const [stats, setStats] = useState<SubscriptionStats>({
+    totalSubscriptions: 0,
+    activeSubscriptions: 0,
+    canceledSubscriptions: 0,
+    monthlyRecurringRevenue: 0,
+    annualRecurringRevenue: 0,
+    totalRevenue: 0,
   })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [itemsPerPage] = useState(10)
+  const [showCancelDialog, setShowCancelDialog] = useState(false)
+  const [subscriptionToCancel, setSubscriptionToCancel] = useState<Subscription | null>(null)
+  const [cancellationReason, setCancellationReason] = useState("")
+  const [isCancelling, setIsCancelling] = useState(false)
   const { toast } = useToast()
+  const router = useRouter()
+  const { data: session, status } = useSession()
+  const { pricingData, setPricingData, savePricingData, refreshPricingData } = usePricing()
 
-  // Sample subscription plans data
-  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([
-    {
-      id: 1,
-      name: "Basic",
-      price: "$19.99",
-      billingCycle: "monthly",
-      features: ["LLC Formation", "Registered Agent (1 year)", "Basic Document Templates", "Email Support"],
-      activeSubscribers: 342,
-      growth: "+12.5%",
-      trend: "up",
-      revenue: "$6,836.58",
-    },
-    {
-      id: 2,
-      name: "Professional",
-      price: "$39.99",
-      billingCycle: "monthly",
-      features: [
-        "LLC Formation",
-        "Registered Agent (1 year)",
-        "Full Document Library",
-        "Priority Support",
-        "Annual Report Filing",
-        "Business License Package",
-      ],
-      activeSubscribers: 587,
-      growth: "+18.3%",
-      trend: "up",
-      revenue: "$23,474.13",
-    },
-    {
-      id: 3,
-      name: "Enterprise",
-      price: "$99.99",
-      billingCycle: "monthly",
-      features: [
-        "LLC Formation",
-        "Registered Agent (1 year)",
-        "Full Document Library",
-        "24/7 Priority Support",
-        "Annual Report Filing",
-        "Business License Package",
-        "Tax Preparation",
-        "Compliance Monitoring",
-        "Dedicated Account Manager",
-      ],
-      activeSubscribers: 156,
-      growth: "+5.7%",
-      trend: "up",
-      revenue: "$15,598.44",
-    },
-    {
-      id: 4,
-      name: "Basic Annual",
-      price: "$199.99",
-      billingCycle: "annual",
-      features: ["LLC Formation", "Registered Agent (1 year)", "Basic Document Templates", "Email Support"],
-      activeSubscribers: 124,
-      growth: "-2.1%",
-      trend: "down",
-      revenue: "$24,798.76",
-    },
-    {
-      id: 5,
-      name: "Professional Annual",
-      price: "$399.99",
-      billingCycle: "annual",
-      features: [
-        "LLC Formation",
-        "Registered Agent (1 year)",
-        "Full Document Library",
-        "Priority Support",
-        "Annual Report Filing",
-        "Business License Package",
-      ],
-      activeSubscribers: 231,
-      growth: "+8.2%",
-      trend: "up",
-      revenue: "$92,397.69",
-    },
-    {
-      id: 6,
-      name: "Enterprise Annual",
-      price: "$999.99",
-      billingCycle: "annual",
-      features: [
-        "LLC Formation",
-        "Registered Agent (1 year)",
-        "Full Document Library",
-        "24/7 Priority Support",
-        "Annual Report Filing",
-        "Business License Package",
-        "Tax Preparation",
-        "Compliance Monitoring",
-        "Dedicated Account Manager",
-      ],
-      activeSubscribers: 87,
-      growth: "+15.2%",
-      trend: "up",
-      revenue: "$86,999.13",
-    },
-  ])
-
-  // Sample customer subscriptions data
-  const [subscriptions, setSubscriptions] = useState<CustomerSubscription[]>([
-    {
-      id: "SUB-2025-001",
-      customer: "Rapid Ventures LLC",
-      email: "billing@rapidventures.com",
-      plan: "Enterprise Annual",
-      price: "$999.99",
-      startDate: "Mar 7, 2025",
-      nextBillingDate: "Mar 7, 2026",
-      status: "Active",
-      paymentMethod: "Credit Card (Visa ending in 4242)",
-    },
-    {
-      id: "SUB-2025-002",
-      customer: "Blue Ocean Inc",
-      email: "accounts@blueocean.com",
-      plan: "Professional",
-      price: "$39.99",
-      startDate: "Feb 15, 2025",
-      nextBillingDate: "Mar 15, 2025",
-      status: "Active",
-      paymentMethod: "Credit Card (Mastercard ending in 5678)",
-    },
-    {
-      id: "SUB-2025-003",
-      customer: "Summit Solutions",
-      email: "finance@summitsolutions.com",
-      plan: "Basic",
-      price: "$19.99",
-      startDate: "Jan 22, 2025",
-      nextBillingDate: "Mar 22, 2025",
-      status: "Past Due",
-      paymentMethod: "ACH Transfer",
-    },
-    {
-      id: "SUB-2025-004",
-      customer: "Horizon Group",
-      email: "ap@horizongroup.com",
-      plan: "Professional Annual",
-      price: "$399.99",
-      startDate: "Dec 10, 2024",
-      nextBillingDate: "Dec 10, 2025",
-      status: "Active",
-      paymentMethod: "Credit Card (Amex ending in 1234)",
-    },
-    {
-      id: "SUB-2025-005",
-      customer: "Quantum Solutions",
-      email: "billing@quantumsolutions.com",
-      plan: "Enterprise",
-      price: "$99.99",
-      startDate: "Mar 1, 2025",
-      nextBillingDate: "Apr 1, 2025",
-      status: "Active",
-      paymentMethod: "PayPal",
-    },
-    {
-      id: "SUB-2025-006",
-      customer: "Apex Industries",
-      email: "finance@apexind.com",
-      plan: "Basic Annual",
-      price: "$199.99",
-      startDate: "Nov 5, 2024",
-      nextBillingDate: "Nov 5, 2025",
-      status: "Canceled",
-      paymentMethod: "Credit Card (Visa ending in 9876)",
-      cancellationDate: "Feb 28, 2025",
-      cancellationReason: "Switched to competitor",
-    },
-    {
-      id: "SUB-2025-007",
-      customer: "Global Ventures",
-      email: "accounts@globalventures.com",
-      plan: "Professional",
-      price: "$39.99",
-      startDate: "Jan 15, 2025",
-      nextBillingDate: "Mar 15, 2025",
-      status: "Active",
-      paymentMethod: "Credit Card (Mastercard ending in 4321)",
-    },
-  ])
-
-  // Fetch pricing data
+  // Check authentication and admin role
   useEffect(() => {
-    const fetchPricingData = async () => {
-      try {
-        setLoading(true)
-        const response = await fetch("/api/pricing")
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch pricing data")
-        }
-
-        const data = await response.json()
-        setPricingData(data)
-      } catch (error) {
-        console.error("Error fetching pricing data:", error)
-        // Use default data if API fails
-        setPricingData({
-          plans: [
-            {
-              id: 1,
-              name: "Basic",
-              price: 99,
-              description: "Perfect for small businesses just getting started",
-              features: ["Business name search", "Articles of organization", "Operating agreement"],
-              billingCycle: "one-time",
-            },
-            {
-              id: 2,
-              name: "Standard",
-              price: 199,
-              description: "Most popular option for new businesses",
-              features: [
-                "Everything in Basic",
-                "EIN application",
-                "Banking resolution",
-                "1 year registered agent service",
-              ],
-              isRecommended: true,
-              billingCycle: "one-time",
-            },
-            {
-              id: 3,
-              name: "Premium",
-              price: 299,
-              description: "Complete solution for serious entrepreneurs",
-              features: [
-                "Everything in Standard",
-                "Expedited filing",
-                "Business license package",
-                "2 years registered agent service",
-              ],
-              hasAssistBadge: true,
-              billingCycle: "one-time",
-            },
-          ],
-          stateFilingFees: {
-            Alabama: 230,
-            Alaska: 250,
-            Arizona: 50,
-            Arkansas: 45,
-            California: 70,
-            Colorado: 50,
-            Connecticut: 120,
-            Delaware: 90,
-            Florida: 125,
-            Georgia: 100,
-            Hawaii: 50,
-            Idaho: 100,
-            Illinois: 150,
-            Indiana: 95,
-            Iowa: 50,
-            Kansas: 160,
-            Kentucky: 40,
-            Louisiana: 100,
-            Maine: 175,
-            Maryland: 100,
-            Massachusetts: 500,
-            Michigan: 50,
-            Minnesota: 135,
-            Mississippi: 50,
-            Missouri: 50,
-            Montana: 70,
-            Nebraska: 105,
-            Nevada: 425,
-            "New Hampshire": 100,
-            "New Jersey": 125,
-            "New Mexico": 50,
-            "New York": 200,
-            "North Carolina": 125,
-            "North Dakota": 135,
-            Ohio: 99,
-            Oklahoma: 100,
-            Oregon: 100,
-            Pennsylvania: 125,
-            "Rhode Island": 150,
-            "South Carolina": 110,
-            "South Dakota": 150,
-            Tennessee: 300,
-            Texas: 300,
-            Utah: 54,
-            Vermont: 125,
-            Virginia: 100,
-            Washington: 180,
-            "West Virginia": 100,
-            Wisconsin: 130,
-            Wyoming: 100,
-            "District of Columbia": 99,
-          },
-          stateDiscounts: {
-            "New Mexico": 40,
-            Wyoming: 80,
-            Nevada: 325,
-            Delaware: 70,
-            "South Dakota": 120,
-          },
-          stateDescriptions: {
-            Alabama: "Annual Report: $50 (10th April)",
-            Alaska: "Annual Report: $100 (every 2 years on 2nd Jan)",
-            Arizona: "Annual Report: $0 (No annual report required)",
-            Arkansas: "Annual Report: $150 (1st May)",
-            California: "Annual Report: $800 minimum tax + $20 filing fee (15th day of 4th month)",
-            Colorado: "Annual Report: $10 (end of month of formation)",
-            Connecticut: "Annual Report: $80 (anniversary of formation)",
-            Delaware: "Annual Report: $300 + franchise tax (1st June)",
-            Florida: "Annual Report: $138.75 (1st May)",
-            Georgia: "Annual Report: $50 (1st April)",
-            Hawaii: "Annual Report: $15 (end of quarter of formation)",
-            Idaho: "Annual Report: $0 (end of month of formation)",
-            Illinois: "Annual Report: $75 (first day of anniversary month)",
-            Indiana: "Biennial Report: $32 (anniversary month of formation)",
-            Iowa: "Biennial Report: $60 (1st April)",
-            Kansas: "Annual Report: $55 (15th day of 4th month after fiscal year end)",
-            Kentucky: "Annual Report: $15 (30th June)",
-            Louisiana: "Annual Report: $35 (anniversary of formation)",
-            Maine: "Annual Report: $85 (1st June)",
-            Maryland: "Annual Report: $300 (15th April)",
-            Massachusetts: "Annual Report: $500 (anniversary date)",
-            Michigan: "Annual Report: $25 (15th Feb)",
-            Minnesota: "Annual Report: $0 (31st Dec)",
-            Mississippi: "Annual Report: $0 (15th April)",
-            Missouri: "Annual Report: $0 (No annual report required)",
-            Montana: "Annual Report: $20 (15th April)",
-            Nebraska: "Biennial Report: $10 (1st April)",
-            Nevada: "Annual List: $150 + $200 business license fee (last day of month of formation)",
-            "New Hampshire": "Annual Report: $100 (1st April)",
-            "New Jersey": "Annual Report: $75 (last day of anniversary month)",
-            "New Mexico": "Annual Report: $0 (No annual report required)",
-            "New York": "Biennial Statement: $9 (anniversary month)",
-            "North Carolina": "Annual Report: $200 (15th April)",
-            "North Dakota": "Annual Report: $50 (1st Nov)",
-            Ohio: "Biennial Report: $0 (No report required)",
-            Oklahoma: "Annual Report: $25 (anniversary date)",
-            Oregon: "Annual Report: $100 (anniversary date)",
-            Pennsylvania: "Decennial Report: $70 (every 10 years)",
-            "Rhode Island": "Annual Report: $50 (1st Nov)",
-            "South Carolina": "Annual Report: $0 (No annual report required)",
-            "South Dakota": "Annual Report: $50 (1st anniversary month)",
-            Tennessee: "Annual Report: $300 min (1st day of 4th month after fiscal year end)",
-            Texas: "Annual Report: $0 (15th May)",
-            Utah: "Annual Report: $18 (anniversary month)",
-            Vermont: "Annual Report: $35 (anniversary quarter)",
-            Virginia: "Annual Report: $50 (last day of month when formed)",
-            Washington: "Annual Report: $60 (end of anniversary month)",
-            "West Virginia": "Annual Report: $25 (1st July)",
-            Wisconsin: "Annual Report: $25 (end of quarter of formation)",
-            Wyoming: "Annual Report: $60 min (first day of anniversary month)",
-            "District of Columbia": "Biennial Report: $300 (1st April)",
-          },
-        })
-      } finally {
-        setLoading(false)
-      }
+    if (status === "unauthenticated") {
+      router.push("/login?callbackUrl=/admin/billing/subscriptions")
+      return
     }
 
-    fetchPricingData()
-  }, [])
+    if (status === "authenticated" && (session?.user as any)?.role !== "ADMIN") {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to access this page.",
+        variant: "destructive",
+      })
+      router.push("/dashboard")
+      return
+    }
 
-  // Filter subscriptions based on search and active tab
+    if (status === "authenticated") {
+      fetchData()
+    }
+  }, [status, session, router, currentPage, activeTab])
+
+  // Fetch subscription data
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Get status filter based on active tab
+      const statusFilter = activeTab !== "all" ? activeTab : undefined
+
+      // Fetch subscriptions
+      const { subscriptions: fetchedSubscriptions, total } = await getSubscriptions(
+        currentPage,
+        itemsPerPage,
+        statusFilter,
+      )
+
+      setSubscriptions(fetchedSubscriptions)
+      setTotalPages(Math.ceil(total / itemsPerPage))
+
+      // Fetch subscription stats
+      const fetchedStats = await getSubscriptionStats()
+      setStats(fetchedStats)
+
+      // Convert pricing plans to subscription plans format
+      const pricingPlans = pricingData.plans.map((plan) => ({
+        id: String(plan.id), // Convert id to string
+        name: plan.name,
+        price: Number(plan.price), // Ensure price is a number
+        billingCycle: plan.billingCycle as "monthly" | "annual" | "one-time",
+        features: plan.features,
+        description: plan.description,
+        isRecommended: plan.isRecommended,
+        hasAssistBadge: plan.hasAssistBadge,
+        includesPackage: plan.includesPackage,
+        // Calculate these values from subscriptions data
+        activeSubscribers: fetchedSubscriptions.filter((sub) => sub.planName === plan.name && sub.status === "active")
+          .length,
+        revenue: `$${fetchedSubscriptions
+          .filter((sub) => sub.planName === plan.name)
+          .reduce((sum, sub) => sum + sub.price, 0)
+          .toFixed(2)}`,
+        growth: "+0%", // This would need to be calculated from historical data
+        trend: "up" as const,
+      }))
+
+      setSubscriptionPlans(pricingPlans)
+    } catch (error: any) {
+      console.error("Error fetching data:", error)
+      setError(error.message || "Failed to load subscription data")
+      toast({
+        title: "Error",
+        description: `Failed to load subscription data: ${error.message || "Unknown error"}`,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Filter subscriptions based on search query
   const filteredSubscriptions = subscriptions.filter((subscription) => {
-    const matchesSearch =
-      subscription.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      subscription.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      subscription.plan.toLowerCase().includes(searchQuery.toLowerCase())
-
-    const matchesTab =
-      (activeTab === "active" && subscription.status === "Active") ||
-      (activeTab === "pastdue" && subscription.status === "Past Due") ||
-      (activeTab === "canceled" && subscription.status === "Canceled") ||
-      activeTab === "all"
-
-    return matchesSearch && matchesTab
+    return (
+      subscription.planName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      subscription.business?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      subscription.business?.email.toLowerCase().includes(searchQuery.toLowerCase())
+    )
   })
 
   // Handle editing a plan
   const handleEditPlan = (plan: SubscriptionPlan) => {
-    setEditingPlan(plan)
+    setEditingPlan({
+      ...plan,
+      price: typeof plan.price === "string" ? plan.price : Number(plan.price).toString(),
+      features: Array.isArray(plan.features) ? plan.features : [],
+    })
     setIsEditing(true)
     setShowPlanDialog(true)
   }
 
   // Handle deleting a plan
-  const handleDeletePlan = (planId: number) => {
+  const handleDeletePlan = (planId: string) => {
     const planToDelete = subscriptionPlans.find((p) => p.id === planId)
     if (planToDelete) {
       setPlanToDelete(planToDelete)
@@ -527,11 +212,22 @@ export default function SubscriptionsPage() {
 
     try {
       setIsDeleting(true)
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      // Remove the plan from the local state
-      setSubscriptionPlans((prevPlans) => prevPlans.filter((plan) => plan.id !== planToDelete.id))
+      // Delete the plan
+      await deleteSubscriptionPlan(planToDelete.id)
+
+      // Update pricing data
+      const updatedPlans = pricingData.plans.filter((plan) => plan.id.toString() !== planToDelete.id)
+      setPricingData({
+        ...pricingData,
+        plans: updatedPlans,
+      })
+
+      // Save pricing data
+      await savePricingData()
+
+      // Update local state
+      setSubscriptionPlans((prev) => prev.filter((plan) => plan.id !== planToDelete.id))
 
       toast({
         title: "Plan deleted",
@@ -540,10 +236,10 @@ export default function SubscriptionsPage() {
 
       // Close the dialog
       setShowDeleteDialog(false)
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to delete plan. Please try again.",
+        description: `Failed to delete plan: ${error.message || "Unknown error"}`,
         variant: "destructive",
       })
     } finally {
@@ -555,37 +251,27 @@ export default function SubscriptionsPage() {
   // Save pricing data changes
   const savePricingChanges = async () => {
     try {
-      setLoading(true)
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // In a real app, you would send the updated pricing data to your API
-      await fetch("/api/pricing", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(pricingData),
-      })
+      await savePricingData()
 
       toast({
         title: "Changes saved",
         description: "Pricing data has been updated successfully.",
       })
-    } catch (error) {
+
+      // Refresh data
+      await fetchData()
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to save pricing changes. Please try again.",
+        description: `Failed to save pricing changes: ${error.message || "Unknown error"}`,
         variant: "destructive",
       })
-    } finally {
-      setLoading(false)
     }
   }
 
-  // Update a pricing plan
-  const updatePricingPlan = (index: number, field: keyof PricingTier, value: any) => {
-    setPricingData((prev) => {
+  // Fix the setPricingData function to use proper types
+  const updatePricingPlan = (index: number, field: string, value: any) => {
+    setPricingData((prev: PricingData) => {
       const updatedPlans = [...prev.plans]
       updatedPlans[index] = {
         ...updatedPlans[index],
@@ -600,7 +286,7 @@ export default function SubscriptionsPage() {
 
   // Update a state fee
   const updateStateFee = (state: string, value: number) => {
-    setPricingData((prev) => ({
+    setPricingData((prev: PricingData) => ({
       ...prev,
       stateFilingFees: {
         ...prev.stateFilingFees,
@@ -611,7 +297,7 @@ export default function SubscriptionsPage() {
 
   // Update a state discount
   const updateStateDiscount = (state: string, value: number) => {
-    setPricingData((prev) => ({
+    setPricingData((prev: PricingData) => ({
       ...prev,
       stateDiscounts: {
         ...prev.stateDiscounts,
@@ -622,13 +308,177 @@ export default function SubscriptionsPage() {
 
   // Update a state description
   const updateStateDescription = (state: string, value: string) => {
-    setPricingData((prev) => ({
+    setPricingData((prev: PricingData) => ({
       ...prev,
       stateDescriptions: {
         ...prev.stateDescriptions,
         [state]: value,
       },
     }))
+  }
+
+  // Handle subscription cancellation
+  const handleCancelSubscription = (subscription: Subscription) => {
+    setSubscriptionToCancel(subscription)
+    setCancellationReason("")
+    setShowCancelDialog(true)
+  }
+
+  // Cancel a subscription
+  const confirmCancelSubscription = async () => {
+    if (!subscriptionToCancel) return
+
+    try {
+      setIsCancelling(true)
+
+      // Cancel the subscription
+      await cancelSubscription(subscriptionToCancel.id, cancellationReason)
+
+      // Update local state
+      setSubscriptions((prev) =>
+        prev.map((sub) =>
+          sub.id === subscriptionToCancel.id
+            ? { ...sub, status: "canceled", cancellationReason, cancellationDate: new Date().toISOString() }
+            : sub,
+        ),
+      )
+
+      toast({
+        title: "Subscription canceled",
+        description: `The subscription for ${subscriptionToCancel.business?.name || "customer"} has been canceled.`,
+      })
+
+      // Close the dialog
+      setShowCancelDialog(false)
+
+      // Refresh data
+      await fetchData()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Failed to cancel subscription: ${error.message || "Unknown error"}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsCancelling(false)
+      setSubscriptionToCancel(null)
+    }
+  }
+
+  // Save or update a plan
+  const saveSubscriptionPlan = async () => {
+    if (!editingPlan) return
+
+    try {
+      // Prepare plan data
+      const planData = {
+        name: editingPlan.name,
+        price: typeof editingPlan.price === "string" ? Number.parseFloat(editingPlan.price) : editingPlan.price,
+        billingCycle: editingPlan.billingCycle,
+        features: editingPlan.features.filter((f) => f.trim() !== ""),
+        description: editingPlan.description || "",
+        isRecommended: editingPlan.isRecommended || false,
+        hasAssistBadge: editingPlan.hasAssistBadge || false,
+        includesPackage: editingPlan.includesPackage || "",
+      }
+
+      if (isEditing) {
+        // Update existing plan
+        await updateSubscriptionPlan(editingPlan.id, planData)
+
+        // Update pricing data
+        const planIndex = pricingData.plans.findIndex((p) => String(p.id) === editingPlan.id)
+        if (planIndex !== -1) {
+          const updatedPlans = [...pricingData.plans]
+          updatedPlans[planIndex] = {
+            ...updatedPlans[planIndex],
+            ...planData,
+            id: updatedPlans[planIndex].id,
+          }
+
+          setPricingData({
+            ...pricingData,
+            plans: updatedPlans,
+          })
+
+          // Save pricing data
+          await savePricingData()
+        }
+
+        toast({
+          title: "Plan updated",
+          description: `${editingPlan.name} plan has been updated successfully.`,
+        })
+      } else {
+        // Create new plan
+        const newPlan = await createSubscriptionPlan(planData)
+
+        // Update pricing data
+        setPricingData({
+          ...pricingData,
+          plans: [
+            ...pricingData.plans,
+            {
+              ...planData,
+              id: newPlan.id,
+            },
+          ],
+        })
+
+        // Save pricing data
+        await savePricingData()
+
+        toast({
+          title: "Plan created",
+          description: `${newPlan.name} plan has been created successfully.`,
+        })
+      }
+
+      // Close the dialog and refresh data
+      setShowPlanDialog(false)
+      await fetchData()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Failed to ${isEditing ? "update" : "create"} plan: ${error.message || "Unknown error"}`,
+        variant: "destructive",
+      })
+    }
+  }
+
+  if (loading && subscriptions.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-lg bg-white shadow-lg dark:bg-gray-800 max-w-md text-center">
+          <div className="relative">
+            <div className="w-20 h-20 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+            <CreditCard className="h-8 w-8 text-blue-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Loading Subscriptions</h3>
+            <p className="text-gray-500 dark:text-gray-400">Please wait while we fetch your subscription data...</p>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2 overflow-hidden">
+            <div className="bg-blue-500 h-1.5 rounded-full animate-pulse" style={{ width: "100%" }}></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error && subscriptions.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-2 max-w-md text-center">
+          <AlertCircle className="h-8 w-8 text-red-500" />
+          <h2 className="text-xl font-bold">Error Loading Subscriptions</h2>
+          <p className="text-gray-600 dark:text-gray-400">{error}</p>
+          <Button onClick={fetchData} className="mt-4">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -647,7 +497,14 @@ export default function SubscriptionsPage() {
           <Button
             className="bg-purple-600 hover:bg-purple-700"
             onClick={() => {
-              setEditingPlan(null)
+              setEditingPlan({
+                id: "",
+                name: "",
+                price: "0", // Use string for price
+                billingCycle: "monthly",
+                features: [],
+                description: "",
+              })
               setIsEditing(false)
               setShowPlanDialog(true)
             }}
@@ -656,6 +513,48 @@ export default function SubscriptionsPage() {
             New Plan
           </Button>
         </div>
+      </div>
+
+      {/* Subscription Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <Card className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
+              <Users className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Active Subscriptions</p>
+              <h3 className="text-2xl font-bold">{stats.activeSubscriptions}</h3>
+              <p className="text-sm text-gray-500">Total: {stats.totalSubscriptions}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 rounded-full bg-green-100 text-green-600 mr-4">
+              <DollarSign className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Monthly Recurring Revenue</p>
+              <h3 className="text-2xl font-bold">${stats.monthlyRecurringRevenue.toFixed(2)}</h3>
+              <p className="text-sm text-gray-500">Annual: ${stats.annualRecurringRevenue.toFixed(2)}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 rounded-full bg-purple-100 text-purple-600 mr-4">
+              <Calendar className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Total Revenue</p>
+              <h3 className="text-2xl font-bold">${stats.totalRevenue.toFixed(2)}</h3>
+              <p className="text-sm text-gray-500">Lifetime value</p>
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* Subscription Plans */}
@@ -679,6 +578,10 @@ export default function SubscriptionsPage() {
           >
             <Edit className="mr-2 h-4 w-4" />
             {showStateEditor ? "Hide State Editor" : "Edit State Data"}
+          </Button>
+          <Button variant="outline" size="sm" className="flex items-center" onClick={refreshPricingData}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh Data
           </Button>
         </div>
       </div>
@@ -847,9 +750,9 @@ export default function SubscriptionsPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button variant="outline" size="sm" className="flex items-center">
+          <Button variant="outline" size="sm" className="flex items-center" onClick={() => setSearchQuery("")}>
             <Filter className="mr-2 h-4 w-4" />
-            Filter
+            Clear Filter
           </Button>
         </div>
       </div>
@@ -859,7 +762,7 @@ export default function SubscriptionsPage() {
         <TabsList>
           <TabsTrigger value="all">All Subscriptions</TabsTrigger>
           <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="pastdue">Past Due</TabsTrigger>
+          <TabsTrigger value="past_due">Past Due</TabsTrigger>
           <TabsTrigger value="canceled">Canceled</TabsTrigger>
         </TabsList>
       </Tabs>
@@ -881,36 +784,56 @@ export default function SubscriptionsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredSubscriptions.map((subscription) => (
-                <tr key={subscription.id} className="border-b">
-                  <td className="p-4">
-                    <span className="font-mono text-sm">{subscription.id}</span>
-                  </td>
-                  <td className="p-4">
-                    <div>
-                      <p className="font-medium">{subscription.customer}</p>
-                      <p className="text-sm text-gray-500">{subscription.email}</p>
-                    </div>
-                  </td>
-                  <td className="p-4">{subscription.plan}</td>
-                  <td className="p-4 font-medium">{subscription.price}</td>
-                  <td className="p-4 text-gray-500">{subscription.startDate}</td>
-                  <td className="p-4 text-gray-500">{subscription.nextBillingDate}</td>
-                  <td className="p-4">
-                    <SubscriptionStatusBadge status={subscription.status} />
-                  </td>
-                  <td className="p-4">
-                    <div className="flex space-x-2">
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <CreditCard className="h-4 w-4" />
-                      </Button>
-                    </div>
+              {filteredSubscriptions.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-4 text-center text-gray-500">
+                    No subscriptions found
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredSubscriptions.map((subscription) => (
+                  <tr key={subscription.id} className="border-b">
+                    <td className="p-4">
+                      <span className="font-mono text-sm">{subscription.id.substring(0, 8)}...</span>
+                    </td>
+                    <td className="p-4">
+                      <div>
+                        <p className="font-medium">{subscription.business?.name || "Unknown"}</p>
+                        <p className="text-sm text-gray-500">{subscription.business?.email || "No email"}</p>
+                      </div>
+                    </td>
+                    <td className="p-4">{subscription.planName}</td>
+                    <td className="p-4 font-medium">${subscription.price.toFixed(2)}</td>
+                    <td className="p-4 text-gray-500">{format(new Date(subscription.startDate), "MMM d, yyyy")}</td>
+                    <td className="p-4 text-gray-500">
+                      {format(new Date(subscription.nextBillingDate), "MMM d, yyyy")}
+                    </td>
+                    <td className="p-4">
+                      <SubscriptionStatusBadge status={subscription.status} />
+                    </td>
+                    <td className="p-4">
+                      <div className="flex space-x-2">
+                        <Button variant="ghost" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm">
+                          <CreditCard className="h-4 w-4" />
+                        </Button>
+                        {subscription.status === "active" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600"
+                            onClick={() => handleCancelSubscription(subscription)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -954,8 +877,8 @@ export default function SubscriptionsPage() {
                   id="plan-price"
                   placeholder="49.99"
                   className="rounded-l-none"
-                  value={editingPlan?.price ? editingPlan.price.replace("$", "") : ""}
-                  onChange={(e) => setEditingPlan((prev) => (prev ? { ...prev, price: `$${e.target.value}` } : null))}
+                  value={editingPlan?.price || ""}
+                  onChange={(e) => setEditingPlan((prev) => (prev ? { ...prev, price: e.target.value } : null))}
                 />
               </div>
             </div>
@@ -985,7 +908,31 @@ export default function SubscriptionsPage() {
                   />
                   <Label htmlFor="annual">Annual</Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    id="one-time"
+                    name="billing-cycle"
+                    className="h-4 w-4"
+                    checked={editingPlan?.billingCycle === "one-time"}
+                    onChange={() => setEditingPlan((prev) => (prev ? { ...prev, billingCycle: "one-time" } : null))}
+                  />
+                  <Label htmlFor="one-time">One-time</Label>
+                </div>
               </div>
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="plan-description" className="text-right">
+                Description
+              </Label>
+              <Input
+                id="plan-description"
+                placeholder="Brief description of the plan"
+                className="col-span-3"
+                value={editingPlan?.description || ""}
+                onChange={(e) => setEditingPlan((prev) => (prev ? { ...prev, description: e.target.value } : null))}
+              />
             </div>
 
             <div className="grid grid-cols-4 items-start gap-4">
@@ -1036,33 +983,28 @@ export default function SubscriptionsPage() {
                 </Button>
               </div>
             </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="plan-recommended" className="text-right">
+                Recommended
+              </Label>
+              <div className="col-span-3">
+                <Switch
+                  id="plan-recommended"
+                  checked={editingPlan?.isRecommended || false}
+                  onCheckedChange={(checked) =>
+                    setEditingPlan((prev) => (prev ? { ...prev, isRecommended: checked } : null))
+                  }
+                />
+              </div>
+            </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPlanDialog(false)}>
               Cancel
             </Button>
-            <Button
-              className="bg-purple-600 hover:bg-purple-700"
-              onClick={() => {
-                if (isEditing && editingPlan) {
-                  // Update existing plan
-                  setSubscriptionPlans((prev) => prev.map((p) => (p.id === editingPlan.id ? editingPlan : p)))
-                } else if (editingPlan) {
-                  // Add new plan
-                  const newPlan = {
-                    ...editingPlan,
-                    id: Math.max(...subscriptionPlans.map((p) => p.id)) + 1,
-                    activeSubscribers: 0,
-                    growth: "0%",
-                    trend: "up" as const,
-                    revenue: "$0.00",
-                  }
-                  setSubscriptionPlans((prev) => [...prev, newPlan])
-                }
-                setShowPlanDialog(false)
-              }}
-            >
+            <Button className="bg-purple-600 hover:bg-purple-700" onClick={saveSubscriptionPlan}>
               {isEditing ? "Update Plan" : "Create Plan"}
             </Button>
           </DialogFooter>
@@ -1093,6 +1035,44 @@ export default function SubscriptionsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Cancel Subscription Dialog */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel the subscription for{" "}
+              {subscriptionToCancel?.business?.name || "this customer"}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="py-4">
+            <Label htmlFor="cancellation-reason">Cancellation Reason (optional)</Label>
+            <Textarea
+              id="cancellation-reason"
+              placeholder="Please provide a reason for cancellation"
+              value={cancellationReason}
+              onChange={(e) => setCancellationReason(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCancelling}>Keep Subscription</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                confirmCancelSubscription()
+              }}
+              disabled={isCancelling}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isCancelling ? "Cancelling..." : "Cancel Subscription"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -1104,8 +1084,11 @@ function SubscriptionPlanCard({
 }: {
   plan: SubscriptionPlan
   onEdit: (plan: SubscriptionPlan) => void
-  onDelete: (id: number) => void
+  onDelete: (id: string) => void
 }) {
+  // Convert price to a number for display
+  const displayPrice = typeof plan.price === "string" ? Number.parseFloat(plan.price).toFixed(2) : plan.price.toFixed(2)
+
   return (
     <Card className="overflow-hidden">
       <div className="p-6 border-b">
@@ -1113,9 +1096,9 @@ function SubscriptionPlanCard({
           <div>
             <h3 className="font-bold text-lg">{plan.name}</h3>
             <p className="text-2xl font-bold mt-2">
-              {plan.price}
+              ${displayPrice}
               <span className="text-sm font-normal text-gray-500">
-                /{plan.billingCycle === "monthly" ? "mo" : "yr"}
+                /{plan.billingCycle === "monthly" ? "mo" : plan.billingCycle === "annual" ? "yr" : "one-time"}
               </span>
             </p>
           </div>
@@ -1134,18 +1117,20 @@ function SubscriptionPlanCard({
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">Active Subscribers</span>
-            <div className={`flex items-center ${plan.trend === "up" ? "text-green-500" : "text-red-500"}`}>
-              {plan.trend === "up" ? (
-                <ArrowUpRight className="h-3 w-3 mr-1" />
-              ) : (
-                <ArrowDownRight className="h-3 w-3 mr-1" />
-              )}
-              <span className="text-xs">{plan.growth}</span>
-            </div>
+            {plan.trend && (
+              <div className={`flex items-center ${plan.trend === "up" ? "text-green-500" : "text-red-500"}`}>
+                {plan.trend === "up" ? (
+                  <ArrowUpRight className="h-3 w-3 mr-1" />
+                ) : (
+                  <ArrowDownRight className="h-3 w-3 mr-1" />
+                )}
+                <span className="text-xs">{plan.growth || "0%"}</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xl font-bold">{plan.activeSubscribers}</span>
-            <span className="text-sm text-gray-500">Revenue: {plan.revenue}</span>
+            <span className="text-xl font-bold">{plan.activeSubscribers || 0}</span>
+            <span className="text-sm text-gray-500">Revenue: {plan.revenue || "$0.00"}</span>
           </div>
         </div>
 
@@ -1167,21 +1152,21 @@ function SubscriptionPlanCard({
 
 function SubscriptionStatusBadge({ status }: { status: string }) {
   switch (status) {
-    case "Active":
+    case "active":
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
           <CheckCircle2 className="h-3 w-3 mr-1" />
           Active
         </span>
       )
-    case "Past Due":
+    case "past_due":
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
           <AlertCircle className="h-3 w-3 mr-1" />
           Past Due
         </span>
       )
-    case "Canceled":
+    case "canceled":
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
           <Trash2 className="h-3 w-3 mr-1" />
