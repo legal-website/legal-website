@@ -16,7 +16,8 @@ export interface Notification {
   description: string
   time: string // Changed from Date to string
   read: boolean
-  source: "users" | "pending" | "invoices" | "tickets" | "roles"
+  source: "users" | "pending" | "invoices" | "tickets" | "roles" | "system"
+  ticketId?: string
 }
 
 // Create a context for notifications that can be used across the app
@@ -29,6 +30,7 @@ interface NotificationContextType {
   markAsRead: (id: string) => void // Changed from number to string
   clearNotifications: () => void
   clearAllRead: () => void
+  ticketsWithNewMessages?: string[]
 }
 
 export const NotificationContext = createContext<NotificationContextType>({
@@ -37,9 +39,19 @@ export const NotificationContext = createContext<NotificationContextType>({
   markAsRead: () => {},
   clearNotifications: () => {},
   clearAllRead: () => {},
+  ticketsWithNewMessages: [],
 })
 
-export const useNotifications = () => useContext(NotificationContext)
+export const useNotifications = () => {
+  const context = useContext(NotificationContext)
+  return {
+    ...context,
+    ticketsWithNewMessages: context.notifications
+      .filter((n) => n.source === "tickets")
+      .map((n) => n.ticketId)
+      .filter(Boolean) as string[],
+  }
+}
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -168,6 +180,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               title: "New Message in Ticket",
               description: `You have a new message in ticket #${formatTicketId(ticketId)}: ${ticketInfo.subject}`,
               source: "tickets",
+              ticketId,
             })
           }
         } else {
@@ -282,6 +295,10 @@ export default function AdminHeader() {
       default:
         return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-gray-500" />
     }
+  }
+
+  const isValidSource = (source: string): boolean => {
+    return ["system", "tickets", "payments", "users", "subscriptions", "pending", "invoices", "roles"].includes(source)
   }
 
   return (

@@ -266,71 +266,6 @@ export default function AdminTicketsPage() {
         setPagination(ticketsResult.pagination as PaginationData)
       }
 
-      // Check if there are new messages by comparing with current tickets
-      let newMessageCount = 0
-      const ticketsWithNewMessages = newTickets.filter((newTicket) => {
-        const currentTicket = tickets.find((t) => t.id === newTicket.id)
-        if (!currentTicket) {
-          // This is a new ticket
-          addNotification(ticketEvents.ticketCreated(newTicket.id, newTicket.subject))
-          newMessageCount++
-          return true
-        }
-
-        // Check if the latest message is newer
-        if (
-          newTicket.messages &&
-          newTicket.messages.length > 0 &&
-          (!currentTicket.messages || currentTicket.messages.length === 0)
-        ) {
-          // New message in a ticket that didn't have messages before
-          if (newTicket.creator) {
-            addNotification(
-              ticketEvents.newMessage(
-                newTicket.id,
-                newTicket.subject,
-                newTicket.creator.name || newTicket.creator.email,
-              ),
-            )
-          }
-          newMessageCount++
-          return true
-        }
-
-        if (
-          newTicket.messages &&
-          newTicket.messages.length > 0 &&
-          currentTicket.messages &&
-          currentTicket.messages.length > 0
-        ) {
-          const newLatestMessage = newTicket.messages[0]
-          const currentLatestMessage = currentTicket.messages[0]
-          const isNewer = new Date(newLatestMessage.createdAt) > new Date(currentLatestMessage.createdAt)
-          if (isNewer) {
-            // New message in an existing ticket
-            addNotification(ticketEvents.newMessage(newTicket.id, newTicket.subject, newLatestMessage.senderName))
-            newMessageCount++
-            return true
-          }
-        }
-
-        return false
-      })
-
-      if (ticketsWithNewMessages.length > 0) {
-        setHasNewMessages(true)
-
-        // If there are multiple new messages, add a summary notification
-        if (newMessageCount > 1) {
-          addNotification(ticketEvents.multipleNewMessages(newMessageCount, ticketsWithNewMessages.length))
-        }
-
-        // If the ticket dialog is open, refresh the selected ticket
-        if (showTicketDialog && selectedTicket) {
-          await refreshSelectedTicket()
-        }
-      }
-
       // Track message counts and detect new messages
       const storedMessageCounts = getStoredMessageCounts()
       const newTicketsWithMessages: string[] = []
@@ -370,6 +305,13 @@ export default function AdminTicketsPage() {
 
       if (newTicketsWithMessages.length > 0) {
         setHasNewMessages(true)
+
+        // If there are multiple new messages, add a summary notification
+        if (newTicketsWithMessages.length > 1) {
+          addNotification(
+            ticketEvents.multipleNewMessages(newTicketsWithMessages.length, newTicketsWithMessages.length),
+          )
+        }
       }
 
       setTickets(newTickets)
@@ -380,9 +322,6 @@ export default function AdminTicketsPage() {
     if (!statsResult.error) {
       setTicketStats(statsResult as TicketStats)
     }
-
-    // Fetch unread counts
-    await fetchUnreadCounts()
 
     setIsRefreshing(false)
   }
@@ -491,9 +430,6 @@ export default function AdminTicketsPage() {
 
     // Update the local state
     setTicketsWithNewMessages((prev) => prev.filter((id) => id !== ticket.id))
-
-    // Add notification for viewing ticket
-    addNotification(ticketEvents.ticketUpdated(ticket.id, ticket.subject))
   }
 
   // Handle sending a new message
