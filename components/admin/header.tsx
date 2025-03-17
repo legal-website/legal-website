@@ -163,18 +163,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   )
 }
 
-// Update the getSourceIcon function to handle ticket notifications
-const getSourceIcon = (source: string) => {
-  switch (source) {
-    case "invoices":
-      return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-green-500" />
-    case "tickets":
-      return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-blue-500" />
-    default:
-      return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-gray-500" />
-  }
-}
-
 export default function AdminHeader() {
   const { notifications, markAsRead, clearAllRead } = useNotifications()
   const { theme, setTheme } = useTheme()
@@ -188,6 +176,18 @@ export default function AdminHeader() {
       title: "Notifications cleared",
       description: "All read notifications have been cleared",
     })
+  }
+
+  // Update the getSourceIcon function to handle ticket notifications
+  const getSourceIcon = (source: string) => {
+    switch (source) {
+      case "invoices":
+        return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-green-500" />
+      case "tickets":
+        return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-blue-500" />
+      default:
+        return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-gray-500" />
+    }
   }
 
   return (

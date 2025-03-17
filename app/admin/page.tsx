@@ -39,6 +39,9 @@ import {
 import { getTicketDetails, createMessage, updateTicket, deleteTicket } from "@/lib/actions/ticket-actions"
 import type { Ticket, TicketStatus, TicketPriority } from "@/types/ticket"
 
+// Add import for useNotifications
+import { useNotifications } from "@/components/admin/header"
+
 interface SupportUser {
   id: string
   name: string | null
@@ -68,6 +71,13 @@ interface TicketStats {
   urgentPriorityTickets: number
 }
 
+interface PaginationData {
+  currentPage: number
+  totalPages: number
+  totalItems: number
+  itemsPerPage: number
+}
+
 export default function AdminTicketsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
@@ -90,11 +100,42 @@ export default function AdminTicketsPage() {
   const [hasNewMessages, setHasNewMessages] = useState(false)
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [pagination, setPagination] = useState<PaginationData | null>(null)
 
   // Filter states
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [assigneeFilter, setAssigneeFilter] = useState("anyone")
+
+  // Inside the AdminTicketsPage component, add:
+  const { addNotification } = useNotifications()
+
+  // Add a function to create ticket notifications
+  const createTicketNotification = (title: string, description: string) => {
+    // Add to local notifications
+    addNotification({
+      title,
+      description,
+      source: "tickets",
+    })
+
+    // Also store in localStorage for persistence across page refreshes
+    const ticketNotifications = localStorage.getItem("ticketNotifications")
+    let notifications = []
+
+    if (ticketNotifications) {
+      try {
+        notifications = JSON.parse(ticketNotifications)
+      } catch (e) {
+        console.error("Failed to parse ticket notifications", e)
+      }
+    }
+
+    notifications.push({ title, description, source: "tickets" })
+    localStorage.setItem("ticketNotifications", JSON.stringify(notifications))
+  }
 
   // Fetch tickets, support users, and stats on component mount
   useEffect(() => {
@@ -102,7 +143,15 @@ export default function AdminTicketsPage() {
       setIsLoading(true)
 
       // Fetch tickets
-      const ticketsResult = await getAllTickets()
+      const ticketsResult = await getAllTickets(
+        currentPage,
+        itemsPerPage,
+        searchQuery,
+        priorityFilter,
+        categoryFilter,
+        assigneeFilter,
+        clientFilter,
+      )
       if (ticketsResult.error) {
         toast({
           title: "Error",
@@ -111,6 +160,9 @@ export default function AdminTicketsPage() {
         })
       } else if (ticketsResult.tickets) {
         setTickets(ticketsResult.tickets as Ticket[])
+        if (ticketsResult.pagination) {
+          setPagination(ticketsResult.pagination as PaginationData)
+        }
       }
 
       // Fetch support users
@@ -165,7 +217,7 @@ export default function AdminTicketsPage() {
         clearInterval(refreshTimerRef.current)
       }
     }
-  }, [])
+  }, [currentPage, itemsPerPage, searchQuery, priorityFilter, categoryFilter, assigneeFilter, clientFilter])
 
   // Fetch unread message counts
   const fetchUnreadCounts = async () => {
@@ -174,14 +226,8 @@ export default function AdminTicketsPage() {
 
     if (!unreadResult.error && unreadResult.unreadCounts) {
       // Compare with previous unread counts to see if there are new messages
-      const previousUnreadTotal: number = Object.values(unreadCounts).reduce(
-        (sum: number, count) => sum + Number(count),
-        0,
-      )
-      const newUnreadTotal: number = Object.values(unreadResult.unreadCounts).reduce(
-        (sum: number, count) => sum + Number(count),
-        0,
-      )
+      const previousUnreadTotal = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0)
+      const newUnreadTotal = Object.values(unreadResult.unreadCounts).reduce((sum, count) => sum + count, 0)
 
       if (newUnreadTotal > previousUnreadTotal) {
         setHasNewMessages(true)
@@ -191,155 +237,7 @@ export default function AdminTicketsPage() {
     }
   }
 
-  // Refresh data function
-  const refreshData = async () => {
-    if (isRefreshing) return
-
-    setIsRefreshing(true)
-
-    // Fetch tickets
-    const ticketsResult = await getAllTickets()
-    if (!ticketsResult.error && ticketsResult.tickets) {
-      const newTickets = ticketsResult.tickets as Ticket[]
-
-      // Check if there are new messages by comparing with current tickets
-      const hasNewMessages = newTickets.some((newTicket) => {
-        const currentTicket = tickets.find((t) => t.id === newTicket.id)
-        if (!currentTicket) return true // New ticket
-
-        // Check if the latest message is newer
-        if (
-          newTicket.messages &&
-          newTicket.messages.length > 0 &&
-          (!currentTicket.messages || currentTicket.messages.length === 0)
-        ) {
-          return true
-        }
-
-        if (
-          newTicket.messages &&
-          newTicket.messages.length > 0 &&
-          currentTicket.messages &&
-          currentTicket.messages.length > 0
-        ) {
-          const newLatestMessage = newTicket.messages[0]
-          const currentLatestMessage = currentTicket.messages[0]
-          return new Date(newLatestMessage.createdAt) > new Date(currentLatestMessage.createdAt)
-        }
-
-        return false
-      })
-
-      if (hasNewMessages) {
-        setHasNewMessages(true)
-        // If the ticket dialog is open, refresh the selected ticket
-        if (showTicketDialog && selectedTicket) {
-          await refreshSelectedTicket()
-        }
-      }
-
-      setTickets(newTickets)
-    }
-
-    // Fetch ticket stats
-    const statsResult = await getTicketStats()
-    if (!statsResult.error) {
-      setTicketStats(statsResult as TicketStats)
-    }
-
-    // Fetch unread counts
-    await fetchUnreadCounts()
-
-    setIsRefreshing(false)
-  }
-
-  // Refresh selected ticket
-  const refreshSelectedTicket = async () => {
-    if (!selectedTicket) return
-
-    const result = await getTicketDetails(selectedTicket.id)
-
-    if (!result.error && result.ticket) {
-      setSelectedTicket(result.ticket as Ticket)
-      // Scroll to bottom of messages
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-      }, 100)
-    }
-  }
-
-  // Manual refresh button handler
-  const handleManualRefresh = async () => {
-    setHasNewMessages(false)
-    await refreshData()
-    toast({
-      title: "Refreshed",
-      description: "Ticket data has been refreshed",
-    })
-  }
-
-  // Fetch ticket details when a ticket is selected
-  useEffect(() => {
-    if (selectedTicket?.id && showTicketDialog) {
-      const fetchTicketDetails = async () => {
-        const result = await getTicketDetails(selectedTicket.id)
-
-        if (result.error) {
-          toast({
-            title: "Error",
-            description: result.error,
-            variant: "destructive",
-          })
-        } else if (result.ticket) {
-          setSelectedTicket(result.ticket as Ticket)
-          // Scroll to bottom of messages
-          setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-          }, 100)
-        }
-      }
-
-      fetchTicketDetails()
-    }
-  }, [selectedTicket?.id, showTicketDialog])
-
-  // Filter tickets based on search query, active tab, and filters
-  const filteredTickets = tickets.filter((ticket) => {
-    const matchesSearch =
-      ticket.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ticket.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (ticket.creator?.name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
-      ticket.creator?.email.toLowerCase().includes(searchQuery.toLowerCase())
-
-    const matchesTab =
-      (activeTab === "open" && ticket.status === "open") ||
-      (activeTab === "in-progress" && ticket.status === "in-progress") ||
-      (activeTab === "resolved" && ticket.status === "resolved") ||
-      (activeTab === "closed" && ticket.status === "closed") ||
-      activeTab === "all"
-
-    const matchesPriority = priorityFilter === "all" || ticket.priority === priorityFilter
-
-    const matchesCategory = categoryFilter === "all" || ticket.category.toLowerCase() === categoryFilter.toLowerCase()
-
-    const matchesAssignee =
-      assigneeFilter === "anyone" ||
-      (assigneeFilter === "unassigned" && !ticket.assigneeId) ||
-      (assigneeFilter === "me" && ticket.assigneeId === "current-user-id") || // Replace with actual current user ID
-      ticket.assigneeId === assigneeFilter
-
-    const matchesClient = clientFilter === "all" || ticket.creatorId === clientFilter
-
-    return matchesSearch && matchesTab && matchesPriority && matchesCategory && matchesAssignee && matchesClient
-  })
-
-  const viewTicketDetails = (ticket: Ticket) => {
-    setSelectedTicket(ticket)
-    setShowTicketDialog(true)
-    setHasNewMessages(false) // Reset new message indicator when viewing a ticket
-  }
-
-  // Handle sending a new message
+  // Modify handleSendMessage to create a notification
   const handleSendMessage = async () => {
     if (!selectedTicket || !newMessage.trim()) return
 
@@ -354,6 +252,12 @@ export default function AdminTicketsPage() {
         variant: "destructive",
       })
     } else {
+      // Create notification for new message
+      createTicketNotification(
+        "Message Sent",
+        `You sent a message in ticket #${selectedTicket.id.substring(0, 8)}: ${selectedTicket.subject}`,
+      )
+
       // Refresh ticket details
       const ticketResult = await getTicketDetails(selectedTicket.id)
       if (ticketResult.ticket) {
@@ -372,7 +276,7 @@ export default function AdminTicketsPage() {
     setIsSubmitting(false)
   }
 
-  // Handle updating ticket status
+  // Modify handleUpdateTicketStatus to create a notification
   const handleUpdateTicketStatus = async (status: TicketStatus) => {
     if (!selectedTicket) return
 
@@ -395,6 +299,12 @@ export default function AdminTicketsPage() {
         description: `Ticket status updated to ${status}`,
       })
 
+      // Create notification for status update
+      createTicketNotification(
+        "Ticket Status Updated",
+        `Ticket #${selectedTicket.id.substring(0, 8)} status changed to ${status}`,
+      )
+
       // Refresh ticket details
       const ticketResult = await getTicketDetails(selectedTicket.id)
       if (ticketResult.ticket) {
@@ -402,22 +312,13 @@ export default function AdminTicketsPage() {
       }
 
       // Refresh all tickets
-      const ticketsResult = await getAllTickets()
-      if (ticketsResult.tickets) {
-        setTickets(ticketsResult.tickets as Ticket[])
-      }
-
-      // Refresh ticket stats
-      const statsResult = await getTicketStats()
-      if (!statsResult.error) {
-        setTicketStats(statsResult as TicketStats)
-      }
+      await refreshData()
     }
 
     setIsSubmitting(false)
   }
 
-  // Handle updating ticket priority
+  // Modify handleUpdateTicketPriority to create a notification
   const handleUpdateTicketPriority = async (priority: TicketPriority) => {
     if (!selectedTicket) return
 
@@ -440,6 +341,12 @@ export default function AdminTicketsPage() {
         description: `Ticket priority updated to ${priority}`,
       })
 
+      // Create notification for priority update
+      createTicketNotification(
+        "Ticket Priority Updated",
+        `Ticket #${selectedTicket.id.substring(0, 8)} priority changed to ${priority}`,
+      )
+
       // Refresh ticket details
       const ticketResult = await getTicketDetails(selectedTicket.id)
       if (ticketResult.ticket) {
@@ -447,22 +354,13 @@ export default function AdminTicketsPage() {
       }
 
       // Refresh all tickets
-      const ticketsResult = await getAllTickets()
-      if (ticketsResult.tickets) {
-        setTickets(ticketsResult.tickets as Ticket[])
-      }
-
-      // Refresh ticket stats
-      const statsResult = await getTicketStats()
-      if (!statsResult.error) {
-        setTicketStats(statsResult as TicketStats)
-      }
+      await refreshData()
     }
 
     setIsSubmitting(false)
   }
 
-  // Handle assigning ticket to user
+  // Modify handleAssignTicket to create a notification
   const handleAssignTicket = async (userId: string | null) => {
     if (!selectedTicket) return
 
@@ -485,6 +383,23 @@ export default function AdminTicketsPage() {
         description: userId ? "Ticket assigned successfully" : "Ticket unassigned",
       })
 
+      // Find assignee name if available
+      let assigneeName = "someone else"
+      if (userId) {
+        const assignee = supportUsers.find((user) => user.id === userId)
+        if (assignee) {
+          assigneeName = assignee.name || assignee.email
+        }
+      } else {
+        assigneeName = "unassigned"
+      }
+
+      // Create notification for assignment
+      createTicketNotification(
+        "Ticket Assignment Changed",
+        `Ticket #${selectedTicket.id.substring(0, 8)} assigned to ${assigneeName}`,
+      )
+
       // Refresh ticket details
       const ticketResult = await getTicketDetails(selectedTicket.id)
       if (ticketResult.ticket) {
@@ -492,22 +407,13 @@ export default function AdminTicketsPage() {
       }
 
       // Refresh all tickets
-      const ticketsResult = await getAllTickets()
-      if (ticketsResult.tickets) {
-        setTickets(ticketsResult.tickets as Ticket[])
-      }
-
-      // Refresh ticket stats
-      const statsResult = await getTicketStats()
-      if (!statsResult.error) {
-        setTicketStats(statsResult as TicketStats)
-      }
+      await refreshData()
     }
 
     setIsSubmitting(false)
   }
 
-  // Handle deleting a ticket
+  // Modify handleDeleteTicket to create a notification
   const handleDeleteTicket = async () => {
     if (!ticketToDelete) return
 
@@ -527,17 +433,8 @@ export default function AdminTicketsPage() {
         description: "Ticket deleted successfully",
       })
 
-      // Refresh all tickets
-      const ticketsResult = await getAllTickets()
-      if (ticketsResult.tickets) {
-        setTickets(ticketsResult.tickets as Ticket[])
-      }
-
-      // Refresh ticket stats
-      const statsResult = await getTicketStats()
-      if (!statsResult.error) {
-        setTicketStats(statsResult as TicketStats)
-      }
+      // Create notification for ticket deletion
+      createTicketNotification("Ticket Deleted", `Ticket #${ticketToDelete.substring(0, 8)} has been deleted`)
 
       // Reset selected ticket if it was deleted
       if (selectedTicket && selectedTicket.id === ticketToDelete) {
@@ -545,11 +442,140 @@ export default function AdminTicketsPage() {
         setShowTicketDialog(false)
       }
 
+      // Refresh all tickets and stats
+      await refreshData()
+
       setIsDeleteDialogOpen(false)
       setTicketToDelete(null)
     }
 
     setIsSubmitting(false)
+  }
+
+  // Add notification for new messages detected during refresh
+  const refreshData = async () => {
+    if (isRefreshing) return
+
+    setIsRefreshing(true)
+
+    // Fetch tickets with pagination
+    const ticketsResult = await getAllTickets(
+      currentPage,
+      itemsPerPage,
+      searchQuery,
+      priorityFilter,
+      categoryFilter,
+      assigneeFilter,
+      clientFilter,
+    )
+    if (!ticketsResult.error && ticketsResult.tickets) {
+      const newTickets = ticketsResult.tickets as Ticket[]
+      if (ticketsResult.pagination) {
+        setPagination(ticketsResult.pagination as PaginationData)
+      }
+
+      // Check if there are new messages by comparing with current tickets
+      let newMessageCount = 0
+      const ticketsWithNewMessages = newTickets.filter((newTicket) => {
+        const currentTicket = tickets.find((t) => t.id === newTicket.id)
+        if (!currentTicket) {
+          newMessageCount++
+          return true // New ticket
+        }
+
+        // Check if the latest message is newer
+        if (
+          newTicket.messages &&
+          newTicket.messages.length > 0 &&
+          (!currentTicket.messages || currentTicket.messages.length === 0)
+        ) {
+          newMessageCount++
+          return true
+        }
+
+        if (
+          newTicket.messages &&
+          newTicket.messages.length > 0 &&
+          currentTicket.messages &&
+          currentTicket.messages.length > 0
+        ) {
+          const newLatestMessage = newTicket.messages[0]
+          const currentLatestMessage = currentTicket.messages[0]
+          const isNewer = new Date(newLatestMessage.createdAt) > new Date(currentLatestMessage.createdAt)
+          if (isNewer) {
+            newMessageCount++
+            return true
+          }
+        }
+
+        return false
+      })
+
+      if (ticketsWithNewMessages.length > 0) {
+        setHasNewMessages(true)
+
+        // Create notification for new messages
+        if (newMessageCount === 1) {
+          const ticket = ticketsWithNewMessages[0]
+          createTicketNotification(
+            "New Message",
+            `You have a new message in ticket #${ticket.id.substring(0, 8)}: ${ticket.subject}`,
+          )
+        } else if (newMessageCount > 1) {
+          createTicketNotification(
+            "New Messages",
+            `You have ${newMessageCount} new messages across ${ticketsWithNewMessages.length} tickets`,
+          )
+        }
+
+        // If the ticket dialog is open, refresh the selected ticket
+        if (showTicketDialog && selectedTicket) {
+          await refreshSelectedTicket()
+        }
+      }
+
+      setTickets(newTickets)
+    }
+
+    // Fetch ticket stats
+    const statsResult = await getTicketStats()
+    if (!statsResult.error) {
+      setTicketStats(statsResult as TicketStats)
+    }
+
+    // Fetch unread counts
+    await fetchUnreadCounts()
+
+    setIsRefreshing(false)
+  }
+
+  // Function to manually trigger a refresh
+  const handleManualRefresh = () => {
+    setCurrentPage(1) // Reset to the first page
+    refreshData()
+  }
+
+  // Function to refresh the selected ticket
+  const refreshSelectedTicket = async () => {
+    if (selectedTicket) {
+      const ticketResult = await getTicketDetails(selectedTicket.id)
+      if (ticketResult.ticket) {
+        setSelectedTicket(ticketResult.ticket as Ticket)
+      }
+    }
+  }
+
+  // Modify viewTicketDetails to create a notification
+  const viewTicketDetails = (ticket: Ticket) => {
+    setSelectedTicket(ticket)
+    setShowTicketDialog(true)
+    setHasNewMessages(false) // Reset new message indicator when viewing a ticket
+
+    // Create notification for viewing ticket
+    createTicketNotification(
+      "Viewing Ticket",
+      `You are now viewing ticket #${ticket.id.substring(0, 8)}: ${ticket.subject}`,
+    )
   }
 
   // Format date for display
@@ -563,6 +589,32 @@ export default function AdminTicketsPage() {
       minute: "2-digit",
     })
   }
+
+  // Filter tickets based on search query, status, priority, category, and assignee
+  const filteredTickets = tickets.filter((ticket) => {
+    const searchText = searchQuery.toLowerCase()
+    const matchesSearch =
+      ticket.subject.toLowerCase().includes(searchText) ||
+      ticket.id.toLowerCase().includes(searchText) ||
+      (ticket.creator?.name && ticket.creator.name.toLowerCase().includes(searchText)) ||
+      (ticket.creator?.email && ticket.creator.email.toLowerCase().includes(searchText))
+
+    const matchesStatus = activeTab === "all" || ticket.status === activeTab.replace("-", " ")
+
+    const matchesPriority = priorityFilter === "all" || ticket.priority === priorityFilter
+
+    const matchesCategory = categoryFilter === "all" || ticket.category === categoryFilter
+
+    const matchesAssignee =
+      assigneeFilter === "anyone" ||
+      (assigneeFilter === "unassigned" && !ticket.assigneeId) ||
+      (assigneeFilter === "me" && ticket.assigneeId === "current-user-id") || // Replace "current-user-id" with the actual current user ID
+      ticket.assigneeId === assigneeFilter
+
+    const matchesClient = clientFilter === "all" || ticket.creator?.clientId === clientFilter
+
+    return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesAssignee && matchesClient
+  })
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto mb-40">
