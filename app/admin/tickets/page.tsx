@@ -180,7 +180,7 @@ export default function AdminTicketsPage() {
     fetchData()
 
     // Set up auto-refresh timer
-    refreshTimerRef.current = setInterval(refreshData, 30000) // Refresh every 30 seconds
+    refreshTimerRef.current = setInterval(refreshData, 10000) // Refresh every 30 seconds
 
     return () => {
       if (refreshTimerRef.current) {
