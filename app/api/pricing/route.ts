@@ -1,25 +1,122 @@
 import { NextResponse } from "next/server"
-import fs from "fs"
-import path from "path"
 import type { PricingData } from "@/context/pricing-context"
+import { writeFile, readFile, mkdir } from "fs/promises"
+import path from "path"
 
-// Define the path to the pricing data file
-const dataFilePath = path.join(process.cwd(), "data", "pricing.json")
+// Define the path for storing pricing data
+const DATA_DIR = path.join(process.cwd(), "data")
+const PRICING_FILE = path.join(DATA_DIR, "pricing.json")
 
-// Ensure the data directory exists
-const dataDir = path.join(process.cwd(), "data")
-if (!fs.existsSync(dataDir)) {
+// GET handler to retrieve pricing data
+export async function GET() {
   try {
-    fs.mkdirSync(dataDir, { recursive: true })
-    console.log("Created data directory:", dataDir)
+    console.log("Fetching pricing data...")
+
+    // Try to read the pricing data from the file
+    try {
+      await mkdir(DATA_DIR, { recursive: true }) // Ensure the data directory exists
+      const fileData = await readFile(PRICING_FILE, "utf-8")
+      const pricingData = JSON.parse(fileData)
+      console.log("Pricing data fetched successfully from file")
+      return NextResponse.json(pricingData)
+    } catch (fileError) {
+      // If file doesn't exist or can't be read, return default data
+      if (fileError instanceof Error && "code" in fileError && fileError.code === "ENOENT") {
+        console.log("No pricing data file found, returning default data")
+        const defaultData = getDefaultPricingData()
+
+        // Save default data to file for future use
+        try {
+          await writeFile(PRICING_FILE, JSON.stringify(defaultData, null, 2), "utf-8")
+          console.log("Default pricing data saved to file")
+        } catch (saveError) {
+          console.error("Error saving default pricing data to file:", saveError)
+          // Continue even if saving fails
+        }
+
+        return NextResponse.json(defaultData)
+      }
+
+      // For other file errors, log and throw
+      console.error("Error reading pricing data file:", fileError)
+      throw fileError
+    }
   } catch (error) {
-    console.error("Error creating data directory:", error)
+    console.error("Error retrieving pricing data:", error)
+    return NextResponse.json(
+      {
+        error: "Failed to retrieve pricing data",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    )
   }
 }
 
-// Initialize with default data if the file doesn't exist
-if (!fs.existsSync(dataFilePath)) {
-  const defaultData: PricingData = {
+// POST handler to update pricing data
+export async function POST(request: Request) {
+  try {
+    console.log("Received POST request to update pricing data")
+
+    // Parse the request body
+    let data
+    try {
+      data = await request.json()
+    } catch (parseError) {
+      console.error("Error parsing request JSON:", parseError)
+      return NextResponse.json(
+        {
+          error: "Invalid JSON in request body",
+          details: parseError instanceof Error ? parseError.message : String(parseError),
+        },
+        { status: 400 },
+      )
+    }
+
+    console.log("Validating data structure...")
+    // Validate the data structure (basic validation)
+    if (!data.plans || !Array.isArray(data.plans)) {
+      console.error("Invalid data format: plans array is required")
+      return NextResponse.json({ error: "Invalid data format: plans array is required" }, { status: 400 })
+    }
+
+    if (!data.stateFilingFees || typeof data.stateFilingFees !== "object") {
+      console.error("Invalid data format: stateFilingFees object is required")
+      return NextResponse.json({ error: "Invalid data format: stateFilingFees object is required" }, { status: 400 })
+    }
+
+    // Save the pricing data to the file
+    console.log("Saving pricing data to file...")
+    try {
+      await mkdir(DATA_DIR, { recursive: true }) // Ensure the data directory exists
+      await writeFile(PRICING_FILE, JSON.stringify(data, null, 2), "utf-8")
+      console.log("Pricing data updated successfully in file")
+      return NextResponse.json({ success: true })
+    } catch (fileError) {
+      console.error("File error when saving pricing data:", fileError)
+      return NextResponse.json(
+        {
+          error: "File error when saving pricing data",
+          details: fileError instanceof Error ? fileError.message : String(fileError),
+        },
+        { status: 500 },
+      )
+    }
+  } catch (error) {
+    console.error("Error processing pricing data update:", error)
+    return NextResponse.json(
+      {
+        error: "Failed to update pricing data",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    )
+  }
+}
+
+// Default pricing data function
+function getDefaultPricingData(): PricingData {
+  return {
     plans: [
       {
         id: 1,
@@ -207,118 +304,6 @@ if (!fs.existsSync(dataFilePath)) {
       Wyoming: "Annual Report: $60 min (first day of anniversary month)",
       "District of Columbia": "Biennial Report: $300 (1st April)",
     },
-  }
-
-  try {
-    fs.writeFileSync(dataFilePath, JSON.stringify(defaultData, null, 2))
-    console.log("Created default pricing data file:", dataFilePath)
-  } catch (error) {
-    console.error("Error writing default pricing data:", error)
-  }
-}
-
-// GET handler to retrieve pricing data
-export async function GET() {
-  try {
-    if (!fs.existsSync(dataFilePath)) {
-      console.error("Pricing data file not found:", dataFilePath)
-      return NextResponse.json({ error: "Pricing data file not found" }, { status: 404 })
-    }
-
-    const data = fs.readFileSync(dataFilePath, "utf8")
-    return NextResponse.json(JSON.parse(data))
-  } catch (error) {
-    console.error("Error reading pricing data:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to retrieve pricing data",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    )
-  }
-}
-
-// POST handler to update pricing data
-export async function POST(request: Request) {
-  try {
-    console.log("Received POST request to update pricing data")
-    const data = await request.json()
-
-    console.log("Validating data structure...")
-    // Validate the data structure (basic validation)
-    if (!data.plans || !Array.isArray(data.plans)) {
-      console.error("Invalid data format: plans array is required")
-      return NextResponse.json({ error: "Invalid data format: plans array is required" }, { status: 400 })
-    }
-
-    if (!data.stateFilingFees || typeof data.stateFilingFees !== "object") {
-      console.error("Invalid data format: stateFilingFees object is required")
-      return NextResponse.json({ error: "Invalid data format: stateFilingFees object is required" }, { status: 400 })
-    }
-
-    // Ensure the data directory exists
-    if (!fs.existsSync(dataDir)) {
-      console.log("Creating data directory...")
-      try {
-        fs.mkdirSync(dataDir, { recursive: true })
-      } catch (dirError) {
-        console.error("Error creating data directory:", dirError)
-        return NextResponse.json(
-          {
-            error: "Failed to create data directory",
-            details: dirError instanceof Error ? dirError.message : String(dirError),
-          },
-          { status: 500 },
-        )
-      }
-    }
-
-    // Write the updated data to the file
-    console.log("Writing updated data to file...")
-    try {
-      // Check if we have write permissions
-      const testPath = path.join(dataDir, "test.txt")
-      try {
-        fs.writeFileSync(testPath, "test")
-        fs.unlinkSync(testPath) // Remove test file
-        console.log("Write permission test passed")
-      } catch (permError) {
-        console.error("Write permission test failed:", permError)
-        return NextResponse.json(
-          {
-            error: "No write permission to data directory",
-            details: permError instanceof Error ? permError.message : String(permError),
-          },
-          { status: 500 },
-        )
-      }
-
-      // Write the actual data
-      fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2))
-      console.log("Successfully wrote pricing data to file")
-    } catch (writeError) {
-      console.error("Error writing to pricing data file:", writeError)
-      return NextResponse.json(
-        {
-          error: "Failed to write pricing data to file",
-          details: writeError instanceof Error ? writeError.message : String(writeError),
-        },
-        { status: 500 },
-      )
-    }
-
-    console.log("Pricing data updated successfully")
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Error updating pricing data:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to update pricing data",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    )
   }
 }
 

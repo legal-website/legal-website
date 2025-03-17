@@ -2,28 +2,36 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
+export interface PricingPlan {
+  id: number
+  name: string
+  price: number
+  displayPrice: string
+  billingCycle: string
+  description: string
+  features: string[]
+  isRecommended?: boolean
+  includesPackage?: string
+  hasAssistBadge?: boolean
+}
+
+export interface StateFilingFees {
+  [state: string]: number
+}
+
+export interface StateDiscounts {
+  [state: string]: number
+}
+
+export interface StateDescriptions {
+  [state: string]: string
+}
+
 export interface PricingData {
-  plans: {
-    id: number
-    name: string
-    price: number
-    displayPrice: string
-    billingCycle: string
-    description: string
-    features: string[]
-    isRecommended?: boolean
-    includesPackage?: string
-    hasAssistBadge?: boolean
-  }[]
-  stateFilingFees: {
-    [state: string]: number
-  }
-  stateDiscounts: {
-    [state: string]: number
-  }
-  stateDescriptions: {
-    [state: string]: string
-  }
+  plans: PricingPlan[]
+  stateFilingFees: StateFilingFees
+  stateDiscounts: StateDiscounts
+  stateDescriptions: StateDescriptions
 }
 
 interface PricingContextType {
@@ -58,7 +66,12 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       setError(null)
 
       console.log("Fetching pricing data...")
-      const response = await fetch("/api/pricing")
+      const response = await fetch("/api/pricing", {
+        method: "GET",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -70,7 +83,6 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       const data = await response.json()
       console.log("Pricing data fetched successfully")
       setPricingData(data)
-      return data
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       console.error("Error fetching pricing data:", errorMessage)
@@ -85,7 +97,7 @@ export function PricingProvider({ children }: { children: ReactNode }) {
   const updatePricingData = async (data: PricingData): Promise<boolean> => {
     try {
       setError(null)
-      console.log("Updating pricing data...")
+      console.log("Updating pricing data...", data)
 
       const response = await fetch("/api/pricing", {
         method: "POST",
@@ -96,8 +108,19 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const errorMessage = errorData.error || `Server responded with ${response.status}`
+        let errorMessage = `Server responded with ${response.status}`
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            errorMessage = errorData.error
+            if (errorData.details) {
+              errorMessage += `: ${errorData.details}`
+            }
+          }
+        } catch (e) {
+          // If we can't parse the JSON, just use the status code message
+        }
+
         console.error("Error response from pricing API:", errorMessage)
         throw new Error(errorMessage)
       }

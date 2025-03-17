@@ -233,4 +233,7 @@ enum Role {
   SUPPORT
   CLIENT
 }
-
+model SystemSettings {
+  key   String @id
+  value String @db.LongText
+}
