@@ -251,6 +251,7 @@ export default function SubscriptionsPage() {
   // Save pricing data changes
   const savePricingChanges = async () => {
     try {
+      setLoading(true)
       await savePricingData()
 
       toast({
@@ -261,11 +262,14 @@ export default function SubscriptionsPage() {
       // Refresh data
       await fetchData()
     } catch (error: any) {
+      console.error("Error saving pricing changes:", error)
       toast({
         title: "Error",
         description: `Failed to save pricing changes: ${error.message || "Unknown error"}`,
         variant: "destructive",
       })
+    } finally {
+      setLoading(false)
     }
   }
 

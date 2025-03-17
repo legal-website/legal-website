@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import fs from "fs"
 import path from "path"
+import type { PricingData } from "@/context/pricing-context"
 
 // Define the path to the pricing data file
 const dataFilePath = path.join(process.cwd(), "data", "pricing.json")
@@ -13,7 +14,7 @@ if (!fs.existsSync(dataDir)) {
 
 // Initialize with default data if the file doesn't exist
 if (!fs.existsSync(dataFilePath)) {
-  const defaultData = {
+  const defaultData: PricingData = {
     plans: [
       {
         id: 1,
@@ -203,12 +204,20 @@ if (!fs.existsSync(dataFilePath)) {
     },
   }
 
-  fs.writeFileSync(dataFilePath, JSON.stringify(defaultData, null, 2))
+  try {
+    fs.writeFileSync(dataFilePath, JSON.stringify(defaultData, null, 2))
+  } catch (error) {
+    console.error("Error writing default pricing data:", error)
+  }
 }
 
 // GET handler to retrieve pricing data
 export async function GET() {
   try {
+    if (!fs.existsSync(dataFilePath)) {
+      return NextResponse.json({ error: "Pricing data file not found" }, { status: 404 })
+    }
+
     const data = fs.readFileSync(dataFilePath, "utf8")
     return NextResponse.json(JSON.parse(data))
   } catch (error) {
@@ -224,16 +233,42 @@ export async function POST(request: Request) {
 
     // Validate the data structure (basic validation)
     if (!data.plans || !Array.isArray(data.plans)) {
-      return NextResponse.json({ error: "Invalid data format" }, { status: 400 })
+      return NextResponse.json({ error: "Invalid data format: plans array is required" }, { status: 400 })
+    }
+
+    if (!data.stateFilingFees || typeof data.stateFilingFees !== "object") {
+      return NextResponse.json({ error: "Invalid data format: stateFilingFees object is required" }, { status: 400 })
+    }
+
+    // Ensure the data directory exists
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true })
     }
 
     // Write the updated data to the file
-    fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2))
+    try {
+      fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2))
+    } catch (writeError) {
+      console.error("Error writing to pricing data file:", writeError)
+      return NextResponse.json(
+        {
+          error: "Failed to write pricing data to file",
+          details: writeError instanceof Error ? writeError.message : String(writeError),
+        },
+        { status: 500 },
+      )
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error updating pricing data:", error)
-    return NextResponse.json({ error: "Failed to update pricing data" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to update pricing data",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    )
   }
 }
 
