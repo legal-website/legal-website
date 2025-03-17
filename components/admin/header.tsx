@@ -11,12 +11,12 @@ import { useToast } from "@/components/ui/use-toast"
 
 // Update the Notification interface to include "tickets" as a source type
 export interface Notification {
-  id: number
+  id: string
   title: string
   description: string
-  time: string
+  time: string // Changed from Date to string
   read: boolean
-  source: "invoices" | "system" | "tickets"
+  source: "users" | "pending" | "invoices" | "tickets" | "roles"
 }
 
 // Create a context for notifications that can be used across the app
@@ -25,7 +25,7 @@ import { createContext, useContext } from "react"
 interface NotificationContextType {
   notifications: Notification[]
   addNotification: (notification: Omit<Notification, "id" | "time" | "read">) => void
-  markAsRead: (id: number) => void
+  markAsRead: (id: string) => void // Changed from number to string
   clearNotifications: () => void
   clearAllRead: () => void
 }
@@ -68,7 +68,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const parsedNotifications = JSON.parse(pendingNotifications)
         parsedNotifications.forEach((notification: any) => {
           const newNotification: Notification = {
-            id: Date.now() + Math.random(), // Ensure unique ID
+            id: String(Date.now() + Math.random()), // Convert to string
             title: notification.title,
             description: notification.description,
             time: "Just now",
@@ -96,7 +96,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           if (Array.isArray(parsedNotifications) && parsedNotifications.length > 0) {
             parsedNotifications.forEach((notification: any) => {
               const newNotification: Notification = {
-                id: Date.now() + Math.random(), // Ensure unique ID
+                id: String(Date.now() + Math.random()), // Convert to string
                 title: notification.title || "New ticket message",
                 description: notification.description || "You have a new message in a ticket",
                 time: "Just now",
@@ -126,7 +126,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const addNotification = (notification: Omit<Notification, "id" | "time" | "read">) => {
     const newNotification: Notification = {
       ...notification,
-      id: Date.now(),
+      id: String(Date.now()), // Convert to string
       time: "Just now",
       read: false,
     }
@@ -134,7 +134,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setNotifications((prev) => [newNotification, ...prev])
   }
 
-  const markAsRead = (id: number) => {
+  const markAsRead = (id: string) => {
+    // Changed from number to string
     setNotifications((prev) =>
       prev.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
     )
@@ -147,6 +148,51 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const clearAllRead = () => {
     setNotifications((prev) => prev.filter((notification) => !notification.read))
   }
+
+  // Add this function near the other notification check functions
+  const checkForTicketNotifications = () => {
+    try {
+      // Check if there are any unread ticket messages in localStorage
+      const unreadTicketsData = localStorage.getItem("unreadTicketMessages")
+      if (unreadTicketsData) {
+        const unreadTickets = JSON.parse(unreadTicketsData)
+        const totalUnread = Object.values(unreadTickets).reduce((sum: number, count: any) => sum + Number(count), 0)
+
+        if (totalUnread > 0) {
+          // Add a notification for unread messages
+          addNotification({
+            title: "Unread Ticket Messages",
+            description: `You have ${totalUnread} unread message${totalUnread > 1 ? "s" : ""} in your tickets`,
+            source: "tickets",
+          })
+
+          // Clear the localStorage entry to avoid duplicate notifications
+          localStorage.removeItem("unreadTicketMessages")
+        }
+      }
+    } catch (error) {
+      console.error("Error checking for ticket notifications:", error)
+    }
+  }
+
+  const checkForPendingNotifications = () => {
+    // Implementation for checking pending notifications
+    // This is a placeholder, replace with your actual logic
+    console.log("Checking for pending notifications")
+  }
+
+  const checkForInvoiceNotifications = () => {
+    // Implementation for checking invoice notifications
+    // This is a placeholder, replace with your actual logic
+    console.log("Checking for invoice notifications")
+  }
+
+  // Find the useEffect that calls checkForPendingNotifications and add:
+  useEffect(() => {
+    checkForPendingNotifications()
+    checkForInvoiceNotifications() // If this exists
+    checkForTicketNotifications() // Add this line
+  }, [])
 
   return (
     <NotificationContext.Provider
