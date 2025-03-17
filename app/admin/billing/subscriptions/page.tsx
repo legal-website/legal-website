@@ -30,6 +30,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+// Import the usePricing hook
+import { usePricing } from "@/context/pricing-context"
+
 // Define types for our data
 interface PricingPlan {
   id: number
@@ -39,9 +42,9 @@ interface PricingPlan {
   billingCycle: string
   description: string
   features: string[]
-  isRecommended: boolean
-  includesPackage: string
-  hasAssistBadge: boolean
+  isRecommended?: boolean
+  includesPackage?: string
+  hasAssistBadge?: boolean
 }
 
 interface StateFilingFees {
@@ -77,12 +80,13 @@ export default function SubscriptionsPage() {
   const [newFeature, setNewFeature] = useState("")
 
   // State for pricing data
-  const [pricingData, setPricingData] = useState<PricingData>({
-    plans: [],
-    stateFilingFees: {},
-    stateDiscounts: {},
-    stateDescriptions: {},
-  })
+  const {
+    pricingData,
+    loading: contextLoading,
+    error: contextError,
+    refreshPricingData,
+    updatePricingData,
+  } = usePricing()
 
   // State for edited state fees
   const [editedStateFee, setEditedStateFee] = useState<number | string>("")
@@ -93,14 +97,7 @@ export default function SubscriptionsPage() {
   const fetchPricingData = async () => {
     try {
       setLoading(true)
-      const response = await fetch("/api/pricing")
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch pricing data")
-      }
-
-      const data = await response.json()
-      setPricingData(data)
+      await refreshPricingData()
       setError(null)
     } catch (error) {
       console.error("Error fetching pricing data:", error)
@@ -118,22 +115,16 @@ export default function SubscriptionsPage() {
   const savePricingData = async () => {
     try {
       setSaving(true)
-      const response = await fetch("/api/pricing", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(pricingData),
-      })
+      const success = await updatePricingData(pricingData)
 
-      if (!response.ok) {
+      if (success) {
+        toast({
+          title: "Success",
+          description: "Pricing data has been saved successfully.",
+        })
+      } else {
         throw new Error("Failed to save pricing data")
       }
-
-      toast({
-        title: "Success",
-        description: "Pricing data has been saved successfully.",
-      })
     } catch (error) {
       console.error("Error saving pricing data:", error)
       toast({
@@ -165,10 +156,11 @@ export default function SubscriptionsPage() {
   const confirmDeletePlan = () => {
     if (deletingPlanId !== null) {
       const updatedPlans = pricingData.plans.filter((plan) => plan.id !== deletingPlanId)
-      setPricingData({
+      const updatedPricingData = {
         ...pricingData,
         plans: updatedPlans,
-      })
+      }
+      updatePricingData(updatedPricingData)
 
       toast({
         title: "Plan Deleted",
@@ -204,10 +196,11 @@ export default function SubscriptionsPage() {
       ]
     }
 
-    setPricingData({
+    const updatedPricingData = {
       ...pricingData,
       plans: updatedPlans,
-    })
+    }
+    updatePricingData(updatedPricingData)
 
     setShowPlanDialog(false)
     setEditingPlan(null)
@@ -288,12 +281,13 @@ export default function SubscriptionsPage() {
     const updatedStateDescriptions = { ...pricingData.stateDescriptions }
     updatedStateDescriptions[editingState] = editedStateDescription
 
-    setPricingData({
+    const updatedPricingData = {
       ...pricingData,
       stateFilingFees: updatedStateFilingFees,
       stateDiscounts: updatedStateDiscounts,
       stateDescriptions: updatedStateDescriptions,
-    })
+    }
+    updatePricingData(updatedPricingData)
 
     setEditingState(null)
 

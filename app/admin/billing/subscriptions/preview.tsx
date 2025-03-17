@@ -1,12 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Check, ShieldCheck } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+
+// Import the usePricing hook
+import { usePricing } from "@/context/pricing-context"
 
 // Define types for our data
 interface PricingPlan {
@@ -17,9 +20,9 @@ interface PricingPlan {
   billingCycle: string
   description: string
   features: string[]
-  isRecommended: boolean
-  includesPackage: string
-  hasAssistBadge: boolean
+  isRecommended?: boolean
+  includesPackage?: string
+  hasAssistBadge?: boolean
 }
 
 interface StateFilingFees {
@@ -42,42 +45,10 @@ interface PricingData {
 }
 
 export default function PricingPreview() {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [selectedState, setSelectedState] = useState<string>("")
 
-  // State for pricing data
-  const [pricingData, setPricingData] = useState<PricingData>({
-    plans: [],
-    stateFilingFees: {},
-    stateDiscounts: {},
-    stateDescriptions: {},
-  })
-
-  // Fetch pricing data from the API
-  useEffect(() => {
-    const fetchPricingData = async () => {
-      try {
-        setLoading(true)
-        const response = await fetch("/api/pricing")
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch pricing data")
-        }
-
-        const data = await response.json()
-        setPricingData(data)
-        setError(null)
-      } catch (error) {
-        console.error("Error fetching pricing data:", error)
-        setError("Failed to load pricing information. Please try again later.")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchPricingData()
-  }, [])
+  // Replace the existing state and fetch logic with the context
+  const { pricingData, loading, error } = usePricing()
 
   const resetState = () => {
     setSelectedState("")
