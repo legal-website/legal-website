@@ -115,6 +115,9 @@ export default function SubscriptionsPage() {
   const savePricingData = async () => {
     try {
       setSaving(true)
+      setError(null)
+
+      console.log("Saving pricing data...", pricingData)
       const success = await updatePricingData(pricingData)
 
       if (success) {
@@ -126,10 +129,12 @@ export default function SubscriptionsPage() {
         throw new Error("Failed to save pricing data")
       }
     } catch (error) {
-      console.error("Error saving pricing data:", error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error("Error saving pricing data:", errorMessage)
+      setError(`Failed to save pricing data: ${errorMessage}`)
       toast({
         title: "Error",
-        description: "Failed to save pricing data. Please try again.",
+        description: "Failed to save pricing data. Please check the console for details.",
         variant: "destructive",
       })
     } finally {
@@ -346,6 +351,19 @@ export default function SubscriptionsPage() {
           <div>
             <p className="font-medium">Error</p>
             <p>{error}</p>
+            <p className="text-sm mt-1">
+              If this error persists, please check that the server has write permissions to the data directory.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {contextError && error !== contextError && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded mb-6 flex items-start">
+          <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-medium">Context Error</p>
+            <p>{contextError}</p>
           </div>
         </div>
       )}

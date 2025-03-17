@@ -55,19 +55,26 @@ export function PricingProvider({ children }: { children: ReactNode }) {
   const refreshPricingData = async () => {
     try {
       setLoading(true)
+      setError(null)
+
+      console.log("Fetching pricing data...")
       const response = await fetch("/api/pricing")
 
       if (!response.ok) {
-        throw new Error("Failed to fetch pricing data")
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.error || `Server responded with ${response.status}`
+        console.error("Error response from pricing API:", errorMessage)
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
+      console.log("Pricing data fetched successfully")
       setPricingData(data)
-      setError(null)
       return data
     } catch (error) {
-      console.error("Error fetching pricing data:", error)
-      setError("Failed to load pricing information. Please try again later.")
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error("Error fetching pricing data:", errorMessage)
+      setError(`Failed to load pricing information: ${errorMessage}`)
       throw error
     } finally {
       setLoading(false)
@@ -77,6 +84,9 @@ export function PricingProvider({ children }: { children: ReactNode }) {
   // Update pricing data
   const updatePricingData = async (data: PricingData): Promise<boolean> => {
     try {
+      setError(null)
+      console.log("Updating pricing data...")
+
       const response = await fetch("/api/pricing", {
         method: "POST",
         headers: {
@@ -86,13 +96,19 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to update pricing data")
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.error || `Server responded with ${response.status}`
+        console.error("Error response from pricing API:", errorMessage)
+        throw new Error(errorMessage)
       }
 
+      console.log("Pricing data updated successfully")
       setPricingData(data)
       return true
     } catch (error) {
-      console.error("Error updating pricing data:", error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error("Error updating pricing data:", errorMessage)
+      setError(`Failed to update pricing data: ${errorMessage}`)
       return false
     }
   }
