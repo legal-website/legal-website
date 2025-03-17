@@ -521,10 +521,10 @@ export default function SubscriptionsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Plan Edit Dialog */}
+      {/* Plan Edit Dialog - Updated for better responsiveness and scrolling */}
       <Dialog open={showPlanDialog} onOpenChange={setShowPlanDialog}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="sticky top-0 bg-white dark:bg-gray-950 pt-4 pb-2 z-10">
             <DialogTitle>{editingPlan?.id ? "Edit" : "Create New"} Subscription Plan</DialogTitle>
             <DialogDescription>
               {editingPlan?.id
@@ -686,7 +686,7 @@ export default function SubscriptionsPage() {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 bg-white dark:bg-gray-950 pt-2 pb-4 z-10">
             <Button variant="outline" onClick={() => setShowPlanDialog(false)}>
               Cancel
             </Button>
@@ -697,9 +697,9 @@ export default function SubscriptionsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog - Updated for better responsiveness */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[450px] max-h-[90vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
