@@ -9,14 +9,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useTheme } from "@/context/theme-context"
 import { useToast } from "@/components/ui/use-toast"
 
-// Define the notification interface
+// Update the Notification interface to include "tickets" as a source type
 export interface Notification {
   id: number
   title: string
   description: string
   time: string
   read: boolean
-  source: "invoices" | "system"
+  source: "invoices" | "system" | "tickets"
 }
 
 // Create a context for notifications that can be used across the app
@@ -85,6 +85,44 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [])
 
+  // Add a useEffect to check for ticket notifications
+  useEffect(() => {
+    // Check for ticket notifications
+    const checkTicketNotifications = () => {
+      const ticketNotifications = localStorage.getItem("ticketNotifications")
+      if (ticketNotifications) {
+        try {
+          const parsedNotifications = JSON.parse(ticketNotifications)
+          if (Array.isArray(parsedNotifications) && parsedNotifications.length > 0) {
+            parsedNotifications.forEach((notification: any) => {
+              const newNotification: Notification = {
+                id: Date.now() + Math.random(), // Ensure unique ID
+                title: notification.title || "New ticket message",
+                description: notification.description || "You have a new message in a ticket",
+                time: "Just now",
+                read: false,
+                source: "tickets",
+              }
+              setNotifications((prev) => [newNotification, ...prev])
+            })
+            // Clear ticket notifications
+            localStorage.removeItem("ticketNotifications")
+          }
+        } catch (e) {
+          console.error("Failed to process ticket notifications", e)
+        }
+      }
+    }
+
+    // Check for ticket notifications on mount
+    checkTicketNotifications()
+
+    // Set up interval to check for new ticket notifications
+    const intervalId = setInterval(checkTicketNotifications, 30000) // Check every 30 seconds
+
+    return () => clearInterval(intervalId)
+  }, [])
+
   const addNotification = (notification: Omit<Notification, "id" | "time" | "read">) => {
     const newNotification: Notification = {
       ...notification,
@@ -125,6 +163,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   )
 }
 
+// Update the getSourceIcon function to handle ticket notifications
+const getSourceIcon = (source: string) => {
+  switch (source) {
+    case "invoices":
+      return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-green-500" />
+    case "tickets":
+      return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-blue-500" />
+    default:
+      return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-gray-500" />
+  }
+}
+
 export default function AdminHeader() {
   const { notifications, markAsRead, clearAllRead } = useNotifications()
   const { theme, setTheme } = useTheme()
@@ -138,15 +188,6 @@ export default function AdminHeader() {
       title: "Notifications cleared",
       description: "All read notifications have been cleared",
     })
-  }
-
-  const getSourceIcon = (source: string) => {
-    switch (source) {
-      case "invoices":
-        return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-green-500" />
-      default:
-        return <div className="w-2 h-2 mt-1.5 rounded-full mr-2 bg-gray-500" />
-    }
   }
 
   return (
