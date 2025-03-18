@@ -47,6 +47,7 @@ export default function AmendmentsPage() {
   const [paymentAmount, setPaymentAmount] = useState("")
   const [adminNotes, setAdminNotes] = useState("")
   const [selectedAmendmentId, setSelectedAmendmentId] = useState<string | null>(null)
+  const [selectedAction, setSelectedAction] = useState<string | null>(null)
 
   useEffect(() => {
     fetchAmendments()
@@ -86,6 +87,7 @@ export default function AmendmentsPage() {
     }
   }
 
+  // Update the updateAmendmentStatus function for better error handling
   const updateAmendmentStatus = async (
     amendmentId: string,
     newStatus: string,
@@ -114,25 +116,16 @@ export default function AmendmentsPage() {
       console.log(`Response status: ${response.status}`)
 
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error("Error response text:", errorText)
-
         let errorMessage = "Failed to update amendment status"
-        let errorDetails = null
 
         try {
-          const errorData = JSON.parse(errorText)
+          const errorData = await response.json()
+          console.error("Error response:", errorData)
           errorMessage = errorData.error || errorMessage
-          errorDetails = errorData.details
         } catch (e) {
           console.error("Failed to parse error response:", e)
-        }
-
-        if (errorDetails) {
-          console.error("Validation errors:", errorDetails)
-          const validationMessages = errorDetails.map((err: any) => `${err.path.join(".")}: ${err.message}`).join(", ")
-
-          throw new Error(`${errorMessage}: ${validationMessages}`)
+          const errorText = await response.text()
+          console.error("Error response text:", errorText)
         }
 
         throw new Error(errorMessage)
@@ -166,15 +159,22 @@ export default function AmendmentsPage() {
   }
 
   const approveAmendment = async (amendmentId: string) => {
-    await updateAmendmentStatus(amendmentId, AmendmentStatus.APPROVED)
+    setSelectedAmendmentId(amendmentId)
+    setSelectedAction("approve")
+    await updateAmendmentStatus(amendmentId, "approved")
+    setSelectedAction(null)
   }
 
   const rejectAmendment = async (amendmentId: string) => {
-    await updateAmendmentStatus(amendmentId, AmendmentStatus.REJECTED)
+    setSelectedAmendmentId(amendmentId)
+    setSelectedAction("reject")
+    await updateAmendmentStatus(amendmentId, "rejected")
+    setSelectedAction(null)
   }
 
   const handleRequestPayment = (amendmentId: string) => {
     setSelectedAmendmentId(amendmentId)
+    setSelectedAction("payment")
     setPaymentAmount("")
     setAdminNotes("")
     setIsDialogOpen(true)
@@ -195,7 +195,7 @@ export default function AmendmentsPage() {
       return
     }
 
-    const success = await updateAmendmentStatus(selectedAmendmentId, AmendmentStatus.WAITING_FOR_PAYMENT, {
+    const success = await updateAmendmentStatus(selectedAmendmentId, "waiting_for_payment", {
       paymentAmount: Number.parseFloat(paymentAmount),
       notes: adminNotes || undefined,
     })
@@ -205,6 +205,7 @@ export default function AmendmentsPage() {
       setPaymentAmount("")
       setAdminNotes("")
       setSelectedAmendmentId(null)
+      setSelectedAction(null)
     }
   }
 
@@ -306,7 +307,9 @@ export default function AmendmentsPage() {
                             onClick={() => approveAmendment(amendment.id)}
                             disabled={loadingAmendmentId === amendment.id}
                           >
-                            {loadingAmendmentId === amendment.id ? (
+                            {loadingAmendmentId === amendment.id &&
+                            amendment.id === selectedAmendmentId &&
+                            selectedAction === "approve" ? (
                               <Loader2 className="h-4 w-4 animate-spin mr-2" />
                             ) : null}
                             Approve
@@ -317,7 +320,9 @@ export default function AmendmentsPage() {
                             onClick={() => rejectAmendment(amendment.id)}
                             disabled={loadingAmendmentId === amendment.id}
                           >
-                            {loadingAmendmentId === amendment.id ? (
+                            {loadingAmendmentId === amendment.id &&
+                            amendment.id === selectedAmendmentId &&
+                            selectedAction === "reject" ? (
                               <Loader2 className="h-4 w-4 animate-spin mr-2" />
                             ) : null}
                             Reject
@@ -328,6 +333,11 @@ export default function AmendmentsPage() {
                             onClick={() => handleRequestPayment(amendment.id)}
                             disabled={loadingAmendmentId === amendment.id}
                           >
+                            {loadingAmendmentId === amendment.id &&
+                            amendment.id === selectedAmendmentId &&
+                            selectedAction === "payment" ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
                             Request Payment
                           </Button>
                         </>
@@ -339,7 +349,9 @@ export default function AmendmentsPage() {
                           onClick={() => updateAmendmentStatus(amendment.id, AmendmentStatus.PAYMENT_RECEIVED)}
                           disabled={loadingAmendmentId === amendment.id}
                         >
-                          {loadingAmendmentId === amendment.id ? (
+                          {loadingAmendmentId === amendment.id &&
+                          amendment.id === selectedAmendmentId &&
+                          selectedAction === "confirm" ? (
                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
                           ) : null}
                           Confirm Payment

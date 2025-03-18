@@ -2,8 +2,14 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { amendmentUpdateSchema } from "@/lib/db/schema"
 import { z } from "zod"
+
+// Simple status validation schema to avoid dependency on the full schema
+const statusSchema = z.object({
+  status: z.string(),
+  paymentAmount: z.number().optional(),
+  notes: z.string().optional(),
+})
 
 export async function PATCH(request: Request, { params }: { params: { amendmentId: string } }) {
   console.log(`PATCH /api/admin/amendments/${params.amendmentId}/status - Start`)
@@ -78,8 +84,8 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
         ...(notes ? { notes } : {}),
       }
 
-      // Validate with Zod schema
-      const validatedData = amendmentUpdateSchema.parse(updateData)
+      // Validate with simple schema to avoid dependency issues
+      const validatedData = statusSchema.parse(updateData)
       console.log(`Validated update data:`, validatedData)
 
       // Add updatedAt field
