@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { FileText, PenTool, Upload, Clock, CheckCircle, AlertCircle, DollarSign } from 'lucide-react'
+import { FileText, PenTool, Upload, Clock, CheckCircle, AlertCircle, DollarSign } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 
@@ -17,7 +17,17 @@ interface Amendment {
   id: string
   type: string
   details: string
-  status: "pending" | "in_review" | "waiting_for_payment" | "payment_confirmation_pending" | "payment_received" | "approved" | "rejected" | "amendment_in_progress" | "amendment_resolved" | "closed"
+  status:
+    | "pending"
+    | "in_review"
+    | "waiting_for_payment"
+    | "payment_confirmation_pending"
+    | "payment_received"
+    | "approved"
+    | "rejected"
+    | "amendment_in_progress"
+    | "amendment_resolved"
+    | "closed"
   createdAt: string
   updatedAt: string
   documentUrl?: string
@@ -221,13 +231,13 @@ export default function AmendmentsPage() {
   // Helper function to format currency amounts safely
   const formatCurrency = (amount: number | string | undefined): string => {
     if (amount === undefined || amount === null) return "$0.00"
-    
+
     // Convert to number if it's not already
-    const numAmount = typeof amount === 'number' ? amount : Number(amount)
-    
+    const numAmount = typeof amount === "number" ? amount : Number(amount)
+
     // Check if conversion resulted in a valid number
     if (isNaN(numAmount)) return "$0.00"
-    
+
     // Now safely call toFixed
     return `$${numAmount.toFixed(2)}`
   }
@@ -434,8 +444,35 @@ export default function AmendmentsPage() {
               </div>
             </Card>
           )}
+
+          {/* Recent Amendments */}
+          {myAmendments.length > 0 && (
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Recent Amendments</h3>
+              <div className="space-y-4">
+                {myAmendments.slice(0, 4).map((amendment) => (
+                  <div key={`recent-${amendment.id}`} className="border rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        {getStatusIcon(amendment.status)}
+                        <div>
+                          <p className="font-medium">{amendment.type}</p>
+                          <p className="text-xs text-gray-600">
+                            Submitted: {new Date(amendment.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      {getStatusBadge(amendment.status)}
+                    </div>
+                    <p className="text-sm text-gray-700 truncate">{amendment.details}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>
   )
 }
+
