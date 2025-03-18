@@ -27,6 +27,15 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
       return NextResponse.json({ error: "Amendment ID is required" }, { status: 400 })
     }
 
+    // Check if amendment exists
+    const existingAmendment = await db.amendment.findUnique({
+      where: { id: amendmentId },
+    })
+
+    if (!existingAmendment) {
+      return NextResponse.json({ error: "Amendment not found" }, { status: 404 })
+    }
+
     // Parse form data
     const formData = await request.formData()
     const status = formData.get("status") as string
