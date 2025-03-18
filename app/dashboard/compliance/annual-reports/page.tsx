@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
-import { AlertCircle, CalendarIcon, CheckCircle, Download, FileText, Upload } from 'lucide-react'
+import { AlertCircle, CalendarIcon, CheckCircle, Download, FileText, Upload } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -64,82 +64,86 @@ export default function AnnualReportsPage() {
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  
+
   // Data states
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<Deadline[]>([])
   const [pastFilings, setPastFilings] = useState<Filing[]>([])
   const [requirements, setRequirements] = useState<FilingRequirement[]>([])
-  
+
   // Dialog states
   const [showFileDialog, setShowFileDialog] = useState(false)
   const [showViewFilingDialog, setShowViewFilingDialog] = useState(false)
-  
+
   // Selected items
   const [selectedDeadline, setSelectedDeadline] = useState<Deadline | null>(null)
   const [selectedFiling, setSelectedFiling] = useState<Filing | null>(null)
-  
+
   // Form data
   const [filingForm, setFilingForm] = useState({
     receiptFile: null as File | null,
     notes: "",
   })
-  
+
   // Calendar highlight dates
   const [highlightDates, setHighlightDates] = useState<Date[]>([])
-  
+
   // Fetch data on component mount
   useEffect(() => {
     fetchData()
-    
+
     // Set up auto-refresh every 5 minutes
-    const interval = setInterval(() => {
-      fetchData(false)
-    }, 5 * 60 * 1000)
-    
+    const interval = setInterval(
+      () => {
+        fetchData(false)
+      },
+      5 * 60 * 1000,
+    )
+
     return () => clearInterval(interval)
   }, [])
-  
+
   // Fetch all necessary data
   const fetchData = async (showToast = true) => {
     setLoading(true)
     if (showToast) setRefreshing(true)
-    
+
     try {
       // Fetch deadlines
-      const deadlinesResponse = await fetch('/api/annual-reports/deadlines')
-      if (!deadlinesResponse.ok) throw new Error('Failed to fetch deadlines')
+      const deadlinesResponse = await fetch("/api/annual-reports/deadlines")
+      if (!deadlinesResponse.ok) throw new Error("Failed to fetch deadlines")
       const deadlinesData = await deadlinesResponse.json()
       setUpcomingDeadlines(deadlinesData.deadlines || [])
-      
+
       // Fetch filings
-      const filingsResponse = await fetch('/api/annual-reports/filings')
-      if (!filingsResponse.ok) throw new Error('Failed to fetch filings')
+      const filingsResponse = await fetch("/api/annual-reports/filings")
+      if (!filingsResponse.ok) throw new Error("Failed to fetch filings")
       const filingsData = await filingsResponse.json()
-      
+
       // Process filings to ensure they have the right format
-      const processedFilings = filingsData.filings?.map((filing: any) => ({
-        ...filing,
-        deadlineTitle: filing.deadline?.title || 'Unknown Deadline',
-        dueDate: filing.deadline?.dueDate || null
-      })) || []
-      
+      const processedFilings =
+        filingsData.filings?.map((filing: any) => ({
+          ...filing,
+          deadlineTitle: filing.deadline?.title || "Unknown Deadline",
+          dueDate: filing.deadline?.dueDate || null,
+        })) || []
+
       // Separate past filings (completed or with filedDate)
-      const pastFilingsData = processedFilings.filter((filing: Filing) => 
-        filing.status === 'completed' || filing.filedDate
+      const pastFilingsData = processedFilings.filter(
+        (filing: Filing) => filing.status === "completed" || filing.filedDate,
       )
-      
+
       setPastFilings(pastFilingsData)
-      
+
       // Fetch requirements
-      const requirementsResponse = await fetch('/api/annual-reports/requirements')
-      if (!requirementsResponse.ok) throw new Error('Failed to fetch requirements')
+      const requirementsResponse = await fetch("/api/annual-reports/requirements")
+      if (!requirementsResponse.ok) throw new Error("Failed to fetch requirements")
       const requirementsData = await requirementsResponse.json()
       setRequirements(requirementsData.requirements || [])
-      
+
       // Set calendar highlight dates
       const dates = deadlinesData.deadlines?.map((deadline: Deadline) => new Date(deadline.dueDate)) || []
       setHighlightDates(dates)
-      
+
       if (showToast && refreshing) {
         toast({
           title: "Refreshed",
@@ -160,7 +164,7 @@ export default function AnnualReportsPage() {
       if (showToast) setRefreshing(false)
     }
   }
-  
+
   // Handle file now button click
   const handleFileNow = (deadline: Deadline) => {
     setSelectedDeadline(deadline)
@@ -170,7 +174,7 @@ export default function AnnualReportsPage() {
     })
     setShowFileDialog(true)
   }
-  
+
   // Handle file upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -180,7 +184,7 @@ export default function AnnualReportsPage() {
       })
     }
   }
-  
+
   // Handle filing submission
   const handleSubmitFiling = async () => {
     if (!selectedDeadline) return
@@ -192,26 +196,33 @@ export default function AnnualReportsPage() {
       })
       return
     }
-    
+
     try {
       // First upload the receipt file
       const formData = new FormData()
-      formData.append('file', filingForm.receiptFile)
-      formData.append('type', 'receipt')
-      
-      const uploadResponse = await fetch('/api/upload-receipt', {
-        method: 'POST',
+      formData.append("receipt", filingForm.receiptFile)
+
+      console.log("Uploading receipt:", filingForm.receiptFile.name, "Size:", filingForm.receiptFile.size)
+
+      const uploadResponse = await fetch("/api/upload-receipt", {
+        method: "POST",
         body: formData,
       })
-      
-      if (!uploadResponse.ok) throw new Error('Failed to upload receipt')
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json()
+        console.error("Upload error:", errorData)
+        throw new Error(errorData.message || "Failed to upload receipt")
+      }
+
       const uploadData = await uploadResponse.json()
-      
+      console.log("Upload successful:", uploadData)
+
       // Now create the filing
-      const filingResponse = await fetch('/api/annual-reports/filings', {
-        method: 'POST',
+      const filingResponse = await fetch("/api/annual-reports/filings", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           deadlineId: selectedDeadline.id,
@@ -219,40 +230,44 @@ export default function AnnualReportsPage() {
           userNotes: filingForm.notes,
         }),
       })
-      
-      if (!filingResponse.ok) throw new Error('Failed to create filing')
-      
+
+      if (!filingResponse.ok) {
+        const filingError = await filingResponse.json()
+        console.error("Filing error:", filingError)
+        throw new Error(filingError.message || "Failed to create filing")
+      }
+
       toast({
         title: "Filing Submitted",
         description: "Your payment receipt has been submitted successfully. We will process your filing shortly.",
       })
-      
+
       setShowFileDialog(false)
-      
+
       // Refresh data
       fetchData()
     } catch (error) {
       console.error("Error submitting filing:", error)
       toast({
         title: "Error",
-        description: "Failed to submit filing. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to submit filing. Please try again.",
         variant: "destructive",
       })
     }
   }
-  
+
   // View filing details
   const handleViewFiling = (filing: Filing) => {
     setSelectedFiling(filing)
     setShowViewFilingDialog(true)
   }
-  
+
   // Format date
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "N/A"
     return format(new Date(dateString), "MMMM d, yyyy")
   }
-  
+
   // Calculate days left
   const calculateDaysLeft = (dueDate: string) => {
     const today = new Date()
@@ -261,7 +276,7 @@ export default function AnnualReportsPage() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     return diffDays
   }
-  
+
   // Get status badge color
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -281,7 +296,7 @@ export default function AnnualReportsPage() {
         return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
     }
   }
-  
+
   if (loading && upcomingDeadlines.length === 0 && pastFilings.length === 0) {
     return (
       <div className="flex h-[50vh] w-full items-center justify-center">
@@ -334,15 +349,13 @@ export default function AnnualReportsPage() {
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Upcoming Deadlines</h3>
             {upcomingDeadlines.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
-                No upcoming deadlines at this time.
-              </div>
+              <div className="p-4 text-center text-gray-500">No upcoming deadlines at this time.</div>
             ) : (
               <div className="space-y-4">
                 {upcomingDeadlines.map((deadline) => {
                   const daysLeft = calculateDaysLeft(deadline.dueDate)
                   const isUrgent = daysLeft <= 30
-                  
+
                   return (
                     <div key={deadline.id} className="p-4 border rounded-lg">
                       <div className="flex justify-between items-start mb-2">
@@ -367,7 +380,9 @@ export default function AnnualReportsPage() {
                         Due: {formatDate(deadline.dueDate)} | Fee: ${Number(deadline.fee).toFixed(2)}
                       </p>
                       <div className="mt-3">
-                        <Button size="sm" onClick={() => handleFileNow(deadline)}>File Now</Button>
+                        <Button size="sm" onClick={() => handleFileNow(deadline)}>
+                          File Now
+                        </Button>
                       </div>
                     </div>
                   )
@@ -384,12 +399,10 @@ export default function AnnualReportsPage() {
               {requirements.map((requirement) => (
                 <div key={requirement.id} className="p-4 bg-gray-50 rounded-lg">
                   <h4 className="font-medium mb-2">{requirement.title}</h4>
-                  <p className="text-sm text-gray-600 mb-2">
-                    {requirement.description}
-                  </p>
+                  <p className="text-sm text-gray-600 mb-2">{requirement.description}</p>
                   {requirement.details && (
                     <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
-                      {requirement.details.split('\n').map((detail, i) => (
+                      {requirement.details.split("\n").map((detail, i) => (
                         <li key={i}>{detail}</li>
                       ))}
                     </ul>
@@ -402,9 +415,7 @@ export default function AnnualReportsPage() {
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Past Filings</h3>
             {pastFilings.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
-                No past filings found.
-              </div>
+              <div className="p-4 text-center text-gray-500">No past filings found.</div>
             ) : (
               <div className="space-y-4">
                 {pastFilings.map((filing) => (
@@ -439,33 +450,41 @@ export default function AnnualReportsPage() {
           </Card>
         </div>
       </div>
-      
+
       {/* File Now Dialog */}
       {selectedDeadline && (
         <Dialog open={showFileDialog} onOpenChange={setShowFileDialog}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>File Annual Report</DialogTitle>
-              <DialogDescription>
-                Submit your payment receipt for {selectedDeadline.title}
-              </DialogDescription>
+              <DialogDescription>Submit your payment receipt for {selectedDeadline.title}</DialogDescription>
             </DialogHeader>
-            
+
             <div className="grid gap-4 py-4">
               <div>
                 <Label className="mb-2 block">Deadline Information</Label>
                 <div className="p-3 bg-gray-50 rounded-md text-sm">
-                  <p><strong>Title:</strong> {selectedDeadline.title}</p>
-                  <p><strong>Due Date:</strong> {formatDate(selectedDeadline.dueDate)}</p>
-                  <p><strong>Fee:</strong> ${Number(selectedDeadline.fee).toFixed(2)}</p>
+                  <p>
+                    <strong>Title:</strong> {selectedDeadline.title}
+                  </p>
+                  <p>
+                    <strong>Due Date:</strong> {formatDate(selectedDeadline.dueDate)}
+                  </p>
+                  <p>
+                    <strong>Fee:</strong> ${Number(selectedDeadline.fee).toFixed(2)}
+                  </p>
                   {selectedDeadline.lateFee && Number(selectedDeadline.lateFee) > 0 && (
-                    <p><strong>Late Fee:</strong> ${Number(selectedDeadline.lateFee).toFixed(2)} per month</p>
+                    <p>
+                      <strong>Late Fee:</strong> ${Number(selectedDeadline.lateFee).toFixed(2)} per month
+                    </p>
                   )}
                 </div>
               </div>
-              
+
               <div>
-                <Label htmlFor="receipt" className="mb-2 block">Upload Payment Receipt</Label>
+                <Label htmlFor="receipt" className="mb-2 block">
+                  Upload Payment Receipt
+                </Label>
                 <div className="border-2 border-dashed rounded-md p-6 text-center">
                   <input
                     type="file"
@@ -489,30 +508,30 @@ export default function AnnualReportsPage() {
                   )}
                 </div>
               </div>
-              
+
               <div>
-                <Label htmlFor="notes" className="mb-2 block">Notes (Optional)</Label>
+                <Label htmlFor="notes" className="mb-2 block">
+                  Notes (Optional)
+                </Label>
                 <Textarea
                   id="notes"
                   placeholder="Add any notes about your payment or filing"
                   value={filingForm.notes}
-                  onChange={(e) => setFilingForm({...filingForm, notes: e.target.value})}
+                  onChange={(e) => setFilingForm({ ...filingForm, notes: e.target.value })}
                 />
               </div>
             </div>
-            
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowFileDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmitFiling}>
-                Submit Filing
-              </Button>
+              <Button onClick={handleSubmitFiling}>Submit Filing</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
-      
+
       {/* View Filing Dialog */}
       {selectedFiling && (
         <Dialog open={showViewFilingDialog} onOpenChange={setShowViewFilingDialog}>
@@ -523,36 +542,40 @@ export default function AnnualReportsPage() {
                 View details for {selectedFiling.deadlineTitle || selectedFiling.deadline?.title}
               </DialogDescription>
             </DialogHeader>
-            
+
             <div className="grid gap-6 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium mb-1">Status</h3>
                   <Badge className={getStatusBadgeColor(selectedFiling.status)}>
-                    {selectedFiling.status === "completed" ? "Completed" : 
-                     selectedFiling.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                    {selectedFiling.status === "completed"
+                      ? "Completed"
+                      : selectedFiling.status
+                          .split("_")
+                          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(" ")}
                   </Badge>
                 </div>
-                
+
                 <div>
                   <h3 className="text-sm font-medium mb-1">Filed Date</h3>
                   <p>{selectedFiling.filedDate ? formatDate(selectedFiling.filedDate) : "Not filed yet"}</p>
                 </div>
-                
+
                 <div>
                   <h3 className="text-sm font-medium mb-1">Due Date</h3>
                   <p>{formatDate(selectedFiling.dueDate || selectedFiling.deadline?.dueDate)}</p>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {selectedFiling.receiptUrl && (
                   <div>
                     <h3 className="text-sm font-medium mb-2">Your Payment Receipt</h3>
                     <div className="border rounded-md p-2 h-48 flex items-center justify-center">
-                      <img 
+                      <img
                         src={selectedFiling.receiptUrl || "/placeholder.svg"}
-                        alt="Payment Receipt" 
+                        alt="Payment Receipt"
                         className="max-h-full max-w-full object-contain"
                       />
                     </div>
@@ -566,7 +589,7 @@ export default function AnnualReportsPage() {
                     </div>
                   </div>
                 )}
-                
+
                 {selectedFiling.reportUrl && (
                   <div>
                     <h3 className="text-sm font-medium mb-2">Filed Report</h3>
@@ -584,7 +607,7 @@ export default function AnnualReportsPage() {
                   </div>
                 )}
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {selectedFiling.userNotes && (
                   <div>
@@ -592,7 +615,7 @@ export default function AnnualReportsPage() {
                     <p className="text-sm p-3 bg-gray-50 rounded-md">{selectedFiling.userNotes}</p>
                   </div>
                 )}
-                
+
                 {selectedFiling.adminNotes && (
                   <div>
                     <h3 className="text-sm font-medium mb-1">Admin Notes</h3>
@@ -601,11 +624,9 @@ export default function AnnualReportsPage() {
                 )}
               </div>
             </div>
-            
+
             <DialogFooter>
-              <Button onClick={() => setShowViewFilingDialog(false)}>
-                Close
-              </Button>
+              <Button onClick={() => setShowViewFilingDialog(false)}>Close</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -613,3 +634,4 @@ export default function AnnualReportsPage() {
     </div>
   )
 }
+

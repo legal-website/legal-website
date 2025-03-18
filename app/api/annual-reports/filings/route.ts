@@ -44,15 +44,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Deadline ID is required" }, { status: 400 })
     }
 
+    if (!data.receiptUrl) {
+      return NextResponse.json({ error: "Receipt URL is required" }, { status: 400 })
+    }
+
     // Create a new filing
     try {
       const filing = await prisma.annualReportFiling.create({
         data: {
           userId: session.user.id,
           deadlineId: data.deadlineId,
-          receiptUrl: data.receiptUrl || null,
+          receiptUrl: data.receiptUrl,
           userNotes: data.userNotes || null,
           status: "pending_payment",
+          updatedAt: new Date(), // Ensure updatedAt is set
         },
       })
 
@@ -70,7 +75,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error: "Database error creating filing",
-          details: dbError.message,
+          message: dbError.message,
           code: dbError.code,
           meta: dbError.meta,
         },
@@ -82,7 +87,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: "Failed to create filing",
-        details: error.message,
+        message: error.message,
         stack: error.stack,
       },
       { status: 500 },

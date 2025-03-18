@@ -10,42 +10,64 @@ cloudinary.config({
 
 /**
  * Upload a file to Cloudinary
- * @param file The file to upload
- * @returns The URL of the uploaded file
+ * @param fileOrDataUri The file or data URI to upload
+ * @param options Additional options for the upload
+ * @returns The result from Cloudinary including secure_url
  */
-export async function uploadToCloudinary(file: File): Promise<string> {
+export async function uploadToCloudinary(
+  fileOrDataUri: File | string,
+  options: Record<string, any> = {},
+): Promise<any> {
   try {
-    console.log("Starting Cloudinary upload for file:", file.name)
+    let dataURI: string
 
-    // Convert file to base64
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const base64Data = buffer.toString("base64")
-    const dataURI = `data:${file.type};base64,${base64Data}`
+    if (typeof fileOrDataUri === "string") {
+      // If already a data URI, use it directly
+      dataURI = fileOrDataUri
+      console.log("Using provided data URI for Cloudinary upload")
+    } else {
+      // Convert File to data URI
+      console.log("Starting Cloudinary upload for file:", fileOrDataUri.name)
+      const arrayBuffer = await fileOrDataUri.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+      const base64Data = buffer.toString("base64")
+      dataURI = `data:${fileOrDataUri.type};base64,${base64Data}`
+    }
+
+    // Default options
+    const uploadOptions = {
+      folder: "business_documents",
+      resource_type: "auto",
+      ...options,
+    }
 
     // Upload to Cloudinary
     return new Promise((resolve, reject) => {
-      cloudinary.uploader.upload(
-        dataURI,
-        {
-          folder: "business_documents",
-          resource_type: "auto",
-        },
-        (error, result) => {
-          if (error) {
-            console.error("Cloudinary upload error:", error)
-            reject(new Error("Failed to upload file to cloud storage"))
-          } else {
-            console.log("Cloudinary upload successful, URL:", result?.secure_url)
-            resolve(result?.secure_url || "")
-          }
-        },
-      )
+      cloudinary.uploader.upload(dataURI, uploadOptions, (error, result) => {
+        if (error) {
+          console.error("Cloudinary upload error:", error)
+          reject(new Error("Failed to upload file to cloud storage"))
+        } else {
+          console.log("Cloudinary upload successful, URL:", result?.secure_url)
+          resolve(result)
+        }
+      })
     })
   } catch (error) {
     console.error("Error uploading to Cloudinary:", error)
     throw new Error("Failed to upload file to cloud storage")
   }
+}
+
+/**
+ * Upload a file to Cloudinary and return just the URL
+ * @param file The file to upload
+ * @param options Additional options for the upload
+ * @returns The URL of the uploaded file
+ */
+export async function uploadFileToCloudinary(file: File, options: Record<string, any> = {}): Promise<string> {
+  const result = await uploadToCloudinary(file, options)
+  return result?.secure_url || ""
 }
 
 /**
@@ -168,4 +190,5 @@ export function extractCloudinaryDetails(url: string) {
 }
 
 export default cloudinary
+
 

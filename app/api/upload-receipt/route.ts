@@ -38,10 +38,27 @@ export async function POST(req: Request) {
       )
     }
 
-    // Get file from form data
-    const file = formData.get("receipt")
+    // Log available form fields for debugging
+    console.log("Form fields:", [...formData.keys()])
+
+    // Get file from form data - check both "receipt" and "file" fields for compatibility
+    let file = formData.get("receipt")
+
+    // If "receipt" field is not found, try "file" field as fallback for compatibility
+    if (!file && formData.has("file")) {
+      file = formData.get("file")
+      console.log("Using 'file' field as fallback")
+    }
+
     if (!file || !(file instanceof File)) {
-      return NextResponse.json({ error: "No file provided", message: "Please upload a valid file" }, { status: 400 })
+      console.error("No valid file found in form data. Available fields:", [...formData.keys()])
+      return NextResponse.json(
+        {
+          error: "No file provided",
+          message: "Please upload a valid file. Expected 'receipt' field in form data.",
+        },
+        { status: 400 },
+      )
     }
 
     console.log("File received:", file.name, "Size:", file.size, "Type:", file.type)
@@ -62,6 +79,11 @@ export async function POST(req: Request) {
       )
     }
 
+    // Determine folder based on form data
+    const folder = formData.get("folder") === "business_documents" ? "business_documents" : "receipts"
+
+    console.log("Using folder:", folder)
+
     // Upload to Cloudinary
     let uploadResult
     try {
@@ -69,7 +91,7 @@ export async function POST(req: Request) {
         cloudinary.uploader.upload(
           dataURI,
           {
-            folder: "receipts",
+            folder: folder,
             resource_type: "auto",
           },
           (error, result) => {
