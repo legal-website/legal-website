@@ -4,6 +4,8 @@ import { z } from "zod"
 export const UserRole = {
   USER: "USER",
   ADMIN: "ADMIN",
+  SUPPORT: "SUPPORT",
+  CLIENT: "CLIENT",
   SUPER_ADMIN: "SUPER_ADMIN",
 } as const
 
@@ -13,7 +15,9 @@ export const userSchema = z.object({
   email: z.string().email({ message: "Invalid email address" }),
   name: z.string().min(2, { message: "Name must be at least 2 characters" }).optional(),
   password: z.string().min(8, { message: "Password must be at least 8 characters" }).optional(),
-  role: z.enum([UserRole.USER, UserRole.ADMIN, UserRole.SUPER_ADMIN]).default(UserRole.USER),
+  role: z
+    .enum([UserRole.USER, UserRole.ADMIN, UserRole.SUPPORT, UserRole.CLIENT, UserRole.SUPER_ADMIN])
+    .default(UserRole.CLIENT),
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
 })
@@ -86,4 +90,71 @@ export const userTemplateAccessSchema = z.object({
 })
 
 export type UserTemplateAccess = z.infer<typeof userTemplateAccessSchema>
+
+// Amendment status enum
+export const AmendmentStatus = {
+  PENDING: "pending",
+  IN_REVIEW: "in_review",
+  WAITING_FOR_PAYMENT: "waiting_for_payment",
+  PAYMENT_RECEIVED: "payment_received",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+  CLOSED: "closed",
+} as const
+
+// Amendment schema with validation
+export const amendmentSchema = z.object({
+  id: z.string().optional(),
+  userId: z.string(),
+  type: z.string(),
+  details: z.string(),
+  status: z
+    .enum([
+      AmendmentStatus.PENDING,
+      AmendmentStatus.IN_REVIEW,
+      AmendmentStatus.WAITING_FOR_PAYMENT,
+      AmendmentStatus.PAYMENT_RECEIVED,
+      AmendmentStatus.APPROVED,
+      AmendmentStatus.REJECTED,
+      AmendmentStatus.CLOSED,
+    ])
+    .default(AmendmentStatus.PENDING),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
+  documentUrl: z.string().nullable().optional(),
+  receiptUrl: z.string().nullable().optional(),
+  paymentAmount: z.number().nullable().optional(),
+  notes: z.string().nullable().optional(),
+})
+
+export type Amendment = z.infer<typeof amendmentSchema>
+
+// Amendment Status History schema
+export const amendmentStatusHistorySchema = z.object({
+  id: z.string().optional(),
+  amendmentId: z.string(),
+  status: z.string(),
+  createdAt: z.date().optional(),
+  notes: z.string().nullable().optional(),
+  updatedBy: z.string().nullable().optional(),
+})
+
+export type AmendmentStatusHistory = z.infer<typeof amendmentStatusHistorySchema>
+
+// Amendment update schema for API requests
+export const amendmentUpdateSchema = z.object({
+  status: z.enum([
+    AmendmentStatus.PENDING,
+    AmendmentStatus.IN_REVIEW,
+    AmendmentStatus.WAITING_FOR_PAYMENT,
+    AmendmentStatus.PAYMENT_RECEIVED,
+    AmendmentStatus.APPROVED,
+    AmendmentStatus.REJECTED,
+    AmendmentStatus.CLOSED,
+  ]),
+  paymentAmount: z.number().optional(),
+  notes: z.string().optional(),
+})
+
+export type AmendmentUpdate = z.infer<typeof amendmentUpdateSchema>
 

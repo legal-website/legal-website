@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { amendmentUpdateSchema } from "@/lib/db/schema"
+import { z } from "zod"
 
 export async function PATCH(request: Request, { params }: { params: { amendmentId: string } }) {
   console.log(`PATCH /api/admin/amendments/${params.amendmentId}/status - Start`)
@@ -50,8 +52,6 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
       return NextResponse.json({ error: "Status is required" }, { status: 400 })
     }
 
-    console.log(`Updating amendment ${amendmentId} status from ${existingAmendment.status} to ${status}`)
-
     // Get optional fields
     const paymentAmountStr = formData.get("paymentAmount") as string | null
     const notes = formData.get("notes") as string | null
@@ -70,28 +70,31 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
       }
     }
 
-    // Update the amendment
-    const updateData: any = {
-      status,
-      updatedAt: new Date(),
-    }
-
-    if (paymentAmount !== undefined) {
-      updateData.paymentAmount = paymentAmount
-    }
-
-    if (notes) {
-      updateData.notes = notes
-    }
-
-    console.log(`Update data:`, JSON.stringify(updateData))
-
+    // Validate the update data
     try {
+      const updateData = {
+        status,
+        ...(paymentAmount !== undefined ? { paymentAmount } : {}),
+        ...(notes ? { notes } : {}),
+      }
+
+      // Validate with Zod schema
+      const validatedData = amendmentUpdateSchema.parse(updateData)
+      console.log(`Validated update data:`, validatedData)
+
+      // Add updatedAt field
+      const finalUpdateData = {
+        ...validatedData,
+        updatedAt: new Date(),
+      }
+
+      console.log(`Final update data:`, finalUpdateData)
+
       // Update the amendment
       console.log(`Updating amendment in database`)
       const updatedAmendment = await db.amendment.update({
         where: { id: amendmentId },
-        data: updateData,
+        data: finalUpdateData,
         include: {
           user: {
             select: {
@@ -139,12 +142,12 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
 
       console.log(`Returning formatted amendment`)
       return NextResponse.json(formattedAmendment)
-    } catch (dbError) {
-      console.error("Database error:", dbError)
-      return NextResponse.json(
-        { error: "Database error: " + (dbError instanceof Error ? dbError.message : "Unknown error") },
-        { status: 500 },
-      )
+    } catch (validationError) {
+      console.error("Validation error:", validationError)
+      if (validationError instanceof z.ZodError) {
+        return NextResponse.json({ error: "Validation error", details: validationError.errors }, { status: 400 })
+      }
+      throw validationError
     }
   } catch (error) {
     console.error("Error updating amendment status:", error)
