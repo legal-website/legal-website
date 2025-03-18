@@ -1,188 +1,116 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import type { AmendmentModel } from "@/lib/prisma-types"
 
-// Define types for our amendments
-interface AmendmentUser {
-  id: string
-  name: string | null
-  email: string
-  business?: {
-    name: string | null
-    phone: string | null
-    address: string | null
-  } | null
-}
-
-interface AmendmentStatusHistory {
-  id: string
-  amendmentId: string
-  status: string
-  createdAt: Date
-  notes: string | null
-}
-
-interface Amendment {
-  id: string
-  userId: string
-  type: string
-  details: string
-  status: string
-  createdAt: Date
-  updatedAt: Date
-  documentUrl: string | null
-  receiptUrl: string | null
-  paymentAmount: number | null
-  notes: string | null
-  user: AmendmentUser
-  statusHistory: AmendmentStatusHistory[]
-}
-
-export async function GET(req: Request, { params }: { params: { amendmentId: string } }) {
+export async function PATCH(request: Request, { params }: { params: { amendmentId: string } }) {
   try {
+    // Check authentication and authorization
     const session = await getServerSession(authOptions)
-    if (!session?.user || session.user.role !== "ADMIN") {
-      return new NextResponse("Unauthorized", { status: 401 })
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Use type assertion to help TypeScript
-    const amendment = (await (db as any).amendment.findUnique({
-      where: { id: params.amendmentId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        statusHistory: {
-          orderBy: { createdAt: "desc" },
-        },
-      },
-    })) as Amendment | null
-
-    if (!amendment) {
-      return new NextResponse("Amendment not found", { status: 404 })
+    if (session.user.role !== "ADMIN" && session.user.role !== "SUPPORT") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Format the amendment to include user name and email
-    const formattedAmendment = {
-      ...amendment,
-      userName: amendment.user.name || "Unknown",
-      userEmail: amendment.user.email,
-    }
+    const amendmentId = params.amendmentId
 
-    return NextResponse.json({ amendment: formattedAmendment })
-  } catch (error) {
-    console.error("[ADMIN_AMENDMENT_GET]", error)
-    return new NextResponse("Internal error", { status: 500 })
-  }
-}
-
-export async function PATCH(req: Request, { params }: { params: { amendmentId: string } }) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user || session.user.role !== "ADMIN") {
-      return new NextResponse("Unauthorized", { status: 401 })
-    }
-
-    const formData = await req.formData()
-    const status = formData.get("status") as string
-    const notes = formData.get("notes") as string
-    const paymentAmount = formData.get("paymentAmount") as string
-
-    // Use type assertion to help TypeScript
-    const amendment = (await (db as any).amendment.findUnique({
-      where: { id: params.amendmentId },
-      include: {
-        user: true,
-      },
-    })) as Amendment | null
-
-    if (!amendment) {
-      return new NextResponse("Amendment not found", { status: 404 })
-    }
-
-    // Update amendment
-    const updatedAmendment = (await (db as any).amendment.update({
-      where: { id: params.amendmentId },
-      data: {
-        status,
-        notes: notes || undefined,
-        paymentAmount: paymentAmount ? Number.parseFloat(paymentAmount) : undefined,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    })) as Amendment
-
-    // Create status history entry
-    await (db as any).amendmentStatusHistory.create({
-      data: {
-        amendmentId: params.amendmentId,
-        status,
-        notes: notes || undefined,
-      },
+    // Check if amendment exists
+    const existingAmendment = await db.amendment.findUnique({
+      where: { id: amendmentId },
     })
 
-    // If status is waiting_for_payment, create an invoice
-    if (status === "waiting_for_payment" && paymentAmount) {
-      const user = (await (db as any).user.findUnique({
-        where: { id: amendment.userId },
-        include: { business: true },
-      })) as AmendmentUser
+    if (!existingAmendment) {
+      return NextResponse.json({ error: "Amendment not found" }, { status: 404 })
+    }
 
-      if (user) {
-        const invoice = await (db as any).invoice.create({
-          data: {
-            invoiceNumber: `AMD-${Date.now()}`,
-            customerName: user.name || "Unknown",
-            customerEmail: user.email,
-            customerPhone: user.business?.phone || null,
-            customerCompany: user.business?.name || null,
-            customerAddress: user.business?.address || null,
-            amount: Number.parseFloat(paymentAmount),
-            status: "pending",
-            items: JSON.stringify([
-              {
-                type: "amendment",
-                description: `Amendment: ${amendment.type}`,
-                amount: Number.parseFloat(paymentAmount),
-              },
-            ]),
-            userId: user.id,
-          },
-        })
+    // Parse form data
+    const formData = await request.formData()
+    const status = formData.get("status") as string
 
-        // Update amendment with invoice reference
-        await (db as any).amendment.update({
-          where: { id: params.amendmentId },
-          data: {
-            notes: `${notes || ""}\nInvoice created: ${invoice.invoiceNumber}`,
-          },
-        })
+    if (!status) {
+      return NextResponse.json({ error: "Status is required" }, { status: 400 })
+    }
+
+    // Get optional fields
+    const paymentAmountStr = formData.get("paymentAmount") as string | null
+    const notes = formData.get("notes") as string | null
+
+    // Parse payment amount if provided
+    let paymentAmount = undefined
+    if (paymentAmountStr) {
+      const amount = Number.parseFloat(paymentAmountStr)
+      if (!isNaN(amount)) {
+        paymentAmount = amount
       }
     }
 
-    // Format the amendment to include user name and email
+    // Update amendment
+    const updateData: any = {
+      status,
+      updatedAt: new Date(),
+    }
+
+    if (paymentAmount !== undefined) {
+      updateData.paymentAmount = paymentAmount
+    }
+
+    if (notes) {
+      updateData.notes = notes
+    }
+
+    // Update the amendment
+    const updatedAmendment = (await db.amendment.update({
+      where: { id: amendmentId },
+      data: updateData,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    })) as AmendmentModel
+
+    // Create status history entry
+    await db.amendmentStatusHistory.create({
+      data: {
+        amendmentId,
+        status,
+        notes,
+        updatedBy: session.user.id,
+      },
+    })
+
+    // Format the amendment for the frontend
     const formattedAmendment = {
-      ...updatedAmendment,
+      id: updatedAmendment.id,
+      userId: updatedAmendment.userId,
       userName: updatedAmendment.user.name || "Unknown",
       userEmail: updatedAmendment.user.email,
+      type: updatedAmendment.type,
+      details: updatedAmendment.details,
+      status: updatedAmendment.status,
+      createdAt: updatedAmendment.createdAt.toISOString(),
+      updatedAt: updatedAmendment.updatedAt.toISOString(),
+      documentUrl: updatedAmendment.documentUrl,
+      receiptUrl: updatedAmendment.receiptUrl,
+      paymentAmount: updatedAmendment.paymentAmount
+        ? Number.parseFloat(updatedAmendment.paymentAmount.toString())
+        : undefined,
+      notes: updatedAmendment.notes,
     }
 
     return NextResponse.json({ amendment: formattedAmendment })
   } catch (error) {
-    console.error("[ADMIN_AMENDMENT_PATCH]", error)
-    return new NextResponse("Internal error", { status: 500 })
+    console.error("Error updating amendment:", error)
+    return NextResponse.json({ error: "Failed to update amendment" }, { status: 500 })
   }
 }
 

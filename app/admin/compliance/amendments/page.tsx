@@ -96,6 +96,8 @@ export default function AdminAmendmentsPage() {
   const [paymentAmount, setPaymentAmount] = useState<string>("")
   const [adminNotes, setAdminNotes] = useState<string>("")
   const { toast } = useToast()
+  const [isLoading, setIsLoading] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   useEffect(() => {
     fetchAmendments()
@@ -106,8 +108,8 @@ export default function AdminAmendmentsPage() {
   }, [amendments, searchTerm, statusFilter])
 
   const fetchAmendments = async () => {
+    setIsLoading(true)
     try {
-      setLoading(true)
       const response = await fetch("/api/admin/amendments")
       if (!response.ok) {
         throw new Error("Failed to fetch amendments")
@@ -122,7 +124,7 @@ export default function AdminAmendmentsPage() {
         variant: "destructive",
       })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
@@ -155,9 +157,8 @@ export default function AdminAmendmentsPage() {
     newStatus: Amendment["status"],
     additionalData: AmendmentUpdateData = {},
   ) => {
+    setIsLoading(true)
     try {
-      setLoading(true)
-
       const formData = new FormData()
       formData.append("status", newStatus)
 
@@ -169,7 +170,7 @@ export default function AdminAmendmentsPage() {
         formData.append("notes", additionalData.notes)
       }
 
-      const response = await fetch(`/api/admin/amendments/${amendmentId}`, {
+      const response = await fetch(`/api/admin/amendments/${amendmentId}/status`, {
         method: "PATCH",
         body: formData,
       })
@@ -180,16 +181,14 @@ export default function AdminAmendmentsPage() {
 
       const data = await response.json()
 
-      // Update amendments list
-      setAmendments((prev) => prev.map((a) => (a.id === amendmentId ? data.amendment : a)))
-
-      if (selectedAmendment?.id === amendmentId) {
-        setSelectedAmendment(data.amendment)
-      }
+      // Update the amendments list
+      setAmendments((prev) =>
+        prev.map((amendment) => (amendment.id === amendmentId ? { ...amendment, status: newStatus } : amendment)),
+      )
 
       toast({
-        title: "Success",
-        description: `Amendment status updated to ${newStatus.replace("_", " ")}`,
+        title: "Status updated",
+        description: `Amendment status updated to ${newStatus}`,
       })
     } catch (error) {
       console.error("Error updating amendment status:", error)
@@ -199,7 +198,8 @@ export default function AdminAmendmentsPage() {
         variant: "destructive",
       })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
+      setIsDialogOpen(false)
     }
   }
 
