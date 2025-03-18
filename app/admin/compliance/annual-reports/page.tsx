@@ -254,24 +254,57 @@ export default function AdminAnnualReportsPage() {
       setDeadlines(processedDeadlines || [])
 
       // Fetch all filings
-      const filingsResponse = await fetch("/api/admin/annual-reports/filings")
-      if (!filingsResponse.ok) throw new Error("Failed to fetch filings")
-      const filingsData = await filingsResponse.json()
+      try {
+        // First try the regular endpoint
+        const filingsResponse = await fetch("/api/admin/annual-reports/filings")
 
-      // Add this debug line:
-      console.log("Admin page: Fetched filings:", filingsData.filings?.length || 0)
+        if (!filingsResponse.ok) {
+          console.warn("Main filings endpoint failed, trying simplified endpoint")
+          // If that fails, try the simplified endpoint
+          const simplifiedResponse = await fetch("/api/admin/annual-reports/filings-simple")
 
-      // Process filings to ensure they have user info
-      const processedFilings = filingsData.filings.map((filing: Filing) => {
-        const user = usersData.users.find((u: any) => u.id === filing.userId)
-        return {
-          ...filing,
-          userName: user?.name || filing.user?.name || "Unknown",
-          userEmail: user?.email || filing.user?.email || "unknown@example.com",
+          if (simplifiedResponse.ok) {
+            const simplifiedData = await simplifiedResponse.json()
+            console.log("Simplified filings data:", simplifiedData)
+
+            // Show a toast with the diagnostic info
+            toast({
+              title: "Filings API Diagnostic",
+              description: `Found ${simplifiedData.filingCount} filings, ${simplifiedData.userCount} users, ${simplifiedData.deadlineCount} deadlines`,
+            })
+
+            // Return empty filings for now
+            setFilings([])
+          } else {
+            throw new Error("Both filings endpoints failed")
+          }
+        } else {
+          const filingsData = await filingsResponse.json()
+
+          // Add this debug line:
+          console.log("Admin page: Fetched filings:", filingsData.filings?.length || 0)
+
+          // Process filings to ensure they have user info
+          const processedFilings = filingsData.filings.map((filing: Filing) => {
+            const user = usersData.users.find((u: User) => u.id === filing.userId)
+            return {
+              ...filing,
+              userName: user?.name || filing.user?.name || "Unknown",
+              userEmail: user?.email || filing.user?.email || "unknown@example.com",
+            }
+          })
+
+          setFilings(processedFilings || [])
         }
-      })
-
-      setFilings(processedFilings || [])
+      } catch (error) {
+        console.error("Error fetching filings:", error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch filings. See console for details.",
+          variant: "destructive",
+        })
+        setFilings([])
+      }
 
       // Fetch requirements
       const requirementsResponse = await fetch("/api/admin/annual-reports/requirements")
@@ -503,7 +536,7 @@ export default function AdminAnnualReportsPage() {
       if (!response.ok) throw new Error("Failed to update filing")
 
       // Update the filing in the state
-      const updatedFilings = filings.map((filing) =>
+      const updatedFilings = filings.map((filing: Filing) =>
         filing.id === selectedFiling.id
           ? {
               ...filing,
