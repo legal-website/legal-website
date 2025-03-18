@@ -91,6 +91,8 @@ interface Ticket {
   id: string
   subject: string
   status: "open" | "closed" | "pending"
+  priority: "low" | "medium" | "high" | "urgent"
+  category: string
   createdAt: string
   updatedAt: string
 }
@@ -1157,7 +1159,9 @@ export default function DashboardPage() {
                   <th className="pb-4 font-medium">Ticket Subject</th>
                   <th className="pb-4 font-medium">Ticket ID</th>
                   <th className="pb-4 font-medium">Status</th>
-                  <th className="pb-4 font-medium">Date</th>
+                  <th className="pb-4 font-medium">Priority</th>
+                  <th className="pb-4 font-medium">Category</th>
+                  <th className="pb-4 font-medium">Last Updated</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -1178,7 +1182,23 @@ export default function DashboardPage() {
                         {ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}
                       </span>
                     </td>
-                    <td className="py-4">{new Date(ticket.createdAt).toLocaleDateString()}</td>
+                    <td className="py-4">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          ticket.priority === "urgent"
+                            ? "bg-red-100 text-red-800"
+                            : ticket.priority === "high"
+                              ? "bg-orange-100 text-orange-800"
+                              : ticket.priority === "medium"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1)}
+                      </span>
+                    </td>
+                    <td className="py-4">{ticket.category}</td>
+                    <td className="py-4">{new Date(ticket.updatedAt).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>
