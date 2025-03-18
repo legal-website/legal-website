@@ -57,6 +57,7 @@ export default function AdminAmendmentsPage() {
     filterAmendments()
   }, [amendments, searchTerm, statusFilter])
 
+  // Update the fetchAmendments function to handle the Prisma model structure
   const fetchAmendments = async () => {
     try {
       setLoading(true)

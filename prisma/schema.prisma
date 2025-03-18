@@ -22,6 +22,7 @@ model User {
   accounts           Account[]
   invoices           Invoice[]
   payments           Payment[]
+  amendments         Amendment[]
   sessions           Session[]
   assignedTickets    Ticket[]            @relation("TicketAssignee")
   tickets            Ticket[]            @relation("TicketCreator")
@@ -237,4 +238,33 @@ model SystemSettings {
   id    Int     @id @default(autoincrement())
   key   String  @unique
   value String  @db.Text
+}
+model Amendment {
+  id                    String                   @id @default(uuid())
+  userId                String
+  type                  String
+  details               String                   @db.Text
+  status                String                   @default("pending")
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  documentUrl           String?
+  receiptUrl            String?
+  paymentAmount         Decimal?                 @db.Decimal(10, 2)
+  notes                 String?                  @db.Text
+  user                  User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  statusHistory         AmendmentStatusHistory[]
+
+  @@index([userId], map: "Amendment_userId_fkey")
+}
+
+model AmendmentStatusHistory {
+  id          String    @id @default(uuid())
+  amendmentId String
+  status      String
+  createdAt   DateTime  @default(now())
+  notes       String?   @db.Text
+  updatedBy   String?
+  amendment   Amendment @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
+
+  @@index([amendmentId], map: "AmendmentStatusHistory_amendmentId_fkey")
 }

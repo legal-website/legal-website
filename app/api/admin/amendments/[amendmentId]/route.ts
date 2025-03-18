@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { uploadToCloudinary } from "@/lib/cloudinary-no-types"
 import type { PrismaClient } from "@prisma/client"
 
 // Use type assertion to help TypeScript recognize our models
@@ -16,13 +15,20 @@ const prisma = db as PrismaClient & {
 export async function GET(req: Request, { params }: { params: { amendmentId: string } }) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    if (!session?.user || session.user.role !== "ADMIN") {
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
     const amendment = await prisma.amendment.findUnique({
       where: { id: params.amendmentId },
       include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
         statusHistory: {
           orderBy: { createdAt: "desc" },
         },
@@ -33,14 +39,16 @@ export async function GET(req: Request, { params }: { params: { amendmentId: str
       return new NextResponse("Amendment not found", { status: 404 })
     }
 
-    // Check if user is authorized to view this amendment
-    if (amendment.userId !== session.user.id && session.user.role !== "ADMIN") {
-      return new NextResponse("Unauthorized", { status: 401 })
+    // Format the amendment to include user name and email
+    const formattedAmendment = {
+      ...amendment,
+      userName: amendment.user.name || "Unknown",
+      userEmail: amendment.user.email,
     }
 
-    return NextResponse.json({ amendment })
+    return NextResponse.json({ amendment: formattedAmendment })
   } catch (error) {
-    console.error("[AMENDMENT_GET]", error)
+    console.error("[ADMIN_AMENDMENT_GET]", error)
     return new NextResponse("Internal error", { status: 500 })
   }
 }
@@ -48,7 +56,7 @@ export async function GET(req: Request, { params }: { params: { amendmentId: str
 export async function PATCH(req: Request, { params }: { params: { amendmentId: string } }) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    if (!session?.user || session.user.role !== "ADMIN") {
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
@@ -56,24 +64,16 @@ export async function PATCH(req: Request, { params }: { params: { amendmentId: s
     const status = formData.get("status") as string
     const notes = formData.get("notes") as string
     const paymentAmount = formData.get("paymentAmount") as string
-    const receipt = formData.get("receipt") as File | null
 
     const amendment = await prisma.amendment.findUnique({
       where: { id: params.amendmentId },
+      include: {
+        user: true,
+      },
     })
 
     if (!amendment) {
       return new NextResponse("Amendment not found", { status: 404 })
-    }
-
-    // Check if user is authorized to update this amendment
-    if (amendment.userId !== session.user.id && session.user.role !== "ADMIN") {
-      return new NextResponse("Unauthorized", { status: 401 })
-    }
-
-    let receiptUrl = amendment.receiptUrl
-    if (receipt) {
-      receiptUrl = await uploadToCloudinary(receipt)
     }
 
     // Update amendment
@@ -81,9 +81,17 @@ export async function PATCH(req: Request, { params }: { params: { amendmentId: s
       where: { id: params.amendmentId },
       data: {
         status,
-        notes,
+        notes: notes || undefined,
         paymentAmount: paymentAmount ? Number.parseFloat(paymentAmount) : undefined,
-        receiptUrl,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     })
 
@@ -92,7 +100,7 @@ export async function PATCH(req: Request, { params }: { params: { amendmentId: s
       data: {
         amendmentId: params.amendmentId,
         status,
-        notes,
+        notes: notes || undefined,
       },
     })
 
@@ -135,9 +143,16 @@ export async function PATCH(req: Request, { params }: { params: { amendmentId: s
       }
     }
 
-    return NextResponse.json({ amendment: updatedAmendment })
+    // Format the amendment to include user name and email
+    const formattedAmendment = {
+      ...updatedAmendment,
+      userName: updatedAmendment.user.name || "Unknown",
+      userEmail: updatedAmendment.user.email,
+    }
+
+    return NextResponse.json({ amendment: formattedAmendment })
   } catch (error) {
-    console.error("[AMENDMENT_PATCH]", error)
+    console.error("[ADMIN_AMENDMENT_PATCH]", error)
     return new NextResponse("Internal error", { status: 500 })
   }
 }

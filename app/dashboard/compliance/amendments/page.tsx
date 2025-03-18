@@ -43,6 +43,7 @@ export default function AmendmentsPage() {
     }
   }, [session?.user?.id])
 
+  // Update the fetchMyAmendments function to handle the Prisma model structure
   const fetchMyAmendments = async () => {
     try {
       setLoading(true)

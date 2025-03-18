@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { uploadToCloudinary } from "@/lib/cloudinary-no-types"
+import type { PrismaClient } from "@prisma/client"
+
+// Use type assertion to help TypeScript recognize our models
+const prisma = db as PrismaClient & {
+  amendment: any
+  amendmentStatusHistory: any
+}
 
 export async function POST(req: Request) {
   try {
@@ -25,22 +32,20 @@ export async function POST(req: Request) {
       documentUrl = await uploadToCloudinary(document)
     }
 
-    const amendment = await db.amendments.create({
+    // Use the prisma variable with type assertion
+    const amendment = await prisma.amendment.create({
       data: {
-        id: crypto.randomUUID(),
-        userId: session.user.id,
+        userId: session.user.id as string,
         type,
         details,
         documentUrl,
         status: "pending",
-        updatedAt: new Date(),
       },
     })
 
     // Create initial status history entry
-    await db.amendment_status_history.create({
+    await prisma.amendmentStatusHistory.create({
       data: {
-        id: crypto.randomUUID(),
         amendmentId: amendment.id,
         status: "pending",
         notes: "Amendment submitted",
@@ -65,15 +70,16 @@ export async function GET(req: Request) {
     const status = searchParams.get("status")
 
     const where = {
-      userId: session.user.id,
+      userId: session.user.id as string,
       ...(status && status !== "all" ? { status } : {}),
     }
 
-    const amendments = await db.amendments.findMany({
+    // Use the prisma variable with type assertion
+    const amendments = await prisma.amendment.findMany({
       where,
       orderBy: { createdAt: "desc" },
       include: {
-        amendment_status_history: {
+        statusHistory: {
           orderBy: { createdAt: "desc" },
         },
       },
