@@ -41,11 +41,23 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
     const paymentAmountStr = formData.get("paymentAmount") as string | null
     const notes = formData.get("notes") as string | null
 
+    console.log(`Payment amount: ${paymentAmountStr}, Notes: ${notes}`)
+
     // Parse payment amount if provided
-    const paymentAmount = paymentAmountStr ? Number.parseFloat(paymentAmountStr) : undefined
+    let paymentAmount = undefined
+    if (paymentAmountStr) {
+      const amount = Number.parseFloat(paymentAmountStr)
+      if (!isNaN(amount)) {
+        paymentAmount = amount
+        console.log(`Parsed payment amount: ${paymentAmount}`)
+      }
+    }
 
     // Update the amendment
-    const updateData: any = { status }
+    const updateData: any = {
+      status,
+      updatedAt: new Date(),
+    }
 
     if (paymentAmount !== undefined) {
       updateData.paymentAmount = paymentAmount
@@ -55,56 +67,72 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
       updateData.notes = notes
     }
 
-    // Update the amendment
-    const updatedAmendment = await db.amendment.update({
-      where: { id: amendmentId },
-      data: updateData,
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    console.log(`Update data:`, updateData)
+
+    try {
+      // Update the amendment
+      const updatedAmendment = await db.amendment.update({
+        where: { id: amendmentId },
+        data: updateData,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
         },
-      },
-    })
+      })
 
-    // Create a status history entry
-    await db.amendmentStatusHistory.create({
-      data: {
-        amendmentId,
-        status,
-        notes,
-        updatedBy: session.user.id,
-      },
-    })
+      console.log(`Amendment updated successfully`)
 
-    console.log(`PATCH /api/admin/amendments/${amendmentId}/status - Updated successfully`)
+      // Create a status history entry
+      await db.amendmentStatusHistory.create({
+        data: {
+          amendmentId,
+          status,
+          notes,
+          updatedBy: session.user.id,
+        },
+      })
 
-    // Format the response
-    const formattedAmendment = {
-      id: updatedAmendment.id,
-      userId: updatedAmendment.userId,
-      userName: updatedAmendment.user?.name || "Unknown",
-      userEmail: updatedAmendment.user?.email || "unknown@example.com",
-      type: updatedAmendment.type,
-      details: updatedAmendment.details,
-      status: updatedAmendment.status,
-      createdAt: updatedAmendment.createdAt.toISOString(),
-      updatedAt: updatedAmendment.updatedAt.toISOString(),
-      documentUrl: updatedAmendment.documentUrl,
-      receiptUrl: updatedAmendment.receiptUrl,
-      paymentAmount: updatedAmendment.paymentAmount
-        ? Number.parseFloat(updatedAmendment.paymentAmount.toString())
-        : null,
-      notes: updatedAmendment.notes,
+      console.log(`Status history entry created`)
+
+      // Format the response
+      const formattedAmendment = {
+        id: updatedAmendment.id,
+        userId: updatedAmendment.userId,
+        userName: updatedAmendment.user?.name || "Unknown",
+        userEmail: updatedAmendment.user?.email || "unknown@example.com",
+        type: updatedAmendment.type,
+        details: updatedAmendment.details,
+        status: updatedAmendment.status,
+        createdAt: updatedAmendment.createdAt.toISOString(),
+        updatedAt: updatedAmendment.updatedAt.toISOString(),
+        documentUrl: updatedAmendment.documentUrl,
+        receiptUrl: updatedAmendment.receiptUrl,
+        paymentAmount: updatedAmendment.paymentAmount
+          ? Number.parseFloat(updatedAmendment.paymentAmount.toString())
+          : null,
+        notes: updatedAmendment.notes,
+      }
+
+      console.log(`Returning formatted amendment`)
+      return NextResponse.json(formattedAmendment)
+    } catch (dbError) {
+      console.error("Database error:", dbError)
+      return NextResponse.json(
+        { error: "Database error: " + (dbError instanceof Error ? dbError.message : "Unknown error") },
+        { status: 500 },
+      )
     }
-
-    return NextResponse.json(formattedAmendment)
   } catch (error) {
     console.error("Error updating amendment status:", error)
-    return NextResponse.json({ error: "Failed to update amendment status" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Failed to update amendment status: " + (error instanceof Error ? error.message : "Unknown error") },
+      { status: 500 },
+    )
   }
 }
 
