@@ -66,6 +66,7 @@ export default function AnnualReportsPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [backgroundRefreshing, setBackgroundRefreshing] = useState(false)
+  const [submitting, setSubmitting] = useState(false) // Add submitting state
 
   // Data states
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<Deadline[]>([])
@@ -278,6 +279,8 @@ export default function AnnualReportsPage() {
       return
     }
 
+    setSubmitting(true) // Set submitting state to true
+
     try {
       // First upload the receipt file
       const formData = new FormData()
@@ -325,6 +328,13 @@ export default function AnnualReportsPage() {
       const filingResult = await filingResponse.json()
       console.log("Filing created successfully:", filingResult)
 
+      // Update the deadline status in the local state
+      setUpcomingDeadlines((prevDeadlines) =>
+        prevDeadlines.map((deadline) =>
+          deadline.id === selectedDeadline.id ? { ...deadline, status: "pending_payment" } : deadline,
+        ),
+      )
+
       toast({
         title: "Filing Submitted",
         description: "Your payment receipt has been submitted successfully. We will process your filing shortly.",
@@ -341,6 +351,8 @@ export default function AnnualReportsPage() {
         description: error instanceof Error ? error.message : "Failed to submit filing. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setSubmitting(false) // Reset submitting state
     }
   }
 
@@ -456,9 +468,9 @@ export default function AnnualReportsPage() {
                       size="sm"
                       variant="secondary"
                       onClick={() => handleFileNow(selectedDateInfo)}
-                      disabled={selectedDateInfo.status === "completed"}
+                      disabled={selectedDateInfo.status !== "pending"}
                     >
-                      {selectedDateInfo.status === "completed" ? "Filed" : "File Now"}
+                      {selectedDateInfo.status === "pending" ? "File Now" : formatStatus(selectedDateInfo.status)}
                     </Button>
                   </div>
                 </div>
@@ -475,6 +487,7 @@ export default function AnnualReportsPage() {
                 {upcomingDeadlines.map((deadline) => {
                   const daysLeft = calculateDaysLeft(deadline.dueDate)
                   const isUrgent = daysLeft <= 30
+                  const isPending = deadline.status === "pending"
 
                   return (
                     <div key={deadline.id} className="p-4 border rounded-lg hover:shadow-sm transition-shadow">
@@ -507,12 +520,8 @@ export default function AnnualReportsPage() {
                         Due: {formatDate(deadline.dueDate)} | Fee: ${Number(deadline.fee).toFixed(2)}
                       </p>
                       <div className="mt-3">
-                        <Button
-                          size="sm"
-                          onClick={() => handleFileNow(deadline)}
-                          disabled={deadline.status === "completed"}
-                        >
-                          {deadline.status === "completed" ? "Filed" : "File Now"}
+                        <Button size="sm" onClick={() => handleFileNow(deadline)} disabled={!isPending}>
+                          {isPending ? "File Now" : formatStatus(deadline.status)}
                         </Button>
                       </div>
                     </div>
@@ -649,8 +658,9 @@ export default function AnnualReportsPage() {
                     className="hidden"
                     accept="image/*,.pdf"
                     onChange={handleFileChange}
+                    disabled={submitting}
                   />
-                  <label htmlFor="receipt" className="cursor-pointer">
+                  <label htmlFor="receipt" className={`cursor-pointer ${submitting ? "opacity-50" : ""}`}>
                     <div className="flex flex-col items-center">
                       <Upload className="h-8 w-8 text-gray-400 mb-2" />
                       <p className="text-sm font-medium mb-1">Click to upload</p>
@@ -675,15 +685,25 @@ export default function AnnualReportsPage() {
                   placeholder="Add any notes about your payment or filing"
                   value={filingForm.notes}
                   onChange={(e) => setFilingForm({ ...filingForm, notes: e.target.value })}
+                  disabled={submitting}
                 />
               </div>
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowFileDialog(false)}>
+              <Button variant="outline" onClick={() => setShowFileDialog(false)} disabled={submitting}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmitFiling}>Submit Filing</Button>
+              <Button onClick={handleSubmitFiling} disabled={submitting || !filingForm.receiptFile}>
+                {submitting ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
+                    Submitting...
+                  </>
+                ) : (
+                  "Submit Filing"
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

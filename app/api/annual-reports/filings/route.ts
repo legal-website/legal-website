@@ -16,10 +16,15 @@ export async function GET(req: Request) {
       where: {
         userId: session.user.id,
       },
+      include: {
+        deadline: true,
+      },
       orderBy: {
         createdAt: "desc",
       },
     })
+
+    console.log(`Client API: Found ${filings.length} filings for user ${session.user.id}`)
 
     return NextResponse.json({ filings })
   } catch (error) {
@@ -62,6 +67,13 @@ export async function POST(req: Request) {
       })
 
       console.log("Filing created successfully:", filing)
+
+      // Update the deadline status
+      await prisma.annualReportDeadline.update({
+        where: { id: data.deadlineId },
+        data: { status: "pending_payment" },
+      })
+
       return NextResponse.json({ filing })
     } catch (dbError: any) {
       console.error("Database error creating filing:", dbError)

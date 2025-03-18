@@ -13,7 +13,6 @@ export async function GET(req: Request) {
     }
 
     // Get all filings with user and deadline info
-    // Ensure we're not filtering out any filings
     const filings = await prisma.annualReportFiling.findMany({
       include: {
         user: {
@@ -30,12 +29,23 @@ export async function GET(req: Request) {
       },
     })
 
-    console.log(`Admin API: Found ${filings.length} filings`)
+    console.log(`Admin API: Found ${filings.length} filings total`)
+
+    // Log each filing for debugging
+    filings.forEach((filing: any, index: number) => {
+      console.log(`Filing ${index + 1}:`, {
+        id: filing.id,
+        userId: filing.userId,
+        deadlineId: filing.deadlineId,
+        status: filing.status,
+        createdAt: filing.createdAt,
+      })
+    })
 
     return NextResponse.json({ filings })
   } catch (error) {
-    console.error("Error fetching filings:", error)
-    return NextResponse.json({ filings: [] }, { status: 200 })
+    console.error("Error fetching filings in admin route:", error)
+    return NextResponse.json({ error: "Failed to fetch filings", details: (error as Error).message }, { status: 500 })
   }
 }
 
