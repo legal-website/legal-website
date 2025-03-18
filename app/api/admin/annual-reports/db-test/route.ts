@@ -53,12 +53,12 @@ export async function GET(req: Request) {
       )
     }
 
-    // Get all tables
+    // Get all tables - MariaDB syntax
     try {
       const tables = await prisma.$queryRaw`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public'
+        SELECT TABLE_NAME 
+        FROM information_schema.TABLES 
+        WHERE TABLE_SCHEMA = DATABASE()
       `
       console.log("Tables:", tables)
 

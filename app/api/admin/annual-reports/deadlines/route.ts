@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { UserRole } from "@/lib/db/schema"
-import { Decimal } from "@prisma/client/runtime/library"
 import prisma from "@/lib/prisma"
 
 export async function GET(req: Request) {
@@ -13,7 +12,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get all deadlines with user info
+    // Get all deadlines
     const deadlines = await prisma.annualReportDeadline.findMany({
       orderBy: {
         dueDate: "asc",
@@ -51,45 +50,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Due date is required" }, { status: 400 })
     }
 
-    // Convert fee and lateFee to Decimal
-    let fee: any = 0
-    if (data.fee) {
-      try {
-        fee = new Decimal(data.fee.toString())
-      } catch (error) {
-        console.error("Error converting fee to Decimal:", error)
-        return NextResponse.json({ error: "Invalid fee format" }, { status: 400 })
-      }
-    }
-
-    let lateFee: any = null
-    if (data.lateFee && Number.parseFloat(data.lateFee) > 0) {
-      try {
-        lateFee = new Decimal(data.lateFee.toString())
-      } catch (error) {
-        console.error("Error converting lateFee to Decimal:", error)
-        return NextResponse.json({ error: "Invalid lateFee format" }, { status: 400 })
-      }
-    }
-
     // Format the data correctly
     const deadlineData = {
       userId: data.userId,
       title: data.title,
       description: data.description || null,
       dueDate: new Date(data.dueDate),
-      fee: fee,
-      lateFee: lateFee,
+      fee: data.fee ? data.fee.toString() : "0",
+      lateFee: data.lateFee && Number.parseFloat(data.lateFee) > 0 ? data.lateFee.toString() : null,
       status: data.status || "pending",
     }
 
     console.log("Formatted deadline data:", deadlineData)
 
     try {
-      // Test Prisma connection
-      const testConnection = await prisma.$queryRaw`SELECT 1 as test`
-      console.log("Prisma connection test:", testConnection)
-
       // Create a new deadline
       const deadline = await prisma.annualReportDeadline.create({
         data: deadlineData,

@@ -12,24 +12,24 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if AnnualReportDeadline table exists
+    // Check if AnnualReportDeadline table exists - MariaDB syntax
     try {
       const tableCheck = await prisma.$queryRaw`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'AnnualReportDeadline'
-        ) as table_exists
+        SELECT TABLE_NAME 
+        FROM information_schema.TABLES 
+        WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'AnnualReportDeadline'
       `
-      console.log("AnnualReportDeadline table check:", tableCheck)
+
+      const tableExists = Array.isArray(tableCheck) && tableCheck.length > 0
 
       // If table exists, check its columns
-      if ((tableCheck as any)[0]?.table_exists) {
+      if (tableExists) {
         const columns = await prisma.$queryRaw`
-          SELECT column_name, data_type, is_nullable
-          FROM information_schema.columns
-          WHERE table_schema = 'public'
-          AND table_name = 'AnnualReportDeadline'
+          SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE
+          FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'AnnualReportDeadline'
         `
 
         return NextResponse.json({
