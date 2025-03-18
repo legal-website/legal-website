@@ -108,7 +108,6 @@ interface FilingRequirement {
   description: string
   details: string | null
   isActive: boolean
-  createdAt: string // Add this property
 }
 
 // Sort options
@@ -657,61 +656,40 @@ export default function AdminAnnualReportsPage() {
 
   // Sort data based on selected option
   const sortData = <T extends Deadline | Filing | FilingRequirement>(data: T[], sortOption: SortOption): T[] => {
-    if (data.length === 0) return data
-
     const sortedData = [...data]
 
     switch (sortOption) {
       case "newest":
-        return sortedData.sort((a, b) => {
-          // Check if both items have createdAt property
-          if ("createdAt" in a && "createdAt" in b) {
-            return new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()
-          }
-          return 0
-        })
+        return sortedData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       case "oldest":
-        return sortedData.sort((a, b) => {
-          // Check if both items have createdAt property
-          if ("createdAt" in a && "createdAt" in b) {
-            return new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime()
-          }
-          return 0
-        })
+        return sortedData.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
       case "dueDate":
-        return sortedData.sort((a, b) => {
-          // Check if both items have dueDate property
-          if ("dueDate" in a && "dueDate" in b) {
-            const aDate = new Date(a.dueDate as string).getTime()
-            const bDate = new Date(b.dueDate as string).getTime()
+        if ("dueDate" in sortedData[0]) {
+          return sortedData.sort((a, b) => {
+            const aDate = new Date((a as Deadline | Filing).dueDate).getTime()
+            const bDate = new Date((b as Deadline | Filing).dueDate).getTime()
             return aDate - bDate
-          }
-          return 0
-        })
+          })
+        }
+        return sortedData
       case "title":
-        return sortedData.sort((a, b) => {
-          // Check if both items have title property
-          if ("title" in a && "title" in b) {
-            return ((a.title as string) || "").localeCompare((b.title as string) || "")
-          }
-          return 0
-        })
+        return sortedData.sort((a, b) => (a.title || "").localeCompare(b.title || ""))
       case "status":
-        return sortedData.sort((a, b) => {
-          // Check if both items have status property
-          if ("status" in a && "status" in b) {
-            return (a.status as string).localeCompare(b.status as string)
-          }
-          return 0
-        })
+        if ("status" in sortedData[0]) {
+          return sortedData.sort((a, b) =>
+            (a as Deadline | Filing).status.localeCompare((b as Deadline | Filing).status),
+          )
+        }
+        return sortedData
       case "user":
-        return sortedData.sort((a, b) => {
-          // Check if both items have userName property
-          if ("userName" in a && "userName" in b) {
-            return ((a.userName as string) || "").localeCompare((b.userName as string) || "")
-          }
-          return 0
-        })
+        if ("userName" in sortedData[0]) {
+          return sortedData.sort((a, b) => {
+            const aName = (a as Deadline | Filing).userName || ""
+            const bName = (b as Deadline | Filing).userName || ""
+            return aName.localeCompare(bName)
+          })
+        }
+        return sortedData
       default:
         return sortedData
     }
@@ -810,12 +788,7 @@ export default function AdminAnnualReportsPage() {
   // Format date
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "N/A"
-    try {
-      return format(new Date(dateString), "MMM dd, yyyy")
-    } catch (error) {
-      console.error("Error formatting date:", error)
-      return "Invalid Date"
-    }
+    return format(new Date(dateString), "MMM dd, yyyy")
   }
 
   if (loading) {
