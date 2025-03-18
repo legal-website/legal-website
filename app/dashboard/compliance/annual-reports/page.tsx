@@ -44,10 +44,11 @@ interface Filing {
   adminNotes: string | null
   filedDate: string | null
   dueDate?: string
+  createdAt?: string
   deadline?: {
     title: string
     dueDate: string
-  }
+  } | null
 }
 
 interface FilingRequirement {
@@ -112,7 +113,9 @@ export default function AnnualReportsPage() {
       const deadlinesResponse = await fetch("/api/annual-reports/deadlines")
       if (!deadlinesResponse.ok) throw new Error("Failed to fetch deadlines")
       const deadlinesData = await deadlinesResponse.json()
-      setUpcomingDeadlines(deadlinesData.deadlines || [])
+
+      // Store deadlines in a map for quick lookup
+      const deadlinesMap = new Map((deadlinesData.deadlines || []).map((deadline: Deadline) => [deadline.id, deadline]))
 
       // Fetch filings
       const filingsResponse = await fetch("/api/annual-reports/filings")
@@ -121,11 +124,59 @@ export default function AnnualReportsPage() {
 
       // Process filings to ensure they have the right format
       const processedFilings =
-        filingsData.filings?.map((filing: any) => ({
-          ...filing,
-          deadlineTitle: filing.deadline?.title || "Unknown Deadline",
-          dueDate: filing.deadline?.dueDate || null,
-        })) || []
+        filingsData.filings?.map((filing: any) => {
+          // Find the associated deadline
+          const deadline = deadlinesMap.get(filing.deadlineId) as Deadline | undefined
+
+          return {
+            ...filing,
+            deadlineTitle: deadline?.title || "Unknown Deadline",
+            dueDate: deadline?.dueDate || null,
+            deadline: deadline
+              ? {
+                  title: deadline.title,
+                  dueDate: deadline.dueDate,
+                }
+              : null,
+          }
+        }) || []
+
+      // Update deadline statuses based on filings
+      if (processedFilings.length > 0 && deadlinesData.deadlines) {
+        // Create a map of the latest filing status for each deadline
+        const deadlineFilingStatusMap = new Map()
+
+        processedFilings.forEach((filing: Filing) => {
+          // Only update if this is a newer filing or we don't have one yet
+          if (
+            !deadlineFilingStatusMap.has(filing.deadlineId) ||
+            new Date(filing.createdAt || 0) > new Date(deadlineFilingStatusMap.get(filing.deadlineId).createdAt || 0)
+          ) {
+            deadlineFilingStatusMap.set(filing.deadlineId, filing)
+          }
+        })
+
+        // Update deadline statuses based on filing statuses
+        const updatedDeadlines = deadlinesData.deadlines.map((deadline: Deadline) => {
+          const latestFiling = deadlineFilingStatusMap.get(deadline.id)
+
+          if (latestFiling) {
+            // If there's a filing, update the deadline status based on the filing status
+            if (latestFiling.status === "completed") {
+              return { ...deadline, status: "completed" }
+            } else if (latestFiling.status === "pending_payment" || latestFiling.status === "payment_received") {
+              return { ...deadline, status: "in_progress" }
+            }
+          }
+
+          // If no filing or status doesn't need updating, return the original deadline
+          return deadline
+        })
+
+        setUpcomingDeadlines(updatedDeadlines)
+      } else {
+        setUpcomingDeadlines(deadlinesData.deadlines || [])
+      }
 
       // Separate past filings (completed or with filedDate)
       const pastFilingsData = processedFilings.filter(
@@ -292,6 +343,8 @@ export default function AnnualReportsPage() {
         return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
       case "rejected":
         return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+      case "in_progress":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
     }
@@ -367,21 +420,39 @@ export default function AnnualReportsPage() {
                           )}
                           <h4 className="font-medium">{deadline.title}</h4>
                         </div>
-                        <span
-                          className={`text-xs px-2 py-1 rounded-full ${
-                            isUrgent ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"
-                          }`}
-                        >
-                          {daysLeft} days left
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full ${
+                              isUrgent ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"
+                            }`}
+                          >
+                            {daysLeft} days left
+                          </span>
+                          {deadline.status && deadline.status !== "pending" && (
+                            <Badge className={getStatusBadgeColor(deadline.status)}>
+                              {deadline.status === "completed"
+                                ? "Completed"
+                                : deadline.status === "in_progress"
+                                  ? "In Progress"
+                                  : deadline.status
+                                      .split("_")
+                                      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                                      .join(" ")}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <p className="text-sm text-gray-600 mb-1">{deadline.description}</p>
                       <p className="text-sm text-gray-600 mb-3">
                         Due: {formatDate(deadline.dueDate)} | Fee: ${Number(deadline.fee).toFixed(2)}
                       </p>
                       <div className="mt-3">
-                        <Button size="sm" onClick={() => handleFileNow(deadline)}>
-                          File Now
+                        <Button
+                          size="sm"
+                          onClick={() => handleFileNow(deadline)}
+                          disabled={deadline.status === "completed"}
+                        >
+                          {deadline.status === "completed" ? "Filed" : "File Now"}
                         </Button>
                       </div>
                     </div>
@@ -418,33 +489,42 @@ export default function AnnualReportsPage() {
               <div className="p-4 text-center text-gray-500">No past filings found.</div>
             ) : (
               <div className="space-y-4">
-                {pastFilings.map((filing) => (
-                  <div key={filing.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-5 w-5 text-gray-400" />
-                      <div>
-                        <p className="font-medium">{filing.deadlineTitle || filing.deadline?.title}</p>
-                        <p className="text-xs text-gray-600">Filed on: {formatDate(filing.filedDate)}</p>
+                {pastFilings.map((filing) => {
+                  const deadlineTitle =
+                    filing.deadlineTitle || (filing.deadline ? filing.deadline.title : "Unknown Deadline")
+
+                  return (
+                    <div key={filing.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-5 w-5 text-gray-400" />
+                        <div>
+                          <p className="font-medium">{deadlineTitle}</p>
+                          <p className="text-xs text-gray-600">Filed on: {formatDate(filing.filedDate)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={getStatusBadgeColor(filing.status)}>
+                          {filing.status === "completed"
+                            ? "Completed"
+                            : filing.status
+                                .split("_")
+                                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                                .join(" ")}
+                        </Badge>
+                        {filing.reportUrl && (
+                          <Button variant="ghost" size="icon" asChild>
+                            <a href={filing.reportUrl} target="_blank" rel="noopener noreferrer" download>
+                              <Download className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        )}
+                        <Button variant="outline" size="sm" onClick={() => handleViewFiling(filing)}>
+                          View
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full flex items-center">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Filed
-                      </span>
-                      {filing.reportUrl && (
-                        <Button variant="ghost" size="icon" asChild>
-                          <a href={filing.reportUrl} target="_blank" rel="noopener noreferrer" download>
-                            <Download className="h-4 w-4" />
-                          </a>
-                        </Button>
-                      )}
-                      <Button variant="outline" size="sm" onClick={() => handleViewFiling(filing)}>
-                        View
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </Card>
@@ -539,7 +619,9 @@ export default function AnnualReportsPage() {
             <DialogHeader>
               <DialogTitle>Filing Details</DialogTitle>
               <DialogDescription>
-                View details for {selectedFiling.deadlineTitle || selectedFiling.deadline?.title}
+                View details for{" "}
+                {selectedFiling.deadlineTitle ||
+                  (selectedFiling.deadline ? selectedFiling.deadline.title : "Unknown Deadline")}
               </DialogDescription>
             </DialogHeader>
 
@@ -564,7 +646,11 @@ export default function AnnualReportsPage() {
 
                 <div>
                   <h3 className="text-sm font-medium mb-1">Due Date</h3>
-                  <p>{formatDate(selectedFiling.dueDate || selectedFiling.deadline?.dueDate)}</p>
+                  <p>
+                    {formatDate(
+                      selectedFiling.dueDate || (selectedFiling.deadline ? selectedFiling.deadline.dueDate : null),
+                    )}
+                  </p>
                 </div>
               </div>
 
