@@ -183,27 +183,25 @@ export default function AnnualReportsPage() {
 
           if (latestFiling) {
             // If there's a filing, update the deadline status based on the filing status
-            // Preserve the exact filing status instead of mapping to generic statuses
-            return { ...deadline, status: latestFiling.status }
+            if (latestFiling.status === "completed") {
+              return { ...deadline, status: "completed" }
+            } else if (latestFiling.status === "pending_payment" || latestFiling.status === "payment_received") {
+              return { ...deadline, status: "in_progress" }
+            }
           }
 
           // If no filing or status doesn't need updating, return the original deadline
           return deadline
         })
 
-        // Filter out completed or rejected deadlines from upcoming deadlines
-        const filteredDeadlines = updatedDeadlines.filter(
-          (deadline: Deadline) => deadline.status !== "completed" && deadline.status !== "rejected",
-        )
-
-        setUpcomingDeadlines(filteredDeadlines)
+        setUpcomingDeadlines(updatedDeadlines)
       } else {
         setUpcomingDeadlines(deadlinesData.deadlines || [])
       }
 
-      // Separate past filings (completed, rejected, or with filedDate)
+      // Separate past filings (completed or with filedDate)
       const pastFilingsData = processedFilings.filter(
-        (filing: Filing) => filing.status === "completed" || filing.status === "rejected" || filing.filedDate,
+        (filing: Filing) => filing.status === "completed" || filing.filedDate,
       )
 
       setPastFilings(pastFilingsData)
@@ -214,13 +212,9 @@ export default function AnnualReportsPage() {
       const requirementsData = await requirementsResponse.json()
       setRequirements(requirementsData.requirements || [])
 
-      // Set calendar highlight dates - only for deadlines that are not completed or rejected
-      const activeDates =
-        deadlinesData.deadlines
-          ?.filter((deadline: Deadline) => deadline.status !== "completed" && deadline.status !== "rejected")
-          .map((deadline: Deadline) => new Date(deadline.dueDate)) || []
-
-      setHighlightDates(activeDates)
+      // Set calendar highlight dates
+      const dates = deadlinesData.deadlines?.map((deadline: Deadline) => new Date(deadline.dueDate)) || []
+      setHighlightDates(dates)
 
       if (showToast && !isBackground && refreshing) {
         toast({
@@ -380,14 +374,6 @@ export default function AnnualReportsPage() {
     }
   }
 
-  // Format status for display
-  const formatStatus = (status: string) => {
-    return status
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ")
-  }
-
   // Handle manual refresh
   const handleManualRefresh = () => {
     fetchData(true, false) // Show toast, not background
@@ -490,7 +476,14 @@ export default function AnnualReportsPage() {
                           </span>
                           {deadline.status && deadline.status !== "pending" && (
                             <Badge className={getStatusBadgeColor(deadline.status)}>
-                              {formatStatus(deadline.status)}
+                              {deadline.status === "completed"
+                                ? "Completed"
+                                : deadline.status === "in_progress"
+                                  ? "In Progress"
+                                  : deadline.status
+                                      .split("_")
+                                      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                                      .join(" ")}
                             </Badge>
                           )}
                         </div>
@@ -580,7 +573,14 @@ export default function AnnualReportsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge className={getStatusBadgeColor(filing.status)}>{formatStatus(filing.status)}</Badge>
+                        <Badge className={getStatusBadgeColor(filing.status)}>
+                          {filing.status === "completed"
+                            ? "Completed"
+                            : filing.status
+                                .split("_")
+                                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                                .join(" ")}
+                        </Badge>
                         {filing.reportUrl && (
                           <Button variant="ghost" size="icon" asChild>
                             <a href={filing.reportUrl} target="_blank" rel="noopener noreferrer" download>
@@ -700,7 +700,12 @@ export default function AnnualReportsPage() {
                 <div>
                   <h3 className="text-sm font-medium mb-1">Status</h3>
                   <Badge className={getStatusBadgeColor(selectedFiling.status)}>
-                    {formatStatus(selectedFiling.status)}
+                    {selectedFiling.status === "completed"
+                      ? "Completed"
+                      : selectedFiling.status
+                          .split("_")
+                          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(" ")}
                   </Badge>
                 </div>
 
