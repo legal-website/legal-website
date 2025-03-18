@@ -11,7 +11,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get filings for the current user with deadline info
+    // Get filings for the current user
     const filings = await db.annualReportFiling.findMany({
       where: {
         userId: session.user.id,
@@ -40,6 +40,11 @@ export async function POST(req: Request) {
     }
 
     const data = await req.json()
+
+    // Validate required fields
+    if (!data.deadlineId) {
+      return NextResponse.json({ error: "Deadline ID is required" }, { status: 400 })
+    }
 
     // Create a new filing
     const filing = await db.annualReportFiling.create({
