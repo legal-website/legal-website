@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
+import prisma from "@/lib/prisma"
 
 export async function GET(req: Request) {
   try {
@@ -12,12 +12,9 @@ export async function GET(req: Request) {
     }
 
     // Get filings for the current user
-    const filings = await db.annualReportFiling.findMany({
+    const filings = await prisma.annualReportFiling.findMany({
       where: {
         userId: session.user.id,
-      },
-      include: {
-        deadline: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -40,6 +37,7 @@ export async function POST(req: Request) {
     }
 
     const data = await req.json()
+    console.log("Creating filing with data:", data)
 
     // Validate required fields
     if (!data.deadlineId) {
@@ -47,23 +45,48 @@ export async function POST(req: Request) {
     }
 
     // Create a new filing
-    const filing = await db.annualReportFiling.create({
-      data: {
-        userId: session.user.id,
-        deadlineId: data.deadlineId,
-        receiptUrl: data.receiptUrl,
-        userNotes: data.userNotes,
-        status: "pending_payment",
-      },
-      include: {
-        deadline: true,
-      },
-    })
+    try {
+      const filing = await prisma.annualReportFiling.create({
+        data: {
+          userId: session.user.id,
+          deadlineId: data.deadlineId,
+          receiptUrl: data.receiptUrl || null,
+          userNotes: data.userNotes || null,
+          status: "pending_payment",
+        },
+      })
 
-    return NextResponse.json({ filing })
-  } catch (error) {
+      console.log("Filing created successfully:", filing)
+      return NextResponse.json({ filing })
+    } catch (dbError: any) {
+      console.error("Database error creating filing:", dbError)
+      console.error("Error code:", dbError.code)
+      console.error("Error message:", dbError.message)
+
+      if (dbError.meta) {
+        console.error("Error meta:", dbError.meta)
+      }
+
+      return NextResponse.json(
+        {
+          error: "Database error creating filing",
+          details: dbError.message,
+          code: dbError.code,
+          meta: dbError.meta,
+        },
+        { status: 500 },
+      )
+    }
+  } catch (error: any) {
     console.error("Error creating filing:", error)
-    return NextResponse.json({ error: "Failed to create filing" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to create filing",
+        details: error.message,
+        stack: error.stack,
+      },
+      { status: 500 },
+    )
   }
 }
 
