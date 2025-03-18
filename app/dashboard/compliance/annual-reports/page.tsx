@@ -300,16 +300,20 @@ export default function AnnualReportsPage() {
       console.log("Upload successful:", uploadData)
 
       // Now create the filing
+      const filingData = {
+        deadlineId: selectedDeadline.id,
+        receiptUrl: uploadData.url,
+        userNotes: filingForm.notes,
+      }
+
+      console.log("Submitting filing with data:", filingData)
+
       const filingResponse = await fetch("/api/annual-reports/filings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          deadlineId: selectedDeadline.id,
-          receiptUrl: uploadData.url,
-          userNotes: filingForm.notes,
-        }),
+        body: JSON.stringify(filingData),
       })
 
       if (!filingResponse.ok) {
@@ -317,6 +321,9 @@ export default function AnnualReportsPage() {
         console.error("Filing error:", filingError)
         throw new Error(filingError.message || "Failed to create filing")
       }
+
+      const filingResult = await filingResponse.json()
+      console.log("Filing created successfully:", filingResult)
 
       toast({
         title: "Filing Submitted",

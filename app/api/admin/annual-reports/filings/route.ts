@@ -13,6 +13,7 @@ export async function GET(req: Request) {
     }
 
     // Get all filings with user and deadline info
+    // Ensure we're not filtering out any filings
     const filings = await prisma.annualReportFiling.findMany({
       include: {
         user: {
@@ -28,6 +29,8 @@ export async function GET(req: Request) {
         createdAt: "desc",
       },
     })
+
+    console.log(`Admin API: Found ${filings.length} filings`)
 
     return NextResponse.json({ filings })
   } catch (error) {

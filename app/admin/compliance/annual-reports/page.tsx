@@ -258,6 +258,9 @@ export default function AdminAnnualReportsPage() {
       if (!filingsResponse.ok) throw new Error("Failed to fetch filings")
       const filingsData = await filingsResponse.json()
 
+      // Add this debug line:
+      console.log("Admin page: Fetched filings:", filingsData.filings?.length || 0)
+
       // Process filings to ensure they have user info
       const processedFilings = filingsData.filings.map((filing: Filing) => {
         const user = usersData.users.find((u: any) => u.id === filing.userId)
@@ -1026,6 +1029,10 @@ export default function AdminAnnualReportsPage() {
           <Card className="p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold">Annual Report Filings</h2>
+              <Button onClick={() => fetchData(true)} disabled={refreshing}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                Refresh Filings
+              </Button>
             </div>
 
             <div className="rounded-md border">
