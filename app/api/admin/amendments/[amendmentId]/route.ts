@@ -4,9 +4,9 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
 export async function PATCH(request: Request, { params }: { params: { amendmentId: string } }) {
-  try {
-    console.log(`PATCH /api/admin/amendments/${params.amendmentId}/status - Start`)
+  console.log(`PATCH /api/admin/amendments/${params.amendmentId}/status - Start`)
 
+  try {
     // Check authentication and authorization
     const session = await getServerSession(authOptions)
 
@@ -24,33 +24,39 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
     const { amendmentId } = params
 
     if (!amendmentId) {
+      console.log(`PATCH /api/admin/amendments/${params.amendmentId}/status - Missing amendment ID`)
       return NextResponse.json({ error: "Amendment ID is required" }, { status: 400 })
     }
 
     // Check if amendment exists
+    console.log(`Checking if amendment ${amendmentId} exists`)
     const existingAmendment = await db.amendment.findUnique({
       where: { id: amendmentId },
     })
 
     if (!existingAmendment) {
+      console.log(`Amendment ${amendmentId} not found`)
       return NextResponse.json({ error: "Amendment not found" }, { status: 404 })
     }
+
+    console.log(`Amendment ${amendmentId} found, current status: ${existingAmendment.status}`)
 
     // Parse form data
     const formData = await request.formData()
     const status = formData.get("status") as string
 
     if (!status) {
+      console.log(`Missing status in request`)
       return NextResponse.json({ error: "Status is required" }, { status: 400 })
     }
 
-    console.log(`PATCH /api/admin/amendments/${amendmentId}/status - Updating status to ${status}`)
+    console.log(`Updating amendment ${amendmentId} status from ${existingAmendment.status} to ${status}`)
 
     // Get optional fields
     const paymentAmountStr = formData.get("paymentAmount") as string | null
     const notes = formData.get("notes") as string | null
 
-    console.log(`Payment amount: ${paymentAmountStr}, Notes: ${notes}`)
+    console.log(`Additional data - Payment amount: ${paymentAmountStr}, Notes: ${notes}`)
 
     // Parse payment amount if provided
     let paymentAmount = undefined
@@ -59,6 +65,8 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
       if (!isNaN(amount)) {
         paymentAmount = amount
         console.log(`Parsed payment amount: ${paymentAmount}`)
+      } else {
+        console.log(`Invalid payment amount: ${paymentAmountStr}`)
       }
     }
 
@@ -76,10 +84,11 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
       updateData.notes = notes
     }
 
-    console.log(`Update data:`, updateData)
+    console.log(`Update data:`, JSON.stringify(updateData))
 
     try {
       // Update the amendment
+      console.log(`Updating amendment in database`)
       const updatedAmendment = await db.amendment.update({
         where: { id: amendmentId },
         data: updateData,
@@ -97,6 +106,7 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
       console.log(`Amendment updated successfully`)
 
       // Create a status history entry
+      console.log(`Creating status history entry`)
       await db.amendmentStatusHistory.create({
         data: {
           amendmentId,

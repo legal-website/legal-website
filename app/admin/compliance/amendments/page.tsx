@@ -34,32 +34,18 @@ interface Amendment {
   receiptUrl: string | null
   paymentAmount: number | null
   notes: string | null
-  statusHistory?: {
-    id: string
-    status: string
-    createdAt: string
-    notes: string | null
-    updatedBy: string | null
-  }[]
-}
-
-// Define interface for additional data
-interface AmendmentUpdateData {
-  paymentAmount?: number
-  notes?: string
-  [key: string]: any // Allow other properties
 }
 
 export default function AmendmentsPage() {
   const [amendments, setAmendments] = useState<Amendment[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadingAmendmentId, setLoadingAmendmentId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("all")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [paymentAmount, setPaymentAmount] = useState("")
   const [adminNotes, setAdminNotes] = useState("")
   const [selectedAmendmentId, setSelectedAmendmentId] = useState<string | null>(null)
+  const [actionType, setActionType] = useState<string | null>(null)
 
   useEffect(() => {
     fetchAmendments()
@@ -99,29 +85,27 @@ export default function AmendmentsPage() {
     }
   }
 
-  const updateAmendmentStatus = async (
-    amendmentId: string,
-    newStatus: string,
-    additionalData: AmendmentUpdateData = {},
-  ) => {
+  const handleAction = async (amendmentId: string, action: string, additionalData = {}) => {
     try {
-      console.log(`Updating amendment ${amendmentId} to status ${newStatus}`)
-      setLoadingAmendmentId(amendmentId)
+      setSelectedAmendmentId(amendmentId)
+      setActionType(action)
+
+      console.log(`Performing action ${action} on amendment ${amendmentId}`)
 
       const formData = new FormData()
-      formData.append("status", newStatus)
+      formData.append("status", action)
 
-      if ("paymentAmount" in additionalData && additionalData.paymentAmount !== undefined) {
-        formData.append("paymentAmount", additionalData.paymentAmount.toString())
-        console.log(`Adding payment amount: ${additionalData.paymentAmount}`)
-      }
+      // Add any additional data to the form
+      Object.entries(additionalData).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          formData.append(key, String(value))
+        }
+      })
 
-      if ("notes" in additionalData && additionalData.notes !== undefined) {
-        formData.append("notes", additionalData.notes)
-        console.log(`Adding notes: ${additionalData.notes}`)
-      }
+      // Log the form data for debugging
+      console.log("Form data:", Object.fromEntries(formData.entries()))
 
-      console.log(`Sending request to /api/admin/amendments/${amendmentId}/status`)
+      // Make the API request
       const response = await fetch(`/api/admin/amendments/${amendmentId}/status`, {
         method: "PATCH",
         body: formData,
@@ -129,40 +113,47 @@ export default function AmendmentsPage() {
 
       console.log(`Response status: ${response.status}`)
 
+      // Check if the response is OK
       if (!response.ok) {
+        const errorText = await response.text()
+        console.error("Error response text:", errorText)
+
         let errorMessage = "Failed to update amendment status"
         try {
-          const errorData = await response.json()
+          const errorData = JSON.parse(errorText)
           errorMessage = errorData.error || errorMessage
         } catch (e) {
           console.error("Failed to parse error response:", e)
         }
+
         throw new Error(errorMessage)
       }
 
+      // Parse the response
+      const responseText = await response.text()
+      console.log("Response text:", responseText)
+
       let updatedAmendment: Amendment
       try {
-        const responseData = await response.json()
-        console.log("Response data:", responseData)
-        updatedAmendment = responseData
+        updatedAmendment = JSON.parse(responseText)
       } catch (e) {
         console.error("Failed to parse response:", e)
         throw new Error("Invalid response format from server")
       }
 
-      // Update the amendments list with the updated amendment
+      // Update the amendments list
       setAmendments((prev) =>
         prev.map((amendment) => (amendment.id === amendmentId ? { ...amendment, ...updatedAmendment } : amendment)),
       )
 
       toast({
-        title: "Status updated",
-        description: `Amendment status updated to ${newStatus.replace("_", " ")}`,
+        title: "Success",
+        description: `Amendment status updated to ${action.replace("_", " ")}`,
       })
 
       return true
     } catch (err) {
-      console.error("Error updating amendment status:", err)
+      console.error(`Error performing action ${action}:`, err)
       toast({
         title: "Error",
         description: err instanceof Error ? err.message : "Failed to update status",
@@ -170,26 +161,27 @@ export default function AmendmentsPage() {
       })
       return false
     } finally {
-      setLoadingAmendmentId(null)
+      setSelectedAmendmentId(null)
+      setActionType(null)
     }
   }
 
-  const approveAmendment = async (amendmentId: string) => {
-    await updateAmendmentStatus(amendmentId, "approved")
+  const handleApprove = async (amendmentId: string) => {
+    await handleAction(amendmentId, "approved")
   }
 
-  const rejectAmendment = async (amendmentId: string) => {
-    await updateAmendmentStatus(amendmentId, "rejected")
+  const handleReject = async (amendmentId: string) => {
+    await handleAction(amendmentId, "rejected")
   }
 
-  const handleRequestPayment = (amendmentId: string) => {
+  const openPaymentDialog = (amendmentId: string) => {
     setSelectedAmendmentId(amendmentId)
     setPaymentAmount("")
     setAdminNotes("")
     setIsDialogOpen(true)
   }
 
-  const handleSubmitPayment = async () => {
+  const handleRequestPayment = async () => {
     if (!paymentAmount || isNaN(Number.parseFloat(paymentAmount)) || Number.parseFloat(paymentAmount) <= 0) {
       toast({
         title: "Invalid amount",
@@ -204,21 +196,15 @@ export default function AmendmentsPage() {
       return
     }
 
-    const updateData: AmendmentUpdateData = {
+    const success = await handleAction(selectedAmendmentId, "waiting_for_payment", {
       paymentAmount: Number.parseFloat(paymentAmount),
-    }
-
-    if (adminNotes) {
-      updateData.notes = adminNotes
-    }
-
-    const success = await updateAmendmentStatus(selectedAmendmentId, "waiting_for_payment", updateData)
+      notes: adminNotes || undefined,
+    })
 
     if (success) {
       setIsDialogOpen(false)
       setPaymentAmount("")
       setAdminNotes("")
-      setSelectedAmendmentId(null)
     }
   }
 
@@ -264,14 +250,103 @@ export default function AmendmentsPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredAmendments.map((amendment) => (
-                  <AmendmentCard
-                    key={amendment.id}
-                    amendment={amendment}
-                    onApprove={approveAmendment}
-                    onReject={rejectAmendment}
-                    onRequestPayment={handleRequestPayment}
-                    isLoading={loadingAmendmentId === amendment.id}
-                  />
+                  <Card key={amendment.id} className="overflow-hidden">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg">{amendment.type}</CardTitle>
+                        <StatusBadge status={amendment.status} />
+                      </div>
+                      <CardDescription>
+                        Submitted by {amendment.userName} ({amendment.userEmail})
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pb-2">
+                      <div className="mb-2">
+                        <h4 className="text-sm font-medium">Details:</h4>
+                        <p className="text-sm text-gray-500">{amendment.details}</p>
+                      </div>
+
+                      {amendment.documentUrl && (
+                        <div className="mb-2">
+                          <h4 className="text-sm font-medium">Document:</h4>
+                          <a
+                            href={amendment.documentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-500 hover:underline"
+                          >
+                            View Document
+                          </a>
+                        </div>
+                      )}
+
+                      {amendment.paymentAmount !== null && (
+                        <div className="mb-2">
+                          <h4 className="text-sm font-medium">Payment Amount:</h4>
+                          <p className="text-sm text-gray-500">${amendment.paymentAmount.toFixed(2)}</p>
+                        </div>
+                      )}
+
+                      {amendment.notes && (
+                        <div className="mb-2">
+                          <h4 className="text-sm font-medium">Notes:</h4>
+                          <p className="text-sm text-gray-500">{amendment.notes}</p>
+                        </div>
+                      )}
+
+                      <div className="text-xs text-gray-400">
+                        Submitted: {new Date(amendment.createdAt).toLocaleDateString()}
+                      </div>
+                    </CardContent>
+                    <CardFooter className="flex flex-wrap gap-2">
+                      {amendment.status === "pending" && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => handleApprove(amendment.id)}
+                            disabled={selectedAmendmentId === amendment.id}
+                          >
+                            {selectedAmendmentId === amendment.id && actionType === "approved" ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleReject(amendment.id)}
+                            disabled={selectedAmendmentId === amendment.id}
+                          >
+                            {selectedAmendmentId === amendment.id && actionType === "rejected" ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
+                            Reject
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openPaymentDialog(amendment.id)}
+                            disabled={selectedAmendmentId === amendment.id}
+                          >
+                            Request Payment
+                          </Button>
+                        </>
+                      )}
+
+                      {amendment.status === "waiting_for_payment" && amendment.receiptUrl && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleAction(amendment.id, "payment_received")}
+                          disabled={selectedAmendmentId === amendment.id}
+                        >
+                          {selectedAmendmentId === amendment.id && actionType === "payment_received" ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : null}
+                          Confirm Payment
+                        </Button>
+                      )}
+                    </CardFooter>
+                  </Card>
                 ))}
               </div>
             )}
@@ -282,7 +357,7 @@ export default function AmendmentsPage() {
       <Dialog
         open={isDialogOpen}
         onOpenChange={(open) => {
-          if (!loadingAmendmentId) setIsDialogOpen(open)
+          if (!selectedAmendmentId || !actionType) setIsDialogOpen(open)
         }}
       >
         <DialogContent>
@@ -322,13 +397,16 @@ export default function AmendmentsPage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => !loadingAmendmentId && setIsDialogOpen(false)}
-              disabled={loadingAmendmentId === selectedAmendmentId}
+              onClick={() => setIsDialogOpen(false)}
+              disabled={selectedAmendmentId !== null && actionType === "waiting_for_payment"}
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmitPayment} disabled={loadingAmendmentId === selectedAmendmentId}>
-              {loadingAmendmentId === selectedAmendmentId ? (
+            <Button
+              onClick={handleRequestPayment}
+              disabled={selectedAmendmentId !== null && actionType === "waiting_for_payment"}
+            >
+              {selectedAmendmentId !== null && actionType === "waiting_for_payment" ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Processing...
@@ -341,91 +419,6 @@ export default function AmendmentsPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
-
-function AmendmentCard({
-  amendment,
-  onApprove,
-  onReject,
-  onRequestPayment,
-  isLoading,
-}: {
-  amendment: Amendment
-  onApprove: (id: string) => Promise<void>
-  onReject: (id: string) => Promise<void>
-  onRequestPayment: (id: string) => void
-  isLoading: boolean
-}) {
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-lg">{amendment.type}</CardTitle>
-          <StatusBadge status={amendment.status} />
-        </div>
-        <CardDescription>
-          Submitted by {amendment.userName} ({amendment.userEmail})
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pb-2">
-        <div className="mb-2">
-          <h4 className="text-sm font-medium">Details:</h4>
-          <p className="text-sm text-gray-500">{amendment.details}</p>
-        </div>
-
-        {amendment.documentUrl && (
-          <div className="mb-2">
-            <h4 className="text-sm font-medium">Document:</h4>
-            <a
-              href={amendment.documentUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-blue-500 hover:underline"
-            >
-              View Document
-            </a>
-          </div>
-        )}
-
-        {amendment.paymentAmount !== null && (
-          <div className="mb-2">
-            <h4 className="text-sm font-medium">Payment Amount:</h4>
-            <p className="text-sm text-gray-500">${amendment.paymentAmount.toFixed(2)}</p>
-          </div>
-        )}
-
-        {amendment.notes && (
-          <div className="mb-2">
-            <h4 className="text-sm font-medium">Notes:</h4>
-            <p className="text-sm text-gray-500">{amendment.notes}</p>
-          </div>
-        )}
-
-        <div className="text-xs text-gray-400">Submitted: {new Date(amendment.createdAt).toLocaleDateString()}</div>
-      </CardContent>
-      <CardFooter className="flex flex-wrap gap-2">
-        {amendment.status === "pending" && (
-          <>
-            <Button size="sm" onClick={() => onApprove(amendment.id)} disabled={isLoading}>
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => onReject(amendment.id)} disabled={isLoading}>
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Reject"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => onRequestPayment(amendment.id)} disabled={isLoading}>
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Request Payment"}
-            </Button>
-          </>
-        )}
-
-        {amendment.status === "waiting_for_payment" && amendment.receiptUrl && (
-          <Button size="sm" onClick={() => onApprove(amendment.id)} disabled={isLoading}>
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm Payment"}
-          </Button>
-        )}
-      </CardFooter>
-    </Card>
   )
 }
 
