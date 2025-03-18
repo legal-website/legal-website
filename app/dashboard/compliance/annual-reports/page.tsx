@@ -146,20 +146,20 @@ export default function AnnualReportsPage() {
 
       // Process filings to ensure they have the right format
       const processedFilings =
-        filingsData.filings?.map((filing: any) => {
+        filingsData.filings?.map((filing: Filing) => {
           // Find the associated deadline
           const deadline = deadlinesMap.get(filing.deadlineId) as Deadline | undefined
 
           return {
             ...filing,
-            deadlineTitle: deadline?.title || "Unknown Deadline",
-            dueDate: deadline?.dueDate || null,
+            deadlineTitle: filing.deadlineTitle || deadline?.title || "Unknown Deadline",
+            dueDate: filing.dueDate || deadline?.dueDate || null,
             deadline: deadline
               ? {
                   title: deadline.title,
                   dueDate: deadline.dueDate,
                 }
-              : null,
+              : filing.deadline || null,
           }
         }) || []
 
@@ -204,9 +204,14 @@ export default function AnnualReportsPage() {
 
       // Separate past filings (completed, rejected, or with filedDate)
       const pastFilingsData = processedFilings.filter(
-        (filing: Filing) => filing.status === "completed" || filing.status === "rejected" || filing.filedDate,
+        (filing: Filing) =>
+          filing.status === "completed" ||
+          filing.status === "rejected" ||
+          filing.filedDate ||
+          filing.status === "payment_received",
       )
 
+      console.log("Past filings found:", pastFilingsData.length)
       setPastFilings(pastFilingsData)
 
       // Fetch requirements
