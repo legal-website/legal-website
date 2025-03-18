@@ -5,26 +5,64 @@ import { db } from "@/lib/db"
 
 export async function GET(req: Request) {
   try {
+    console.log("GET /api/annual-reports/requirements - Starting request")
+
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get active requirements
-    const requirements = await db.filingRequirement.findMany({
-      where: {
-        isActive: true,
-      },
-      orderBy: {
-        title: "asc",
-      },
-    })
+    // Check if the table exists by querying information schema
+    try {
+      const tableExists = await db.$queryRaw`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'FilingRequirement'
+        )
+      `
 
-    return NextResponse.json({ requirements })
+      const exists = Array.isArray(tableExists) && tableExists.length > 0 ? tableExists[0].exists : false
+
+      if (!exists) {
+        console.log("FilingRequirement table does not exist")
+        return NextResponse.json({
+          requirements: [],
+          warning: "Annual reports feature is not fully set up",
+        })
+      }
+
+      // Get active requirements
+      const requirements = await db.filingRequirement.findMany({
+        where: {
+          isActive: true,
+        },
+        orderBy: {
+          title: "asc",
+        },
+      })
+
+      console.log(`Found ${requirements.length} requirements`)
+      return NextResponse.json({ requirements })
+    } catch (dbError: any) {
+      console.error("Database error:", dbError)
+
+      // Return empty array with warning instead of error
+      return NextResponse.json({
+        requirements: [],
+        warning: "Could not retrieve requirements",
+      })
+    }
   } catch (error) {
     console.error("Error fetching requirements:", error)
-    return NextResponse.json({ error: "Failed to fetch requirements" }, { status: 500 })
+    return NextResponse.json(
+      {
+        requirements: [],
+        error: "Failed to fetch requirements",
+      },
+      { status: 500 },
+    )
   }
 }
 

@@ -259,46 +259,41 @@ model Amendment {
   @@index([userId], map: "Amendment_userId_fkey")
 }
 model AnnualReportDeadline {
-  id          String               @id @default(uuid())
+  id          String   @id @default(cuid())
   userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title       String
-  description String?              @db.Text
+  description String?
   dueDate     DateTime
-  fee         Decimal              @default(0) @db.Decimal(10, 2)
-  lateFee     Decimal?             @db.Decimal(10, 2)
-  status      String               @default("pending")
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fee         Decimal  @db.Decimal(10, 2)
+  lateFee     Decimal? @db.Decimal(10, 2)
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   filings     AnnualReportFiling[]
-
-  @@index([userId])
 }
 
 model AnnualReportFiling {
-  id          String              @id @default(uuid())
-  deadlineId  String
+  id          String   @id @default(cuid())
   userId      String
-  receiptUrl  String?             @db.Text
-  reportUrl   String?             @db.Text
-  status      String              @default("pending_payment")
-  adminNotes  String?             @db.Text
-  userNotes   String?             @db.Text
-  filedDate   DateTime?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deadlineId  String
   deadline    AnnualReportDeadline @relation(fields: [deadlineId], references: [id], onDelete: Cascade)
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([deadlineId])
-  @@index([userId])
+  receiptUrl  String?
+  reportUrl   String?
+  status      String   @default("pending")
+  userNotes   String?
+  adminNotes  String?
+  filedDate   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model FilingRequirement {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   title       String
-  description String   @db.Text
-  details     String?  @db.Text
+  description String
+  details     String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

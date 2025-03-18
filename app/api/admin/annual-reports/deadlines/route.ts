@@ -6,71 +6,99 @@ import { UserRole } from "@/lib/db/schema"
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
+    console.log("GET /api/admin/annual-reports/deadlines - Starting request")
 
-    if (!session?.user || (session.user as any).role !== UserRole.ADMIN) {
+    const session = await getServerSession(authOptions)
+    console.log("Session:", session ? "Authenticated" : "Not authenticated")
+
+    if (!session?.user) {
+      console.log("Unauthorized - No session or user")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get all deadlines with user info
-    const deadlines = await db.annualReportDeadline.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    console.log("User role:", (session.user as any).role)
+    if ((session.user as any).role !== UserRole.ADMIN) {
+      console.log("Unauthorized - Not an admin")
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    console.log("Fetching all deadlines")
+
+    try {
+      // Test database connection
+      await db.$queryRaw`SELECT 1 as connection_test`
+      console.log("Database connection successful")
+
+      // Get all deadlines with user info
+      const deadlines = await db.annualReportDeadline.findMany({
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
         },
-      },
-      orderBy: {
-        dueDate: "asc",
-      },
-    })
+        orderBy: {
+          dueDate: "asc",
+        },
+      })
 
-    return NextResponse.json({ deadlines })
+      console.log(`Found ${deadlines.length} deadlines`)
+      return NextResponse.json({ deadlines })
+    } catch (dbError: any) {
+      console.error("Database error:", dbError)
+      console.error("Error message:", dbError.message)
+      console.error("Error code:", dbError.code)
+
+      if (dbError.meta) {
+        console.error("Error meta:", dbError.meta)
+      }
+
+      // Check for specific error types
+      if (dbError.message && dbError.message.includes("relation") && dbError.message.includes("does not exist")) {
+        return NextResponse.json(
+          {
+            deadlines: [],
+            error: "Database table not found",
+            details: process.env.NODE_ENV === "development" ? dbError.message : undefined,
+          },
+          { status: 500 },
+        )
+      }
+
+      if (dbError.message && dbError.message.includes("column") && dbError.message.includes("does not exist")) {
+        return NextResponse.json(
+          {
+            deadlines: [],
+            error: "Database column not found",
+            details: process.env.NODE_ENV === "development" ? dbError.message : undefined,
+          },
+          { status: 500 },
+        )
+      }
+
+      // Generic database error
+      return NextResponse.json(
+        {
+          deadlines: [],
+          error: "Database error",
+          details: process.env.NODE_ENV === "development" ? dbError.message : undefined,
+        },
+        { status: 500 },
+      )
+    }
   } catch (error) {
     console.error("Error fetching deadlines:", error)
-    return NextResponse.json({ error: "Failed to fetch deadlines" }, { status: 500 })
-  }
-}
-
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user || (session.user as any).role !== UserRole.ADMIN) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const data = await req.json()
-
-    // Create a new deadline
-    const deadline = await db.annualReportDeadline.create({
-      data: {
-        userId: data.userId,
-        title: data.title,
-        description: data.description,
-        dueDate: new Date(data.dueDate),
-        fee: data.fee,
-        lateFee: data.lateFee,
-        status: data.status || "pending",
+    return NextResponse.json(
+      {
+        deadlines: [],
+        error: "Failed to fetch deadlines",
+        details: process.env.NODE_ENV === "development" ? (error as any).toString() : undefined,
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    })
-
-    return NextResponse.json({ deadline })
-  } catch (error) {
-    console.error("Error creating deadline:", error)
-    return NextResponse.json({ error: "Failed to create deadline" }, { status: 500 })
+      { status: 500 },
+    )
   }
 }
 
