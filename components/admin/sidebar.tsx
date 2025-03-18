@@ -101,7 +101,10 @@ const menuItems: MenuItem[] = [
     icon: Shield,
     label: "Compliance",
     href: "/admin/compliance",
-    subItems: [{ label: "Amendments", href: "/admin/compliance/amendments", badge: "New" }],
+    subItems: [
+      { label: "Amendments", href: "/admin/compliance/amendments", badge: "New" },
+      { label: "Annual Reports", href: "/admin/compliance/annual-reports" },
+    ],
   },
   {
     icon: Settings,

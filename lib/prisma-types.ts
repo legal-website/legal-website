@@ -73,6 +73,50 @@ export interface AmendmentModel {
   statusHistory: AmendmentStatusHistoryModel[]
 }
 
+// Annual Report Deadline model
+export interface AnnualReportDeadlineModel {
+  id: string
+  userId: string
+  title: string
+  description: string | null
+  dueDate: Date
+  fee: Decimal
+  lateFee: Decimal | null
+  status: string
+  createdAt: Date
+  updatedAt: Date
+  user: UserModel
+  filings?: AnnualReportFilingModel[]
+}
+
+// Annual Report Filing model
+export interface AnnualReportFilingModel {
+  id: string
+  deadlineId: string
+  userId: string
+  receiptUrl: string | null
+  reportUrl: string | null
+  status: string
+  adminNotes: string | null
+  userNotes: string | null
+  filedDate: Date | null
+  createdAt: Date
+  updatedAt: Date
+  deadline: AnnualReportDeadlineModel
+  user: UserModel
+}
+
+// Filing Requirement model
+export interface FilingRequirementModel {
+  id: string
+  title: string
+  description: string
+  details: string | null
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
 // Define query options types
 export interface AmendmentInclude {
   user?: boolean | { select?: { id?: boolean; name?: boolean; email?: boolean } }
@@ -108,9 +152,39 @@ export interface AmendmentStatusHistoryDelegate {
   create: (args: { data: any }) => Promise<AmendmentStatusHistoryModel>
 }
 
-// Extended PrismaClient with Amendment models
+// Add these delegates to your ExtendedPrismaClient type
+export interface AnnualReportDeadlineDelegate {
+  findMany: (args?: any) => Promise<AnnualReportDeadlineModel[]>
+  findUnique: (args: { where: { id: string } }) => Promise<AnnualReportDeadlineModel | null>
+  create: (args: { data: any; include?: any }) => Promise<AnnualReportDeadlineModel>
+  update: (args: { where: { id: string }; data: any }) => Promise<AnnualReportDeadlineModel>
+  delete: (args: { where: { id: string } }) => Promise<AnnualReportDeadlineModel>
+}
+
+export interface AnnualReportFilingDelegate {
+  findMany: (args?: any) => Promise<AnnualReportFilingModel[]>
+  findUnique: (args: { where: { id: string } }) => Promise<AnnualReportFilingModel | null>
+  create: (args: { data: any; include?: any }) => Promise<AnnualReportFilingModel>
+  update: (args: { where: { id: string }; data: any }) => Promise<AnnualReportFilingModel>
+  delete: (args: { where: { id: string } }) => Promise<AnnualReportFilingModel>
+}
+
+export interface FilingRequirementDelegate {
+  findMany: (args?: any) => Promise<FilingRequirementModel[]>
+  findUnique: (args: { where: { id: string } }) => Promise<FilingRequirementModel | null>
+  create: (args: { data: any }) => Promise<FilingRequirementModel>
+  update: (args: { where: { id: string }; data: any }) => Promise<FilingRequirementModel>
+  delete: (args: { where: { id: string } }) => Promise<FilingRequirementModel>
+}
+
+// Extended PrismaClient with all models - SINGLE DEFINITION
 export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   amendment: AmendmentDelegate
   amendmentStatusHistory: AmendmentStatusHistoryDelegate
+  annualReportDeadline: AnnualReportDeadlineDelegate
+  annualReportFiling: AnnualReportFilingDelegate
+  filingRequirement: FilingRequirementDelegate
+  // Include raw query methods with proper typing
+  $queryRaw: any  // Using 'any' to avoid TypeScript errors
+  $executeRaw: any  // Using 'any' to avoid TypeScript errors
 }
-

@@ -23,6 +23,8 @@ model User {
   invoices           Invoice[]
   payments           Payment[]
   amendments         Amendment[]
+  annualReportDeadlines AnnualReportDeadline[]
+  annualReportFilings   AnnualReportFiling[]
   sessions           Session[]
   assignedTickets    Ticket[]            @relation("TicketAssignee")
   tickets            Ticket[]            @relation("TicketCreator")
@@ -256,7 +258,51 @@ model Amendment {
 
   @@index([userId], map: "Amendment_userId_fkey")
 }
+model AnnualReportDeadline {
+  id          String               @id @default(uuid())
+  userId      String
+  title       String
+  description String?              @db.Text
+  dueDate     DateTime
+  fee         Decimal              @default(0) @db.Decimal(10, 2)
+  lateFee     Decimal?             @db.Decimal(10, 2)
+  status      String               @default("pending")
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filings     AnnualReportFiling[]
 
+  @@index([userId])
+}
+
+model AnnualReportFiling {
+  id          String              @id @default(uuid())
+  deadlineId  String
+  userId      String
+  receiptUrl  String?             @db.Text
+  reportUrl   String?             @db.Text
+  status      String              @default("pending_payment")
+  adminNotes  String?             @db.Text
+  userNotes   String?             @db.Text
+  filedDate   DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  deadline    AnnualReportDeadline @relation(fields: [deadlineId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([deadlineId])
+  @@index([userId])
+}
+
+model FilingRequirement {
+  id          String   @id @default(uuid())
+  title       String
+  description String   @db.Text
+  details     String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
 model AmendmentStatusHistory {
   id          String    @id @default(uuid())
   amendmentId String
