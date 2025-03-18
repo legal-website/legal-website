@@ -22,6 +22,7 @@ interface Amendment {
   documentUrl?: string
   receiptUrl?: string
   paymentAmount?: number
+  notes?: string
 }
 
 export default function AmendmentsPage() {
@@ -45,30 +46,13 @@ export default function AmendmentsPage() {
   const fetchMyAmendments = async () => {
     try {
       setLoading(true)
-      // In a real implementation, this would be an API call
-      // For now, we'll simulate with mock data
-      const mockAmendments: Amendment[] = [
-        {
-          id: "amd-001",
-          type: "Company Name Change",
-          details: "Change company name from ABC LLC to XYZ Enterprises LLC",
-          status: "pending",
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          id: "amd-002",
-          type: "Address Change",
-          details: "Update business address to 123 New Street, New City, NY 10001",
-          status: "waiting_for_payment",
-          createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          paymentAmount: 150,
-        },
-      ]
-
+      const response = await fetch("/api/amendments")
+      if (!response.ok) {
+        throw new Error("Failed to fetch amendments")
+      }
+      const data = await response.json()
       // Filter out closed amendments
-      const activeAmendments = mockAmendments.filter((a) => a.status !== "closed")
+      const activeAmendments = data.amendments.filter((a: Amendment) => a.status !== "closed")
       setMyAmendments(activeAmendments)
     } catch (error) {
       console.error("Error fetching amendments:", error)
@@ -106,20 +90,26 @@ export default function AmendmentsPage() {
     try {
       setLoading(true)
 
-      // In a real implementation, this would be an API call to submit the amendment
-      // For now, we'll simulate success and add to our local state
-
-      const newAmendment: Amendment = {
-        id: `amd-${Math.floor(Math.random() * 1000)}`,
-        type: amendmentType,
-        details: amendmentText,
-        status: "pending",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+      const formData = new FormData()
+      formData.append("type", amendmentType)
+      formData.append("details", amendmentText)
+      if (file) {
+        formData.append("document", file)
       }
 
+      const response = await fetch("/api/amendments", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to submit amendment")
+      }
+
+      const data = await response.json()
+
       // Add the new amendment to our list
-      setMyAmendments((prev) => [newAmendment, ...prev])
+      setMyAmendments((prev) => [data.amendment, ...prev])
 
       // Reset form
       setAmendmentText("")
@@ -155,22 +145,23 @@ export default function AmendmentsPage() {
     try {
       setLoading(true)
 
-      // In a real implementation, this would be an API call to upload the receipt
-      // For now, we'll simulate success and update our local state
+      const formData = new FormData()
+      formData.append("status", "payment_received")
+      formData.append("receipt", receiptFile)
 
-      // Update the amendment status
-      setMyAmendments((prev) =>
-        prev.map((a) =>
-          a.id === amendmentId
-            ? {
-                ...a,
-                status: "payment_received",
-                receiptUrl: URL.createObjectURL(receiptFile),
-                updatedAt: new Date().toISOString(),
-              }
-            : a,
-        ),
-      )
+      const response = await fetch(`/api/amendments/${amendmentId}`, {
+        method: "PATCH",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to upload receipt")
+      }
+
+      const data = await response.json()
+
+      // Update the amendment in our list
+      setMyAmendments((prev) => prev.map((a) => (a.id === amendmentId ? data.amendment : a)))
 
       setReceiptFile(null)
 
@@ -194,10 +185,19 @@ export default function AmendmentsPage() {
     try {
       setLoading(true)
 
-      // In a real implementation, this would be an API call to close the amendment
-      // For now, we'll simulate success and update our local state
+      const formData = new FormData()
+      formData.append("status", "closed")
 
-      // Remove the amendment from our list (to simulate it disappearing)
+      const response = await fetch(`/api/amendments/${amendmentId}`, {
+        method: "PATCH",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to close amendment")
+      }
+
+      // Remove the amendment from our list
       setMyAmendments((prev) => prev.filter((a) => a.id !== amendmentId))
 
       toast({
@@ -371,27 +371,6 @@ export default function AmendmentsPage() {
               </div>
             </Card>
           )}
-
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Recent Amendments</h3>
-            <div className="space-y-4">
-              {[
-                { name: "Address Change", date: "Mar 15, 2024", status: "Approved" },
-                { name: "Business Purpose Update", date: "Jan 10, 2024", status: "Approved" },
-              ].map((amendment) => (
-                <div key={amendment.name} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="font-medium">{amendment.name}</p>
-                      <p className="text-xs text-gray-600">{amendment.date}</p>
-                    </div>
-                  </div>
-                  <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">{amendment.status}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
         </div>
       </div>
     </div>
