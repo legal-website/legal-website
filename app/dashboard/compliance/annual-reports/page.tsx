@@ -22,10 +22,6 @@ import { useToast } from "@/components/ui/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 
-import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight } from "lucide-react"
-
 // Types
 interface Deadline {
   id: string
@@ -69,7 +65,6 @@ export default function AnnualReportsPage() {
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [backgroundRefreshing, setBackgroundRefreshing] = useState(false)
 
   // Data states
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<Deadline[]>([])
@@ -93,9 +88,6 @@ export default function AnnualReportsPage() {
   // Calendar highlight dates
   const [highlightDates, setHighlightDates] = useState<Date[]>([])
 
-  // Selected date info
-  const [selectedDateInfo, setSelectedDateInfo] = useState<Deadline | null>(null)
-
   // Fetch data on component mount
   useEffect(() => {
     fetchData()
@@ -103,7 +95,7 @@ export default function AnnualReportsPage() {
     // Set up auto-refresh every 5 minutes
     const interval = setInterval(
       () => {
-        fetchData(false, true) // Use background refresh for auto-refresh
+        fetchData(false)
       },
       5 * 60 * 1000,
     )
@@ -111,27 +103,10 @@ export default function AnnualReportsPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // Update selected date info when date changes
-  useEffect(() => {
-    if (date && upcomingDeadlines.length > 0) {
-      const formattedDate = format(date, "yyyy-MM-dd")
-      const deadlineOnDate = upcomingDeadlines.find(
-        (deadline) => format(new Date(deadline.dueDate), "yyyy-MM-dd") === formattedDate,
-      )
-
-      setSelectedDateInfo(deadlineOnDate || null)
-    } else {
-      setSelectedDateInfo(null)
-    }
-  }, [date, upcomingDeadlines])
-
   // Fetch all necessary data
-  const fetchData = async (showToast = true, isBackground = false) => {
-    if (!isBackground) {
-      setLoading(true)
-    }
-    if (showToast && !isBackground) setRefreshing(true)
-    if (isBackground) setBackgroundRefreshing(true)
+  const fetchData = async (showToast = true) => {
+    setLoading(true)
+    if (showToast) setRefreshing(true)
 
     try {
       // Fetch deadlines
@@ -220,7 +195,7 @@ export default function AnnualReportsPage() {
       const dates = deadlinesData.deadlines?.map((deadline: Deadline) => new Date(deadline.dueDate)) || []
       setHighlightDates(dates)
 
-      if (showToast && !isBackground && refreshing) {
+      if (showToast && refreshing) {
         toast({
           title: "Refreshed",
           description: "Annual reports data has been refreshed.",
@@ -228,7 +203,7 @@ export default function AnnualReportsPage() {
       }
     } catch (error) {
       console.error("Error fetching data:", error)
-      if (showToast && !isBackground) {
+      if (showToast) {
         toast({
           title: "Error",
           description: "Failed to load annual reports data. Please try again.",
@@ -236,11 +211,8 @@ export default function AnnualReportsPage() {
         })
       }
     } finally {
-      if (!isBackground) {
-        setLoading(false)
-      }
-      if (showToast && !isBackground) setRefreshing(false)
-      setBackgroundRefreshing(false)
+      setLoading(false)
+      if (showToast) setRefreshing(false)
     }
   }
 
@@ -378,11 +350,6 @@ export default function AnnualReportsPage() {
     }
   }
 
-  // Handle manual refresh
-  const handleManualRefresh = () => {
-    fetchData(true, false) // Show toast, not background
-  }
-
   if (loading && upcomingDeadlines.length === 0 && pastFilings.length === 0) {
     return (
       <div className="flex h-[50vh] w-full items-center justify-center">
@@ -400,124 +367,39 @@ export default function AnnualReportsPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 mb-40">
-      {backgroundRefreshing && (
-        <div className="fixed top-0 left-0 right-0 h-1 z-50">
-          <div className="h-full bg-primary animate-pulse"></div>
-        </div>
-      )}
+    <div className="p-8 mb-40">
       <h1 className="text-3xl font-bold mb-6">Annual Reports</h1>
 
-      <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
+      <div className="grid md:grid-cols-2 gap-8">
         <div>
-          <Card className="overflow-hidden">
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="p-2 bg-white rounded-lg shadow-sm">
-                  <CalendarIcon className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-1">Annual Report Calendar</h3>
-                  <p className="text-gray-600">Track your filing deadlines</p>
-                </div>
+          <Card className="p-6 mb-6">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <CalendarIcon className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-1">Annual Report Calendar</h3>
+                <p className="text-gray-600">Track your filing deadlines</p>
               </div>
             </div>
 
-            <div className="p-4 md:p-6">
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-medium">March 2025</h3>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="icon" className="h-7 w-7">
-                      <ChevronLeft className="h-4 w-4" />
-                      <span className="sr-only">Previous month</span>
-                    </Button>
-                    <Button variant="outline" size="icon" className="h-7 w-7">
-                      <ChevronRight className="h-4 w-4" />
-                      <span className="sr-only">Next month</span>
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-7 gap-1 text-center">
-                  <div className="text-xs font-medium text-muted-foreground py-1">Su</div>
-                  <div className="text-xs font-medium text-muted-foreground py-1">Mo</div>
-                  <div className="text-xs font-medium text-muted-foreground py-1">Tu</div>
-                  <div className="text-xs font-medium text-muted-foreground py-1">We</div>
-                  <div className="text-xs font-medium text-muted-foreground py-1">Th</div>
-                  <div className="text-xs font-medium text-muted-foreground py-1">Fr</div>
-                  <div className="text-xs font-medium text-muted-foreground py-1">Sa</div>
-                </div>
-              </div>
-
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                className="rounded-md border"
-                classNames={{
-                  months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-                  month: "space-y-4",
-                  caption: "flex justify-center pt-1 relative items-center",
-                  caption_label: "text-sm font-medium",
-                  nav: "space-x-1 flex items-center",
-                  nav_button: cn(
-                    buttonVariants({ variant: "outline" }),
-                    "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
-                  ),
-                  nav_button_previous: "absolute left-1",
-                  nav_button_next: "absolute right-1",
-                  table: "w-full border-collapse space-y-1",
-                  head_row: "flex w-full",
-                  head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
-                  row: "flex w-full mt-2",
-                  cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                  day: cn(buttonVariants({ variant: "ghost" }), "h-9 w-9 p-0 font-normal aria-selected:opacity-100"),
-                  day_range_end: "day-range-end",
-                  day_selected:
-                    "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                  day_today: "bg-accent text-accent-foreground",
-                  day_outside: "day-outside text-muted-foreground opacity-50",
-                  day_disabled: "text-muted-foreground opacity-50",
-                  day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
-                  day_hidden: "invisible",
-                }}
-                modifiers={{
-                  booked: highlightDates,
-                  today: new Date(),
-                }}
-                modifiersStyles={{
-                  booked: {
-                    backgroundColor: "rgba(239, 68, 68, 0.1)",
-                    fontWeight: "bold",
-                    color: "#ef4444",
-                  },
-                }}
-              />
-
-              {selectedDateInfo && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                  <h4 className="font-medium text-blue-800 mb-2">Deadline on {formatDate(selectedDateInfo.dueDate)}</h4>
-                  <p className="text-sm text-blue-700 mb-2">{selectedDateInfo.title}</p>
-                  {selectedDateInfo.description && (
-                    <p className="text-sm text-blue-600">{selectedDateInfo.description}</p>
-                  )}
-                  <div className="mt-3 flex items-center justify-between">
-                    <p className="text-sm font-medium text-blue-800">Fee: ${Number(selectedDateInfo.fee).toFixed(2)}</p>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => handleFileNow(selectedDateInfo)}
-                      disabled={selectedDateInfo.status === "completed"}
-                    >
-                      {selectedDateInfo.status === "completed" ? "Filed" : "File Now"}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={setDate}
+              className="rounded-md border"
+              weekStartsOn={0}
+              modifiers={{
+                booked: highlightDates,
+                today: new Date(),
+              }}
+              modifiersStyles={{
+                booked: { border: "2px solid red", borderRadius: "50%" },
+              }}
+            />
           </Card>
 
-          <Card className="mt-6 p-6">
+          <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Upcoming Deadlines</h3>
             {upcomingDeadlines.length === 0 ? (
               <div className="p-4 text-center text-gray-500">No upcoming deadlines at this time.</div>
@@ -528,7 +410,7 @@ export default function AnnualReportsPage() {
                   const isUrgent = daysLeft <= 30
 
                   return (
-                    <div key={deadline.id} className="p-4 border rounded-lg hover:shadow-sm transition-shadow">
+                    <div key={deadline.id} className="p-4 border rounded-lg">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center gap-2">
                           {isUrgent ? (
@@ -583,44 +465,10 @@ export default function AnnualReportsPage() {
 
         <div>
           <Card className="p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Filing Requirements</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleManualRefresh}
-                disabled={refreshing || backgroundRefreshing}
-                className="relative"
-              >
-                <div
-                  className={`absolute inset-0 flex items-center justify-center ${
-                    backgroundRefreshing ? "opacity-100" : "opacity-0"
-                  }`}
-                >
-                  <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                </div>
-                <div className={backgroundRefreshing ? "opacity-0" : "opacity-100"}>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className={`${refreshing ? "animate-spin" : ""}`}
-                  >
-                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38" />
-                  </svg>
-                </div>
-                <span className="sr-only">Refresh</span>
-              </Button>
-            </div>
+            <h3 className="text-lg font-semibold mb-4">Filing Requirements</h3>
             <div className="space-y-4">
               {requirements.map((requirement) => (
-                <div key={requirement.id} className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div key={requirement.id} className="p-4 bg-gray-50 rounded-lg">
                   <h4 className="font-medium mb-2">{requirement.title}</h4>
                   <p className="text-sm text-gray-600 mb-2">{requirement.description}</p>
                   {requirement.details && (
@@ -646,10 +494,7 @@ export default function AnnualReportsPage() {
                     filing.deadlineTitle || (filing.deadline ? filing.deadline.title : "Unknown Deadline")
 
                   return (
-                    <div
-                      key={filing.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:shadow-sm transition-shadow"
-                    >
+                    <div key={filing.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-3">
                         <FileText className="h-5 w-5 text-gray-400" />
                         <div>
