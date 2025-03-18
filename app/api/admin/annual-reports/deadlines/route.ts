@@ -15,15 +15,6 @@ export async function GET(req: Request) {
 
     // Get all deadlines with user info
     const deadlines = await prisma.annualReportDeadline.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
       orderBy: {
         dueDate: "asc",
       },
@@ -63,12 +54,22 @@ export async function POST(req: Request) {
     // Convert fee and lateFee to Decimal
     let fee: any = 0
     if (data.fee) {
-      fee = new Decimal(data.fee.toString())
+      try {
+        fee = new Decimal(data.fee.toString())
+      } catch (error) {
+        console.error("Error converting fee to Decimal:", error)
+        return NextResponse.json({ error: "Invalid fee format" }, { status: 400 })
+      }
     }
 
     let lateFee: any = null
     if (data.lateFee && Number.parseFloat(data.lateFee) > 0) {
-      lateFee = new Decimal(data.lateFee.toString())
+      try {
+        lateFee = new Decimal(data.lateFee.toString())
+      } catch (error) {
+        console.error("Error converting lateFee to Decimal:", error)
+        return NextResponse.json({ error: "Invalid lateFee format" }, { status: 400 })
+      }
     }
 
     // Format the data correctly
@@ -85,18 +86,13 @@ export async function POST(req: Request) {
     console.log("Formatted deadline data:", deadlineData)
 
     try {
+      // Test Prisma connection
+      const testConnection = await prisma.$queryRaw`SELECT 1 as test`
+      console.log("Prisma connection test:", testConnection)
+
       // Create a new deadline
       const deadline = await prisma.annualReportDeadline.create({
         data: deadlineData,
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
       })
 
       console.log("Deadline created successfully:", deadline)
@@ -114,7 +110,9 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error: "Database error creating deadline",
-          details: process.env.NODE_ENV === "development" ? dbError.message : undefined,
+          details: dbError.message,
+          code: dbError.code,
+          meta: dbError.meta,
         },
         { status: 500 },
       )
@@ -124,7 +122,8 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: "Failed to create deadline",
-        details: process.env.NODE_ENV === "development" ? error.message : undefined,
+        details: error.message,
+        stack: error.stack,
       },
       { status: 500 },
     )
