@@ -12,6 +12,7 @@ import { FileText, PenTool, Upload, Clock, CheckCircle, AlertCircle, DollarSign 
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 
+// Define a proper type for Amendment
 interface Amendment {
   id: string
   type: string
@@ -43,7 +44,6 @@ export default function AmendmentsPage() {
     }
   }, [session?.user?.id])
 
-  // Update the fetchMyAmendments function to handle the Prisma model structure
   const fetchMyAmendments = async () => {
     try {
       setLoading(true)
@@ -331,11 +331,11 @@ export default function AmendmentsPage() {
                     <p className="text-sm text-gray-700 mb-3">{amendment.details}</p>
 
                     {/* Payment section - only show for amendments waiting for payment */}
-                    {amendment.status === "waiting_for_payment" && (
+                    {amendment.status === "waiting_for_payment" && amendment.paymentAmount && (
                       <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
                         <div className="flex justify-between items-center mb-2">
                           <p className="text-sm font-medium">Payment Required:</p>
-                          <p className="font-bold">${amendment.paymentAmount?.toFixed(2)}</p>
+                          <p className="font-bold">${amendment.paymentAmount.toFixed(2)}</p>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor={`receipt-${amendment.id}`}>Upload Payment Receipt</Label>

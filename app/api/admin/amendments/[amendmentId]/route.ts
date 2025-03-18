@@ -2,14 +2,41 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
-import type { PrismaClient } from "@prisma/client"
 
-// Use type assertion to help TypeScript recognize our models
-const prisma = db as PrismaClient & {
-  amendment: any
-  amendmentStatusHistory: any
-  user: any
-  invoice: any
+// Define types for our amendments
+interface AmendmentUser {
+  id: string
+  name: string | null
+  email: string
+  business?: {
+    name: string | null
+    phone: string | null
+    address: string | null
+  } | null
+}
+
+interface AmendmentStatusHistory {
+  id: string
+  amendmentId: string
+  status: string
+  createdAt: Date
+  notes: string | null
+}
+
+interface Amendment {
+  id: string
+  userId: string
+  type: string
+  details: string
+  status: string
+  createdAt: Date
+  updatedAt: Date
+  documentUrl: string | null
+  receiptUrl: string | null
+  paymentAmount: number | null
+  notes: string | null
+  user: AmendmentUser
+  statusHistory: AmendmentStatusHistory[]
 }
 
 export async function GET(req: Request, { params }: { params: { amendmentId: string } }) {
@@ -19,7 +46,8 @@ export async function GET(req: Request, { params }: { params: { amendmentId: str
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const amendment = await prisma.amendment.findUnique({
+    // Use type assertion to help TypeScript
+    const amendment = (await (db as any).amendment.findUnique({
       where: { id: params.amendmentId },
       include: {
         user: {
@@ -33,7 +61,7 @@ export async function GET(req: Request, { params }: { params: { amendmentId: str
           orderBy: { createdAt: "desc" },
         },
       },
-    })
+    })) as Amendment | null
 
     if (!amendment) {
       return new NextResponse("Amendment not found", { status: 404 })
@@ -65,19 +93,20 @@ export async function PATCH(req: Request, { params }: { params: { amendmentId: s
     const notes = formData.get("notes") as string
     const paymentAmount = formData.get("paymentAmount") as string
 
-    const amendment = await prisma.amendment.findUnique({
+    // Use type assertion to help TypeScript
+    const amendment = (await (db as any).amendment.findUnique({
       where: { id: params.amendmentId },
       include: {
         user: true,
       },
-    })
+    })) as Amendment | null
 
     if (!amendment) {
       return new NextResponse("Amendment not found", { status: 404 })
     }
 
     // Update amendment
-    const updatedAmendment = await prisma.amendment.update({
+    const updatedAmendment = (await (db as any).amendment.update({
       where: { id: params.amendmentId },
       data: {
         status,
@@ -93,10 +122,10 @@ export async function PATCH(req: Request, { params }: { params: { amendmentId: s
           },
         },
       },
-    })
+    })) as Amendment
 
     // Create status history entry
-    await prisma.amendmentStatusHistory.create({
+    await (db as any).amendmentStatusHistory.create({
       data: {
         amendmentId: params.amendmentId,
         status,
@@ -106,13 +135,13 @@ export async function PATCH(req: Request, { params }: { params: { amendmentId: s
 
     // If status is waiting_for_payment, create an invoice
     if (status === "waiting_for_payment" && paymentAmount) {
-      const user = await prisma.user.findUnique({
+      const user = (await (db as any).user.findUnique({
         where: { id: amendment.userId },
         include: { business: true },
-      })
+      })) as AmendmentUser
 
       if (user) {
-        const invoice = await prisma.invoice.create({
+        const invoice = await (db as any).invoice.create({
           data: {
             invoiceNumber: `AMD-${Date.now()}`,
             customerName: user.name || "Unknown",
@@ -134,7 +163,7 @@ export async function PATCH(req: Request, { params }: { params: { amendmentId: s
         })
 
         // Update amendment with invoice reference
-        await prisma.amendment.update({
+        await (db as any).amendment.update({
           where: { id: params.amendmentId },
           data: {
             notes: `${notes || ""}\nInvoice created: ${invoice.invoiceNumber}`,

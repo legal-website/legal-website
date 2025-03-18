@@ -1,25 +1,20 @@
 import type { PrismaClient } from "@prisma/client"
 
+// Avoid circular references by using a simpler approach
 declare global {
-  namespace NodeJS {
-    interface Global {
-      prisma: PrismaClient
-    }
-  }
+  // This is for the global prisma instance
+  var prisma: PrismaClient | undefined
 }
 
-// Extend PrismaClient to include the AccountManagerRequest model
+// Don't try to extend PrismaClient directly, as it can cause conflicts
+// with the generated types. Instead, create a module augmentation
+// that just declares that these properties exist.
 declare module "@prisma/client" {
-  interface PrismaClient {
-    accountManagerRequest: {
-      findFirst: (args: any) => Promise<any>
-      findUnique: (args: any) => Promise<any>
-      create: (args: any) => Promise<any>
-      update: (args: any) => Promise<any>
-      delete: (args: any) => Promise<any>
-    }
-    amendment: PrismaClient["amendment"]
-    amendmentStatusHistory: PrismaClient["amendmentStatusHistory"]
-  }
+  // Empty interface to avoid conflicts
+}
+
+// Export a type that can be used for type assertions
+export type ExtendedPrismaClient = PrismaClient & {
+  // Add any custom properties here
 }
 

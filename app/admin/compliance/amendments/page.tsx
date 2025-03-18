@@ -38,6 +38,54 @@ interface Amendment {
   notes?: string
 }
 
+// Define interface for additional data
+interface AmendmentUpdateData {
+  paymentAmount?: number
+  notes?: string
+  [key: string]: any // Allow other properties
+}
+
+// Helper function to get status badge - moved outside component to be reusable
+const getStatusBadge = (status: Amendment["status"]) => {
+  const statusConfig = {
+    pending: { bg: "bg-blue-100", text: "text-blue-800", label: "Pending" },
+    in_review: { bg: "bg-purple-100", text: "text-purple-800", label: "In Review" },
+    waiting_for_payment: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Payment Required" },
+    payment_received: { bg: "bg-indigo-100", text: "text-indigo-800", label: "Payment Received" },
+    approved: { bg: "bg-green-100", text: "text-green-800", label: "Approved" },
+    rejected: { bg: "bg-red-100", text: "text-red-800", label: "Rejected" },
+    closed: { bg: "bg-gray-100", text: "text-gray-800", label: "Closed" },
+  }
+
+  const config = statusConfig[status]
+
+  return (
+    <Badge variant="outline" className={`${config.bg} ${config.text} border-0`}>
+      {config.label}
+    </Badge>
+  )
+}
+
+// Helper function to get status icon - moved outside component to be reusable
+const getStatusIcon = (status: Amendment["status"]) => {
+  switch (status) {
+    case "pending":
+      return <Clock className="h-5 w-5 text-blue-500" />
+    case "in_review":
+      return <FileText className="h-5 w-5 text-purple-500" />
+    case "waiting_for_payment":
+      return <DollarSign className="h-5 w-5 text-yellow-500" />
+    case "payment_received":
+      return <DollarSign className="h-5 w-5 text-indigo-500" />
+    case "approved":
+      return <CheckCircle className="h-5 w-5 text-green-500" />
+    case "rejected":
+      return <AlertCircle className="h-5 w-5 text-red-500" />
+    case "closed":
+      return <CheckCircle className="h-5 w-5 text-gray-500" />
+  }
+}
+
 export default function AdminAmendmentsPage() {
   const [amendments, setAmendments] = useState<Amendment[]>([])
   const [filteredAmendments, setFilteredAmendments] = useState<Amendment[]>([])
@@ -57,7 +105,6 @@ export default function AdminAmendmentsPage() {
     filterAmendments()
   }, [amendments, searchTerm, statusFilter])
 
-  // Update the fetchAmendments function to handle the Prisma model structure
   const fetchAmendments = async () => {
     try {
       setLoading(true)
@@ -87,8 +134,8 @@ export default function AdminAmendmentsPage() {
       const term = searchTerm.toLowerCase()
       filtered = filtered.filter(
         (a) =>
-          a.userName.toLowerCase().includes(term) ||
-          a.userEmail.toLowerCase().includes(term) ||
+          a.userName?.toLowerCase().includes(term) ||
+          a.userEmail?.toLowerCase().includes(term) ||
           a.id.toLowerCase().includes(term) ||
           a.type.toLowerCase().includes(term) ||
           a.details.toLowerCase().includes(term),
@@ -103,18 +150,22 @@ export default function AdminAmendmentsPage() {
     setFilteredAmendments(filtered)
   }
 
-  const updateAmendmentStatus = async (amendmentId: string, newStatus: Amendment["status"], additionalData = {}) => {
+  const updateAmendmentStatus = async (
+    amendmentId: string,
+    newStatus: Amendment["status"],
+    additionalData: AmendmentUpdateData = {},
+  ) => {
     try {
       setLoading(true)
 
       const formData = new FormData()
       formData.append("status", newStatus)
 
-      if (additionalData.hasOwnProperty("paymentAmount")) {
+      if ("paymentAmount" in additionalData && additionalData.paymentAmount !== undefined) {
         formData.append("paymentAmount", additionalData.paymentAmount.toString())
       }
 
-      if (additionalData.hasOwnProperty("notes")) {
+      if ("notes" in additionalData && additionalData.notes !== undefined) {
         formData.append("notes", additionalData.notes)
       }
 
@@ -162,10 +213,15 @@ export default function AdminAmendmentsPage() {
       return
     }
 
-    await updateAmendmentStatus(amendmentId, "waiting_for_payment", {
+    const updateData: AmendmentUpdateData = {
       paymentAmount: Number.parseFloat(paymentAmount),
-      notes: adminNotes || undefined,
-    })
+    }
+
+    if (adminNotes) {
+      updateData.notes = adminNotes
+    }
+
+    await updateAmendmentStatus(amendmentId, "waiting_for_payment", updateData)
 
     setPaymentAmount("")
     setAdminNotes("")
@@ -173,47 +229,6 @@ export default function AdminAmendmentsPage() {
 
   const approvePayment = async (amendmentId: string) => {
     await updateAmendmentStatus(amendmentId, "approved")
-  }
-
-  // Helper function to get status badge
-  const getStatusBadge = (status: Amendment["status"]) => {
-    const statusConfig = {
-      pending: { bg: "bg-blue-100", text: "text-blue-800", label: "Pending" },
-      in_review: { bg: "bg-purple-100", text: "text-purple-800", label: "In Review" },
-      waiting_for_payment: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Payment Required" },
-      payment_received: { bg: "bg-indigo-100", text: "text-indigo-800", label: "Payment Received" },
-      approved: { bg: "bg-green-100", text: "text-green-800", label: "Approved" },
-      rejected: { bg: "bg-red-100", text: "text-red-800", label: "Rejected" },
-      closed: { bg: "bg-gray-100", text: "text-gray-800", label: "Closed" },
-    }
-
-    const config = statusConfig[status]
-
-    return (
-      <Badge variant="outline" className={`${config.bg} ${config.text} border-0`}>
-        {config.label}
-      </Badge>
-    )
-  }
-
-  // Helper function to get status icon
-  const getStatusIcon = (status: Amendment["status"]) => {
-    switch (status) {
-      case "pending":
-        return <Clock className="h-5 w-5 text-blue-500" />
-      case "in_review":
-        return <FileText className="h-5 w-5 text-purple-500" />
-      case "waiting_for_payment":
-        return <DollarSign className="h-5 w-5 text-yellow-500" />
-      case "payment_received":
-        return <DollarSign className="h-5 w-5 text-indigo-500" />
-      case "approved":
-        return <CheckCircle className="h-5 w-5 text-green-500" />
-      case "rejected":
-        return <AlertCircle className="h-5 w-5 text-red-500" />
-      case "closed":
-        return <CheckCircle className="h-5 w-5 text-gray-500" />
-    }
   }
 
   return (
@@ -448,7 +463,7 @@ function AmendmentsList({
   amendments: Amendment[]
   loading: boolean
   onViewAmendment: (amendment: Amendment) => void
-  onUpdateStatus: (id: string, status: Amendment["status"], data?: any) => Promise<void>
+  onUpdateStatus: (id: string, status: Amendment["status"], data?: AmendmentUpdateData) => Promise<void>
   onRequestPayment: (id: string) => Promise<void>
   onApprovePayment: (id: string) => Promise<void>
 }) {
