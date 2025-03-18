@@ -375,7 +375,7 @@ export default function AmendmentsPage() {
     let updateSuccess
     try {
       updateSuccess = await updateAmendmentStatus(selectedAmendmentId, "waiting_for_payment", {
-        paymentAmount: Number.parseFloat(paymentAmount),
+        paymentAmount: Number(paymentAmount),
         notes: adminNotes || undefined,
       })
     } catch (error) {
@@ -482,7 +482,12 @@ export default function AmendmentsPage() {
                       {amendment.paymentAmount !== null && (
                         <div className="mb-2">
                           <h4 className="text-sm font-medium">Payment Amount:</h4>
-                          <p className="text-sm text-gray-500">${amendment.paymentAmount.toFixed(2)}</p>
+                          <p className="text-sm text-gray-500">
+                            $
+                            {typeof amendment.paymentAmount === "number"
+                              ? amendment.paymentAmount.toFixed(2)
+                              : Number(amendment.paymentAmount).toFixed(2)}
+                          </p>
                         </div>
                       )}
 
