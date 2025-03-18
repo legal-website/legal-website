@@ -8,21 +8,21 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { FileText, PenTool, Upload, Clock, CheckCircle, AlertCircle, DollarSign } from "lucide-react"
+import { FileText, PenTool, Upload, Clock, CheckCircle, AlertCircle, DollarSign } from 'lucide-react'
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 
-// Define a proper type for Amendment
+// Define a proper type for Amendment with expanded status options
 interface Amendment {
   id: string
   type: string
   details: string
-  status: "pending" | "in_review" | "waiting_for_payment" | "payment_received" | "approved" | "rejected" | "closed"
+  status: "pending" | "in_review" | "waiting_for_payment" | "payment_confirmation_pending" | "payment_received" | "approved" | "rejected" | "amendment_in_progress" | "amendment_resolved" | "closed"
   createdAt: string
   updatedAt: string
   documentUrl?: string
   receiptUrl?: string
-  paymentAmount?: number | string // Updated to accept string or number
+  paymentAmount?: number | string
   notes?: string
 }
 
@@ -147,7 +147,8 @@ export default function AmendmentsPage() {
       setLoading(true)
 
       const formData = new FormData()
-      formData.append("status", "payment_received")
+      // Change from "payment_received" to "payment_confirmation_pending"
+      formData.append("status", "payment_confirmation_pending")
       formData.append("receipt", receiptFile)
 
       const response = await fetch(`/api/amendments/${amendmentId}`, {
@@ -168,7 +169,7 @@ export default function AmendmentsPage() {
 
       toast({
         title: "Success",
-        description: "Your payment receipt has been uploaded successfully",
+        description: "Your payment receipt has been uploaded and is pending verification",
       })
     } catch (error) {
       console.error("Error uploading receipt:", error)
@@ -220,13 +221,13 @@ export default function AmendmentsPage() {
   // Helper function to format currency amounts safely
   const formatCurrency = (amount: number | string | undefined): string => {
     if (amount === undefined || amount === null) return "$0.00"
-
+    
     // Convert to number if it's not already
-    const numAmount = typeof amount === "number" ? amount : Number(amount)
-
+    const numAmount = typeof amount === 'number' ? amount : Number(amount)
+    
     // Check if conversion resulted in a valid number
     if (isNaN(numAmount)) return "$0.00"
-
+    
     // Now safely call toFixed
     return `$${numAmount.toFixed(2)}`
   }
@@ -237,9 +238,12 @@ export default function AmendmentsPage() {
       pending: { bg: "bg-blue-100", text: "text-blue-800", label: "Pending" },
       in_review: { bg: "bg-purple-100", text: "text-purple-800", label: "In Review" },
       waiting_for_payment: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Payment Required" },
+      payment_confirmation_pending: { bg: "bg-blue-100", text: "text-blue-800", label: "Payment Verification Pending" },
       payment_received: { bg: "bg-indigo-100", text: "text-indigo-800", label: "Payment Received" },
       approved: { bg: "bg-green-100", text: "text-green-800", label: "Approved" },
       rejected: { bg: "bg-red-100", text: "text-red-800", label: "Rejected" },
+      amendment_in_progress: { bg: "bg-purple-100", text: "text-purple-800", label: "Amendment In Progress" },
+      amendment_resolved: { bg: "bg-green-100", text: "text-green-800", label: "Amendment Resolved" },
       closed: { bg: "bg-gray-100", text: "text-gray-800", label: "Closed" },
     }
 
@@ -257,12 +261,18 @@ export default function AmendmentsPage() {
         return <FileText className="h-5 w-5 text-purple-500" />
       case "waiting_for_payment":
         return <DollarSign className="h-5 w-5 text-yellow-500" />
+      case "payment_confirmation_pending":
+        return <Clock className="h-5 w-5 text-blue-500" />
       case "payment_received":
         return <DollarSign className="h-5 w-5 text-indigo-500" />
       case "approved":
         return <CheckCircle className="h-5 w-5 text-green-500" />
       case "rejected":
         return <AlertCircle className="h-5 w-5 text-red-500" />
+      case "amendment_in_progress":
+        return <PenTool className="h-5 w-5 text-purple-500" />
+      case "amendment_resolved":
+        return <CheckCircle className="h-5 w-5 text-green-500" />
       case "closed":
         return <CheckCircle className="h-5 w-5 text-gray-500" />
     }
@@ -370,8 +380,38 @@ export default function AmendmentsPage() {
                       </div>
                     )}
 
-                    {/* Close button - only show for approved amendments */}
-                    {amendment.status === "approved" && (
+                    {/* Payment verification pending section */}
+                    {amendment.status === "payment_confirmation_pending" && (
+                      <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-blue-500" />
+                          <p className="text-sm text-blue-800">Your payment receipt is being verified</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Amendment in progress section */}
+                    {amendment.status === "amendment_in_progress" && (
+                      <div className="mt-3 p-3 bg-purple-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <PenTool className="h-4 w-4 text-purple-500" />
+                          <p className="text-sm text-purple-800">Your amendment is being processed</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Amendment resolved section */}
+                    {amendment.status === "amendment_resolved" && (
+                      <div className="mt-3 p-3 bg-green-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <p className="text-sm text-green-800">Your amendment has been completed</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Close button - only show for approved or resolved amendments */}
+                    {(amendment.status === "approved" || amendment.status === "amendment_resolved") && (
                       <Button
                         onClick={() => handleCloseAmendment(amendment.id)}
                         variant="outline"
@@ -380,6 +420,14 @@ export default function AmendmentsPage() {
                       >
                         {loading ? "Processing..." : "Close Amendment"}
                       </Button>
+                    )}
+
+                    {/* Notes section - show if there are notes */}
+                    {amendment.notes && (
+                      <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                        <p className="text-sm font-medium">Notes:</p>
+                        <p className="text-sm text-gray-700">{amendment.notes}</p>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -391,4 +439,3 @@ export default function AmendmentsPage() {
     </div>
   )
 }
-

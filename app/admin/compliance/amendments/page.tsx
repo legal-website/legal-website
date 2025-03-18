@@ -17,10 +17,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/lib/toast-utils"
-import { Loader2 } from "lucide-react"
-import { AmendmentStatus } from "@/lib/db/schema"
+import { Loader2, FileText, CheckCircle, AlertCircle, Clock, PenTool, DollarSign } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-// Define Amendment type
+// Define Amendment type with expanded status options
 interface Amendment {
   id: string
   userId: string
@@ -37,6 +37,20 @@ interface Amendment {
   notes: string | null
 }
 
+// Expanded status enum
+export enum AmendmentStatus {
+  PENDING = "pending",
+  IN_REVIEW = "in_review",
+  WAITING_FOR_PAYMENT = "waiting_for_payment",
+  PAYMENT_CONFIRMATION_PENDING = "payment_confirmation_pending",
+  PAYMENT_RECEIVED = "payment_received",
+  APPROVED = "approved",
+  REJECTED = "rejected",
+  AMENDMENT_IN_PROGRESS = "amendment_in_progress",
+  AMENDMENT_RESOLVED = "amendment_resolved",
+  CLOSED = "closed"
+}
+
 export default function AmendmentsPage() {
   const [amendments, setAmendments] = useState<Amendment[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,12 +62,28 @@ export default function AmendmentsPage() {
   const [adminNotes, setAdminNotes] = useState("")
   const [selectedAmendmentId, setSelectedAmendmentId] = useState<string | null>(null)
   const [selectedAction, setSelectedAction] = useState<string | null>(null)
+  const [isStatusChangeDialogOpen, setIsStatusChangeDialogOpen] = useState(false)
+  const [newStatus, setNewStatus] = useState<string>("")
+  const [statusChangeNotes, setStatusChangeNotes] = useState("")
 
   useEffect(() => {
     fetchAmendments()
   }, [])
 
-  // Update the testDatabaseConnection function to use our new endpoints
+  // Helper function to format currency amounts safely
+  const formatCurrency = (amount: number | string | undefined): string => {
+    if (amount === undefined || amount === null) return "$0.00"
+    
+    // Convert to number if it's not already
+    const numAmount = typeof amount === 'number' ? amount : Number(amount)
+    
+    // Check if conversion resulted in a valid number
+    if (isNaN(numAmount)) return "$0.00"
+    
+    // Now safely call toFixed
+    return `$${numAmount.toFixed(2)}`
+  }
+
   const testDatabaseConnection = async () => {
     try {
       console.log("Testing database connection...")
@@ -313,7 +343,7 @@ export default function AmendmentsPage() {
 
       toast({
         title: "Status updated",
-        description: `Amendment status updated to ${newStatus.replace("_", " ")}`,
+        description: `Amendment status updated to ${newStatus.replace(/_/g, " ")}`,
       })
 
       return true
@@ -338,14 +368,14 @@ export default function AmendmentsPage() {
   const approveAmendment = async (amendmentId: string) => {
     setSelectedAmendmentId(amendmentId)
     setSelectedAction("approve")
-    await updateAmendmentStatus(amendmentId, "approved")
+    await updateAmendmentStatus(amendmentId, AmendmentStatus.APPROVED)
     setSelectedAction(null)
   }
 
   const rejectAmendment = async (amendmentId: string) => {
     setSelectedAmendmentId(amendmentId)
     setSelectedAction("reject")
-    await updateAmendmentStatus(amendmentId, "rejected")
+    await updateAmendmentStatus(amendmentId, AmendmentStatus.REJECTED)
     setSelectedAction(null)
   }
 
@@ -374,7 +404,7 @@ export default function AmendmentsPage() {
 
     let updateSuccess
     try {
-      updateSuccess = await updateAmendmentStatus(selectedAmendmentId, "waiting_for_payment", {
+      updateSuccess = await updateAmendmentStatus(selectedAmendmentId, AmendmentStatus.WAITING_FOR_PAYMENT, {
         paymentAmount: Number(paymentAmount),
         notes: adminNotes || undefined,
       })
@@ -395,6 +425,70 @@ export default function AmendmentsPage() {
       setSelectedAmendmentId(null)
       setSelectedAction(null)
     }
+  }
+
+  // New function to handle opening the status change dialog
+  const handleOpenStatusChangeDialog = (amendmentId: string, currentStatus: string) => {
+    setSelectedAmendmentId(amendmentId)
+    setNewStatus(currentStatus)
+    setStatusChangeNotes("")
+    setIsStatusChangeDialogOpen(true)
+  }
+
+  // New function to handle status change submission
+  const handleSubmitStatusChange = async () => {
+    if (!selectedAmendmentId || !newStatus) {
+      console.error("Missing amendment ID or status")
+      return
+    }
+
+    const additionalData: Record<string, any> = {}
+    if (statusChangeNotes) {
+      additionalData.notes = statusChangeNotes
+    }
+
+    const success = await updateAmendmentStatus(selectedAmendmentId, newStatus, additionalData)
+    
+    if (success) {
+      setIsStatusChangeDialogOpen(false)
+      setSelectedAmendmentId(null)
+      setNewStatus("")
+      setStatusChangeNotes("")
+    }
+  }
+
+  // New function to verify payment receipt
+  const verifyPaymentReceipt = async (amendmentId: string) => {
+    setSelectedAmendmentId(amendmentId)
+    setSelectedAction("verify_payment")
+    await updateAmendmentStatus(amendmentId, AmendmentStatus.PAYMENT_RECEIVED)
+    setSelectedAction(null)
+  }
+
+  // New function to reject payment receipt
+  const rejectPaymentReceipt = async (amendmentId: string) => {
+    setSelectedAmendmentId(amendmentId)
+    setSelectedAction("reject_payment")
+    await updateAmendmentStatus(amendmentId, AmendmentStatus.WAITING_FOR_PAYMENT, {
+      notes: "Invalid receipt. Please upload a valid payment receipt."
+    })
+    setSelectedAction(null)
+  }
+
+  // New function to start amendment process
+  const startAmendmentProcess = async (amendmentId: string) => {
+    setSelectedAmendmentId(amendmentId)
+    setSelectedAction("start_amendment")
+    await updateAmendmentStatus(amendmentId, AmendmentStatus.AMENDMENT_IN_PROGRESS)
+    setSelectedAction(null)
+  }
+
+  // New function to mark amendment as resolved
+  const resolveAmendment = async (amendmentId: string) => {
+    setSelectedAmendmentId(amendmentId)
+    setSelectedAction("resolve_amendment")
+    await updateAmendmentStatus(amendmentId, AmendmentStatus.AMENDMENT_RESOLVED)
+    setSelectedAction(null)
   }
 
   const filteredAmendments =
@@ -434,11 +528,15 @@ export default function AmendmentsPage() {
         <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-4">
             <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="pending">Pending</TabsTrigger>
-            <TabsTrigger value="approved">Approved</TabsTrigger>
-            <TabsTrigger value="rejected">Rejected</TabsTrigger>
-            <TabsTrigger value="waiting_for_payment">Payment Required</TabsTrigger>
-            <TabsTrigger value="payment_received">Payment Received</TabsTrigger>
+            <TabsTrigger value={AmendmentStatus.PENDING}>Pending</TabsTrigger>
+            <TabsTrigger value={AmendmentStatus.IN_REVIEW}>In Review</TabsTrigger>
+            <TabsTrigger value={AmendmentStatus.WAITING_FOR_PAYMENT}>Payment Required</TabsTrigger>
+            <TabsTrigger value={AmendmentStatus.PAYMENT_CONFIRMATION_PENDING}>Payment Confirmation</TabsTrigger>
+            <TabsTrigger value={AmendmentStatus.PAYMENT_RECEIVED}>Payment Received</TabsTrigger>
+            <TabsTrigger value={AmendmentStatus.AMENDMENT_IN_PROGRESS}>In Progress</TabsTrigger>
+            <TabsTrigger value={AmendmentStatus.AMENDMENT_RESOLVED}>Resolved</TabsTrigger>
+            <TabsTrigger value={AmendmentStatus.APPROVED}>Approved</TabsTrigger>
+            <TabsTrigger value={AmendmentStatus.REJECTED}>Rejected</TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab}>
@@ -482,12 +580,7 @@ export default function AmendmentsPage() {
                       {amendment.paymentAmount !== null && (
                         <div className="mb-2">
                           <h4 className="text-sm font-medium">Payment Amount:</h4>
-                          <p className="text-sm text-gray-500">
-                            $
-                            {typeof amendment.paymentAmount === "number"
-                              ? amendment.paymentAmount.toFixed(2)
-                              : Number(amendment.paymentAmount).toFixed(2)}
-                          </p>
+                          <p className="text-sm text-gray-500">{formatCurrency(amendment.paymentAmount)}</p>
                         </div>
                       )}
 
@@ -498,12 +591,96 @@ export default function AmendmentsPage() {
                         </div>
                       )}
 
+                      {/* Receipt verification section */}
+                      {amendment.status === AmendmentStatus.PAYMENT_CONFIRMATION_PENDING && amendment.receiptUrl && (
+                        <div className="mb-2 p-2 bg-blue-50 rounded-md">
+                          <h4 className="text-sm font-medium">Receipt Verification:</h4>
+                          <a
+                            href={amendment.receiptUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-500 hover:underline block mb-2"
+                          >
+                            View Receipt
+                          </a>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => verifyPaymentReceipt(amendment.id)}
+                              disabled={loadingAmendmentId === amendment.id}
+                            >
+                              {loadingAmendmentId === amendment.id && selectedAction === "verify_payment" ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : null}
+                              Verify
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-600 text-red-600 hover:bg-red-50"
+                              onClick={() => rejectPaymentReceipt(amendment.id)}
+                              disabled={loadingAmendmentId === amendment.id}
+                            >
+                              {loadingAmendmentId === amendment.id && selectedAction === "reject_payment" ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : null}
+                              Reject
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Amendment process section */}
+                      {amendment.status === AmendmentStatus.PAYMENT_RECEIVED && (
+                        <div className="mb-2 mt-3">
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            onClick={() => startAmendmentProcess(amendment.id)}
+                            disabled={loadingAmendmentId === amendment.id}
+                          >
+                            {loadingAmendmentId === amendment.id && selectedAction === "start_amendment" ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
+                            Start Amendment Process
+                          </Button>
+                        </div>
+                      )}
+
+                      {amendment.status === AmendmentStatus.AMENDMENT_IN_PROGRESS && (
+                        <div className="mb-2 mt-3">
+                          <Button
+                            size="sm"
+                            className="w-full bg-green-600 hover:bg-green-700"
+                            onClick={() => resolveAmendment(amendment.id)}
+                            disabled={loadingAmendmentId === amendment.id}
+                          >
+                            {loadingAmendmentId === amendment.id && selectedAction === "resolve_amendment" ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
+                            Mark as Resolved
+                          </Button>
+                        </div>
+                      )}
+
                       <div className="text-xs text-gray-400">
                         Submitted: {new Date(amendment.createdAt).toLocaleDateString()}
                       </div>
                     </CardContent>
                     <CardFooter className="flex flex-wrap gap-2">
-                      {amendment.status === "pending" && (
+                      {/* Status change button for all amendments */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenStatusChangeDialog(amendment.id, amendment.status)}
+                        className="ml-auto"
+                      >
+                        Change Status
+                      </Button>
+
+                      {/* Original action buttons for pending amendments */}
+                      {amendment.status === AmendmentStatus.PENDING && (
                         <>
                           <Button
                             size="sm"
@@ -553,21 +730,6 @@ export default function AmendmentsPage() {
                           </Button>
                         </>
                       )}
-
-                      {amendment.status === "waiting_for_payment" && amendment.receiptUrl && (
-                        <Button
-                          size="sm"
-                          onClick={() => updateAmendmentStatus(amendment.id, AmendmentStatus.PAYMENT_RECEIVED)}
-                          disabled={loadingAmendmentId === amendment.id}
-                        >
-                          {loadingAmendmentId === amendment.id &&
-                          amendment.id === selectedAmendmentId &&
-                          selectedAction === "confirm" ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          ) : null}
-                          Confirm Payment
-                        </Button>
-                      )}
                     </CardFooter>
                   </Card>
                 ))}
@@ -577,6 +739,7 @@ export default function AmendmentsPage() {
         </Tabs>
       )}
 
+      {/* Payment Request Dialog */}
       <Dialog
         open={isDialogOpen}
         onOpenChange={(open) => {
@@ -638,26 +801,116 @@ export default function AmendmentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Status Change Dialog */}
+      <Dialog
+        open={isStatusChangeDialogOpen}
+        onOpenChange={(open) => {
+          if (!loadingAmendmentId) setIsStatusChangeDialogOpen(open)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Amendment Status</DialogTitle>
+            <DialogDescription>Select a new status for this amendment.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="status" className="text-right">
+                Status
+              </Label>
+              <Select value={newStatus} onValueChange={setNewStatus}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select a status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={AmendmentStatus.PENDING}>Pending</SelectItem>
+                  <SelectItem value={AmendmentStatus.IN_REVIEW}>In Review</SelectItem>
+                  <SelectItem value={AmendmentStatus.WAITING_FOR_PAYMENT}>Waiting for Payment</SelectItem>
+                  <SelectItem value={AmendmentStatus.PAYMENT_CONFIRMATION_PENDING}>Payment Confirmation Pending</SelectItem>
+                  <SelectItem value={AmendmentStatus.PAYMENT_RECEIVED}>Payment Received</SelectItem>
+                  <SelectItem value={AmendmentStatus.AMENDMENT_IN_PROGRESS}>Amendment In Progress</SelectItem>
+                  <SelectItem value={AmendmentStatus.AMENDMENT_RESOLVED}>Amendment Resolved</SelectItem>
+                  <SelectItem value={AmendmentStatus.APPROVED}>Approved</SelectItem>
+                  <SelectItem value={AmendmentStatus.REJECTED}>Rejected</SelectItem>
+                  <SelectItem value={AmendmentStatus.CLOSED}>Closed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="statusNotes" className="text-right">
+                Notes
+              </Label>
+              <Textarea
+                id="statusNotes"
+                placeholder="Optional notes about this status change"
+                value={statusChangeNotes}
+                onChange={(e) => setStatusChangeNotes(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsStatusChangeDialogOpen(false)}
+              disabled={loadingAmendmentId === selectedAmendmentId}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitStatusChange} disabled={loadingAmendmentId === selectedAmendmentId}>
+              {loadingAmendmentId === selectedAmendmentId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Update Status"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 function StatusBadge({ status }: { status: string }) {
   let variant: "default" | "secondary" | "destructive" | "outline" = "default"
-  const label = status.replace("_", " ")
+  let label = status.replace(/_/g, " ")
+  
+  // Capitalize first letter of each word
+  label = label.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
 
   switch (status) {
-    case "approved":
+    case AmendmentStatus.APPROVED:
       variant = "default" // green
       break
-    case "rejected":
+    case AmendmentStatus.REJECTED:
       variant = "destructive" // red
       break
-    case "pending":
+    case AmendmentStatus.PENDING:
       variant = "outline"
       break
-    case "waiting_for_payment":
-    case "payment_received":
+    case AmendmentStatus.IN_REVIEW:
+      variant = "secondary" // gray
+      break
+    case AmendmentStatus.WAITING_FOR_PAYMENT:
+      variant = "secondary" // gray
+      break
+    case AmendmentStatus.PAYMENT_CONFIRMATION_PENDING:
+      variant = "outline" // outline
+      break
+    case AmendmentStatus.PAYMENT_RECEIVED:
+      variant = "default" // green
+      break
+    case AmendmentStatus.AMENDMENT_IN_PROGRESS:
+      variant = "secondary" // gray
+      break
+    case AmendmentStatus.AMENDMENT_RESOLVED:
+      variant = "default" // green
+      break
+    case AmendmentStatus.CLOSED:
       variant = "secondary" // gray
       break
   }
@@ -668,4 +921,3 @@ function StatusBadge({ status }: { status: string }) {
     </Badge>
   )
 }
-
