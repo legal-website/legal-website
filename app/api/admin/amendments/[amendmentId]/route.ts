@@ -2,30 +2,29 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import type { AmendmentModel } from "@/lib/prisma-types"
 
 export async function PATCH(request: Request, { params }: { params: { amendmentId: string } }) {
   try {
+    console.log(`PATCH /api/admin/amendments/${params.amendmentId}/status - Start`)
+
     // Check authentication and authorization
     const session = await getServerSession(authOptions)
 
     if (!session) {
+      console.log(`PATCH /api/admin/amendments/${params.amendmentId}/status - Unauthorized`)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     if (session.user.role !== "ADMIN" && session.user.role !== "SUPPORT") {
+      console.log(`PATCH /api/admin/amendments/${params.amendmentId}/status - Forbidden`)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const amendmentId = params.amendmentId
+    // Get the amendment ID from the URL
+    const { amendmentId } = params
 
-    // Check if amendment exists
-    const existingAmendment = await db.amendment.findUnique({
-      where: { id: amendmentId },
-    })
-
-    if (!existingAmendment) {
-      return NextResponse.json({ error: "Amendment not found" }, { status: 404 })
+    if (!amendmentId) {
+      return NextResponse.json({ error: "Amendment ID is required" }, { status: 400 })
     }
 
     // Parse form data
@@ -36,24 +35,17 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
       return NextResponse.json({ error: "Status is required" }, { status: 400 })
     }
 
+    console.log(`PATCH /api/admin/amendments/${amendmentId}/status - Updating status to ${status}`)
+
     // Get optional fields
     const paymentAmountStr = formData.get("paymentAmount") as string | null
     const notes = formData.get("notes") as string | null
 
     // Parse payment amount if provided
-    let paymentAmount = undefined
-    if (paymentAmountStr) {
-      const amount = Number.parseFloat(paymentAmountStr)
-      if (!isNaN(amount)) {
-        paymentAmount = amount
-      }
-    }
+    const paymentAmount = paymentAmountStr ? Number.parseFloat(paymentAmountStr) : undefined
 
-    // Update amendment
-    const updateData: any = {
-      status,
-      updatedAt: new Date(),
-    }
+    // Update the amendment
+    const updateData: any = { status }
 
     if (paymentAmount !== undefined) {
       updateData.paymentAmount = paymentAmount
@@ -64,7 +56,7 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
     }
 
     // Update the amendment
-    const updatedAmendment = (await db.amendment.update({
+    const updatedAmendment = await db.amendment.update({
       where: { id: amendmentId },
       data: updateData,
       include: {
@@ -76,9 +68,9 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
           },
         },
       },
-    })) as AmendmentModel
+    })
 
-    // Create status history entry
+    // Create a status history entry
     await db.amendmentStatusHistory.create({
       data: {
         amendmentId,
@@ -88,12 +80,14 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
       },
     })
 
-    // Format the amendment for the frontend
+    console.log(`PATCH /api/admin/amendments/${amendmentId}/status - Updated successfully`)
+
+    // Format the response
     const formattedAmendment = {
       id: updatedAmendment.id,
       userId: updatedAmendment.userId,
-      userName: updatedAmendment.user.name || "Unknown",
-      userEmail: updatedAmendment.user.email,
+      userName: updatedAmendment.user?.name || "Unknown",
+      userEmail: updatedAmendment.user?.email || "unknown@example.com",
       type: updatedAmendment.type,
       details: updatedAmendment.details,
       status: updatedAmendment.status,
@@ -103,14 +97,14 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
       receiptUrl: updatedAmendment.receiptUrl,
       paymentAmount: updatedAmendment.paymentAmount
         ? Number.parseFloat(updatedAmendment.paymentAmount.toString())
-        : undefined,
+        : null,
       notes: updatedAmendment.notes,
     }
 
-    return NextResponse.json({ amendment: formattedAmendment })
+    return NextResponse.json(formattedAmendment)
   } catch (error) {
-    console.error("Error updating amendment:", error)
-    return NextResponse.json({ error: "Failed to update amendment" }, { status: 500 })
+    console.error("Error updating amendment status:", error)
+    return NextResponse.json({ error: "Failed to update amendment status" }, { status: 500 })
   }
 }
 

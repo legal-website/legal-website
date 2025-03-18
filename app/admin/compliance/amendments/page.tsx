@@ -1,27 +1,24 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { useToast } from "@/components/ui/use-toast"
-import {
-  FileEdit,
-  Search,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  DollarSign,
-  Eye,
-  FileText,
-  RefreshCw,
-  Download,
-} from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
+import { toast } from "@/components/ui/use-toast"
 
+// Define Amendment type
 interface Amendment {
   id: string
   userId: string
@@ -29,13 +26,20 @@ interface Amendment {
   userEmail: string
   type: string
   details: string
-  status: "pending" | "in_review" | "waiting_for_payment" | "payment_received" | "approved" | "rejected" | "closed"
+  status: string
   createdAt: string
   updatedAt: string
-  documentUrl?: string
-  receiptUrl?: string
-  paymentAmount?: number
-  notes?: string
+  documentUrl: string | null
+  receiptUrl: string | null
+  paymentAmount: number | null
+  notes: string | null
+  statusHistory: {
+    id: string
+    status: string
+    createdAt: string
+    notes: string | null
+    updatedBy: string | null
+  }[]
 }
 
 // Define interface for additional data
@@ -45,119 +49,57 @@ interface AmendmentUpdateData {
   [key: string]: any // Allow other properties
 }
 
-// Helper function to get status badge - moved outside component to be reusable
-const getStatusBadge = (status: Amendment["status"]) => {
-  const statusConfig = {
-    pending: { bg: "bg-blue-100", text: "text-blue-800", label: "Pending" },
-    in_review: { bg: "bg-purple-100", text: "text-purple-800", label: "In Review" },
-    waiting_for_payment: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Payment Required" },
-    payment_received: { bg: "bg-indigo-100", text: "text-indigo-800", label: "Payment Received" },
-    approved: { bg: "bg-green-100", text: "text-green-800", label: "Approved" },
-    rejected: { bg: "bg-red-100", text: "text-red-800", label: "Rejected" },
-    closed: { bg: "bg-gray-100", text: "text-gray-800", label: "Closed" },
-  }
-
-  const config = statusConfig[status]
-
-  return (
-    <Badge variant="outline" className={`${config.bg} ${config.text} border-0`}>
-      {config.label}
-    </Badge>
-  )
-}
-
-// Helper function to get status icon - moved outside component to be reusable
-const getStatusIcon = (status: Amendment["status"]) => {
-  switch (status) {
-    case "pending":
-      return <Clock className="h-5 w-5 text-blue-500" />
-    case "in_review":
-      return <FileText className="h-5 w-5 text-purple-500" />
-    case "waiting_for_payment":
-      return <DollarSign className="h-5 w-5 text-yellow-500" />
-    case "payment_received":
-      return <DollarSign className="h-5 w-5 text-indigo-500" />
-    case "approved":
-      return <CheckCircle className="h-5 w-5 text-green-500" />
-    case "rejected":
-      return <AlertCircle className="h-5 w-5 text-red-500" />
-    case "closed":
-      return <CheckCircle className="h-5 w-5 text-gray-500" />
-  }
-}
-
-export default function AdminAmendmentsPage() {
+export default function AmendmentsPage() {
   const [amendments, setAmendments] = useState<Amendment[]>([])
-  const [filteredAmendments, setFilteredAmendments] = useState<Amendment[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<Amendment["status"] | "all">("all")
   const [loading, setLoading] = useState(true)
-  const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null)
-  const [paymentAmount, setPaymentAmount] = useState<string>("")
-  const [adminNotes, setAdminNotes] = useState<string>("")
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("all")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [paymentAmount, setPaymentAmount] = useState("")
+  const [adminNotes, setAdminNotes] = useState("")
+  const [selectedAmendmentId, setSelectedAmendmentId] = useState<string | null>(null)
+
+  // Add console logs for debugging
+  console.log("Rendering AmendmentsPage, loading:", loading)
 
   useEffect(() => {
+    const fetchAmendments = async () => {
+      try {
+        console.log("Fetching amendments...")
+        const response = await fetch("/api/admin/amendments")
+        console.log("Response received:", response.status)
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error("Error response:", errorData)
+          throw new Error(errorData.error || "Failed to fetch amendments")
+        }
+
+        const data = await response.json()
+        console.log("Amendments data:", data)
+
+        if (data && Array.isArray(data.amendments)) {
+          setAmendments(data.amendments)
+        } else {
+          console.error("Invalid data format:", data)
+          throw new Error("Invalid data format received from server")
+        }
+      } catch (err) {
+        console.error("Error fetching amendments:", err)
+        setError(err instanceof Error ? err.message : "An unknown error occurred")
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchAmendments()
   }, [])
-
-  useEffect(() => {
-    filterAmendments()
-  }, [amendments, searchTerm, statusFilter])
-
-  const fetchAmendments = async () => {
-    setIsLoading(true)
-    try {
-      const response = await fetch("/api/admin/amendments")
-      if (!response.ok) {
-        throw new Error("Failed to fetch amendments")
-      }
-      const data = await response.json()
-      setAmendments(data.amendments)
-    } catch (error) {
-      console.error("Error fetching amendments:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load amendments",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const filterAmendments = () => {
-    let filtered = [...amendments]
-
-    // Apply search filter
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        (a) =>
-          a.userName?.toLowerCase().includes(term) ||
-          a.userEmail?.toLowerCase().includes(term) ||
-          a.id.toLowerCase().includes(term) ||
-          a.type.toLowerCase().includes(term) ||
-          a.details.toLowerCase().includes(term),
-      )
-    }
-
-    // Apply status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((a) => a.status === statusFilter)
-    }
-
-    setFilteredAmendments(filtered)
-  }
 
   const updateAmendmentStatus = async (
     amendmentId: string,
     newStatus: Amendment["status"],
     additionalData: AmendmentUpdateData = {},
   ) => {
-    setIsLoading(true)
     try {
       const formData = new FormData()
       formData.append("status", newStatus)
@@ -176,40 +118,56 @@ export default function AdminAmendmentsPage() {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to update amendment status")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update amendment status")
       }
 
-      const data = await response.json()
+      const updatedAmendment = await response.json()
 
-      // Update the amendments list
+      // Update the amendments list with the updated amendment
       setAmendments((prev) =>
-        prev.map((amendment) => (amendment.id === amendmentId ? { ...amendment, status: newStatus } : amendment)),
+        prev.map((amendment) => (amendment.id === amendmentId ? { ...amendment, ...updatedAmendment } : amendment)),
       )
 
       toast({
         title: "Status updated",
         description: `Amendment status updated to ${newStatus}`,
       })
-    } catch (error) {
-      console.error("Error updating amendment status:", error)
+    } catch (err) {
+      console.error("Error updating amendment status:", err)
       toast({
         title: "Error",
-        description: "Failed to update amendment status",
+        description: err instanceof Error ? err.message : "Failed to update status",
         variant: "destructive",
       })
-    } finally {
-      setIsLoading(false)
-      setIsDialogOpen(false)
     }
   }
 
-  const requestPayment = async (amendmentId: string) => {
-    if (!paymentAmount || isNaN(Number.parseFloat(paymentAmount)) || Number.parseFloat(paymentAmount) <= 0) {
+  const approveAmendment = async (amendmentId: string) => {
+    await updateAmendmentStatus(amendmentId, "approved")
+  }
+
+  const rejectAmendment = async (amendmentId: string) => {
+    await updateAmendmentStatus(amendmentId, "rejected")
+  }
+
+  const handleRequestPayment = (amendmentId: string) => {
+    setSelectedAmendmentId(amendmentId)
+    setIsDialogOpen(true)
+  }
+
+  const handleSubmitPayment = async () => {
+    if (!paymentAmount || isNaN(Number.parseFloat(paymentAmount))) {
       toast({
-        title: "Error",
+        title: "Invalid amount",
         description: "Please enter a valid payment amount",
         variant: "destructive",
       })
+      return
+    }
+
+    if (!selectedAmendmentId) {
+      console.error("No amendment selected for payment request.")
       return
     }
 
@@ -221,317 +179,235 @@ export default function AdminAmendmentsPage() {
       updateData.notes = adminNotes
     }
 
-    await updateAmendmentStatus(amendmentId, "waiting_for_payment", updateData)
+    await updateAmendmentStatus(selectedAmendmentId, "waiting_for_payment", updateData)
 
+    setIsDialogOpen(false)
     setPaymentAmount("")
     setAdminNotes("")
+    setSelectedAmendmentId(null)
   }
 
-  const approvePayment = async (amendmentId: string) => {
-    await updateAmendmentStatus(amendmentId, "approved")
-  }
-
-  return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Amendments Management</h1>
-        <Button onClick={fetchAmendments} variant="outline" className="gap-2">
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </Button>
-      </div>
-
-      <Tabs defaultValue="all" className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <TabsList>
-            <TabsTrigger value="all">All Amendments</TabsTrigger>
-            <TabsTrigger value="pending">Pending</TabsTrigger>
-            <TabsTrigger value="payment">Payment</TabsTrigger>
-            <TabsTrigger value="approved">Approved</TabsTrigger>
-          </TabsList>
-
-          <div className="flex gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search amendments..."
-                className="pl-9 w-64"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-            >
-              <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="in_review">In Review</option>
-              <option value="waiting_for_payment">Payment Required</option>
-              <option value="payment_received">Payment Received</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-              <option value="closed">Closed</option>
-            </select>
+  const PaymentDialog = () => (
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Request Payment</DialogTitle>
+          <DialogDescription>Enter the payment amount required for this amendment.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="amount" className="text-right">
+              Amount
+            </Label>
+            <Input
+              id="amount"
+              type="number"
+              step="0.01"
+              min="0"
+              value={paymentAmount}
+              onChange={(e) => setPaymentAmount(e.target.value)}
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="notes" className="text-right">
+              Notes
+            </Label>
+            <Textarea
+              id="notes"
+              value={adminNotes}
+              onChange={(e) => setAdminNotes(e.target.value)}
+              className="col-span-3"
+            />
           </div>
         </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmitPayment}>Submit</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
 
-        <TabsContent value="all">
-          <AmendmentsList
-            amendments={filteredAmendments}
-            loading={loading}
-            onViewAmendment={setSelectedAmendment}
-            onUpdateStatus={updateAmendmentStatus}
-            onRequestPayment={requestPayment}
-            onApprovePayment={approvePayment}
-          />
-        </TabsContent>
+  const filteredAmendments =
+    activeTab === "all" ? amendments : amendments.filter((amendment) => amendment.status === activeTab)
 
-        <TabsContent value="pending">
-          <AmendmentsList
-            amendments={filteredAmendments.filter((a) => a.status === "pending" || a.status === "in_review")}
-            loading={loading}
-            onViewAmendment={setSelectedAmendment}
-            onUpdateStatus={updateAmendmentStatus}
-            onRequestPayment={requestPayment}
-            onApprovePayment={approvePayment}
-          />
-        </TabsContent>
+  return (
+    <div className="container mx-auto py-6">
+      <h1 className="text-2xl font-bold mb-6">Compliance Amendments</h1>
 
-        <TabsContent value="payment">
-          <AmendmentsList
-            amendments={filteredAmendments.filter(
-              (a) => a.status === "waiting_for_payment" || a.status === "payment_received",
-            )}
-            loading={loading}
-            onViewAmendment={setSelectedAmendment}
-            onUpdateStatus={updateAmendmentStatus}
-            onRequestPayment={requestPayment}
-            onApprovePayment={approvePayment}
-          />
-        </TabsContent>
-
-        <TabsContent value="approved">
-          <AmendmentsList
-            amendments={filteredAmendments.filter((a) => a.status === "approved")}
-            loading={loading}
-            onViewAmendment={setSelectedAmendment}
-            onUpdateStatus={updateAmendmentStatus}
-            onRequestPayment={requestPayment}
-            onApprovePayment={approvePayment}
-          />
-        </TabsContent>
-      </Tabs>
-
-      {/* Amendment Details Dialog */}
-      {selectedAmendment && (
-        <Dialog open={!!selectedAmendment} onOpenChange={() => setSelectedAmendment(null)}>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <FileEdit className="h-5 w-5" />
-                Amendment Details
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="grid grid-cols-2 gap-6 py-4">
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Amendment Information</h3>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm text-gray-500">Amendment ID</p>
-                    <p className="font-medium">{selectedAmendment.id}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Type</p>
-                    <p className="font-medium">{selectedAmendment.type}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Details</p>
-                    <p className="font-medium">{selectedAmendment.details}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Status</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {getStatusIcon(selectedAmendment.status)}
-                      {getStatusBadge(selectedAmendment.status)}
-                    </div>
-                  </div>
-                  {selectedAmendment.paymentAmount && (
-                    <div>
-                      <p className="text-sm text-gray-500">Payment Amount</p>
-                      <p className="font-medium">${selectedAmendment.paymentAmount.toFixed(2)}</p>
-                    </div>
-                  )}
-                  {selectedAmendment.notes && (
-                    <div>
-                      <p className="text-sm text-gray-500">Notes</p>
-                      <p className="font-medium">{selectedAmendment.notes}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Actions</h3>
-                <div className="space-y-4">
-                  {selectedAmendment.status === "pending" && (
-                    <Button className="w-full" onClick={() => updateAmendmentStatus(selectedAmendment.id, "in_review")}>
-                      Start Review
-                    </Button>
-                  )}
-
-                  {selectedAmendment.status === "in_review" && (
-                    <div className="space-y-3">
-                      <div>
-                        <Label htmlFor="payment-amount">Payment Amount ($)</Label>
-                        <Input
-                          id="payment-amount"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="Enter amount"
-                          value={paymentAmount}
-                          onChange={(e) => setPaymentAmount(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="admin-notes">Notes (Optional)</Label>
-                        <Input
-                          id="admin-notes"
-                          placeholder="Add notes for client"
-                          value={adminNotes}
-                          onChange={(e) => setAdminNotes(e.target.value)}
-                        />
-                      </div>
-                      <Button className="w-full" onClick={() => requestPayment(selectedAmendment.id)}>
-                        Request Payment
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => updateAmendmentStatus(selectedAmendment.id, "rejected")}
-                      >
-                        Reject Amendment
-                      </Button>
-                    </div>
-                  )}
-
-                  {selectedAmendment.status === "payment_received" && (
-                    <Button className="w-full" onClick={() => approvePayment(selectedAmendment.id)}>
-                      Approve Payment & Complete
-                    </Button>
-                  )}
-
-                  {selectedAmendment.documentUrl && (
-                    <Button variant="outline" className="w-full" asChild>
-                      <a href={selectedAmendment.documentUrl} target="_blank" rel="noopener noreferrer">
-                        <Download className="w-4 h-4 mr-2" />
-                        Download Supporting Document
-                      </a>
-                    </Button>
-                  )}
-
-                  {selectedAmendment.receiptUrl && (
-                    <Button variant="outline" className="w-full" asChild>
-                      <a href={selectedAmendment.receiptUrl} target="_blank" rel="noopener noreferrer">
-                        <Download className="w-4 h-4 mr-2" />
-                        Download Payment Receipt
-                      </a>
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p>{error}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setError(null)
+              setLoading(true)
+              window.location.reload()
+            }}
+            className="mt-2"
+          >
+            Try Again
+          </Button>
+        </div>
       )}
+
+      {loading ? (
+        <div className="text-center py-10">
+          <p className="text-lg">Loading amendments...</p>
+        </div>
+      ) : (
+        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="pending">Pending</TabsTrigger>
+            <TabsTrigger value="approved">Approved</TabsTrigger>
+            <TabsTrigger value="rejected">Rejected</TabsTrigger>
+            <TabsTrigger value="waiting_for_payment">Payment Required</TabsTrigger>
+            <TabsTrigger value="payment_received">Payment Received</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value={activeTab}>
+            {filteredAmendments.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-lg text-gray-500">No amendments found</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <AmendmentsList
+                  amendments={filteredAmendments}
+                  onApprove={approveAmendment}
+                  onReject={rejectAmendment}
+                  onRequestPayment={handleRequestPayment}
+                  onUpdateStatus={updateAmendmentStatus}
+                />
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      )}
+      <PaymentDialog />
     </div>
   )
 }
 
-// Amendments List Component
 function AmendmentsList({
   amendments,
-  loading,
-  onViewAmendment,
-  onUpdateStatus,
+  onApprove,
+  onReject,
   onRequestPayment,
-  onApprovePayment,
+  onUpdateStatus,
 }: {
   amendments: Amendment[]
-  loading: boolean
-  onViewAmendment: (amendment: Amendment) => void
+  onApprove: (id: string) => Promise<void>
+  onReject: (id: string) => Promise<void>
+  onRequestPayment: (id: string) => void
   onUpdateStatus: (id: string, status: Amendment["status"], data?: AmendmentUpdateData) => Promise<void>
-  onRequestPayment: (id: string) => Promise<void>
-  onApprovePayment: (id: string) => Promise<void>
 }) {
-  if (loading) {
-    return (
-      <Card className="p-8 text-center">
-        <div className="flex flex-col items-center justify-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-gray-500">Loading amendments...</p>
-        </div>
-      </Card>
-    )
-  }
+  return (
+    <>
+      {amendments.map((amendment) => (
+        <Card key={amendment.id} className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <div className="flex justify-between items-start">
+              <CardTitle className="text-lg">{amendment.type}</CardTitle>
+              <StatusBadge status={amendment.status} />
+            </div>
+            <CardDescription>
+              Submitted by {amendment.userName} ({amendment.userEmail})
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="mb-2">
+              <h4 className="text-sm font-medium">Details:</h4>
+              <p className="text-sm text-gray-500">{amendment.details}</p>
+            </div>
 
-  if (amendments.length === 0) {
-    return (
-      <Card className="p-8 text-center">
-        <div className="flex flex-col items-center justify-center">
-          <FileText className="h-12 w-12 text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium mb-2">No amendments found</h3>
-          <p className="text-gray-500">No amendments match your current filters.</p>
-        </div>
-      </Card>
-    )
+            {amendment.documentUrl && (
+              <div className="mb-2">
+                <h4 className="text-sm font-medium">Document:</h4>
+                <a
+                  href={amendment.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-500 hover:underline"
+                >
+                  View Document
+                </a>
+              </div>
+            )}
+
+            {amendment.paymentAmount !== null && (
+              <div className="mb-2">
+                <h4 className="text-sm font-medium">Payment Amount:</h4>
+                <p className="text-sm text-gray-500">${amendment.paymentAmount.toFixed(2)}</p>
+              </div>
+            )}
+
+            {amendment.notes && (
+              <div className="mb-2">
+                <h4 className="text-sm font-medium">Notes:</h4>
+                <p className="text-sm text-gray-500">{amendment.notes}</p>
+              </div>
+            )}
+
+            <div className="text-xs text-gray-400">Submitted: {new Date(amendment.createdAt).toLocaleDateString()}</div>
+          </CardContent>
+          <CardFooter className="flex flex-wrap gap-2">
+            {amendment.status === "pending" && (
+              <>
+                <Button size="sm" onClick={() => onApprove(amendment.id)}>
+                  Approve
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onReject(amendment.id)}>
+                  Reject
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onRequestPayment(amendment.id)}>
+                  Request Payment
+                </Button>
+              </>
+            )}
+
+            {amendment.status === "waiting_for_payment" && amendment.receiptUrl && (
+              <Button size="sm" onClick={() => onUpdateStatus(amendment.id, "payment_received")}>
+                Confirm Payment
+              </Button>
+            )}
+          </CardFooter>
+        </Card>
+      ))}
+    </>
+  )
+}
+
+function StatusBadge({ status }: { status: string }) {
+  let variant: "default" | "secondary" | "destructive" | "outline" = "default"
+  const label = status.replace("_", " ")
+
+  switch (status) {
+    case "approved":
+      variant = "default" // green
+      break
+    case "rejected":
+      variant = "destructive" // red
+      break
+    case "pending":
+      variant = "outline"
+      break
+    case "waiting_for_payment":
+    case "payment_received":
+      variant = "secondary" // gray
+      break
   }
 
   return (
-    <Card>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b">
-              <th className="text-left p-4 font-medium">ID</th>
-              <th className="text-left p-4 font-medium">Client</th>
-              <th className="text-left p-4 font-medium">Type</th>
-              <th className="text-left p-4 font-medium">Submitted</th>
-              <th className="text-left p-4 font-medium">Status</th>
-              <th className="text-left p-4 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {amendments.map((amendment) => (
-              <tr key={amendment.id} className="border-b hover:bg-gray-50">
-                <td className="p-4 font-mono text-sm">{amendment.id}</td>
-                <td className="p-4">
-                  <div className="font-medium">{amendment.userName}</div>
-                  <div className="text-sm text-gray-500">{amendment.userEmail}</div>
-                </td>
-                <td className="p-4">{amendment.type}</td>
-                <td className="p-4 whitespace-nowrap">{new Date(amendment.createdAt).toLocaleDateString()}</td>
-                <td className="p-4">
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(amendment.status)}
-                    {getStatusBadge(amendment.status)}
-                  </div>
-                </td>
-                <td className="p-4">
-                  <Button variant="outline" size="sm" onClick={() => onViewAmendment(amendment)}>
-                    <Eye className="h-4 w-4 mr-1" />
-                    View Details
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+    <Badge variant={variant} className="capitalize">
+      {label}
+    </Badge>
   )
 }
 
