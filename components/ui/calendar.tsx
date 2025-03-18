@@ -7,20 +7,28 @@ import { buttonVariants } from "@/components/ui/button"
 
 // Define a custom navigation component with proper typing
 const CustomNav = ({ onPreviousClick, onNextClick }: NavProps) => (
-  <div className="space-x-1 flex items-center">
+  <div className="flex items-center justify-between w-full px-2">
     <button
       type="button"
       onClick={onPreviousClick}
-      className={cn(buttonVariants({ variant: "outline" }), "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100")}
+      className={cn(
+        buttonVariants({ variant: "outline", size: "icon" }),
+        "h-8 w-8 bg-transparent p-0 hover:bg-accent/50 rounded-full",
+      )}
     >
       <ChevronLeft className="h-4 w-4" />
+      <span className="sr-only">Previous month</span>
     </button>
     <button
       type="button"
       onClick={onNextClick}
-      className={cn(buttonVariants({ variant: "outline" }), "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100")}
+      className={cn(
+        buttonVariants({ variant: "outline", size: "icon" }),
+        "h-8 w-8 bg-transparent p-0 hover:bg-accent/50 rounded-full",
+      )}
     >
       <ChevronRight className="h-4 w-4" />
+      <span className="sr-only">Next month</span>
     </button>
   </div>
 )
@@ -31,29 +39,29 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3", className)}
+      className={cn("p-3 select-none", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-        month: "space-y-4",
-        caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
-        nav: "space-x-1 flex items-center",
-        nav_button: cn(
-          buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
+        month: "space-y-6",
+        caption: "flex justify-center pt-1 relative items-center mb-4",
+        caption_label: "text-base font-medium grow text-center",
+        nav: "flex items-center",
+        nav_button_previous: "hidden", // Hide default nav buttons
+        nav_button_next: "hidden", // Hide default nav buttons
+        table: "w-full border-collapse",
+        head_row: "flex w-full",
+        head_cell:
+          "text-muted-foreground rounded-md w-10 h-10 font-medium text-xs flex-1 flex items-center justify-center",
+        row: "flex w-full mt-1",
+        cell: "relative flex h-10 w-10 items-center justify-center p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent/50 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md",
+        day: cn(
+          buttonVariants({ variant: "ghost" }),
+          "h-10 w-10 p-0 font-normal rounded-full hover:bg-accent hover:text-accent-foreground",
         ),
-        nav_button_previous: "absolute left-1",
-        nav_button_next: "absolute right-1",
-        table: "w-full border-collapse space-y-1",
-        head_row: "flex",
-        head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem] flex-1",
-        row: "flex w-full mt-2",
-        cell: "h-9 w-9 text-center text-sm relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-        day: cn(buttonVariants({ variant: "ghost" }), "h-9 w-9 p-0 font-normal aria-selected:opacity-100"),
         day_range_end: "day-range-end",
         day_selected:
-          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-        day_today: "bg-accent text-accent-foreground",
+          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground rounded-full",
+        day_today: "bg-accent text-accent-foreground rounded-full border border-primary/50",
         day_outside:
           "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
         day_disabled: "text-muted-foreground opacity-50",
