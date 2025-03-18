@@ -1,18 +1,13 @@
 "use client"
 
+import { DialogFooter } from "@/components/ui/dialog"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -60,16 +55,22 @@ export default function AmendmentsPage() {
       const response = await fetch("/api/admin/amendments")
       console.log("Response received:", response.status)
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }))
-        console.error("Error response:", errorData)
-        throw new Error(errorData.error || "Failed to fetch amendments")
+      // Read the response body ONCE as text
+      const responseText = await response.text()
+
+      // Try to parse it as JSON
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (e) {
+        console.error("Response is not valid JSON:", responseText)
+        throw new Error("Invalid response format from server")
       }
 
-      const data = await response.json().catch(() => {
-        console.error("Failed to parse JSON response")
-        throw new Error("Invalid response format from server")
-      })
+      if (!response.ok) {
+        console.error("Error response:", data)
+        throw new Error(data.error || "Failed to fetch amendments")
+      }
 
       console.log("Amendments data:", data)
 
@@ -87,7 +88,7 @@ export default function AmendmentsPage() {
     }
   }
 
-  // Update the updateAmendmentStatus function for better error handling
+  // Let's update the updateAmendmentStatus function to properly handle the response body
   const updateAmendmentStatus = async (
     amendmentId: string,
     newStatus: string,
@@ -115,23 +116,24 @@ export default function AmendmentsPage() {
 
       console.log(`Response status: ${response.status}`)
 
-      if (!response.ok) {
-        let errorMessage = "Failed to update amendment status"
+      // Read the response body ONCE as text
+      const responseText = await response.text()
 
-        try {
-          const errorData = await response.json()
-          console.error("Error response:", errorData)
-          errorMessage = errorData.error || errorMessage
-        } catch (e) {
-          console.error("Failed to parse error response:", e)
-          const errorText = await response.text()
-          console.error("Error response text:", errorText)
-        }
-
-        throw new Error(errorMessage)
+      // Try to parse it as JSON
+      let responseData
+      try {
+        responseData = JSON.parse(responseText)
+      } catch (e) {
+        console.error("Response is not valid JSON:", responseText)
+        // If it's not JSON, use the text as is
+        responseData = { error: responseText || "Unknown error" }
       }
 
-      const responseData = await response.json()
+      if (!response.ok) {
+        console.error("Error response:", responseData)
+        throw new Error(responseData.error || "Failed to update amendment status")
+      }
+
       console.log("Response data:", responseData)
 
       // Update the amendments list
@@ -155,6 +157,7 @@ export default function AmendmentsPage() {
       return false
     } finally {
       setLoadingAmendmentId(null)
+      setSelectedAction(null)
     }
   }
 

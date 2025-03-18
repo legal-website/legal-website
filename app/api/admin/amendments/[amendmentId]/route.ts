@@ -73,6 +73,7 @@ export async function PATCH(request: Request, { params }: { params: { amendmentI
         console.log(`Parsed payment amount: ${paymentAmount}`)
       } else {
         console.log(`Invalid payment amount: ${paymentAmountStr}`)
+        return NextResponse.json({ error: "Invalid payment amount" }, { status: 400 })
       }
     }
 
