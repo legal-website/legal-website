@@ -1,17 +1,22 @@
 "use client"
 
-import { DialogFooter } from "@/components/ui/dialog"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { toast } from "@/components/ui/use-toast"
+import { toast } from "@/lib/toast-utils"
 import { Loader2 } from "lucide-react"
 import { AmendmentStatus } from "@/lib/db/schema"
 
@@ -47,6 +52,155 @@ export default function AmendmentsPage() {
   useEffect(() => {
     fetchAmendments()
   }, [])
+
+  // Update the testDatabaseConnection function to use our new endpoints
+  const testDatabaseConnection = async () => {
+    try {
+      console.log("Testing database connection...")
+
+      // First try the basic connection test
+      const connectionResponse = await fetch("/api/admin/test-db-connection")
+      const connectionText = await connectionResponse.text()
+
+      console.log(`Connection test response status: ${connectionResponse.status}`)
+      console.log(`Connection test response text: ${connectionText}`)
+
+      let connectionData
+      try {
+        connectionData = JSON.parse(connectionText)
+        console.log("Connection test data:", connectionData)
+      } catch (e) {
+        console.error("Connection test response is not valid JSON")
+      }
+
+      if (!connectionResponse.ok) {
+        toast({
+          title: "Database Connection Error",
+          description: connectionData?.error || "Failed to connect to database",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // If connection is successful, try the inspection endpoint
+      const inspectResponse = await fetch("/api/admin/inspect-db")
+      const inspectText = await inspectResponse.text()
+
+      console.log(`Inspect DB response status: ${inspectResponse.status}`)
+      console.log(`Inspect DB response text: ${inspectText}`)
+
+      let inspectData
+      try {
+        inspectData = JSON.parse(inspectText)
+        console.log("Inspect DB data:", inspectData)
+      } catch (e) {
+        console.error("Inspect DB response is not valid JSON")
+      }
+
+      if (inspectResponse.ok && inspectData?.success) {
+        // Show a success message with some details about the DB
+        const modelsList = inspectData.models.join(", ")
+        toast({
+          title: "Database Connection",
+          description: `Connection successful. Available models: ${modelsList}`,
+        })
+      } else if (connectionResponse.ok) {
+        // Connection works but inspection failed
+        toast({
+          title: "Database Connected",
+          description: "Database connection is working, but there may be issues with the schema or models.",
+          variant: "warning",
+        })
+      } else {
+        toast({
+          title: "Database Error",
+          description: inspectData?.error || "Unknown database error",
+          variant: "destructive",
+        })
+      }
+    } catch (err) {
+      console.error("Error testing database:", err)
+      toast({
+        title: "Connection Error",
+        description: err instanceof Error ? err.message : "Unknown connection error",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const inspectDatabase = async () => {
+    try {
+      console.log("Inspecting database...")
+
+      const response = await fetch("/api/admin/inspect-db")
+      const responseText = await response.text()
+
+      console.log(`Inspect DB response status: ${response.status}`)
+      console.log(`Inspect DB response text: ${responseText}`)
+
+      let data
+      try {
+        data = JSON.parse(responseText)
+        console.log("Inspect DB data:", data)
+      } catch (e) {
+        console.error("Inspect DB response is not valid JSON")
+      }
+
+      if (response.ok && data?.success) {
+        // Show a success message with some details about the DB
+        toast({
+          title: "Database Inspection",
+          description: `Check console for detailed database information`,
+        })
+      } else {
+        toast({
+          title: "Inspection Error",
+          description: data?.error || "Unknown error during database inspection",
+          variant: "destructive",
+        })
+      }
+    } catch (err) {
+      console.error("Error inspecting database:", err)
+      toast({
+        title: "Inspection Error",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const debugAmendment = async (amendmentId: string) => {
+    try {
+      console.log(`Debugging amendment ${amendmentId}`)
+
+      // Fetch the amendment directly to check if it exists
+      const response = await fetch(`/api/admin/amendments/${amendmentId}`)
+      const responseText = await response.text()
+
+      console.log(`Debug response status: ${response.status}`)
+      console.log(`Debug response text: ${responseText}`)
+
+      let data
+      try {
+        data = JSON.parse(responseText)
+        console.log("Debug data:", data)
+      } catch (e) {
+        console.error("Debug response is not valid JSON")
+      }
+
+      toast({
+        title: "Debug Info",
+        description: `Check console for debug information about amendment ${amendmentId}`,
+      })
+    } catch (err) {
+      console.error("Error debugging amendment:", err)
+      toast({
+        title: "Debug Error",
+        description: err instanceof Error ? err.message : "Unknown debug error",
+        variant: "destructive",
+      })
+    }
+  }
 
   const fetchAmendments = async () => {
     try {
@@ -88,7 +242,7 @@ export default function AmendmentsPage() {
     }
   }
 
-  // Let's update the updateAmendmentStatus function to properly handle the response body
+  // Let's update the updateAmendmentStatus function with more detailed error handling
   const updateAmendmentStatus = async (
     amendmentId: string,
     newStatus: string,
@@ -109,21 +263,39 @@ export default function AmendmentsPage() {
 
       console.log("Form data:", Object.fromEntries(formData.entries()))
 
-      const response = await fetch(`/api/admin/amendments/${amendmentId}/status`, {
-        method: "PATCH",
-        body: formData,
-      })
-
-      console.log(`Response status: ${response.status}`)
+      // Try to make the fetch request
+      let response
+      try {
+        response = await fetch(`/api/admin/amendments/${amendmentId}/status`, {
+          method: "PATCH",
+          body: formData,
+        })
+        console.log(`Response status: ${response.status}`)
+      } catch (fetchError) {
+        console.error("Network error during fetch:", fetchError)
+        throw new Error(
+          `Network error: ${fetchError instanceof Error ? fetchError.message : "Could not connect to server"}`,
+        )
+      }
 
       // Read the response body ONCE as text
-      const responseText = await response.text()
+      let responseText
+      try {
+        responseText = await response.text()
+        console.log("Raw response text:", responseText)
+      } catch (textError) {
+        console.error("Error reading response text:", textError)
+        throw new Error(
+          `Error reading response: ${textError instanceof Error ? textError.message : "Could not read response"}`,
+        )
+      }
 
       // Try to parse it as JSON
       let responseData
       try {
         responseData = JSON.parse(responseText)
-      } catch (e) {
+        console.log("Parsed response data:", responseData)
+      } catch (parseError) {
         console.error("Response is not valid JSON:", responseText)
         // If it's not JSON, use the text as is
         responseData = { error: responseText || "Unknown error" }
@@ -131,10 +303,8 @@ export default function AmendmentsPage() {
 
       if (!response.ok) {
         console.error("Error response:", responseData)
-        throw new Error(responseData.error || "Failed to update amendment status")
+        throw new Error(responseData.error || `Server error: ${response.status}`)
       }
-
-      console.log("Response data:", responseData)
 
       // Update the amendments list
       setAmendments((prev) =>
@@ -149,9 +319,13 @@ export default function AmendmentsPage() {
       return true
     } catch (err) {
       console.error("Error updating amendment status:", err)
+
+      // Show a more detailed error message
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred while updating the status"
+
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to update status",
+        description: errorMessage,
         variant: "destructive",
       })
       return false
@@ -198,12 +372,23 @@ export default function AmendmentsPage() {
       return
     }
 
-    const success = await updateAmendmentStatus(selectedAmendmentId, "waiting_for_payment", {
-      paymentAmount: Number.parseFloat(paymentAmount),
-      notes: adminNotes || undefined,
-    })
+    let updateSuccess
+    try {
+      updateSuccess = await updateAmendmentStatus(selectedAmendmentId, "waiting_for_payment", {
+        paymentAmount: Number.parseFloat(paymentAmount),
+        notes: adminNotes || undefined,
+      })
+    } catch (error) {
+      console.error("Error updating amendment status:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update amendment status. Please check the console for details.",
+        variant: "destructive",
+      })
+      return
+    }
 
-    if (success) {
+    if (updateSuccess) {
       setIsDialogOpen(false)
       setPaymentAmount("")
       setAdminNotes("")
@@ -217,7 +402,17 @@ export default function AmendmentsPage() {
 
   return (
     <div className="container mx-auto py-6">
-      <h1 className="text-2xl font-bold mb-6">Compliance Amendments</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Compliance Amendments</h1>
+        <div className="space-x-2">
+          <Button variant="outline" onClick={testDatabaseConnection} size="sm">
+            Test DB Connection
+          </Button>
+          <Button variant="outline" onClick={inspectDatabase} size="sm">
+            Inspect DB
+          </Button>
+        </div>
+      </div>
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -342,6 +537,14 @@ export default function AmendmentsPage() {
                               <Loader2 className="h-4 w-4 animate-spin mr-2" />
                             ) : null}
                             Request Payment
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => debugAmendment(amendment.id)}
+                            className="ml-auto"
+                          >
+                            Debug
                           </Button>
                         </>
                       )}
