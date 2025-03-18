@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
@@ -31,7 +33,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/components/ui/use-toast"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, CheckCircle, Download, Edit, FileText, Plus, RefreshCw, Search, Trash, Upload } from 'lucide-react'
+import {
+  Calendar,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Edit,
+  FileText,
+  Plus,
+  RefreshCw,
+  Search,
+  SortDesc,
+  Trash,
+  Upload,
+} from "lucide-react"
 import { format } from "date-fns"
 import { UserRole } from "@/lib/db/schema"
 
@@ -92,13 +108,17 @@ interface FilingRequirement {
   description: string
   details: string | null
   isActive: boolean
+  createdAt: string // Add this property
 }
+
+// Sort options
+type SortOption = "newest" | "oldest" | "dueDate" | "title" | "status" | "user"
 
 export default function AdminAnnualReportsPage() {
   const { toast } = useToast()
   const router = useRouter()
   const { data: session, status: sessionStatus } = useSession()
-  
+
   // States
   const [activeTab, setActiveTab] = useState("deadlines")
   const [users, setUsers] = useState<User[]>([])
@@ -107,7 +127,15 @@ export default function AdminAnnualReportsPage() {
   const [requirements, setRequirements] = useState<FilingRequirement[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  
+  const [backgroundRefreshing, setBackgroundRefreshing] = useState(false)
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
+
+  // Sorting states
+  const [sortBy, setSortBy] = useState<SortOption>("newest")
+
   // Dialog states
   const [showAddDeadlineDialog, setShowAddDeadlineDialog] = useState(false)
   const [showEditDeadlineDialog, setShowEditDeadlineDialog] = useState(false)
@@ -117,12 +145,12 @@ export default function AdminAnnualReportsPage() {
   const [showAddRequirementDialog, setShowAddRequirementDialog] = useState(false)
   const [showEditRequirementDialog, setShowEditRequirementDialog] = useState(false)
   const [showDeleteRequirementDialog, setShowDeleteRequirementDialog] = useState(false)
-  
+
   // Selected items
   const [selectedDeadline, setSelectedDeadline] = useState<Deadline | null>(null)
   const [selectedFiling, setSelectedFiling] = useState<Filing | null>(null)
   const [selectedRequirement, setSelectedRequirement] = useState<FilingRequirement | null>(null)
-  
+
   // Form data
   const [deadlineForm, setDeadlineForm] = useState({
     userId: "",
@@ -132,23 +160,23 @@ export default function AdminAnnualReportsPage() {
     fee: "0",
     lateFee: "0",
   })
-  
+
   const [filingForm, setFilingForm] = useState({
     status: "",
     adminNotes: "",
     reportUrl: "",
     reportFile: null as File | null,
   })
-  
+
   const [requirementForm, setRequirementForm] = useState({
     title: "",
     description: "",
     details: "",
     isActive: true,
   })
-  
+
   const [searchQuery, setSearchQuery] = useState("")
-  
+
   // Check if user is authenticated and is an admin
   useEffect(() => {
     if (sessionStatus === "loading") return
@@ -168,14 +196,32 @@ export default function AdminAnnualReportsPage() {
       })
     } else {
       fetchData()
+
+      // Set up auto-refresh every 5 minutes
+      const interval = setInterval(
+        () => {
+          fetchData(false, true) // Use background refresh for auto-refresh
+        },
+        5 * 60 * 1000,
+      )
+
+      return () => clearInterval(interval)
     }
   }, [session, sessionStatus, router, toast])
 
+  // Reset pagination when tab changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, searchQuery, sortBy])
+
   // Fetch all necessary data
-  const fetchData = async () => {
-    setLoading(true)
-    setRefreshing(true)
-    
+  const fetchData = async (showToast = true, isBackground = false) => {
+    if (!isBackground) {
+      setLoading(true)
+    }
+    if (showToast && !isBackground) setRefreshing(true)
+    if (isBackground) setBackgroundRefreshing(true)
+
     try {
       // Fetch users
       const usersResponse = await fetch("/api/admin/users")
@@ -187,28 +233,50 @@ export default function AdminAnnualReportsPage() {
           name: user.name || "Unknown",
           email: user.email,
           company: user.business?.name || "Not specified",
-        }))
+        })),
       )
-      
+
       // Fetch all deadlines
       const deadlinesResponse = await fetch("/api/admin/annual-reports/deadlines")
       if (!deadlinesResponse.ok) throw new Error("Failed to fetch deadlines")
       const deadlinesData = await deadlinesResponse.json()
-      setDeadlines(deadlinesData.deadlines || [])
-      
+
+      // Process deadlines to ensure they have user info
+      const processedDeadlines = deadlinesData.deadlines.map((deadline: Deadline) => {
+        const user = usersData.users.find((u: any) => u.id === deadline.userId)
+        return {
+          ...deadline,
+          userName: user?.name || "Unknown",
+          userEmail: user?.email || "unknown@example.com",
+        }
+      })
+
+      setDeadlines(processedDeadlines || [])
+
       // Fetch all filings
       const filingsResponse = await fetch("/api/admin/annual-reports/filings")
       if (!filingsResponse.ok) throw new Error("Failed to fetch filings")
       const filingsData = await filingsResponse.json()
-      setFilings(filingsData.filings || [])
-      
+
+      // Process filings to ensure they have user info
+      const processedFilings = filingsData.filings.map((filing: Filing) => {
+        const user = usersData.users.find((u: any) => u.id === filing.userId)
+        return {
+          ...filing,
+          userName: user?.name || filing.user?.name || "Unknown",
+          userEmail: user?.email || filing.user?.email || "unknown@example.com",
+        }
+      })
+
+      setFilings(processedFilings || [])
+
       // Fetch requirements
       const requirementsResponse = await fetch("/api/admin/annual-reports/requirements")
       if (!requirementsResponse.ok) throw new Error("Failed to fetch requirements")
       const requirementsData = await requirementsResponse.json()
       setRequirements(requirementsData.requirements || [])
-      
-      if (refreshing) {
+
+      if (showToast && !isBackground && refreshing) {
         toast({
           title: "Refreshed",
           description: "Data has been refreshed successfully.",
@@ -216,23 +284,27 @@ export default function AdminAnnualReportsPage() {
       }
     } catch (error) {
       console.error("Error fetching data:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load data. Please try again.",
-        variant: "destructive",
-      })
+      if (showToast && !isBackground) {
+        toast({
+          title: "Error",
+          description: "Failed to load data. Please try again.",
+          variant: "destructive",
+        })
+      }
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      if (!isBackground) {
+        setLoading(false)
+      }
+      if (showToast && !isBackground) setRefreshing(false)
+      setBackgroundRefreshing(false)
     }
   }
-  
+
   // Handle refresh
   const handleRefresh = () => {
-    setRefreshing(true)
-    fetchData()
+    fetchData(true, false)
   }
-  
+
   // Add a new deadline
   const handleAddDeadline = async () => {
     try {
@@ -246,26 +318,27 @@ export default function AdminAnnualReportsPage() {
           title: deadlineForm.title,
           description: deadlineForm.description,
           dueDate: new Date(deadlineForm.dueDate).toISOString(),
-          fee: parseFloat(deadlineForm.fee),
-          lateFee: parseFloat(deadlineForm.lateFee) || null,
+          fee: Number.parseFloat(deadlineForm.fee),
+          lateFee: Number.parseFloat(deadlineForm.lateFee) || null,
           status: "pending",
         }),
       })
-      
+
       if (!response.ok) throw new Error("Failed to add deadline")
-      
+
       const data = await response.json()
-      
+
       // Add the new deadline to the state
+      const user = users.find((u) => u.id === data.deadline.userId)
       const newDeadline = {
         ...data.deadline,
-        userName: users.find(u => u.id === data.deadline.userId)?.name || "Unknown",
-        userEmail: users.find(u => u.id === data.deadline.userId)?.email || "unknown@example.com",
+        userName: user?.name || "Unknown",
+        userEmail: user?.email || "unknown@example.com",
       }
-      
+
       setDeadlines([...deadlines, newDeadline])
       setShowAddDeadlineDialog(false)
-      
+
       // Reset form
       setDeadlineForm({
         userId: "",
@@ -275,7 +348,7 @@ export default function AdminAnnualReportsPage() {
         fee: "0",
         lateFee: "0",
       })
-      
+
       toast({
         title: "Deadline Added",
         description: "The deadline has been added successfully.",
@@ -289,11 +362,11 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-  
+
   // Update a deadline
   const handleUpdateDeadline = async () => {
     if (!selectedDeadline) return
-    
+
     try {
       const response = await fetch(`/api/admin/annual-reports/deadlines/${selectedDeadline.id}`, {
         method: "PUT",
@@ -305,33 +378,34 @@ export default function AdminAnnualReportsPage() {
           title: deadlineForm.title,
           description: deadlineForm.description,
           dueDate: new Date(deadlineForm.dueDate).toISOString(),
-          fee: parseFloat(deadlineForm.fee),
-          lateFee: parseFloat(deadlineForm.lateFee) || null,
+          fee: Number.parseFloat(deadlineForm.fee),
+          lateFee: Number.parseFloat(deadlineForm.lateFee) || null,
         }),
       })
-      
+
       if (!response.ok) throw new Error("Failed to update deadline")
-      
+
       // Update the deadline in the state
-      const updatedDeadlines = deadlines.map(deadline => 
+      const user = users.find((u) => u.id === deadlineForm.userId)
+      const updatedDeadlines = deadlines.map((deadline) =>
         deadline.id === selectedDeadline.id
           ? {
               ...deadline,
               userId: deadlineForm.userId,
-              userName: users.find(u => u.id === deadlineForm.userId)?.name || "Unknown",
-              userEmail: users.find(u => u.id === deadlineForm.userId)?.email || "unknown@example.com",
+              userName: user?.name || "Unknown",
+              userEmail: user?.email || "unknown@example.com",
               title: deadlineForm.title,
               description: deadlineForm.description,
               dueDate: new Date(deadlineForm.dueDate).toISOString(),
-              fee: parseFloat(deadlineForm.fee),
-              lateFee: parseFloat(deadlineForm.lateFee) || null,
+              fee: Number.parseFloat(deadlineForm.fee),
+              lateFee: Number.parseFloat(deadlineForm.lateFee) || null,
             }
-          : deadline
+          : deadline,
       )
-      
+
       setDeadlines(updatedDeadlines)
       setShowEditDeadlineDialog(false)
-      
+
       toast({
         title: "Deadline Updated",
         description: "The deadline has been updated successfully.",
@@ -345,23 +419,23 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-  
+
   // Delete a deadline
   const handleDeleteDeadline = async () => {
     if (!selectedDeadline) return
-    
+
     try {
       const response = await fetch(`/api/admin/annual-reports/deadlines/${selectedDeadline.id}`, {
         method: "DELETE",
       })
-      
+
       if (!response.ok) throw new Error("Failed to delete deadline")
-      
+
       // Remove the deadline from the state
-      const updatedDeadlines = deadlines.filter(deadline => deadline.id !== selectedDeadline.id)
+      const updatedDeadlines = deadlines.filter((deadline) => deadline.id !== selectedDeadline.id)
       setDeadlines(updatedDeadlines)
       setShowDeleteDeadlineDialog(false)
-      
+
       toast({
         title: "Deadline Deleted",
         description: "The deadline has been deleted successfully.",
@@ -375,7 +449,7 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-  
+
   // Handle file upload for report
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -385,30 +459,30 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-  
+
   // Update a filing
   const handleUpdateFiling = async () => {
     if (!selectedFiling) return
-    
+
     try {
       let reportUrl = filingForm.reportUrl
-      
+
       // If a file was uploaded, upload it first
       if (filingForm.reportFile) {
         const formData = new FormData()
-        formData.append('file', filingForm.reportFile)
-        formData.append('type', 'report')
-        
-        const uploadResponse = await fetch('/api/upload-receipt', {
-          method: 'POST',
+        formData.append("file", filingForm.reportFile)
+        formData.append("type", "report")
+
+        const uploadResponse = await fetch("/api/upload-receipt", {
+          method: "POST",
           body: formData,
         })
-        
-        if (!uploadResponse.ok) throw new Error('Failed to upload report')
+
+        if (!uploadResponse.ok) throw new Error("Failed to upload report")
         const uploadData = await uploadResponse.json()
         reportUrl = uploadData.url
       }
-      
+
       // Now update the filing
       const response = await fetch(`/api/admin/annual-reports/filings/${selectedFiling.id}`, {
         method: "PUT",
@@ -422,11 +496,11 @@ export default function AdminAnnualReportsPage() {
           filedDate: filingForm.status === "completed" ? new Date().toISOString() : selectedFiling.filedDate,
         }),
       })
-      
+
       if (!response.ok) throw new Error("Failed to update filing")
-      
+
       // Update the filing in the state
-      const updatedFilings = filings.map(filing => 
+      const updatedFilings = filings.map((filing) =>
         filing.id === selectedFiling.id
           ? {
               ...filing,
@@ -435,12 +509,12 @@ export default function AdminAnnualReportsPage() {
               reportUrl: reportUrl || filing.reportUrl,
               filedDate: filingForm.status === "completed" ? new Date().toISOString() : filing.filedDate,
             }
-          : filing
+          : filing,
       )
-      
+
       setFilings(updatedFilings)
       setShowUpdateFilingDialog(false)
-      
+
       toast({
         title: "Filing Updated",
         description: "The filing has been updated successfully.",
@@ -454,7 +528,7 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-  
+
   // Add a new requirement
   const handleAddRequirement = async () => {
     try {
@@ -470,15 +544,15 @@ export default function AdminAnnualReportsPage() {
           isActive: requirementForm.isActive,
         }),
       })
-      
+
       if (!response.ok) throw new Error("Failed to add requirement")
-      
+
       const data = await response.json()
-      
+
       // Add the new requirement to the state
       setRequirements([...requirements, data.requirement])
       setShowAddRequirementDialog(false)
-      
+
       // Reset form
       setRequirementForm({
         title: "",
@@ -486,7 +560,7 @@ export default function AdminAnnualReportsPage() {
         details: "",
         isActive: true,
       })
-      
+
       toast({
         title: "Requirement Added",
         description: "The filing requirement has been added successfully.",
@@ -500,11 +574,11 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-  
+
   // Update a requirement
   const handleUpdateRequirement = async () => {
     if (!selectedRequirement) return
-    
+
     try {
       const response = await fetch(`/api/admin/annual-reports/requirements/${selectedRequirement.id}`, {
         method: "PUT",
@@ -518,11 +592,11 @@ export default function AdminAnnualReportsPage() {
           isActive: requirementForm.isActive,
         }),
       })
-      
+
       if (!response.ok) throw new Error("Failed to update requirement")
-      
+
       // Update the requirement in the state
-      const updatedRequirements = requirements.map(requirement => 
+      const updatedRequirements = requirements.map((requirement) =>
         requirement.id === selectedRequirement.id
           ? {
               ...requirement,
@@ -531,12 +605,12 @@ export default function AdminAnnualReportsPage() {
               details: requirementForm.details || null,
               isActive: requirementForm.isActive,
             }
-          : requirement
+          : requirement,
       )
-      
+
       setRequirements(updatedRequirements)
       setShowEditRequirementDialog(false)
-      
+
       toast({
         title: "Requirement Updated",
         description: "The filing requirement has been updated successfully.",
@@ -550,23 +624,23 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-  
+
   // Delete a requirement
   const handleDeleteRequirement = async () => {
     if (!selectedRequirement) return
-    
+
     try {
       const response = await fetch(`/api/admin/annual-reports/requirements/${selectedRequirement.id}`, {
         method: "DELETE",
       })
-      
+
       if (!response.ok) throw new Error("Failed to delete requirement")
-      
+
       // Remove the requirement from the state
-      const updatedRequirements = requirements.filter(requirement => requirement.id !== selectedRequirement.id)
+      const updatedRequirements = requirements.filter((requirement) => requirement.id !== selectedRequirement.id)
       setRequirements(updatedRequirements)
       setShowDeleteRequirementDialog(false)
-      
+
       toast({
         title: "Requirement Deleted",
         description: "The filing requirement has been deleted successfully.",
@@ -580,21 +654,137 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-  
+
+  // Sort data based on selected option
+  const sortData = <T extends Deadline | Filing | FilingRequirement>(data: T[], sortOption: SortOption): T[] => {
+    if (data.length === 0) return data
+
+    const sortedData = [...data]
+
+    switch (sortOption) {
+      case "newest":
+        return sortedData.sort((a, b) => {
+          // Check if both items have createdAt property
+          if ("createdAt" in a && "createdAt" in b) {
+            return new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()
+          }
+          return 0
+        })
+      case "oldest":
+        return sortedData.sort((a, b) => {
+          // Check if both items have createdAt property
+          if ("createdAt" in a && "createdAt" in b) {
+            return new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime()
+          }
+          return 0
+        })
+      case "dueDate":
+        return sortedData.sort((a, b) => {
+          // Check if both items have dueDate property
+          if ("dueDate" in a && "dueDate" in b) {
+            const aDate = new Date(a.dueDate as string).getTime()
+            const bDate = new Date(b.dueDate as string).getTime()
+            return aDate - bDate
+          }
+          return 0
+        })
+      case "title":
+        return sortedData.sort((a, b) => {
+          // Check if both items have title property
+          if ("title" in a && "title" in b) {
+            return ((a.title as string) || "").localeCompare((b.title as string) || "")
+          }
+          return 0
+        })
+      case "status":
+        return sortedData.sort((a, b) => {
+          // Check if both items have status property
+          if ("status" in a && "status" in b) {
+            return (a.status as string).localeCompare(b.status as string)
+          }
+          return 0
+        })
+      case "user":
+        return sortedData.sort((a, b) => {
+          // Check if both items have userName property
+          if ("userName" in a && "userName" in b) {
+            return ((a.userName as string) || "").localeCompare((b.userName as string) || "")
+          }
+          return 0
+        })
+      default:
+        return sortedData
+    }
+  }
+
   // Filter deadlines based on search query
-  const filteredDeadlines = deadlines.filter(deadline => 
-    deadline.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (deadline.userName || deadline.user?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (deadline.userEmail || deadline.user?.email || "").toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredDeadlines = deadlines.filter(
+    (deadline) =>
+      deadline.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (deadline.userName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (deadline.userEmail || "").toLowerCase().includes(searchQuery.toLowerCase()),
   )
-  
+
   // Filter filings based on search query
-  const filteredFilings = filings.filter(filing => 
-    (filing.deadlineTitle || filing.deadline?.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (filing.userName || filing.user?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (filing.userEmail || filing.user?.email || "").toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredFilings = filings.filter(
+    (filing) =>
+      (filing.deadlineTitle || filing.deadline?.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (filing.userName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (filing.userEmail || "").toLowerCase().includes(searchQuery.toLowerCase()),
   )
-  
+
+  // Filter requirements based on search query
+  const filteredRequirements = requirements.filter(
+    (requirement) =>
+      requirement.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      requirement.description.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
+
+  // Sort filtered data
+  const sortedDeadlines = sortData(filteredDeadlines, sortBy)
+  const sortedFilings = sortData(filteredFilings, sortBy)
+  const sortedRequirements = sortData(filteredRequirements, sortBy)
+
+  // Pagination logic
+  const getPageItems = <T,>(items: T[]): T[] => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    return items.slice(startIndex, endIndex)
+  }
+
+  // Get current items for the active tab
+  const getCurrentItems = () => {
+    switch (activeTab) {
+      case "deadlines":
+        return getPageItems(sortedDeadlines)
+      case "filings":
+        return getPageItems(sortedFilings)
+      case "requirements":
+        return getPageItems(sortedRequirements)
+      default:
+        return []
+    }
+  }
+
+  // Get total pages for the active tab
+  const getTotalPages = () => {
+    let totalItems = 0
+
+    switch (activeTab) {
+      case "deadlines":
+        totalItems = sortedDeadlines.length
+        break
+      case "filings":
+        totalItems = sortedFilings.length
+        break
+      case "requirements":
+        totalItems = sortedRequirements.length
+        break
+    }
+
+    return Math.ceil(totalItems / itemsPerPage)
+  }
+
   // Get status badge color
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -610,17 +800,24 @@ export default function AdminAnnualReportsPage() {
         return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
       case "rejected":
         return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+      case "in_progress":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
     }
   }
-  
+
   // Format date
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "N/A"
-    return format(new Date(dateString), "MMM dd, yyyy")
+    try {
+      return format(new Date(dateString), "MMM dd, yyyy")
+    } catch (error) {
+      console.error("Error formatting date:", error)
+      return "Invalid Date"
+    }
   }
-  
+
   if (loading) {
     return (
       <div className="flex h-[50vh] w-full items-center justify-center">
@@ -636,9 +833,15 @@ export default function AdminAnnualReportsPage() {
       </div>
     )
   }
-  
+
   return (
     <div className="p-6 max-w-[1600px] mx-auto mb-40">
+      {backgroundRefreshing && (
+        <div className="fixed top-0 left-0 right-0 h-1 z-50">
+          <div className="h-full bg-primary animate-pulse"></div>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
@@ -651,17 +854,17 @@ export default function AdminAnnualReportsPage() {
             size="sm"
             className="flex items-center"
             onClick={handleRefresh}
-            disabled={refreshing}
+            disabled={refreshing || backgroundRefreshing}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             {refreshing ? "Refreshing..." : "Refresh"}
           </Button>
         </div>
       </div>
-      
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative">
+
+      {/* Search and Sort */}
+      <div className="mb-6 flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="Search by title, user name, or email..."
@@ -670,8 +873,26 @@ export default function AdminAnnualReportsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+        <div className="w-full sm:w-64">
+          <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+            <SelectTrigger>
+              <div className="flex items-center">
+                <SortDesc className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Sort by" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest First</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+              <SelectItem value="dueDate">Due Date</SelectItem>
+              <SelectItem value="title">Title</SelectItem>
+              <SelectItem value="status">Status</SelectItem>
+              <SelectItem value="user">User</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
-      
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList className="grid w-full grid-cols-3">
@@ -679,7 +900,7 @@ export default function AdminAnnualReportsPage() {
           <TabsTrigger value="filings">Filings</TabsTrigger>
           <TabsTrigger value="requirements">Requirements</TabsTrigger>
         </TabsList>
-        
+
         {/* Deadlines Tab */}
         <TabsContent value="deadlines">
           <Card className="p-6">
@@ -690,7 +911,7 @@ export default function AdminAnnualReportsPage() {
                 Add Deadline
               </Button>
             </div>
-            
+
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -704,20 +925,20 @@ export default function AdminAnnualReportsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDeadlines.length === 0 ? (
+                  {getPageItems(sortedDeadlines).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-4">
                         No deadlines found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredDeadlines.map((deadline) => (
+                    getPageItems(sortedDeadlines).map((deadline) => (
                       <TableRow key={deadline.id}>
                         <TableCell className="font-medium">{deadline.title}</TableCell>
                         <TableCell>
                           <div>
-                            <p>{deadline.userName || deadline.user?.name || "Unknown"}</p>
-                            <p className="text-sm text-muted-foreground">{deadline.userEmail || deadline.user?.email}</p>
+                            <p>{deadline.userName || "Unknown"}</p>
+                            <p className="text-sm text-muted-foreground">{deadline.userEmail}</p>
                           </div>
                         </TableCell>
                         <TableCell>{formatDate(deadline.dueDate)}</TableCell>
@@ -766,16 +987,47 @@ export default function AdminAnnualReportsPage() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Pagination */}
+            {getTotalPages() > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+                  {Math.min(currentPage * itemsPerPage, sortedDeadlines.length)} of {sortedDeadlines.length} entries
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-sm">
+                    Page {currentPage} of {getTotalPages()}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, getTotalPages()))}
+                    disabled={currentPage === getTotalPages()}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </TabsContent>
-        
+
         {/* Filings Tab */}
         <TabsContent value="filings">
           <Card className="p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold">Annual Report Filings</h2>
             </div>
-            
+
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -789,20 +1041,20 @@ export default function AdminAnnualReportsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredFilings.length === 0 ? (
+                  {getPageItems(sortedFilings).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-4">
                         No filings found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredFilings.map((filing) => (
+                    getPageItems(sortedFilings).map((filing) => (
                       <TableRow key={filing.id}>
                         <TableCell className="font-medium">{filing.deadlineTitle || filing.deadline?.title}</TableCell>
                         <TableCell>
                           <div>
-                            <p>{filing.userName || filing.user?.name || "Unknown"}</p>
-                            <p className="text-sm text-muted-foreground">{filing.userEmail || filing.user?.email}</p>
+                            <p>{filing.userName || "Unknown"}</p>
+                            <p className="text-sm text-muted-foreground">{filing.userEmail}</p>
                           </div>
                         </TableCell>
                         <TableCell>{formatDate(filing.dueDate || filing.deadline?.dueDate)}</TableCell>
@@ -851,9 +1103,40 @@ export default function AdminAnnualReportsPage() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Pagination */}
+            {getTotalPages() > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+                  {Math.min(currentPage * itemsPerPage, sortedFilings.length)} of {sortedFilings.length} entries
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-sm">
+                    Page {currentPage} of {getTotalPages()}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, getTotalPages()))}
+                    disabled={currentPage === getTotalPages()}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </TabsContent>
-        
+
         {/* Requirements Tab */}
         <TabsContent value="requirements">
           <Card className="p-6">
@@ -864,7 +1147,7 @@ export default function AdminAnnualReportsPage() {
                 Add Requirement
               </Button>
             </div>
-            
+
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -876,14 +1159,14 @@ export default function AdminAnnualReportsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {requirements.length === 0 ? (
+                  {getPageItems(sortedRequirements).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center py-4">
                         No requirements found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    requirements.map((requirement) => (
+                    getPageItems(sortedRequirements).map((requirement) => (
                       <TableRow key={requirement.id}>
                         <TableCell className="font-medium">{requirement.title}</TableCell>
                         <TableCell>{requirement.description}</TableCell>
@@ -933,10 +1216,42 @@ export default function AdminAnnualReportsPage() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Pagination */}
+            {getTotalPages() > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+                  {Math.min(currentPage * itemsPerPage, sortedRequirements.length)} of {sortedRequirements.length}{" "}
+                  entries
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-sm">
+                    Page {currentPage} of {getTotalPages()}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, getTotalPages()))}
+                    disabled={currentPage === getTotalPages()}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </TabsContent>
       </Tabs>
-      
+
       {/* Add Deadline Dialog */}
       <Dialog open={showAddDeadlineDialog} onOpenChange={setShowAddDeadlineDialog}>
         <DialogContent className="sm:max-w-[600px]">
@@ -944,7 +1259,7 @@ export default function AdminAnnualReportsPage() {
             <DialogTitle>Add New Deadline</DialogTitle>
             <DialogDescription>Create a new annual report deadline for a user</DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid gap-4 py-4">
             <div>
               <Label htmlFor="userId">User</Label>
@@ -964,7 +1279,7 @@ export default function AdminAnnualReportsPage() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
               <Label htmlFor="title">Title</Label>
               <Input
@@ -975,7 +1290,7 @@ export default function AdminAnnualReportsPage() {
                 placeholder="Annual Report 2024"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -986,7 +1301,7 @@ export default function AdminAnnualReportsPage() {
                 placeholder="Description of the annual report filing"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="dueDate">Due Date</Label>
               <Input
@@ -997,7 +1312,7 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setDeadlineForm({ ...deadlineForm, dueDate: e.target.value })}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="fee">Fee ($)</Label>
@@ -1010,7 +1325,7 @@ export default function AdminAnnualReportsPage() {
                   placeholder="75.00"
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="lateFee">Late Fee ($)</Label>
                 <Input
@@ -1024,7 +1339,7 @@ export default function AdminAnnualReportsPage() {
               </div>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDeadlineDialog(false)}>
               Cancel
@@ -1041,7 +1356,7 @@ export default function AdminAnnualReportsPage() {
             <DialogTitle>Edit Deadline</DialogTitle>
             <DialogDescription>Update the annual report deadline</DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid gap-4 py-4">
             <div>
               <Label htmlFor="userId">User</Label>
@@ -1061,7 +1376,7 @@ export default function AdminAnnualReportsPage() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
               <Label htmlFor="title">Title</Label>
               <Input
@@ -1071,7 +1386,7 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setDeadlineForm({ ...deadlineForm, title: e.target.value })}
               />
             </div>
-            
+
             <div>
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -1081,7 +1396,7 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setDeadlineForm({ ...deadlineForm, description: e.target.value })}
               />
             </div>
-            
+
             <div>
               <Label htmlFor="dueDate">Due Date</Label>
               <Input
@@ -1092,7 +1407,7 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setDeadlineForm({ ...deadlineForm, dueDate: e.target.value })}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="fee">Fee ($)</Label>
@@ -1104,7 +1419,7 @@ export default function AdminAnnualReportsPage() {
                   onChange={(e) => setDeadlineForm({ ...deadlineForm, fee: e.target.value })}
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="lateFee">Late Fee ($)</Label>
                 <Input
@@ -1117,7 +1432,7 @@ export default function AdminAnnualReportsPage() {
               </div>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditDeadlineDialog(false)}>
               Cancel
@@ -1126,7 +1441,7 @@ export default function AdminAnnualReportsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Delete Deadline Dialog */}
       <AlertDialog open={showDeleteDeadlineDialog} onOpenChange={setShowDeleteDeadlineDialog}>
         <AlertDialogContent>
@@ -1144,24 +1459,26 @@ export default function AdminAnnualReportsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
+
       {/* View Filing Dialog */}
       {selectedFiling && (
         <Dialog open={showViewFilingDialog} onOpenChange={setShowViewFilingDialog}>
           <DialogContent className="sm:max-w-[800px]">
             <DialogHeader>
               <DialogTitle>Filing Details</DialogTitle>
-              <DialogDescription>View details for {selectedFiling.deadlineTitle || selectedFiling.deadline?.title}</DialogDescription>
+              <DialogDescription>
+                View details for {selectedFiling.deadlineTitle || selectedFiling.deadline?.title}
+              </DialogDescription>
             </DialogHeader>
-            
+
             <div className="grid gap-6 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium mb-1">User</h3>
-                  <p>{selectedFiling.userName || selectedFiling.user?.name || "Unknown"}</p>
-                  <p className="text-sm text-muted-foreground">{selectedFiling.userEmail || selectedFiling.user?.email}</p>
+                  <p>{selectedFiling.userName || "Unknown"}</p>
+                  <p className="text-sm text-muted-foreground">{selectedFiling.userEmail}</p>
                 </div>
-                
+
                 <div>
                   <h3 className="text-sm font-medium mb-1">Status</h3>
                   <Badge className={getStatusBadgeColor(selectedFiling.status)}>
@@ -1171,18 +1488,18 @@ export default function AdminAnnualReportsPage() {
                       .join(" ")}
                   </Badge>
                 </div>
-                
+
                 <div>
                   <h3 className="text-sm font-medium mb-1">Due Date</h3>
                   <p>{formatDate(selectedFiling.dueDate || selectedFiling.deadline?.dueDate)}</p>
                 </div>
-                
+
                 <div>
                   <h3 className="text-sm font-medium mb-1">Filed Date</h3>
                   <p>{selectedFiling.filedDate ? formatDate(selectedFiling.filedDate) : "Not filed yet"}</p>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {selectedFiling.receiptUrl && (
                   <div>
@@ -1204,7 +1521,7 @@ export default function AdminAnnualReportsPage() {
                     </div>
                   </div>
                 )}
-                
+
                 {selectedFiling.reportUrl && (
                   <div>
                     <h3 className="text-sm font-medium mb-2">Filed Report</h3>
@@ -1222,7 +1539,7 @@ export default function AdminAnnualReportsPage() {
                   </div>
                 )}
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {selectedFiling.userNotes && (
                   <div>
@@ -1230,7 +1547,7 @@ export default function AdminAnnualReportsPage() {
                     <p className="text-sm p-3 bg-gray-50 rounded-md">{selectedFiling.userNotes}</p>
                   </div>
                 )}
-                
+
                 {selectedFiling.adminNotes && (
                   <div>
                     <h3 className="text-sm font-medium mb-1">Admin Notes</h3>
@@ -1239,7 +1556,7 @@ export default function AdminAnnualReportsPage() {
                 )}
               </div>
             </div>
-            
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowViewFilingDialog(false)}>
                 Close
@@ -1262,7 +1579,7 @@ export default function AdminAnnualReportsPage() {
           </DialogContent>
         </Dialog>
       )}
-      
+
       {/* Update Filing Dialog */}
       {selectedFiling && (
         <Dialog open={showUpdateFilingDialog} onOpenChange={setShowUpdateFilingDialog}>
@@ -1271,7 +1588,7 @@ export default function AdminAnnualReportsPage() {
               <DialogTitle>Update Filing</DialogTitle>
               <DialogDescription>Update the filing status and upload report</DialogDescription>
             </DialogHeader>
-            
+
             <div className="grid gap-4 py-4">
               <div>
                 <Label htmlFor="status">Status</Label>
@@ -1290,7 +1607,7 @@ export default function AdminAnnualReportsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div>
                 <Label htmlFor="adminNotes">Admin Notes</Label>
                 <Textarea
@@ -1301,7 +1618,7 @@ export default function AdminAnnualReportsPage() {
                   placeholder="Add notes about this filing"
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="reportUrl">Report URL</Label>
                 <Input
@@ -1312,7 +1629,7 @@ export default function AdminAnnualReportsPage() {
                   placeholder="URL to the filed report document"
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="reportFile">Or Upload Report File</Label>
                 <div className="border-2 border-dashed rounded-md p-6 text-center mt-2">
@@ -1339,7 +1656,7 @@ export default function AdminAnnualReportsPage() {
                 </div>
               </div>
             </div>
-            
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowUpdateFilingDialog(false)}>
                 Cancel
@@ -1349,7 +1666,7 @@ export default function AdminAnnualReportsPage() {
           </DialogContent>
         </Dialog>
       )}
-      
+
       {/* Add Requirement Dialog */}
       <Dialog open={showAddRequirementDialog} onOpenChange={setShowAddRequirementDialog}>
         <DialogContent className="sm:max-w-[600px]">
@@ -1357,7 +1674,7 @@ export default function AdminAnnualReportsPage() {
             <DialogTitle>Add Filing Requirement</DialogTitle>
             <DialogDescription>Create a new filing requirement</DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid gap-4 py-4">
             <div>
               <Label htmlFor="title">Title</Label>
@@ -1369,7 +1686,7 @@ export default function AdminAnnualReportsPage() {
                 placeholder="Annual Report"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -1380,7 +1697,7 @@ export default function AdminAnnualReportsPage() {
                 placeholder="Description of the filing requirement"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="details">Details</Label>
               <Textarea
@@ -1390,11 +1707,9 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setRequirementForm({ ...requirementForm, details: e.target.value })}
                 placeholder="Additional details like fees, deadlines, etc."
               />
-              <p className="text-sm text-muted-foreground mt-1">
-                Use line breaks to separate items
-              </p>
+              <p className="text-sm text-muted-foreground mt-1">Use line breaks to separate items</p>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -1406,7 +1721,7 @@ export default function AdminAnnualReportsPage() {
               <Label htmlFor="isActive">Active</Label>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddRequirementDialog(false)}>
               Cancel
@@ -1415,7 +1730,7 @@ export default function AdminAnnualReportsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Edit Requirement Dialog */}
       <Dialog open={showEditRequirementDialog} onOpenChange={setShowEditRequirementDialog}>
         <DialogContent className="sm:max-w-[600px]">
@@ -1423,7 +1738,7 @@ export default function AdminAnnualReportsPage() {
             <DialogTitle>Edit Filing Requirement</DialogTitle>
             <DialogDescription>Update the filing requirement</DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid gap-4 py-4">
             <div>
               <Label htmlFor="title">Title</Label>
@@ -1434,7 +1749,7 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setRequirementForm({ ...requirementForm, title: e.target.value })}
               />
             </div>
-            
+
             <div>
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -1444,7 +1759,7 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setRequirementForm({ ...requirementForm, description: e.target.value })}
               />
             </div>
-            
+
             <div>
               <Label htmlFor="details">Details</Label>
               <Textarea
@@ -1453,11 +1768,9 @@ export default function AdminAnnualReportsPage() {
                 value={requirementForm.details}
                 onChange={(e) => setRequirementForm({ ...requirementForm, details: e.target.value })}
               />
-              <p className="text-sm text-muted-foreground mt-1">
-                Use line breaks to separate items
-              </p>
+              <p className="text-sm text-muted-foreground mt-1">Use line breaks to separate items</p>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -1469,7 +1782,7 @@ export default function AdminAnnualReportsPage() {
               <Label htmlFor="isActive">Active</Label>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditRequirementDialog(false)}>
               Cancel
@@ -1478,7 +1791,7 @@ export default function AdminAnnualReportsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Delete Requirement Dialog */}
       <AlertDialog open={showDeleteRequirementDialog} onOpenChange={setShowDeleteRequirementDialog}>
         <AlertDialogContent>
@@ -1499,3 +1812,4 @@ export default function AdminAnnualReportsPage() {
     </div>
   )
 }
+
