@@ -21,12 +21,14 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
-import Link from "next/link"
 import SpendingAnalytics from "@/components/spending-analytics"
 // Import the AccountManagerRequest component at the top of the file
 import { AccountManagerRequest } from "@/components/account-manager-request"
 // Import the ContactPopup component at the top of the file:
 import { ContactPopup } from "@/components/contact-popup"
+// Add these imports at the top of the file with the other imports
+import { getUserTickets } from "@/lib/actions/ticket-actions"
+import Link from "next/link"
 
 interface Invoice {
   id: string
@@ -84,6 +86,15 @@ interface Template {
   downloadCount?: number // User-specific download count
 }
 
+// Add this interface after the other interfaces
+interface Ticket {
+  id: string
+  subject: string
+  status: "open" | "closed" | "pending"
+  createdAt: string
+  updatedAt: string
+}
+
 // Attractive loader component
 const DashboardLoader = () => {
   return (
@@ -135,6 +146,10 @@ export default function DashboardPage() {
   })
   const [phoneNumberRequest, setPhoneNumberRequest] = useState<PhoneNumberRequest | null>(null)
   const [accountManagerRequest, setAccountManagerRequest] = useState<AccountManagerRequestType | null>(null)
+  // Update the DashboardPage component to include ticket state
+  // Add this to the state declarations at the top of the component
+  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [ticketsLoading, setTicketsLoading] = useState(true)
 
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -143,14 +158,32 @@ export default function DashboardPage() {
     }
   }, [status, router])
 
+  // Add this function to fetch tickets
+  const fetchTickets = async () => {
+    try {
+      const { tickets, error } = await getUserTickets()
+      if (!error && tickets) {
+        setTickets(tickets)
+      }
+    } catch (error) {
+      console.error("Error fetching tickets:", error)
+    } finally {
+      setTicketsLoading(false)
+    }
+  }
+
+  // Add fetchTickets to the useEffect that runs when session is available
+  // Find the useEffect that includes fetchBusinessData and add fetchTickets
+  // Modify the useEffect to include fetchTickets:
   useEffect(() => {
     if (session) {
       fetchBusinessData()
       fetchUserInvoices()
       fetchPhoneNumberRequest()
-      fetchAccountManagerRequest() // Add this to fetch account manager request
-      fetchTemplates() // Add this to fetch templates
-      fetchUserDownloadCounts() // Add this to fetch user-specific download counts
+      fetchAccountManagerRequest()
+      fetchTemplates()
+      fetchUserDownloadCounts()
+      fetchTickets() // Add this line
     } else {
       setLoading(false)
     }
@@ -1098,6 +1131,66 @@ export default function DashboardPage() {
               </Button>
             </Link>
           </div>
+        </div>
+      </Card>
+
+      {/* My Tickets Section */}
+      <Card className="mb-8">
+        <div className="p-6 border-b flex justify-between items-center">
+          <h2 className="text-xl font-semibold">My Tickets</h2>
+          <Link href="/dashboard/tickets" passHref>
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <span>View All</span>
+              <ExternalLink className="w-4 h-4" />
+            </Button>
+          </Link>
+        </div>
+        <div className="p-6">
+          {ticketsLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            </div>
+          ) : tickets.length > 0 ? (
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-gray-600">
+                  <th className="pb-4 font-medium">Ticket Subject</th>
+                  <th className="pb-4 font-medium">Ticket ID</th>
+                  <th className="pb-4 font-medium">Status</th>
+                  <th className="pb-4 font-medium">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {tickets.slice(0, 3).map((ticket) => (
+                  <tr key={ticket.id}>
+                    <td className="py-4 font-medium">{ticket.subject}</td>
+                    <td className="py-4">{ticket.id.substring(0, 8)}</td>
+                    <td className="py-4">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          ticket.status === "open"
+                            ? "bg-green-100 text-green-800"
+                            : ticket.status === "pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="py-4">{new Date(ticket.createdAt).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500 mb-4">You don't have any support tickets yet</p>
+              <Link href="/dashboard/tickets/new" passHref>
+                <Button variant="default">Create a Ticket</Button>
+              </Link>
+            </div>
+          )}
         </div>
       </Card>
 
