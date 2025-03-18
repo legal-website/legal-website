@@ -31,46 +31,59 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/components/ui/use-toast"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Download, Edit, FileText, Plus, RefreshCw, Search, Trash, Upload } from "lucide-react"
+import { Calendar, CheckCircle, Download, Edit, FileText, Plus, RefreshCw, Search, Trash, Upload } from 'lucide-react'
 import { format } from "date-fns"
-import { UserRole as Role } from "@/lib/db/schema"
+import { UserRole } from "@/lib/db/schema"
+
 // Types
 interface User {
   id: string
-  name: string
+  name: string | null
   email: string
-  company: string
+  company?: string
 }
 
 interface Deadline {
   id: string
   userId: string
-  userName: string
-  userEmail: string
+  userName?: string
+  userEmail?: string
   title: string
-  description: string
+  description: string | null
   dueDate: string
   fee: number
-  lateFee: number
-  status: "pending" | "completed" | "overdue"
+  lateFee: number | null
+  status: string
   createdAt: string
+  user?: {
+    name: string | null
+    email: string
+  }
 }
 
 interface Filing {
   id: string
   deadlineId: string
   userId: string
-  userName: string
-  userEmail: string
-  deadlineTitle: string
+  userName?: string
+  userEmail?: string
+  deadlineTitle?: string
   receiptUrl: string | null
   reportUrl: string | null
-  status: "pending_payment" | "payment_received" | "completed" | "rejected"
+  status: string
   adminNotes: string | null
   userNotes: string | null
   filedDate: string | null
   createdAt: string
-  dueDate: string
+  dueDate?: string
+  deadline?: {
+    title: string
+    dueDate: string
+  }
+  user?: {
+    name: string | null
+    email: string
+  }
 }
 
 interface FilingRequirement {
@@ -85,7 +98,7 @@ export default function AdminAnnualReportsPage() {
   const { toast } = useToast()
   const router = useRouter()
   const { data: session, status: sessionStatus } = useSession()
-
+  
   // States
   const [activeTab, setActiveTab] = useState("deadlines")
   const [users, setUsers] = useState<User[]>([])
@@ -94,7 +107,7 @@ export default function AdminAnnualReportsPage() {
   const [requirements, setRequirements] = useState<FilingRequirement[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-
+  
   // Dialog states
   const [showAddDeadlineDialog, setShowAddDeadlineDialog] = useState(false)
   const [showEditDeadlineDialog, setShowEditDeadlineDialog] = useState(false)
@@ -104,12 +117,12 @@ export default function AdminAnnualReportsPage() {
   const [showAddRequirementDialog, setShowAddRequirementDialog] = useState(false)
   const [showEditRequirementDialog, setShowEditRequirementDialog] = useState(false)
   const [showDeleteRequirementDialog, setShowDeleteRequirementDialog] = useState(false)
-
+  
   // Selected items
   const [selectedDeadline, setSelectedDeadline] = useState<Deadline | null>(null)
   const [selectedFiling, setSelectedFiling] = useState<Filing | null>(null)
   const [selectedRequirement, setSelectedRequirement] = useState<FilingRequirement | null>(null)
-
+  
   // Form data
   const [deadlineForm, setDeadlineForm] = useState({
     userId: "",
@@ -119,22 +132,23 @@ export default function AdminAnnualReportsPage() {
     fee: "0",
     lateFee: "0",
   })
-
+  
   const [filingForm, setFilingForm] = useState({
     status: "",
     adminNotes: "",
     reportUrl: "",
+    reportFile: null as File | null,
   })
-
+  
   const [requirementForm, setRequirementForm] = useState({
     title: "",
     description: "",
     details: "",
     isActive: true,
   })
-
+  
   const [searchQuery, setSearchQuery] = useState("")
-
+  
   // Check if user is authenticated and is an admin
   useEffect(() => {
     if (sessionStatus === "loading") return
@@ -145,7 +159,7 @@ export default function AdminAnnualReportsPage() {
     }
 
     // Only ADMIN users can access this page
-    if ((session.user as any).role !== Role.ADMIN) {
+    if ((session.user as any).role !== UserRole.ADMIN) {
       router.push("/dashboard")
       toast({
         title: "Access Denied",
@@ -161,7 +175,7 @@ export default function AdminAnnualReportsPage() {
   const fetchData = async () => {
     setLoading(true)
     setRefreshing(true)
-
+    
     try {
       // Fetch users
       const usersResponse = await fetch("/api/admin/users")
@@ -172,90 +186,28 @@ export default function AdminAnnualReportsPage() {
           id: user.id,
           name: user.name || "Unknown",
           email: user.email,
-          company: user.company || "Not specified",
-        })),
+          company: user.business?.name || "Not specified",
+        }))
       )
-
-      // Fetch deadlines
-      // In a real implementation, you would have an API endpoint for this
-      // For now, we'll use mock data
-      const mockDeadlines: Deadline[] = [
-        {
-          id: "1",
-          userId: "user1",
-          userName: "John Doe",
-          userEmail: "john@example.com",
-          title: "Annual Report Filing",
-          description: "2024 Annual Report Filing",
-          dueDate: "2024-07-15T00:00:00.000Z",
-          fee: 75.0,
-          lateFee: 25.0,
-          status: "pending",
-          createdAt: "2024-05-01T00:00:00.000Z",
-        },
-        {
-          id: "2",
-          userId: "user2",
-          userName: "Jane Smith",
-          userEmail: "jane@example.com",
-          title: "Tax Filing Deadline",
-          description: "2024 Tax Filing",
-          dueDate: "2024-09-30T00:00:00.000Z",
-          fee: 150.0,
-          lateFee: 50.0,
-          status: "pending",
-          createdAt: "2024-05-01T00:00:00.000Z",
-        },
-      ]
-      setDeadlines(mockDeadlines)
-
-      // Fetch filings
-      // In a real implementation, you would have an API endpoint for this
-      // For now, we'll use mock data
-      const mockFilings: Filing[] = [
-        {
-          id: "1",
-          deadlineId: "1",
-          userId: "user1",
-          userName: "John Doe",
-          userEmail: "john@example.com",
-          deadlineTitle: "Annual Report Filing",
-          receiptUrl: "/placeholder.svg?height=300&width=300",
-          reportUrl: null,
-          status: "payment_received",
-          adminNotes: "Payment received, processing report",
-          userNotes: "Payment submitted via bank transfer",
-          filedDate: null,
-          createdAt: "2024-05-10T00:00:00.000Z",
-          dueDate: "2024-07-15T00:00:00.000Z",
-        },
-      ]
-      setFilings(mockFilings)
-
+      
+      // Fetch all deadlines
+      const deadlinesResponse = await fetch("/api/admin/annual-reports/deadlines")
+      if (!deadlinesResponse.ok) throw new Error("Failed to fetch deadlines")
+      const deadlinesData = await deadlinesResponse.json()
+      setDeadlines(deadlinesData.deadlines || [])
+      
+      // Fetch all filings
+      const filingsResponse = await fetch("/api/admin/annual-reports/filings")
+      if (!filingsResponse.ok) throw new Error("Failed to fetch filings")
+      const filingsData = await filingsResponse.json()
+      setFilings(filingsData.filings || [])
+      
       // Fetch requirements
-      // In a real implementation, you would have an API endpoint for this
-      // For now, we'll use mock data
-      const mockRequirements: FilingRequirement[] = [
-        {
-          id: "1",
-          title: "Annual Report",
-          description:
-            "Your company is required to file an annual report with the Secretary of State by July 15 each year.",
-          details:
-            "Filing fee: $75.00\nLate fee: $25.00 per month\nRequired information: Company address, registered agent, officer information",
-          isActive: true,
-        },
-        {
-          id: "2",
-          title: "Tax Filings",
-          description:
-            "Annual tax filings are due by September 30. Consult with your accountant for specific requirements.",
-          details: null,
-          isActive: true,
-        },
-      ]
-      setRequirements(mockRequirements)
-
+      const requirementsResponse = await fetch("/api/admin/annual-reports/requirements")
+      if (!requirementsResponse.ok) throw new Error("Failed to fetch requirements")
+      const requirementsData = await requirementsResponse.json()
+      setRequirements(requirementsData.requirements || [])
+      
       if (refreshing) {
         toast({
           title: "Refreshed",
@@ -274,35 +226,46 @@ export default function AdminAnnualReportsPage() {
       setRefreshing(false)
     }
   }
-
+  
   // Handle refresh
   const handleRefresh = () => {
     setRefreshing(true)
     fetchData()
   }
-
+  
   // Add a new deadline
   const handleAddDeadline = async () => {
     try {
-      // In a real implementation, you would have an API endpoint for this
-      // For now, we'll simulate adding a deadline
-      const newDeadline: Deadline = {
-        id: `deadline-${Date.now()}`,
-        userId: deadlineForm.userId,
-        userName: users.find((u) => u.id === deadlineForm.userId)?.name || "Unknown",
-        userEmail: users.find((u) => u.id === deadlineForm.userId)?.email || "unknown@example.com",
-        title: deadlineForm.title,
-        description: deadlineForm.description,
-        dueDate: deadlineForm.dueDate,
-        fee: Number.parseFloat(deadlineForm.fee),
-        lateFee: Number.parseFloat(deadlineForm.lateFee),
-        status: "pending",
-        createdAt: new Date().toISOString(),
+      const response = await fetch("/api/admin/annual-reports/deadlines", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: deadlineForm.userId,
+          title: deadlineForm.title,
+          description: deadlineForm.description,
+          dueDate: new Date(deadlineForm.dueDate).toISOString(),
+          fee: parseFloat(deadlineForm.fee),
+          lateFee: parseFloat(deadlineForm.lateFee) || null,
+          status: "pending",
+        }),
+      })
+      
+      if (!response.ok) throw new Error("Failed to add deadline")
+      
+      const data = await response.json()
+      
+      // Add the new deadline to the state
+      const newDeadline = {
+        ...data.deadline,
+        userName: users.find(u => u.id === data.deadline.userId)?.name || "Unknown",
+        userEmail: users.find(u => u.id === data.deadline.userId)?.email || "unknown@example.com",
       }
-
+      
       setDeadlines([...deadlines, newDeadline])
       setShowAddDeadlineDialog(false)
-
+      
       // Reset form
       setDeadlineForm({
         userId: "",
@@ -312,7 +275,7 @@ export default function AdminAnnualReportsPage() {
         fee: "0",
         lateFee: "0",
       })
-
+      
       toast({
         title: "Deadline Added",
         description: "The deadline has been added successfully.",
@@ -326,33 +289,49 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-
+  
   // Update a deadline
   const handleUpdateDeadline = async () => {
     if (!selectedDeadline) return
-
+    
     try {
-      // In a real implementation, you would have an API endpoint for this
-      // For now, we'll simulate updating a deadline
-      const updatedDeadlines = deadlines.map((deadline) =>
+      const response = await fetch(`/api/admin/annual-reports/deadlines/${selectedDeadline.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: deadlineForm.userId,
+          title: deadlineForm.title,
+          description: deadlineForm.description,
+          dueDate: new Date(deadlineForm.dueDate).toISOString(),
+          fee: parseFloat(deadlineForm.fee),
+          lateFee: parseFloat(deadlineForm.lateFee) || null,
+        }),
+      })
+      
+      if (!response.ok) throw new Error("Failed to update deadline")
+      
+      // Update the deadline in the state
+      const updatedDeadlines = deadlines.map(deadline => 
         deadline.id === selectedDeadline.id
           ? {
               ...deadline,
               userId: deadlineForm.userId,
-              userName: users.find((u) => u.id === deadlineForm.userId)?.name || "Unknown",
-              userEmail: users.find((u) => u.id === deadlineForm.userId)?.email || "unknown@example.com",
+              userName: users.find(u => u.id === deadlineForm.userId)?.name || "Unknown",
+              userEmail: users.find(u => u.id === deadlineForm.userId)?.email || "unknown@example.com",
               title: deadlineForm.title,
               description: deadlineForm.description,
-              dueDate: deadlineForm.dueDate,
-              fee: Number.parseFloat(deadlineForm.fee),
-              lateFee: Number.parseFloat(deadlineForm.lateFee),
+              dueDate: new Date(deadlineForm.dueDate).toISOString(),
+              fee: parseFloat(deadlineForm.fee),
+              lateFee: parseFloat(deadlineForm.lateFee) || null,
             }
-          : deadline,
+          : deadline
       )
-
+      
       setDeadlines(updatedDeadlines)
       setShowEditDeadlineDialog(false)
-
+      
       toast({
         title: "Deadline Updated",
         description: "The deadline has been updated successfully.",
@@ -366,18 +345,23 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-
+  
   // Delete a deadline
   const handleDeleteDeadline = async () => {
     if (!selectedDeadline) return
-
+    
     try {
-      // In a real implementation, you would have an API endpoint for this
-      // For now, we'll simulate deleting a deadline
-      const updatedDeadlines = deadlines.filter((deadline) => deadline.id !== selectedDeadline.id)
+      const response = await fetch(`/api/admin/annual-reports/deadlines/${selectedDeadline.id}`, {
+        method: "DELETE",
+      })
+      
+      if (!response.ok) throw new Error("Failed to delete deadline")
+      
+      // Remove the deadline from the state
+      const updatedDeadlines = deadlines.filter(deadline => deadline.id !== selectedDeadline.id)
       setDeadlines(updatedDeadlines)
       setShowDeleteDeadlineDialog(false)
-
+      
       toast({
         title: "Deadline Deleted",
         description: "The deadline has been deleted successfully.",
@@ -391,29 +375,72 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-
+  
+  // Handle file upload for report
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFilingForm({
+        ...filingForm,
+        reportFile: e.target.files[0],
+      })
+    }
+  }
+  
   // Update a filing
   const handleUpdateFiling = async () => {
     if (!selectedFiling) return
-
+    
     try {
-      // In a real implementation, you would have an API endpoint for this
-      // For now, we'll simulate updating a filing
-      const updatedFilings = filings.map((filing) =>
+      let reportUrl = filingForm.reportUrl
+      
+      // If a file was uploaded, upload it first
+      if (filingForm.reportFile) {
+        const formData = new FormData()
+        formData.append('file', filingForm.reportFile)
+        formData.append('type', 'report')
+        
+        const uploadResponse = await fetch('/api/upload-receipt', {
+          method: 'POST',
+          body: formData,
+        })
+        
+        if (!uploadResponse.ok) throw new Error('Failed to upload report')
+        const uploadData = await uploadResponse.json()
+        reportUrl = uploadData.url
+      }
+      
+      // Now update the filing
+      const response = await fetch(`/api/admin/annual-reports/filings/${selectedFiling.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: filingForm.status,
+          adminNotes: filingForm.adminNotes,
+          reportUrl: reportUrl || selectedFiling.reportUrl,
+          filedDate: filingForm.status === "completed" ? new Date().toISOString() : selectedFiling.filedDate,
+        }),
+      })
+      
+      if (!response.ok) throw new Error("Failed to update filing")
+      
+      // Update the filing in the state
+      const updatedFilings = filings.map(filing => 
         filing.id === selectedFiling.id
           ? {
               ...filing,
-              status: filingForm.status as any,
+              status: filingForm.status,
               adminNotes: filingForm.adminNotes,
-              reportUrl: filingForm.reportUrl || filing.reportUrl,
+              reportUrl: reportUrl || filing.reportUrl,
               filedDate: filingForm.status === "completed" ? new Date().toISOString() : filing.filedDate,
             }
-          : filing,
+          : filing
       )
-
+      
       setFilings(updatedFilings)
       setShowUpdateFilingDialog(false)
-
+      
       toast({
         title: "Filing Updated",
         description: "The filing has been updated successfully.",
@@ -427,23 +454,31 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-
+  
   // Add a new requirement
   const handleAddRequirement = async () => {
     try {
-      // In a real implementation, you would have an API endpoint for this
-      // For now, we'll simulate adding a requirement
-      const newRequirement: FilingRequirement = {
-        id: `requirement-${Date.now()}`,
-        title: requirementForm.title,
-        description: requirementForm.description,
-        details: requirementForm.details,
-        isActive: requirementForm.isActive,
-      }
-
-      setRequirements([...requirements, newRequirement])
+      const response = await fetch("/api/admin/annual-reports/requirements", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: requirementForm.title,
+          description: requirementForm.description,
+          details: requirementForm.details || null,
+          isActive: requirementForm.isActive,
+        }),
+      })
+      
+      if (!response.ok) throw new Error("Failed to add requirement")
+      
+      const data = await response.json()
+      
+      // Add the new requirement to the state
+      setRequirements([...requirements, data.requirement])
       setShowAddRequirementDialog(false)
-
+      
       // Reset form
       setRequirementForm({
         title: "",
@@ -451,7 +486,7 @@ export default function AdminAnnualReportsPage() {
         details: "",
         isActive: true,
       })
-
+      
       toast({
         title: "Requirement Added",
         description: "The filing requirement has been added successfully.",
@@ -465,29 +500,43 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-
+  
   // Update a requirement
   const handleUpdateRequirement = async () => {
     if (!selectedRequirement) return
-
+    
     try {
-      // In a real implementation, you would have an API endpoint for this
-      // For now, we'll simulate updating a requirement
-      const updatedRequirements = requirements.map((requirement) =>
+      const response = await fetch(`/api/admin/annual-reports/requirements/${selectedRequirement.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: requirementForm.title,
+          description: requirementForm.description,
+          details: requirementForm.details || null,
+          isActive: requirementForm.isActive,
+        }),
+      })
+      
+      if (!response.ok) throw new Error("Failed to update requirement")
+      
+      // Update the requirement in the state
+      const updatedRequirements = requirements.map(requirement => 
         requirement.id === selectedRequirement.id
           ? {
               ...requirement,
               title: requirementForm.title,
               description: requirementForm.description,
-              details: requirementForm.details,
+              details: requirementForm.details || null,
               isActive: requirementForm.isActive,
             }
-          : requirement,
+          : requirement
       )
-
+      
       setRequirements(updatedRequirements)
       setShowEditRequirementDialog(false)
-
+      
       toast({
         title: "Requirement Updated",
         description: "The filing requirement has been updated successfully.",
@@ -501,18 +550,23 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-
+  
   // Delete a requirement
   const handleDeleteRequirement = async () => {
     if (!selectedRequirement) return
-
+    
     try {
-      // In a real implementation, you would have an API endpoint for this
-      // For now, we'll simulate deleting a requirement
-      const updatedRequirements = requirements.filter((requirement) => requirement.id !== selectedRequirement.id)
+      const response = await fetch(`/api/admin/annual-reports/requirements/${selectedRequirement.id}`, {
+        method: "DELETE",
+      })
+      
+      if (!response.ok) throw new Error("Failed to delete requirement")
+      
+      // Remove the requirement from the state
+      const updatedRequirements = requirements.filter(requirement => requirement.id !== selectedRequirement.id)
       setRequirements(updatedRequirements)
       setShowDeleteRequirementDialog(false)
-
+      
       toast({
         title: "Requirement Deleted",
         description: "The filing requirement has been deleted successfully.",
@@ -526,23 +580,21 @@ export default function AdminAnnualReportsPage() {
       })
     }
   }
-
+  
   // Filter deadlines based on search query
-  const filteredDeadlines = deadlines.filter(
-    (deadline) =>
-      deadline.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      deadline.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      deadline.userEmail.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredDeadlines = deadlines.filter(deadline => 
+    deadline.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (deadline.userName || deadline.user?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (deadline.userEmail || deadline.user?.email || "").toLowerCase().includes(searchQuery.toLowerCase())
   )
-
+  
   // Filter filings based on search query
-  const filteredFilings = filings.filter(
-    (filing) =>
-      filing.deadlineTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      filing.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      filing.userEmail.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredFilings = filings.filter(filing => 
+    (filing.deadlineTitle || filing.deadline?.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (filing.userName || filing.user?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (filing.userEmail || filing.user?.email || "").toLowerCase().includes(searchQuery.toLowerCase())
   )
-
+  
   // Get status badge color
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -562,13 +614,13 @@ export default function AdminAnnualReportsPage() {
         return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
     }
   }
-
+  
   // Format date
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "N/A"
     return format(new Date(dateString), "MMM dd, yyyy")
   }
-
+  
   if (loading) {
     return (
       <div className="flex h-[50vh] w-full items-center justify-center">
@@ -584,7 +636,7 @@ export default function AdminAnnualReportsPage() {
       </div>
     )
   }
-
+  
   return (
     <div className="p-6 max-w-[1600px] mx-auto mb-40">
       {/* Page Header */}
@@ -606,7 +658,7 @@ export default function AdminAnnualReportsPage() {
           </Button>
         </div>
       </div>
-
+      
       {/* Search */}
       <div className="mb-6">
         <div className="relative">
@@ -619,7 +671,7 @@ export default function AdminAnnualReportsPage() {
           />
         </div>
       </div>
-
+      
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList className="grid w-full grid-cols-3">
@@ -627,7 +679,7 @@ export default function AdminAnnualReportsPage() {
           <TabsTrigger value="filings">Filings</TabsTrigger>
           <TabsTrigger value="requirements">Requirements</TabsTrigger>
         </TabsList>
-
+        
         {/* Deadlines Tab */}
         <TabsContent value="deadlines">
           <Card className="p-6">
@@ -638,7 +690,7 @@ export default function AdminAnnualReportsPage() {
                 Add Deadline
               </Button>
             </div>
-
+            
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -664,12 +716,12 @@ export default function AdminAnnualReportsPage() {
                         <TableCell className="font-medium">{deadline.title}</TableCell>
                         <TableCell>
                           <div>
-                            <p>{deadline.userName}</p>
-                            <p className="text-sm text-muted-foreground">{deadline.userEmail}</p>
+                            <p>{deadline.userName || deadline.user?.name || "Unknown"}</p>
+                            <p className="text-sm text-muted-foreground">{deadline.userEmail || deadline.user?.email}</p>
                           </div>
                         </TableCell>
                         <TableCell>{formatDate(deadline.dueDate)}</TableCell>
-                        <TableCell>${deadline.fee.toFixed(2)}</TableCell>
+                        <TableCell>${Number(deadline.fee).toFixed(2)}</TableCell>
                         <TableCell>
                           <Badge className={getStatusBadgeColor(deadline.status)}>
                             {deadline.status.charAt(0).toUpperCase() + deadline.status.slice(1)}
@@ -685,10 +737,10 @@ export default function AdminAnnualReportsPage() {
                                 setDeadlineForm({
                                   userId: deadline.userId,
                                   title: deadline.title,
-                                  description: deadline.description,
+                                  description: deadline.description || "",
                                   dueDate: deadline.dueDate.split("T")[0], // Format for date input
                                   fee: deadline.fee.toString(),
-                                  lateFee: deadline.lateFee.toString(),
+                                  lateFee: deadline.lateFee?.toString() || "0",
                                 })
                                 setShowEditDeadlineDialog(true)
                               }}
@@ -716,14 +768,14 @@ export default function AdminAnnualReportsPage() {
             </div>
           </Card>
         </TabsContent>
-
+        
         {/* Filings Tab */}
         <TabsContent value="filings">
           <Card className="p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold">Annual Report Filings</h2>
             </div>
-
+            
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -746,14 +798,14 @@ export default function AdminAnnualReportsPage() {
                   ) : (
                     filteredFilings.map((filing) => (
                       <TableRow key={filing.id}>
-                        <TableCell className="font-medium">{filing.deadlineTitle}</TableCell>
+                        <TableCell className="font-medium">{filing.deadlineTitle || filing.deadline?.title}</TableCell>
                         <TableCell>
                           <div>
-                            <p>{filing.userName}</p>
-                            <p className="text-sm text-muted-foreground">{filing.userEmail}</p>
+                            <p>{filing.userName || filing.user?.name || "Unknown"}</p>
+                            <p className="text-sm text-muted-foreground">{filing.userEmail || filing.user?.email}</p>
                           </div>
                         </TableCell>
-                        <TableCell>{formatDate(filing.dueDate)}</TableCell>
+                        <TableCell>{formatDate(filing.dueDate || filing.deadline?.dueDate)}</TableCell>
                         <TableCell>
                           <Badge className={getStatusBadgeColor(filing.status)}>
                             {filing.status
@@ -784,6 +836,7 @@ export default function AdminAnnualReportsPage() {
                                   status: filing.status,
                                   adminNotes: filing.adminNotes || "",
                                   reportUrl: filing.reportUrl || "",
+                                  reportFile: null,
                                 })
                                 setShowUpdateFilingDialog(true)
                               }}
@@ -800,7 +853,7 @@ export default function AdminAnnualReportsPage() {
             </div>
           </Card>
         </TabsContent>
-
+        
         {/* Requirements Tab */}
         <TabsContent value="requirements">
           <Card className="p-6">
@@ -811,7 +864,7 @@ export default function AdminAnnualReportsPage() {
                 Add Requirement
               </Button>
             </div>
-
+            
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -883,7 +936,7 @@ export default function AdminAnnualReportsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
+      
       {/* Add Deadline Dialog */}
       <Dialog open={showAddDeadlineDialog} onOpenChange={setShowAddDeadlineDialog}>
         <DialogContent className="sm:max-w-[600px]">
@@ -891,7 +944,7 @@ export default function AdminAnnualReportsPage() {
             <DialogTitle>Add New Deadline</DialogTitle>
             <DialogDescription>Create a new annual report deadline for a user</DialogDescription>
           </DialogHeader>
-
+          
           <div className="grid gap-4 py-4">
             <div>
               <Label htmlFor="userId">User</Label>
@@ -905,13 +958,13 @@ export default function AdminAnnualReportsPage() {
                 <SelectContent>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
-                      {user.name} ({user.email})
+                      {user.name || "Unknown"} ({user.email})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
+            
             <div>
               <Label htmlFor="title">Title</Label>
               <Input
@@ -922,7 +975,7 @@ export default function AdminAnnualReportsPage() {
                 placeholder="Annual Report 2024"
               />
             </div>
-
+            
             <div>
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -933,7 +986,7 @@ export default function AdminAnnualReportsPage() {
                 placeholder="Description of the annual report filing"
               />
             </div>
-
+            
             <div>
               <Label htmlFor="dueDate">Due Date</Label>
               <Input
@@ -944,7 +997,7 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setDeadlineForm({ ...deadlineForm, dueDate: e.target.value })}
               />
             </div>
-
+            
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="fee">Fee ($)</Label>
@@ -957,7 +1010,7 @@ export default function AdminAnnualReportsPage() {
                   placeholder="75.00"
                 />
               </div>
-
+              
               <div>
                 <Label htmlFor="lateFee">Late Fee ($)</Label>
                 <Input
@@ -971,7 +1024,7 @@ export default function AdminAnnualReportsPage() {
               </div>
             </div>
           </div>
-
+          
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDeadlineDialog(false)}>
               Cancel
@@ -988,7 +1041,7 @@ export default function AdminAnnualReportsPage() {
             <DialogTitle>Edit Deadline</DialogTitle>
             <DialogDescription>Update the annual report deadline</DialogDescription>
           </DialogHeader>
-
+          
           <div className="grid gap-4 py-4">
             <div>
               <Label htmlFor="userId">User</Label>
@@ -1002,13 +1055,13 @@ export default function AdminAnnualReportsPage() {
                 <SelectContent>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
-                      {user.name} ({user.email})
+                      {user.name || "Unknown"} ({user.email})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
+            
             <div>
               <Label htmlFor="title">Title</Label>
               <Input
@@ -1018,7 +1071,7 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setDeadlineForm({ ...deadlineForm, title: e.target.value })}
               />
             </div>
-
+            
             <div>
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -1028,7 +1081,7 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setDeadlineForm({ ...deadlineForm, description: e.target.value })}
               />
             </div>
-
+            
             <div>
               <Label htmlFor="dueDate">Due Date</Label>
               <Input
@@ -1039,7 +1092,7 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setDeadlineForm({ ...deadlineForm, dueDate: e.target.value })}
               />
             </div>
-
+            
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="fee">Fee ($)</Label>
@@ -1051,7 +1104,7 @@ export default function AdminAnnualReportsPage() {
                   onChange={(e) => setDeadlineForm({ ...deadlineForm, fee: e.target.value })}
                 />
               </div>
-
+              
               <div>
                 <Label htmlFor="lateFee">Late Fee ($)</Label>
                 <Input
@@ -1064,7 +1117,7 @@ export default function AdminAnnualReportsPage() {
               </div>
             </div>
           </div>
-
+          
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditDeadlineDialog(false)}>
               Cancel
@@ -1073,7 +1126,7 @@ export default function AdminAnnualReportsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
+      
       {/* Delete Deadline Dialog */}
       <AlertDialog open={showDeleteDeadlineDialog} onOpenChange={setShowDeleteDeadlineDialog}>
         <AlertDialogContent>
@@ -1091,24 +1144,24 @@ export default function AdminAnnualReportsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
+      
       {/* View Filing Dialog */}
       {selectedFiling && (
         <Dialog open={showViewFilingDialog} onOpenChange={setShowViewFilingDialog}>
           <DialogContent className="sm:max-w-[800px]">
             <DialogHeader>
               <DialogTitle>Filing Details</DialogTitle>
-              <DialogDescription>View details for {selectedFiling.deadlineTitle}</DialogDescription>
+              <DialogDescription>View details for {selectedFiling.deadlineTitle || selectedFiling.deadline?.title}</DialogDescription>
             </DialogHeader>
-
+            
             <div className="grid gap-6 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium mb-1">User</h3>
-                  <p>{selectedFiling.userName}</p>
-                  <p className="text-sm text-muted-foreground">{selectedFiling.userEmail}</p>
+                  <p>{selectedFiling.userName || selectedFiling.user?.name || "Unknown"}</p>
+                  <p className="text-sm text-muted-foreground">{selectedFiling.userEmail || selectedFiling.user?.email}</p>
                 </div>
-
+                
                 <div>
                   <h3 className="text-sm font-medium mb-1">Status</h3>
                   <Badge className={getStatusBadgeColor(selectedFiling.status)}>
@@ -1118,18 +1171,18 @@ export default function AdminAnnualReportsPage() {
                       .join(" ")}
                   </Badge>
                 </div>
-
+                
                 <div>
                   <h3 className="text-sm font-medium mb-1">Due Date</h3>
-                  <p>{formatDate(selectedFiling.dueDate)}</p>
+                  <p>{formatDate(selectedFiling.dueDate || selectedFiling.deadline?.dueDate)}</p>
                 </div>
-
+                
                 <div>
                   <h3 className="text-sm font-medium mb-1">Filed Date</h3>
                   <p>{selectedFiling.filedDate ? formatDate(selectedFiling.filedDate) : "Not filed yet"}</p>
                 </div>
               </div>
-
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {selectedFiling.receiptUrl && (
                   <div>
@@ -1151,7 +1204,7 @@ export default function AdminAnnualReportsPage() {
                     </div>
                   </div>
                 )}
-
+                
                 {selectedFiling.reportUrl && (
                   <div>
                     <h3 className="text-sm font-medium mb-2">Filed Report</h3>
@@ -1169,7 +1222,7 @@ export default function AdminAnnualReportsPage() {
                   </div>
                 )}
               </div>
-
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {selectedFiling.userNotes && (
                   <div>
@@ -1177,7 +1230,7 @@ export default function AdminAnnualReportsPage() {
                     <p className="text-sm p-3 bg-gray-50 rounded-md">{selectedFiling.userNotes}</p>
                   </div>
                 )}
-
+                
                 {selectedFiling.adminNotes && (
                   <div>
                     <h3 className="text-sm font-medium mb-1">Admin Notes</h3>
@@ -1186,7 +1239,7 @@ export default function AdminAnnualReportsPage() {
                 )}
               </div>
             </div>
-
+            
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowViewFilingDialog(false)}>
                 Close
@@ -1198,6 +1251,7 @@ export default function AdminAnnualReportsPage() {
                     status: selectedFiling.status,
                     adminNotes: selectedFiling.adminNotes || "",
                     reportUrl: selectedFiling.reportUrl || "",
+                    reportFile: null,
                   })
                   setShowUpdateFilingDialog(true)
                 }}
@@ -1208,7 +1262,7 @@ export default function AdminAnnualReportsPage() {
           </DialogContent>
         </Dialog>
       )}
-
+      
       {/* Update Filing Dialog */}
       {selectedFiling && (
         <Dialog open={showUpdateFilingDialog} onOpenChange={setShowUpdateFilingDialog}>
@@ -1217,7 +1271,7 @@ export default function AdminAnnualReportsPage() {
               <DialogTitle>Update Filing</DialogTitle>
               <DialogDescription>Update the filing status and upload report</DialogDescription>
             </DialogHeader>
-
+            
             <div className="grid gap-4 py-4">
               <div>
                 <Label htmlFor="status">Status</Label>
@@ -1236,7 +1290,7 @@ export default function AdminAnnualReportsPage() {
                   </SelectContent>
                 </Select>
               </div>
-
+              
               <div>
                 <Label htmlFor="adminNotes">Admin Notes</Label>
                 <Textarea
@@ -1247,27 +1301,45 @@ export default function AdminAnnualReportsPage() {
                   placeholder="Add notes about this filing"
                 />
               </div>
-
+              
               <div>
                 <Label htmlFor="reportUrl">Report URL</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="reportUrl"
-                    name="reportUrl"
-                    value={filingForm.reportUrl}
-                    onChange={(e) => setFilingForm({ ...filingForm, reportUrl: e.target.value })}
-                    placeholder="URL to the filed report document"
+                <Input
+                  id="reportUrl"
+                  name="reportUrl"
+                  value={filingForm.reportUrl}
+                  onChange={(e) => setFilingForm({ ...filingForm, reportUrl: e.target.value })}
+                  placeholder="URL to the filed report document"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="reportFile">Or Upload Report File</Label>
+                <div className="border-2 border-dashed rounded-md p-6 text-center mt-2">
+                  <input
+                    type="file"
+                    id="reportFile"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx"
+                    onChange={handleFileChange}
                   />
-                  <Button variant="outline" size="icon">
-                    <Upload className="h-4 w-4" />
-                  </Button>
+                  <label htmlFor="reportFile" className="cursor-pointer">
+                    <div className="flex flex-col items-center">
+                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                      <p className="text-sm font-medium mb-1">Click to upload</p>
+                      <p className="text-xs text-gray-500">PDF, DOC, or DOCX (max 10MB)</p>
+                    </div>
+                  </label>
+                  {filingForm.reportFile && (
+                    <div className="mt-4 p-2 bg-green-50 rounded text-sm text-green-700 flex items-center">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      {filingForm.reportFile.name}
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Enter a URL or upload a document for the filed report
-                </p>
               </div>
             </div>
-
+            
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowUpdateFilingDialog(false)}>
                 Cancel
@@ -1277,7 +1349,7 @@ export default function AdminAnnualReportsPage() {
           </DialogContent>
         </Dialog>
       )}
-
+      
       {/* Add Requirement Dialog */}
       <Dialog open={showAddRequirementDialog} onOpenChange={setShowAddRequirementDialog}>
         <DialogContent className="sm:max-w-[600px]">
@@ -1285,7 +1357,7 @@ export default function AdminAnnualReportsPage() {
             <DialogTitle>Add Filing Requirement</DialogTitle>
             <DialogDescription>Create a new filing requirement</DialogDescription>
           </DialogHeader>
-
+          
           <div className="grid gap-4 py-4">
             <div>
               <Label htmlFor="title">Title</Label>
@@ -1297,7 +1369,7 @@ export default function AdminAnnualReportsPage() {
                 placeholder="Annual Report"
               />
             </div>
-
+            
             <div>
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -1308,7 +1380,7 @@ export default function AdminAnnualReportsPage() {
                 placeholder="Description of the filing requirement"
               />
             </div>
-
+            
             <div>
               <Label htmlFor="details">Details</Label>
               <Textarea
@@ -1318,9 +1390,11 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setRequirementForm({ ...requirementForm, details: e.target.value })}
                 placeholder="Additional details like fees, deadlines, etc."
               />
-              <p className="text-sm text-muted-foreground mt-1">Use line breaks to separate items</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Use line breaks to separate items
+              </p>
             </div>
-
+            
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -1332,7 +1406,7 @@ export default function AdminAnnualReportsPage() {
               <Label htmlFor="isActive">Active</Label>
             </div>
           </div>
-
+          
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddRequirementDialog(false)}>
               Cancel
@@ -1341,7 +1415,7 @@ export default function AdminAnnualReportsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
+      
       {/* Edit Requirement Dialog */}
       <Dialog open={showEditRequirementDialog} onOpenChange={setShowEditRequirementDialog}>
         <DialogContent className="sm:max-w-[600px]">
@@ -1349,7 +1423,7 @@ export default function AdminAnnualReportsPage() {
             <DialogTitle>Edit Filing Requirement</DialogTitle>
             <DialogDescription>Update the filing requirement</DialogDescription>
           </DialogHeader>
-
+          
           <div className="grid gap-4 py-4">
             <div>
               <Label htmlFor="title">Title</Label>
@@ -1360,7 +1434,7 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setRequirementForm({ ...requirementForm, title: e.target.value })}
               />
             </div>
-
+            
             <div>
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -1370,7 +1444,7 @@ export default function AdminAnnualReportsPage() {
                 onChange={(e) => setRequirementForm({ ...requirementForm, description: e.target.value })}
               />
             </div>
-
+            
             <div>
               <Label htmlFor="details">Details</Label>
               <Textarea
@@ -1379,9 +1453,11 @@ export default function AdminAnnualReportsPage() {
                 value={requirementForm.details}
                 onChange={(e) => setRequirementForm({ ...requirementForm, details: e.target.value })}
               />
-              <p className="text-sm text-muted-foreground mt-1">Use line breaks to separate items</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Use line breaks to separate items
+              </p>
             </div>
-
+            
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -1393,7 +1469,7 @@ export default function AdminAnnualReportsPage() {
               <Label htmlFor="isActive">Active</Label>
             </div>
           </div>
-
+          
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditRequirementDialog(false)}>
               Cancel
@@ -1402,7 +1478,7 @@ export default function AdminAnnualReportsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
+      
       {/* Delete Requirement Dialog */}
       <AlertDialog open={showDeleteRequirementDialog} onOpenChange={setShowDeleteRequirementDialog}>
         <AlertDialogContent>
@@ -1423,4 +1499,3 @@ export default function AdminAnnualReportsPage() {
     </div>
   )
 }
-
