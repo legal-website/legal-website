@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import prisma from "@/lib/prisma"
+import { db } from "@/lib/db"
 
 export async function GET(req: Request) {
   try {
@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     }
 
     // Get active requirements
-    const requirements = await prisma.filingRequirement.findMany({
+    const requirements = await db.filingRequirement.findMany({
       where: {
         isActive: true,
       },

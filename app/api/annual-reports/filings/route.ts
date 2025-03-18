@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import prisma from "@/lib/prisma"
+import { db } from "@/lib/db"
 
 export async function GET(req: Request) {
   try {
@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     }
 
     // Get filings for the current user with deadline info
-    const filings = await prisma.annualReportFiling.findMany({
+    const filings = await db.annualReportFiling.findMany({
       where: {
         userId: session.user.id,
       },
@@ -42,13 +42,16 @@ export async function POST(req: Request) {
     const data = await req.json()
 
     // Create a new filing
-    const filing = await prisma.annualReportFiling.create({
+    const filing = await db.annualReportFiling.create({
       data: {
         userId: session.user.id,
         deadlineId: data.deadlineId,
         receiptUrl: data.receiptUrl,
         userNotes: data.userNotes,
         status: "pending_payment",
+      },
+      include: {
+        deadline: true,
       },
     })
 

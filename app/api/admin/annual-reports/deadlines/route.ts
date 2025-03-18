@@ -1,20 +1,19 @@
-// app/api/admin/annual-reports/deadlines/route.ts
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import prisma from "@/lib/prisma"
+import { db } from "@/lib/db"
 import { UserRole } from "@/lib/db/schema"
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user || (session.user as any).role !== UserRole.ADMIN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-    
+
     // Get all deadlines with user info
-    const deadlines = await prisma.annualReportDeadline.findMany({
+    const deadlines = await db.annualReportDeadline.findMany({
       include: {
         user: {
           select: {
@@ -25,10 +24,10 @@ export async function GET(req: Request) {
         },
       },
       orderBy: {
-        dueDate: 'asc',
+        dueDate: "asc",
       },
     })
-    
+
     return NextResponse.json({ deadlines })
   } catch (error) {
     console.error("Error fetching deadlines:", error)
@@ -39,15 +38,15 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user || (session.user as any).role !== UserRole.ADMIN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-    
+
     const data = await req.json()
-    
+
     // Create a new deadline
-    const deadline = await prisma.annualReportDeadline.create({
+    const deadline = await db.annualReportDeadline.create({
       data: {
         userId: data.userId,
         title: data.title,
@@ -67,10 +66,11 @@ export async function POST(req: Request) {
         },
       },
     })
-    
+
     return NextResponse.json({ deadline })
   } catch (error) {
     console.error("Error creating deadline:", error)
     return NextResponse.json({ error: "Failed to create deadline" }, { status: 500 })
   }
 }
+
