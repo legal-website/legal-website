@@ -3,156 +3,140 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { toast } from "@/lib/toast-utils"
-import { Loader2, FileText, Upload, Clock, AlertCircle, CheckCircle, DollarSign } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import { FileText, PenTool, Upload, Clock, CheckCircle, AlertCircle, DollarSign } from 'lucide-react'
+import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
 
-// Define Amendment type
+// Define a proper type for Amendment with expanded status options
 interface Amendment {
   id: string
-  userId: string
-  userName: string
-  userEmail: string
   type: string
   details: string
-  status: string
+  status: "pending" | "in_review" | "waiting_for_payment" | "payment_confirmation_pending" | "payment_received" | "approved" | "rejected" | "amendment_in_progress" | "amendment_resolved" | "closed"
   createdAt: string
   updatedAt: string
-  documentUrl: string | null
-  receiptUrl: string | null
-  paymentAmount: number | null
-  notes: string | null
+  documentUrl?: string
+  receiptUrl?: string
+  paymentAmount?: number | string
+  notes?: string
 }
 
-// Define Amendment Status enum
-export enum AmendmentStatus {
-  PENDING = "pending",
-  IN_REVIEW = "in_review",
-  WAITING_FOR_PAYMENT = "waiting_for_payment",
-  PAYMENT_CONFIRMATION_PENDING = "payment_confirmation_pending",
-  PAYMENT_RECEIVED = "payment_received",
-  APPROVED = "approved",
-  REJECTED = "rejected",
-  AMENDMENT_IN_PROGRESS = "amendment_in_progress",
-  AMENDMENT_RESOLVED = "amendment_resolved",
-  CLOSED = "closed",
-}
-
-export default function ComplianceAmendmentsPage() {
-  const { data: session } = useSession()
-  const router = useRouter()
-  const [amendments, setAmendments] = useState<Amendment[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
-  const [selectedAmendmentId, setSelectedAmendmentId] = useState<string | null>(null)
+export default function AmendmentsPage() {
+  const [amendmentText, setAmendmentText] = useState("")
   const [amendmentType, setAmendmentType] = useState("")
-  const [amendmentDetails, setAmendmentDetails] = useState("")
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [selectedReceipt, setSelectedReceipt] = useState<File | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
+  const [file, setFile] = useState<File | null>(null)
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [myAmendments, setMyAmendments] = useState<Amendment[]>([])
+  const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
+  const { data: session } = useSession()
 
   useEffect(() => {
-    if (session?.user) {
-      fetchAmendments()
+    if (session?.user?.id) {
+      fetchMyAmendments()
+    } else {
+      setLoading(false)
     }
-  }, [session])
+  }, [session?.user?.id])
 
-  const fetchAmendments = async () => {
+  const fetchMyAmendments = async () => {
     try {
       setLoading(true)
-      const response = await fetch("/api/user/amendments")
-
+      const response = await fetch("/api/amendments")
       if (!response.ok) {
         throw new Error("Failed to fetch amendments")
       }
-
       const data = await response.json()
-      setAmendments(data.amendments || [])
-    } catch (err) {
-      console.error("Error fetching amendments:", err)
-      setError(err instanceof Error ? err.message : "An unknown error occurred")
+      // Filter out closed amendments
+      const activeAmendments = data.amendments.filter((a: Amendment) => a.status !== "closed")
+      setMyAmendments(activeAmendments)
+    } catch (error) {
+      console.error("Error fetching amendments:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load your amendments",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
   }
 
-  const handleCreateAmendment = async () => {
-    if (!amendmentType || !amendmentDetails) {
+  const handleAmendmentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!amendmentType) {
       toast({
-        title: "Missing information",
-        description: "Please fill in all required fields",
+        title: "Error",
+        description: "Please select an amendment type",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!amendmentText.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide amendment details",
         variant: "destructive",
       })
       return
     }
 
     try {
-      setIsSubmitting(true)
+      setLoading(true)
 
       const formData = new FormData()
       formData.append("type", amendmentType)
-      formData.append("details", amendmentDetails)
-
-      if (selectedFile) {
-        formData.append("document", selectedFile)
+      formData.append("details", amendmentText)
+      if (file) {
+        formData.append("document", file)
       }
 
-      const response = await fetch("/api/user/amendments", {
+      const response = await fetch("/api/amendments", {
         method: "POST",
         body: formData,
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to create amendment")
+        throw new Error("Failed to submit amendment")
       }
 
-      toast({
-        title: "Amendment created",
-        description: "Your amendment request has been submitted successfully",
-      })
+      const data = await response.json()
 
-      setIsDialogOpen(false)
+      // Add the new amendment to our list
+      setMyAmendments((prev) => [data.amendment, ...prev])
+
+      // Reset form
+      setAmendmentText("")
       setAmendmentType("")
-      setAmendmentDetails("")
-      setSelectedFile(null)
+      setFile(null)
 
-      // Refresh the amendments list
-      fetchAmendments()
-    } catch (err) {
-      console.error("Error creating amendment:", err)
+      toast({
+        title: "Success",
+        description: "Your amendment has been submitted successfully",
+      })
+    } catch (error) {
+      console.error("Error submitting amendment:", error)
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to create amendment",
+        description: "Failed to submit your amendment",
         variant: "destructive",
       })
     } finally {
-      setIsSubmitting(false)
+      setLoading(false)
     }
   }
 
-  const handleUploadReceipt = async () => {
-    if (!selectedReceipt || !selectedAmendmentId) {
+  const handleUploadReceipt = async (amendmentId: string) => {
+    if (!receiptFile) {
       toast({
-        title: "Missing information",
+        title: "Error",
         description: "Please select a receipt file to upload",
         variant: "destructive",
       })
@@ -160,407 +144,298 @@ export default function ComplianceAmendmentsPage() {
     }
 
     try {
-      setIsUploading(true)
+      setLoading(true)
 
       const formData = new FormData()
-      formData.append("receipt", selectedReceipt)
+      // Change from "payment_received" to "payment_confirmation_pending"
+      formData.append("status", "payment_confirmation_pending")
+      formData.append("receipt", receiptFile)
 
-      const response = await fetch(`/api/user/amendments/${selectedAmendmentId}/receipt`, {
-        method: "POST",
+      const response = await fetch(`/api/amendments/${amendmentId}`, {
+        method: "PATCH",
         body: formData,
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to upload receipt")
+        throw new Error("Failed to upload receipt")
       }
 
+      const data = await response.json()
+
+      // Update the amendment in our list
+      setMyAmendments((prev) => prev.map((a) => (a.id === amendmentId ? data.amendment : a)))
+
+      setReceiptFile(null)
+
       toast({
-        title: "Receipt uploaded",
-        description: "Your payment receipt has been uploaded successfully",
+        title: "Success",
+        description: "Your payment receipt has been uploaded and is pending verification",
       })
-
-      setIsUploadDialogOpen(false)
-      setSelectedReceipt(null)
-      setSelectedAmendmentId(null)
-
-      // Refresh the amendments list
-      fetchAmendments()
-    } catch (err) {
-      console.error("Error uploading receipt:", err)
+    } catch (error) {
+      console.error("Error uploading receipt:", error)
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to upload receipt",
+        description: "Failed to upload your receipt",
         variant: "destructive",
       })
     } finally {
-      setIsUploading(false)
+      setLoading(false)
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0])
+  const handleCloseAmendment = async (amendmentId: string) => {
+    try {
+      setLoading(true)
+
+      const formData = new FormData()
+      formData.append("status", "closed")
+
+      const response = await fetch(`/api/amendments/${amendmentId}`, {
+        method: "PATCH",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to close amendment")
+      }
+
+      // Remove the amendment from our list
+      setMyAmendments((prev) => prev.filter((a) => a.id !== amendmentId))
+
+      toast({
+        title: "Success",
+        description: "Amendment has been closed successfully",
+      })
+    } catch (error) {
+      console.error("Error closing amendment:", error)
+      toast({
+        title: "Error",
+        description: "Failed to close the amendment",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedReceipt(e.target.files[0])
+  // Helper function to format currency amounts safely
+  const formatCurrency = (amount: number | string | undefined): string => {
+    if (amount === undefined || amount === null) return "$0.00"
+    
+    // Convert to number if it's not already
+    const numAmount = typeof amount === 'number' ? amount : Number(amount)
+    
+    // Check if conversion resulted in a valid number
+    if (isNaN(numAmount)) return "$0.00"
+    
+    // Now safely call toFixed
+    return `$${numAmount.toFixed(2)}`
+  }
+
+  // Helper function to get status badge
+  const getStatusBadge = (status: Amendment["status"]) => {
+    const statusConfig = {
+      pending: { bg: "bg-blue-100", text: "text-blue-800", label: "Pending" },
+      in_review: { bg: "bg-purple-100", text: "text-purple-800", label: "In Review" },
+      waiting_for_payment: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Payment Required" },
+      payment_confirmation_pending: { bg: "bg-blue-100", text: "text-blue-800", label: "Payment Verification Pending" },
+      payment_received: { bg: "bg-indigo-100", text: "text-indigo-800", label: "Payment Received" },
+      approved: { bg: "bg-green-100", text: "text-green-800", label: "Approved" },
+      rejected: { bg: "bg-red-100", text: "text-red-800", label: "Rejected" },
+      amendment_in_progress: { bg: "bg-purple-100", text: "text-purple-800", label: "Amendment In Progress" },
+      amendment_resolved: { bg: "bg-green-100", text: "text-green-800", label: "Amendment Resolved" },
+      closed: { bg: "bg-gray-100", text: "text-gray-800", label: "Closed" },
     }
+
+    const config = statusConfig[status]
+
+    return <span className={`text-xs px-2 py-1 ${config.bg} ${config.text} rounded-full`}>{config.label}</span>
   }
 
-  const openUploadDialog = (amendmentId: string) => {
-    setSelectedAmendmentId(amendmentId)
-    setSelectedReceipt(null)
-    setIsUploadDialogOpen(true)
-  }
-
-  // Format currency helper
-  const formatCurrency = (amount: number | null): string => {
-    if (amount === null) return "$0.00"
-    return `$${amount.toFixed(2)}`
-  }
-
-  // Format date helper
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
-  }
-
-  // Filter amendments that are not closed for Status section
-  const activeAmendments = amendments.filter((amendment) => amendment.status !== AmendmentStatus.CLOSED)
-
-  // Get the 5 most recent amendments for Recent section
-  const recentAmendments = [...amendments]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5)
-
-  if (!session) {
-    return (
-      <div className="container mx-auto py-10">
-        <Card>
-          <CardHeader>
-            <CardTitle>Authentication Required</CardTitle>
-            <CardDescription>Please sign in to access your compliance amendments.</CardDescription>
-          </CardHeader>
-          <CardFooter>
-            <Button onClick={() => router.push("/auth/signin")}>Sign In</Button>
-          </CardFooter>
-        </Card>
-      </div>
-    )
+  // Helper function to get status icon
+  const getStatusIcon = (status: Amendment["status"]) => {
+    switch (status) {
+      case "pending":
+        return <Clock className="h-5 w-5 text-blue-500" />
+      case "in_review":
+        return <FileText className="h-5 w-5 text-purple-500" />
+      case "waiting_for_payment":
+        return <DollarSign className="h-5 w-5 text-yellow-500" />
+      case "payment_confirmation_pending":
+        return <Clock className="h-5 w-5 text-blue-500" />
+      case "payment_received":
+        return <DollarSign className="h-5 w-5 text-indigo-500" />
+      case "approved":
+        return <CheckCircle className="h-5 w-5 text-green-500" />
+      case "rejected":
+        return <AlertCircle className="h-5 w-5 text-red-500" />
+      case "amendment_in_progress":
+        return <PenTool className="h-5 w-5 text-purple-500" />
+      case "amendment_resolved":
+        return <CheckCircle className="h-5 w-5 text-green-500" />
+      case "closed":
+        return <CheckCircle className="h-5 w-5 text-gray-500" />
+    }
   }
 
   return (
-    <div className="container mx-auto py-6 px-4 md:px-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Compliance Amendments</h1>
-        <Button onClick={() => setIsDialogOpen(true)}>Request Amendment</Button>
-      </div>
+    <div className="p-8 mb-44">
+      <h1 className="text-3xl font-bold mb-6">Amendments</h1>
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-          <p>{error}</p>
-          <Button variant="outline" size="sm" onClick={fetchAmendments} className="mt-2">
-            Try Again
-          </Button>
-        </div>
-      )}
+      <div className="grid md:grid-cols-2 gap-8">
+        <Card className="p-6">
+          <div className="flex items-start gap-4 mb-6">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <PenTool className="h-6 w-6 text-[#22c984]" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold mb-1">Submit Amendment</h3>
+              <p className="text-gray-600">Update your company information</p>
+            </div>
+          </div>
 
-      {loading ? (
-        <div className="text-center py-10">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p>Loading your amendments...</p>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Status of My Amendments</CardTitle>
-              <CardDescription>Track the status of your compliance amendment requests</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {activeAmendments.length === 0 ? (
-                <div className="text-center py-6 bg-gray-50 rounded-lg">
-                  <p className="text-gray-500">You don't have any active amendments</p>
-                  <Button variant="outline" size="sm" onClick={() => setIsDialogOpen(true)} className="mt-4">
-                    Request Amendment
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {activeAmendments.map((amendment) => (
-                    <Card key={amendment.id} className="overflow-hidden border-l-2 border-l-primary">
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-lg">{amendment.type}</CardTitle>
-                          <StatusBadge status={amendment.status} />
-                        </div>
-                        <CardDescription>Submitted on {formatDate(amendment.createdAt)}</CardDescription>
-                      </CardHeader>
-                      <CardContent className="pb-2 pt-4">
-                        <div className="mb-3">
-                          <h4 className="text-sm font-medium text-gray-700">Details:</h4>
-                          <p className="text-sm text-gray-600 mt-1">{amendment.details}</p>
-                        </div>
-
-                        {amendment.documentUrl && (
-                          <div className="mb-3 p-2 bg-blue-50 rounded-md">
-                            <h4 className="text-sm font-medium text-gray-700 flex items-center">
-                              <FileText className="h-4 w-4 mr-1 text-blue-500" /> Document:
-                            </h4>
-                            <a
-                              href={amendment.documentUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-blue-500 hover:underline mt-1 inline-block"
-                            >
-                              View Document
-                            </a>
-                          </div>
-                        )}
-
-                        {amendment.paymentAmount !== null && (
-                          <div className="mb-3 p-2 bg-yellow-50 rounded-md">
-                            <h4 className="text-sm font-medium text-gray-700 flex items-center">
-                              <DollarSign className="h-4 w-4 mr-1 text-yellow-500" /> Payment Required:
-                            </h4>
-                            <p className="text-sm font-semibold text-gray-800 mt-1">
-                              {formatCurrency(amendment.paymentAmount)}
-                            </p>
-
-                            {amendment.status === AmendmentStatus.WAITING_FOR_PAYMENT && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="mt-2"
-                                onClick={() => openUploadDialog(amendment.id)}
-                              >
-                                <Upload className="h-4 w-4 mr-1" /> Upload Receipt
-                              </Button>
-                            )}
-                          </div>
-                        )}
-
-                        {amendment.notes && (
-                          <div className="mb-3 p-2 bg-gray-50 rounded-md">
-                            <h4 className="text-sm font-medium text-gray-700">Notes from Admin:</h4>
-                            <p className="text-sm text-gray-600 mt-1">{amendment.notes}</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent Amendments Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Amendments</CardTitle>
-              <CardDescription>Your 5 most recent amendment requests</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {recentAmendments.length === 0 ? (
-                <div className="text-center py-6 bg-gray-50 rounded-lg">
-                  <p className="text-gray-500">You don't have any amendments yet</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {recentAmendments.map((amendment) => (
-                    <div
-                      key={amendment.id}
-                      className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50"
-                    >
-                      <div className="flex flex-col">
-                        <span className="font-medium">{amendment.type}</span>
-                        <span className="text-sm text-gray-500">{formatDate(amendment.createdAt)}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <StatusBadge status={amendment.status} />
-                        {amendment.status === AmendmentStatus.CLOSED && (
-                          <Badge variant="outline" className="bg-gray-100">
-                            Closed
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Create Amendment Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Request Amendment</DialogTitle>
-            <DialogDescription>Fill in the details for your compliance amendment request.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="amendmentType" className="text-right">
-                Type
-              </Label>
-              <Input
-                id="amendmentType"
-                placeholder="e.g., Document Update, Legal Review"
+          <form onSubmit={handleAmendmentSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="amendment-type">Amendment Type</Label>
+              <select
+                id="amendment-type"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 value={amendmentType}
                 onChange={(e) => setAmendmentType(e.target.value)}
-                className="col-span-3"
-              />
+              >
+                <option value="">Select amendment type</option>
+                <option value="Company Name Change">Company Name Change</option>
+                <option value="Address Change">Address Change</option>
+                <option value="Ownership Change">Ownership Change</option>
+                <option value="Business Purpose Change">Business Purpose Change</option>
+                <option value="Other Amendment">Other Amendment</option>
+              </select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="amendmentDetails" className="text-right">
-                Details
-              </Label>
+            <div>
+              <Label htmlFor="amendment-text">Amendment Details</Label>
               <Textarea
-                id="amendmentDetails"
-                placeholder="Describe your amendment request in detail"
-                value={amendmentDetails}
-                onChange={(e) => setAmendmentDetails(e.target.value)}
-                className="col-span-3"
-                rows={4}
+                id="amendment-text"
+                placeholder="Describe your amendment..."
+                value={amendmentText}
+                onChange={(e) => setAmendmentText(e.target.value)}
+                rows={5}
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="documentFile" className="text-right">
-                Document
-              </Label>
-              <div className="col-span-3">
-                <Input id="documentFile" type="file" onChange={handleFileChange} className="col-span-3" />
-                <p className="text-xs text-gray-500 mt-1">Optional. Upload any relevant document (PDF, DOCX, etc.)</p>
-              </div>
+            <div>
+              <Label htmlFor="amendment-file">Supporting Documents (Optional)</Label>
+              <Input id="amendment-file" type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
-              Cancel
+            <Button type="submit" className="w-full bg-[#22c984] hover:bg-[#1a8055]" disabled={loading}>
+              {loading ? "Submitting..." : "Submit Amendment"}
             </Button>
-            <Button onClick={handleCreateAmendment} disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                "Submit Request"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </form>
+        </Card>
 
-      {/* Upload Receipt Dialog */}
-      <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Upload Payment Receipt</DialogTitle>
-            <DialogDescription>
-              Please upload a receipt or proof of payment for your amendment request.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="receiptFile" className="text-right">
-                Receipt
-              </Label>
-              <div className="col-span-3">
-                <Input id="receiptFile" type="file" onChange={handleReceiptChange} className="col-span-3" />
-                <p className="text-xs text-gray-500 mt-1">Upload your payment receipt (PDF, JPG, PNG)</p>
+        <div>
+          {/* Status of My Amendments - Only show if there are amendments */}
+          {myAmendments.length > 0 && (
+            <Card className="p-6 mb-6">
+              <h3 className="text-lg font-semibold mb-4">Status of My Amendments</h3>
+              <div className="space-y-4">
+                {myAmendments.map((amendment) => (
+                  <div key={amendment.id} className="border rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        {getStatusIcon(amendment.status)}
+                        <div>
+                          <p className="font-medium">{amendment.type}</p>
+                          <p className="text-xs text-gray-600">
+                            Submitted: {new Date(amendment.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      {getStatusBadge(amendment.status)}
+                    </div>
+
+                    <p className="text-sm text-gray-700 mb-3">{amendment.details}</p>
+
+                    {/* Payment section - only show for amendments waiting for payment */}
+                    {amendment.status === "waiting_for_payment" && amendment.paymentAmount && (
+                      <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <p className="text-sm font-medium">Payment Required:</p>
+                          <p className="font-bold">{formatCurrency(amendment.paymentAmount)}</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`receipt-${amendment.id}`}>Upload Payment Receipt</Label>
+                          <Input
+                            id={`receipt-${amendment.id}`}
+                            type="file"
+                            onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                          />
+                          <Button
+                            onClick={() => handleUploadReceipt(amendment.id)}
+                            className="w-full bg-[#22c984] hover:bg-[#1a8055]"
+                            disabled={!receiptFile || loading}
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            {loading ? "Uploading..." : "Upload Receipt"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Payment verification pending section */}
+                    {amendment.status === "payment_confirmation_pending" && (
+                      <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-blue-500" />
+                          <p className="text-sm text-blue-800">Your payment receipt is being verified</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Amendment in progress section */}
+                    {amendment.status === "amendment_in_progress" && (
+                      <div className="mt-3 p-3 bg-purple-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <PenTool className="h-4 w-4 text-purple-500" />
+                          <p className="text-sm text-purple-800">Your amendment is being processed</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Amendment resolved section */}
+                    {amendment.status === "amendment_resolved" && (
+                      <div className="mt-3 p-3 bg-green-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <p className="text-sm text-green-800">Your amendment has been completed</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Close button - only show for approved or resolved amendments */}
+                    {(amendment.status === "approved" || amendment.status === "amendment_resolved") && (
+                      <Button
+                        onClick={() => handleCloseAmendment(amendment.id)}
+                        variant="outline"
+                        className="w-full mt-3"
+                        disabled={loading}
+                      >
+                        {loading ? "Processing..." : "Close Amendment"}
+                      </Button>
+                    )}
+
+                    {/* Notes section - show if there are notes */}
+                    {amendment.notes && (
+                      <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                        <p className="text-sm font-medium">Notes:</p>
+                        <p className="text-sm text-gray-700">{amendment.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)} disabled={isUploading}>
-              Cancel
-            </Button>
-            <Button onClick={handleUploadReceipt} disabled={isUploading}>
-              {isUploading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                "Upload Receipt"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
-
-function StatusBadge({ status }: { status: string }) {
-  let variant: "default" | "secondary" | "destructive" | "outline" = "default"
-  let label = status.replace(/_/g, " ")
-
-  // Capitalize first letter of each word
-  label = label
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ")
-
-  let icon = null
-
-  switch (status) {
-    case AmendmentStatus.APPROVED:
-      variant = "default" // green
-      icon = <CheckCircle className="h-3 w-3 mr-1" />
-      break
-    case AmendmentStatus.REJECTED:
-      variant = "destructive" // red
-      icon = <AlertCircle className="h-3 w-3 mr-1" />
-      break
-    case AmendmentStatus.PENDING:
-      variant = "outline"
-      icon = <Clock className="h-3 w-3 mr-1" />
-      break
-    case AmendmentStatus.IN_REVIEW:
-      variant = "secondary" // gray
-      icon = <Clock className="h-3 w-3 mr-1" />
-      break
-    case AmendmentStatus.WAITING_FOR_PAYMENT:
-      variant = "secondary" // gray
-      icon = <DollarSign className="h-3 w-3 mr-1" />
-      break
-    case AmendmentStatus.PAYMENT_CONFIRMATION_PENDING:
-      variant = "outline" // outline
-      icon = <DollarSign className="h-3 w-3 mr-1" />
-      break
-    case AmendmentStatus.PAYMENT_RECEIVED:
-      variant = "default" // green
-      icon = <CheckCircle className="h-3 w-3 mr-1" />
-      break
-    case AmendmentStatus.AMENDMENT_IN_PROGRESS:
-      variant = "secondary" // gray
-      icon = <Clock className="h-3 w-3 mr-1" />
-      break
-    case AmendmentStatus.AMENDMENT_RESOLVED:
-      variant = "default" // green
-      icon = <CheckCircle className="h-3 w-3 mr-1" />
-      break
-    case AmendmentStatus.CLOSED:
-      variant = "secondary" // gray
-      break
-  }
-
-  return (
-    <Badge variant={variant} className="capitalize flex items-center">
-      {icon}
-      {label}
-    </Badge>
-  )
-}
-
