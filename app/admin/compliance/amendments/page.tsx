@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/lib/toast-utils"
-import { Loader2, FileText, CheckCircle, AlertCircle, Clock, PenTool, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Loader2, FileText, CheckCircle, AlertCircle, Clock, PenTool, DollarSign, ChevronLeft, ChevronRight, RefreshCw, Search, SortDesc, SortAsc, Filter } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Define Amendment type with expanded status options
@@ -51,9 +51,13 @@ export enum AmendmentStatus {
   CLOSED = "closed"
 }
 
+// Sort options
+type SortOption = "newest" | "oldest" | "name-asc" | "name-desc"
+
 export default function AmendmentsPage() {
   const [amendments, setAmendments] = useState<Amendment[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [loadingAmendmentId, setLoadingAmendmentId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("all")
@@ -69,10 +73,61 @@ export default function AmendmentsPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+  
+  // New filter and sort states
+  const [clientFilter, setClientFilter] = useState("")
+  const [sortBy, setSortBy] = useState<SortOption>("newest")
+  
+  // Auto refresh timer
+  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     fetchAmendments()
+    
+    // Set up auto-refresh every 30 seconds
+    refreshTimerRef.current = setInterval(() => {
+      silentRefresh()
+    }, 30000)
+    
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current)
+      }
+    }
   }, [])
+  
+  // Silent refresh function that updates in the background
+  const silentRefresh = async () => {
+    try {
+      console.log("Silent refresh: Fetching amendments...")
+      setRefreshing(true)
+      const response = await fetch("/api/admin/amendments")
+      
+      if (!response.ok) {
+        console.error("Silent refresh: Error response", response.status)
+        return
+      }
+      
+      const responseText = await response.text()
+      
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (e) {
+        console.error("Silent refresh: Response is not valid JSON:", responseText)
+        return
+      }
+      
+      if (data && Array.isArray(data.amendments)) {
+        setAmendments(data.amendments)
+        console.log("Silent refresh: Amendments updated successfully")
+      }
+    } catch (err) {
+      console.error("Silent refresh: Error fetching amendments:", err)
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   // Helper function to format currency amounts safely
   const formatCurrency = (amount: number | string | undefined): string => {
@@ -274,6 +329,16 @@ export default function AmendmentsPage() {
     } finally {
       setLoading(false)
     }
+  }
+  
+  // Manual refresh function
+  const handleManualRefresh = async () => {
+    setCurrentPage(1) // Reset to first page
+    await fetchAmendments()
+    toast({
+      title: "Refreshed",
+      description: "Amendments data has been refreshed",
+    })
   }
 
   // Let's update the updateAmendmentStatus function with more detailed error handling
@@ -494,9 +559,44 @@ export default function AmendmentsPage() {
     await updateAmendmentStatus(amendmentId, AmendmentStatus.AMENDMENT_RESOLVED)
     setSelectedAction(null)
   }
+  
+  // Filter amendments by client name/email
+  const filterAmendmentsByClient = (amendments: Amendment[]) => {
+    if (!clientFilter) return amendments
+    
+    const lowerCaseFilter = clientFilter.toLowerCase()
+    return amendments.filter(
+      amendment => 
+        amendment.userName.toLowerCase().includes(lowerCaseFilter) || 
+        amendment.userEmail.toLowerCase().includes(lowerCaseFilter)
+    )
+  }
+  
+  // Sort amendments
+  const sortAmendments = (amendments: Amendment[]) => {
+    switch (sortBy) {
+      case "newest":
+        return [...amendments].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      case "oldest":
+        return [...amendments].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      case "name-asc":
+        return [...amendments].sort((a, b) => a.userName.localeCompare(b.userName))
+      case "name-desc":
+        return [...amendments].sort((a, b) => b.userName.localeCompare(a.userName))
+      default:
+        return amendments
+    }
+  }
 
-  const filteredAmendments =
+  // First filter by tab
+  let filteredAmendments =
     activeTab === "all" ? amendments : amendments.filter((amendment) => amendment.status === activeTab)
+  
+  // Then filter by client
+  filteredAmendments = filterAmendmentsByClient(filteredAmendments)
+  
+  // Then sort
+  filteredAmendments = sortAmendments(filteredAmendments)
     
   // Pagination logic
   const totalPages = Math.ceil(filteredAmendments.length / itemsPerPage)
@@ -544,18 +644,69 @@ export default function AmendmentsPage() {
         </div>
       ) : (
         <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="mb-6 flex flex-wrap">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value={AmendmentStatus.PENDING}>Pending</TabsTrigger>
-            <TabsTrigger value={AmendmentStatus.IN_REVIEW}>In Review</TabsTrigger>
-            <TabsTrigger value={AmendmentStatus.WAITING_FOR_PAYMENT}>Payment Required</TabsTrigger>
-            <TabsTrigger value={AmendmentStatus.PAYMENT_CONFIRMATION_PENDING}>Payment Confirmation</TabsTrigger>
-            <TabsTrigger value={AmendmentStatus.PAYMENT_RECEIVED}>Payment Received</TabsTrigger>
-            <TabsTrigger value={AmendmentStatus.AMENDMENT_IN_PROGRESS}>In Progress</TabsTrigger>
-            <TabsTrigger value={AmendmentStatus.AMENDMENT_RESOLVED}>Resolved</TabsTrigger>
-            <TabsTrigger value={AmendmentStatus.APPROVED}>Approved</TabsTrigger>
-            <TabsTrigger value={AmendmentStatus.REJECTED}>Rejected</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+            <TabsList className="flex flex-wrap">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value={AmendmentStatus.PENDING}>Pending</TabsTrigger>
+              <TabsTrigger value={AmendmentStatus.IN_REVIEW}>In Review</TabsTrigger>
+              <TabsTrigger value={AmendmentStatus.WAITING_FOR_PAYMENT}>Payment Required</TabsTrigger>
+              <TabsTrigger value={AmendmentStatus.PAYMENT_CONFIRMATION_PENDING}>Payment Confirmation</TabsTrigger>
+              <TabsTrigger value={AmendmentStatus.PAYMENT_RECEIVED}>Payment Received</TabsTrigger>
+              <TabsTrigger value={AmendmentStatus.AMENDMENT_IN_PROGRESS}>In Progress</TabsTrigger>
+              <TabsTrigger value={AmendmentStatus.AMENDMENT_RESOLVED}>Resolved</TabsTrigger>
+              <TabsTrigger value={AmendmentStatus.APPROVED}>Approved</TabsTrigger>
+              <TabsTrigger value={AmendmentStatus.REJECTED}>Rejected</TabsTrigger>
+            </TabsList>
+            
+            <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+              <div className="relative flex-1 md:w-64">
+                <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                <Input
+                  placeholder="Filter by client name/email"
+                  value={clientFilter}
+                  onChange={(e) => {
+                    setClientFilter(e.target.value)
+                    setCurrentPage(1) // Reset to first page when filter changes
+                  }}
+                  className="pl-8"
+                />
+              </div>
+              
+              <Select 
+                value={sortBy} 
+                onValueChange={(value: SortOption) => {
+                  setSortBy(value)
+                  setCurrentPage(1) // Reset to first page when sort changes
+                }}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <div className="flex items-center">
+                    {sortBy.includes('desc') ? <SortDesc className="mr-2 h-4 w-4" /> : <SortAsc className="mr-2 h-4 w-4" />}
+                    <span>Sort by</span>
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="oldest">Oldest First</SelectItem>
+                  <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+                  <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={handleManualRefresh}
+                disabled={loading}
+                className="relative"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing && (
+                  <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500"></span>
+                )}
+              </Button>
+            </div>
+          </div>
 
           <TabsContent value={activeTab}>
             {filteredAmendments.length === 0 ? (
@@ -566,7 +717,7 @@ export default function AmendmentsPage() {
               <>
                 <div className="grid gap-6 md:grid-cols-2">
                   {currentItems.map((amendment) => (
-                    <Card key={amendment.id} className="overflow-hidden border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
+                    <Card key={amendment.id} className="overflow-hidden border-l-2 border-l-primary shadow-sm hover:shadow-md transition-shadow">
                       <CardHeader className="pb-2 bg-gray-50">
                         <div className="flex justify-between items-start">
                           <CardTitle className="text-lg">{amendment.type}</CardTitle>
