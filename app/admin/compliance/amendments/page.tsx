@@ -17,7 +17,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/lib/toast-utils"
-import { Loader2, FileText, CheckCircle, AlertCircle, Clock, PenTool, DollarSign, ChevronLeft, ChevronRight, RefreshCw, Search, SortDesc, SortAsc, Filter } from 'lucide-react'
+import {
+  Loader2,
+  FileText,
+  DollarSign,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  Search,
+  SortDesc,
+  SortAsc,
+} from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Define Amendment type with expanded status options
@@ -48,7 +58,7 @@ export enum AmendmentStatus {
   REJECTED = "rejected",
   AMENDMENT_IN_PROGRESS = "amendment_in_progress",
   AMENDMENT_RESOLVED = "amendment_resolved",
-  CLOSED = "closed"
+  CLOSED = "closed",
 }
 
 // Sort options
@@ -69,47 +79,47 @@ export default function AmendmentsPage() {
   const [isStatusChangeDialogOpen, setIsStatusChangeDialogOpen] = useState(false)
   const [newStatus, setNewStatus] = useState<string>("")
   const [statusChangeNotes, setStatusChangeNotes] = useState("")
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
-  
+
   // New filter and sort states
   const [clientFilter, setClientFilter] = useState("")
   const [sortBy, setSortBy] = useState<SortOption>("newest")
-  
+
   // Auto refresh timer
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     fetchAmendments()
-    
+
     // Set up auto-refresh every 30 seconds
     refreshTimerRef.current = setInterval(() => {
       silentRefresh()
     }, 30000)
-    
+
     return () => {
       if (refreshTimerRef.current) {
         clearInterval(refreshTimerRef.current)
       }
     }
   }, [])
-  
+
   // Silent refresh function that updates in the background
   const silentRefresh = async () => {
     try {
       console.log("Silent refresh: Fetching amendments...")
       setRefreshing(true)
       const response = await fetch("/api/admin/amendments")
-      
+
       if (!response.ok) {
         console.error("Silent refresh: Error response", response.status)
         return
       }
-      
+
       const responseText = await response.text()
-      
+
       let data
       try {
         data = JSON.parse(responseText)
@@ -117,7 +127,7 @@ export default function AmendmentsPage() {
         console.error("Silent refresh: Response is not valid JSON:", responseText)
         return
       }
-      
+
       if (data && Array.isArray(data.amendments)) {
         setAmendments(data.amendments)
         console.log("Silent refresh: Amendments updated successfully")
@@ -132,13 +142,13 @@ export default function AmendmentsPage() {
   // Helper function to format currency amounts safely
   const formatCurrency = (amount: number | string | undefined): string => {
     if (amount === undefined || amount === null) return "$0.00"
-    
+
     // Convert to number if it's not already
-    const numAmount = typeof amount === 'number' ? amount : Number(amount)
-    
+    const numAmount = typeof amount === "number" ? amount : Number(amount)
+
     // Check if conversion resulted in a valid number
     if (isNaN(numAmount)) return "$0.00"
-    
+
     // Now safely call toFixed
     return `$${numAmount.toFixed(2)}`
   }
@@ -330,7 +340,7 @@ export default function AmendmentsPage() {
       setLoading(false)
     }
   }
-  
+
   // Manual refresh function
   const handleManualRefresh = async () => {
     setCurrentPage(1) // Reset to first page
@@ -517,7 +527,7 @@ export default function AmendmentsPage() {
     }
 
     const success = await updateAmendmentStatus(selectedAmendmentId, newStatus, additionalData)
-    
+
     if (success) {
       setIsStatusChangeDialogOpen(false)
       setSelectedAmendmentId(null)
@@ -539,7 +549,7 @@ export default function AmendmentsPage() {
     setSelectedAmendmentId(amendmentId)
     setSelectedAction("reject_payment")
     await updateAmendmentStatus(amendmentId, AmendmentStatus.WAITING_FOR_PAYMENT, {
-      notes: "Invalid receipt. Please upload a valid payment receipt."
+      notes: "Invalid receipt. Please upload a valid payment receipt.",
     })
     setSelectedAction(null)
   }
@@ -559,19 +569,19 @@ export default function AmendmentsPage() {
     await updateAmendmentStatus(amendmentId, AmendmentStatus.AMENDMENT_RESOLVED)
     setSelectedAction(null)
   }
-  
+
   // Filter amendments by client name/email
   const filterAmendmentsByClient = (amendments: Amendment[]) => {
     if (!clientFilter) return amendments
-    
+
     const lowerCaseFilter = clientFilter.toLowerCase()
     return amendments.filter(
-      amendment => 
-        amendment.userName.toLowerCase().includes(lowerCaseFilter) || 
-        amendment.userEmail.toLowerCase().includes(lowerCaseFilter)
+      (amendment) =>
+        amendment.userName.toLowerCase().includes(lowerCaseFilter) ||
+        amendment.userEmail.toLowerCase().includes(lowerCaseFilter),
     )
   }
-  
+
   // Sort amendments
   const sortAmendments = (amendments: Amendment[]) => {
     switch (sortBy) {
@@ -591,25 +601,25 @@ export default function AmendmentsPage() {
   // First filter by tab
   let filteredAmendments =
     activeTab === "all" ? amendments : amendments.filter((amendment) => amendment.status === activeTab)
-  
+
   // Then filter by client
   filteredAmendments = filterAmendmentsByClient(filteredAmendments)
-  
+
   // Then sort
   filteredAmendments = sortAmendments(filteredAmendments)
-    
+
   // Pagination logic
   const totalPages = Math.ceil(filteredAmendments.length / itemsPerPage)
   const indexOfLastItem = currentPage * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
   const currentItems = filteredAmendments.slice(indexOfFirstItem, indexOfLastItem)
-  
+
   const goToNextPage = () => {
-    setCurrentPage(prev => Math.min(prev + 1, totalPages))
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
   }
-  
+
   const goToPreviousPage = () => {
-    setCurrentPage(prev => Math.max(prev - 1, 1))
+    setCurrentPage((prev) => Math.max(prev - 1, 1))
   }
 
   return (
@@ -644,67 +654,75 @@ export default function AmendmentsPage() {
         </div>
       ) : (
         <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-            <TabsList className="flex flex-wrap">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value={AmendmentStatus.PENDING}>Pending</TabsTrigger>
-              <TabsTrigger value={AmendmentStatus.IN_REVIEW}>In Review</TabsTrigger>
-              <TabsTrigger value={AmendmentStatus.WAITING_FOR_PAYMENT}>Payment Required</TabsTrigger>
-              <TabsTrigger value={AmendmentStatus.PAYMENT_CONFIRMATION_PENDING}>Payment Confirmation</TabsTrigger>
-              <TabsTrigger value={AmendmentStatus.PAYMENT_RECEIVED}>Payment Received</TabsTrigger>
-              <TabsTrigger value={AmendmentStatus.AMENDMENT_IN_PROGRESS}>In Progress</TabsTrigger>
-              <TabsTrigger value={AmendmentStatus.AMENDMENT_RESOLVED}>Resolved</TabsTrigger>
-              <TabsTrigger value={AmendmentStatus.APPROVED}>Approved</TabsTrigger>
-              <TabsTrigger value={AmendmentStatus.REJECTED}>Rejected</TabsTrigger>
-            </TabsList>
-            
-            <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-              <div className="relative flex-1 md:w-64">
-                <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                <Input
-                  placeholder="Filter by client name/email"
-                  value={clientFilter}
-                  onChange={(e) => {
-                    setClientFilter(e.target.value)
-                    setCurrentPage(1) // Reset to first page when filter changes
+          <div className="space-y-4 mb-4">
+            {/* Filters row */}
+            <div className="flex flex-col md:flex-row justify-end items-start md:items-center gap-4">
+              <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+                <div className="relative flex-1 md:w-64">
+                  <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                  <Input
+                    placeholder="Filter by client name/email"
+                    value={clientFilter}
+                    onChange={(e) => {
+                      setClientFilter(e.target.value)
+                      setCurrentPage(1) // Reset to first page when filter changes
+                    }}
+                    className="pl-8"
+                  />
+                </div>
+
+                <Select
+                  value={sortBy}
+                  onValueChange={(value: SortOption) => {
+                    setSortBy(value)
+                    setCurrentPage(1) // Reset to first page when sort changes
                   }}
-                  className="pl-8"
-                />
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <div className="flex items-center">
+                      {sortBy.includes("desc") ? (
+                        <SortDesc className="mr-2 h-4 w-4" />
+                      ) : (
+                        <SortAsc className="mr-2 h-4 w-4" />
+                      )}
+                      <span>Sort by</span>
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Newest First</SelectItem>
+                    <SelectItem value="oldest">Oldest First</SelectItem>
+                    <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+                    <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleManualRefresh}
+                  disabled={loading}
+                  className="relative"
+                >
+                  <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                  {refreshing && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500"></span>}
+                </Button>
               </div>
-              
-              <Select 
-                value={sortBy} 
-                onValueChange={(value: SortOption) => {
-                  setSortBy(value)
-                  setCurrentPage(1) // Reset to first page when sort changes
-                }}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <div className="flex items-center">
-                    {sortBy.includes('desc') ? <SortDesc className="mr-2 h-4 w-4" /> : <SortAsc className="mr-2 h-4 w-4" />}
-                    <span>Sort by</span>
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="oldest">Oldest First</SelectItem>
-                  <SelectItem value="name-asc">Name (A-Z)</SelectItem>
-                  <SelectItem value="name-desc">Name (Z-A)</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={handleManualRefresh}
-                disabled={loading}
-                className="relative"
-              >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                {refreshing && (
-                  <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500"></span>
-                )}
-              </Button>
+            </div>
+
+            {/* Tabs row */}
+            <div className="w-full">
+              <TabsList className="flex flex-wrap w-full">
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value={AmendmentStatus.PENDING}>Pending</TabsTrigger>
+                <TabsTrigger value={AmendmentStatus.IN_REVIEW}>In Review</TabsTrigger>
+                <TabsTrigger value={AmendmentStatus.WAITING_FOR_PAYMENT}>Payment Required</TabsTrigger>
+                <TabsTrigger value={AmendmentStatus.PAYMENT_CONFIRMATION_PENDING}>Payment Confirmation</TabsTrigger>
+                <TabsTrigger value={AmendmentStatus.PAYMENT_RECEIVED}>Payment Received</TabsTrigger>
+                <TabsTrigger value={AmendmentStatus.AMENDMENT_IN_PROGRESS}>In Progress</TabsTrigger>
+                <TabsTrigger value={AmendmentStatus.AMENDMENT_RESOLVED}>Resolved</TabsTrigger>
+                <TabsTrigger value={AmendmentStatus.APPROVED}>Approved</TabsTrigger>
+                <TabsTrigger value={AmendmentStatus.REJECTED}>Rejected</TabsTrigger>
+              </TabsList>
             </div>
           </div>
 
@@ -717,7 +735,10 @@ export default function AmendmentsPage() {
               <>
                 <div className="grid gap-6 md:grid-cols-2">
                   {currentItems.map((amendment) => (
-                    <Card key={amendment.id} className="overflow-hidden border-l-2 border-l-primary shadow-sm hover:shadow-md transition-shadow">
+                    <Card
+                      key={amendment.id}
+                      className="overflow-hidden border-l-2 border-l-primary shadow-sm hover:shadow-md transition-shadow"
+                    >
                       <CardHeader className="pb-2 bg-gray-50">
                         <div className="flex justify-between items-start">
                           <CardTitle className="text-lg">{amendment.type}</CardTitle>
@@ -754,7 +775,9 @@ export default function AmendmentsPage() {
                             <h4 className="text-sm font-medium text-gray-700 flex items-center">
                               <DollarSign className="h-4 w-4 mr-1 text-yellow-500" /> Payment Amount:
                             </h4>
-                            <p className="text-sm font-semibold text-gray-800 mt-1">{formatCurrency(amendment.paymentAmount)}</p>
+                            <p className="text-sm font-semibold text-gray-800 mt-1">
+                              {formatCurrency(amendment.paymentAmount)}
+                            </p>
                           </div>
                         )}
 
@@ -910,18 +933,19 @@ export default function AmendmentsPage() {
                     </Card>
                   ))}
                 </div>
-                
+
                 {/* Pagination controls */}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between mt-6 bg-white p-4 rounded-lg shadow-sm">
                     <div className="text-sm text-gray-500">
-                      Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredAmendments.length)} of {filteredAmendments.length} amendments
+                      Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredAmendments.length)} of{" "}
+                      {filteredAmendments.length} amendments
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={goToPreviousPage} 
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={goToPreviousPage}
                         disabled={currentPage === 1}
                         className="flex items-center"
                       >
@@ -930,10 +954,10 @@ export default function AmendmentsPage() {
                       <div className="text-sm font-medium">
                         Page {currentPage} of {totalPages}
                       </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={goToNextPage} 
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={goToNextPage}
                         disabled={currentPage === totalPages}
                         className="flex items-center"
                       >
@@ -1036,7 +1060,9 @@ export default function AmendmentsPage() {
                   <SelectItem value={AmendmentStatus.PENDING}>Pending</SelectItem>
                   <SelectItem value={AmendmentStatus.IN_REVIEW}>In Review</SelectItem>
                   <SelectItem value={AmendmentStatus.WAITING_FOR_PAYMENT}>Waiting for Payment</SelectItem>
-                  <SelectItem value={AmendmentStatus.PAYMENT_CONFIRMATION_PENDING}>Payment Confirmation Pending</SelectItem>
+                  <SelectItem value={AmendmentStatus.PAYMENT_CONFIRMATION_PENDING}>
+                    Payment Confirmation Pending
+                  </SelectItem>
                   <SelectItem value={AmendmentStatus.PAYMENT_RECEIVED}>Payment Received</SelectItem>
                   <SelectItem value={AmendmentStatus.AMENDMENT_IN_PROGRESS}>Amendment In Progress</SelectItem>
                   <SelectItem value={AmendmentStatus.AMENDMENT_RESOLVED}>Amendment Resolved</SelectItem>
@@ -1087,9 +1113,12 @@ export default function AmendmentsPage() {
 function StatusBadge({ status }: { status: string }) {
   let variant: "default" | "secondary" | "destructive" | "outline" = "default"
   let label = status.replace(/_/g, " ")
-  
+
   // Capitalize first letter of each word
-  label = label.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+  label = label
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
 
   switch (status) {
     case AmendmentStatus.APPROVED:
@@ -1130,3 +1159,4 @@ function StatusBadge({ status }: { status: string }) {
     </Badge>
   )
 }
+
