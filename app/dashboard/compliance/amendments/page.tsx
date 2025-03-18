@@ -22,7 +22,7 @@ interface Amendment {
   updatedAt: string
   documentUrl?: string
   receiptUrl?: string
-  paymentAmount?: number
+  paymentAmount?: number | string // Updated to accept string or number
   notes?: string
 }
 
@@ -217,6 +217,20 @@ export default function AmendmentsPage() {
     }
   }
 
+  // Helper function to format currency amounts safely
+  const formatCurrency = (amount: number | string | undefined): string => {
+    if (amount === undefined || amount === null) return "$0.00"
+
+    // Convert to number if it's not already
+    const numAmount = typeof amount === "number" ? amount : Number(amount)
+
+    // Check if conversion resulted in a valid number
+    if (isNaN(numAmount)) return "$0.00"
+
+    // Now safely call toFixed
+    return `$${numAmount.toFixed(2)}`
+  }
+
   // Helper function to get status badge
   const getStatusBadge = (status: Amendment["status"]) => {
     const statusConfig = {
@@ -335,7 +349,7 @@ export default function AmendmentsPage() {
                       <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
                         <div className="flex justify-between items-center mb-2">
                           <p className="text-sm font-medium">Payment Required:</p>
-                          <p className="font-bold">${amendment.paymentAmount.toFixed(2)}</p>
+                          <p className="font-bold">{formatCurrency(amendment.paymentAmount)}</p>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor={`receipt-${amendment.id}`}>Upload Payment Receipt</Label>
