@@ -45,6 +45,7 @@ export default function AmendmentsPage() {
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
   const { data: session } = useSession()
+  const [closedAmendments, setClosedAmendments] = useState<Amendment[]>([])
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -52,6 +53,17 @@ export default function AmendmentsPage() {
     } else {
       setLoading(false)
     }
+  }, [session?.user?.id])
+
+  // Add background refresh every 30 seconds
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (session?.user?.id) {
+        fetchMyAmendments()
+      }
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(intervalId)
   }, [session?.user?.id])
 
   const fetchMyAmendments = async () => {
@@ -62,9 +74,17 @@ export default function AmendmentsPage() {
         throw new Error("Failed to fetch amendments")
       }
       const data = await response.json()
-      // Filter out closed amendments
-      const activeAmendments = data.amendments.filter((a: Amendment) => a.status !== "closed")
+
+      // Store all amendments
+      const allAmendments = data.amendments || []
+
+      // Filter active amendments (for the main section)
+      const activeAmendments = allAmendments.filter((a: Amendment) => a.status !== "closed")
       setMyAmendments(activeAmendments)
+
+      // Store closed amendments separately
+      const closedAmendments = allAmendments.filter((a: Amendment) => a.status === "closed")
+      setClosedAmendments(closedAmendments)
     } catch (error) {
       console.error("Error fetching amendments:", error)
       toast({
@@ -445,12 +465,41 @@ export default function AmendmentsPage() {
             </Card>
           )}
 
-          {/* Recent Amendments */}
-          {myAmendments.length > 0 && (
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Recent Amendments</h3>
+          {/* Recent Closed Amendments */}
+          <Card className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Recent Closed Amendments</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchMyAmendments}
+                disabled={loading}
+                className="flex items-center gap-1"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`${loading ? "animate-spin" : ""}`}
+                >
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                  <path d="M3 3v5h5"></path>
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+                  <path d="M16 21h5v-5"></path>
+                </svg>
+                Refresh
+              </Button>
+            </div>
+
+            {closedAmendments.length > 0 ? (
               <div className="space-y-4">
-                {myAmendments.slice(0, 4).map((amendment) => (
+                {closedAmendments.slice(0, 4).map((amendment) => (
                   <div key={`recent-${amendment.id}`} className="border rounded-lg p-4">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-3">
@@ -458,7 +507,7 @@ export default function AmendmentsPage() {
                         <div>
                           <p className="font-medium">{amendment.type}</p>
                           <p className="text-xs text-gray-600">
-                            Submitted: {new Date(amendment.createdAt).toLocaleDateString()}
+                            Closed: {new Date(amendment.updatedAt).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
@@ -468,8 +517,10 @@ export default function AmendmentsPage() {
                   </div>
                 ))}
               </div>
-            </Card>
-          )}
+            ) : (
+              <div className="text-center py-6 text-gray-500">No closed amendments found</div>
+            )}
+          </Card>
         </div>
       </div>
     </div>
