@@ -5,84 +5,91 @@ import { UserRole } from "@/lib/db/schema"
 import prisma from "@/lib/prisma"
 
 export async function GET(req: Request) {
+  console.log("Admin filings API: Starting request")
+
   try {
-    console.log("Admin filings API: Request received")
+    // Step 1: Check authentication
+    console.log("Admin filings API: Checking authentication")
     const session = await getServerSession(authOptions)
 
     if (!session?.user || (session.user as any).role !== UserRole.ADMIN) {
+      console.log("Admin filings API: Unauthorized access attempt")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Parse query parameters for pagination
-    const url = new URL(req.url)
-    const page = Number.parseInt(url.searchParams.get("page") || "1")
-    const limit = Number.parseInt(url.searchParams.get("limit") || "50")
-    const skip = (page - 1) * limit
+    console.log("Admin filings API: Authentication successful")
 
-    console.log(`Admin filings API: Fetching page ${page}, limit ${limit}`)
-
+    // Step 2: Try a simple query first to verify database connection
     try {
-      // Get count of total filings
-      const totalCount = await prisma.annualReportFiling.count()
-      console.log(`Admin filings API: Total filings count: ${totalCount}`)
-
-      // Get paginated filings with user and deadline info
-      const filings = await prisma.annualReportFiling.findMany({
-        skip,
-        take: limit,
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          deadline: true,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      })
-
-      console.log(
-        `Admin API: Successfully fetched ${filings.length} filings (page ${page} of ${Math.ceil(totalCount / limit)})`,
-      )
-
-      return NextResponse.json({
-        filings,
-        pagination: {
-          total: totalCount,
-          page,
-          limit,
-          pages: Math.ceil(totalCount / limit),
-        },
-      })
-    } catch (dbError: any) {
-      console.error("Database error in admin filings route:", dbError)
-      console.error("Error code:", dbError.code)
-      console.error("Error message:", dbError.message)
-
-      if (dbError.meta) {
-        console.error("Error meta:", dbError.meta)
-      }
-
+      console.log("Admin filings API: Testing database connection")
+      const count = await prisma.annualReportFiling.count()
+      console.log(`Admin filings API: Database connection successful, found ${count} filings`)
+    } catch (dbConnectionError) {
+      console.error("Admin filings API: Database connection error:", dbConnectionError)
       return NextResponse.json(
         {
-          error: "Database error fetching filings",
-          details: dbError.message,
-          code: dbError.code,
+          error: "Database connection error",
+          details: (dbConnectionError as Error).message,
         },
         { status: 500 },
       )
     }
-  } catch (error: any) {
-    console.error("Unhandled error in admin filings route:", error)
+
+    // Step 3: Fetch filings with minimal includes to reduce complexity
+    try {
+      console.log("Admin filings API: Fetching filings with minimal data")
+
+      // Simplified query without complex includes
+      const filings = await prisma.annualReportFiling.findMany({
+        select: {
+          id: true,
+          userId: true,
+          deadlineId: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          receiptUrl: true,
+          reportUrl: true,
+          filedDate: true,
+          userNotes: true,
+          adminNotes: true,
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 100, // Limit to 100 records to avoid memory issues
+      })
+
+      console.log(`Admin filings API: Successfully fetched ${filings.length} filings`)
+
+      return NextResponse.json({
+        filings,
+        success: true,
+        timestamp: new Date().toISOString(),
+      })
+    } catch (queryError) {
+      console.error("Admin filings API: Error fetching filings:", queryError)
+      return NextResponse.json(
+        {
+          error: "Error fetching filings",
+          details: (queryError as Error).message,
+        },
+        { status: 500 },
+      )
+    }
+  } catch (error) {
+    console.error("Admin filings API: Unhandled error:", error)
     return NextResponse.json(
       {
-        error: "Failed to fetch filings",
-        details: error.message,
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+        error: "Unhandled server error",
+        details: (error as Error).message,
+        stack: process.env.NODE_ENV === "development" ? (error as Error).stack : undefined,
       },
       { status: 500 },
     )
