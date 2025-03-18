@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
 import { UserRole } from "@/lib/db/schema"
+import { Decimal } from "@prisma/client/runtime/library"
+import prisma from "@/lib/prisma"
 
 export async function GET(req: Request) {
   try {
@@ -13,7 +14,7 @@ export async function GET(req: Request) {
     }
 
     // Get all deadlines with user info
-    const deadlines = await db.annualReportDeadline.findMany({
+    const deadlines = await prisma.annualReportDeadline.findMany({
       include: {
         user: {
           select: {
@@ -59,18 +60,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Due date is required" }, { status: 400 })
     }
 
+    // Convert fee and lateFee to Decimal
+    let fee: any = 0
+    if (data.fee) {
+      fee = new Decimal(data.fee.toString())
+    }
+
+    let lateFee: any = null
+    if (data.lateFee && Number.parseFloat(data.lateFee) > 0) {
+      lateFee = new Decimal(data.lateFee.toString())
+    }
+
     // Format the data correctly
     const deadlineData = {
       userId: data.userId,
       title: data.title,
       description: data.description || null,
       dueDate: new Date(data.dueDate),
-      fee: typeof data.fee === "string" ? Number.parseFloat(data.fee) : data.fee,
-      lateFee: data.lateFee
-        ? typeof data.lateFee === "string"
-          ? Number.parseFloat(data.lateFee)
-          : data.lateFee
-        : null,
+      fee: fee,
+      lateFee: lateFee,
       status: data.status || "pending",
     }
 
@@ -78,7 +86,7 @@ export async function POST(req: Request) {
 
     try {
       // Create a new deadline
-      const deadline = await db.annualReportDeadline.create({
+      const deadline = await prisma.annualReportDeadline.create({
         data: deadlineData,
         include: {
           user: {
@@ -95,6 +103,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ deadline })
     } catch (dbError: any) {
       console.error("Database error creating deadline:", dbError)
+      console.error("Error code:", dbError.code)
+      console.error("Error message:", dbError.message)
+
+      if (dbError.meta) {
+        console.error("Error meta:", dbError.meta)
+      }
 
       // Return a more detailed error message
       return NextResponse.json(

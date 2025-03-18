@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
 import { UserRole } from "@/lib/db/schema"
+import prisma from "@/lib/prisma"
 
 export async function GET(req: Request) {
   try {
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     }
 
     // Get all filings with user and deadline info
-    const filings = await db.annualReportFiling.findMany({
+    const filings = await prisma.annualReportFiling.findMany({
       include: {
         user: {
           select: {
