@@ -1,17 +1,24 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { AlertCircle, CheckCircle, Edit, Plus, Trash2, Users } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,99 +29,61 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-
-import type React from "react"
-
-interface Owner {
-  id: string
-  name: string
-  title: string
-  ownershipPercentage: number
-  dateAdded: string
-  status: "pending" | "reported"
-  isDefault?: boolean
-}
+import { Badge } from "@/components/ui/badge"
+import { toast } from "@/components/ui/use-toast"
+import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
 
 export default function BeneficialOwnershipPage() {
-  const { data: session, status } = useSession()
+  const { data: session } = useSession()
   const router = useRouter()
-  const { toast } = useToast()
-  const [owners, setOwners] = useState<Owner[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [showEditDialog, setShowEditDialog] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [currentOwner, setCurrentOwner] = useState<Owner | null>(null)
+  const [owners, setOwners] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [openAddDialog, setOpenAddDialog] = useState(false)
+  const [openEditDialog, setOpenEditDialog] = useState(false)
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false)
+  const [currentOwner, setCurrentOwner] = useState<any>(null)
   const [formData, setFormData] = useState({
     name: "",
     title: "",
-    ownershipPercentage: 0,
+    ownershipPercentage: "",
   })
-  const [totalOwnership, setTotalOwnership] = useState(0)
-  const [isTableChecked, setIsTableChecked] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
-  // Fetch owners when component mounts
   useEffect(() => {
-    if (status === "authenticated") {
-      checkTable()
-    } else if (status === "unauthenticated") {
-      router.push("/login?callbackUrl=/dashboard/compliance/beneficial-ownership")
+    if (!session) {
+      return
     }
-  }, [status, router])
 
-  // Calculate total ownership percentage
-  useEffect(() => {
-    const total = owners.reduce((sum, owner) => sum + owner.ownershipPercentage, 0)
-    setTotalOwnership(total)
-  }, [owners])
+    // First check/create default owner
+    fetch("/api/beneficial-ownership/default")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.isNew) {
+          toast({
+            title: "Default owner created",
+            description: "You have been set as the primary owner with 100% ownership.",
+          })
+        }
 
-  const checkTable = async () => {
-    try {
-      const response = await fetch("/api/beneficial-ownership/check-table")
-      const data = await response.json()
-
-      if (data.tableExists) {
-        setIsTableChecked(true)
+        // Then fetch all owners
         fetchOwners()
-      } else {
+      })
+      .catch((error) => {
+        console.error("Error checking default owner:", error)
         toast({
-          title: "Database Setup Required",
-          description: "The beneficial ownership table does not exist. Please contact an administrator.",
+          title: "Error",
+          description: "Failed to initialize beneficial ownership data.",
           variant: "destructive",
         })
-        setIsLoading(false)
-      }
-    } catch (error) {
-      console.error("Error checking table:", error)
-      toast({
-        title: "Error",
-        description: "Failed to check database setup. Please try again later.",
-        variant: "destructive",
+        setLoading(false)
       })
-      setIsLoading(false)
-    }
-  }
+  }, [session])
 
   const fetchOwners = async () => {
-    setIsLoading(true)
     try {
-      // First check if default owner exists
-      const defaultResponse = await fetch("/api/beneficial-ownership/default")
-      const defaultData = await defaultResponse.json()
-
-      if (!defaultData.exists) {
-        // Create default owner if it doesn't exist
-        await fetch("/api/beneficial-ownership/default", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
-      }
-
-      // Now fetch all owners
-      const response = await fetch("/api/beneficial-ownership")
-      const data = await response.json()
+      setLoading(true)
+      const res = await fetch("/api/beneficial-ownership")
+      const data = await res.json()
 
       if (data.owners) {
         setOwners(data.owners)
@@ -123,56 +92,28 @@ export default function BeneficialOwnershipPage() {
       console.error("Error fetching owners:", error)
       toast({
         title: "Error",
-        description: "Failed to load beneficial owners. Please try again.",
+        description: "Failed to fetch beneficial owners.",
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-
-    if (name === "ownershipPercentage") {
-      // Ensure ownership percentage is a number and within valid range
-      const numValue = Number.parseFloat(value)
-      if (isNaN(numValue) || numValue < 0 || numValue > 100) return
-
-      setFormData({ ...formData, [name]: numValue })
-    } else {
-      setFormData({ ...formData, [name]: value })
-    }
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleAddOwner = () => {
-    // Reset form data
-    setFormData({
-      name: "",
-      title: "",
-      ownershipPercentage: 0,
-    })
-    setShowAddDialog(true)
-  }
+  const handleAddOwner = async (e: React.FormEvent) => {
+    e.preventDefault()
 
-  const handleEditOwner = (owner: Owner) => {
-    setCurrentOwner(owner)
-    setFormData({
-      name: owner.name,
-      title: owner.title,
-      ownershipPercentage: owner.ownershipPercentage,
-    })
-    setShowEditDialog(true)
-  }
-
-  const handleDeleteOwner = (owner: Owner) => {
-    setCurrentOwner(owner)
-    setShowDeleteDialog(true)
+    await submitAddOwner()
   }
 
   const submitAddOwner = async () => {
     // Validate form data
-    if (!formData.name || !formData.title || formData.ownershipPercentage <= 0) {
+    if (!formData.name || !formData.title || !formData.ownershipPercentage || parseFloat(formData.ownershipPercentage) <= 0) {
       toast({
         title: "Validation Error",
         description: "Please fill in all fields with valid values.",
@@ -181,9 +122,24 @@ export default function BeneficialOwnershipPage() {
       return
     }
 
+    // Get the CEO (default owner)
+    const ceoOwner = owners.find((o) => o.isDefault)
+    if (!ceoOwner) {
+      toast({
+        title: "Error",
+        description: "Default owner not found. Please refresh the page.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Calculate new total ownership
+    const newOwnerPercentage = Number.parseFloat(formData.ownershipPercentage)
+    const otherOwnersTotal = owners.reduce((sum, owner) => sum + (owner.isDefault ? 0 : owner.ownershipPercentage), 0)
+    const newTotal = otherOwnersTotal + newOwnerPercentage
+
     // Check if total ownership would exceed 100%
-    const newTotal = totalOwnership + formData.ownershipPercentage
-    if (newTotal > 100) {
+    if (newTotal + ceoOwner.ownershipPercentage > 100) {
       toast({
         title: "Validation Error",
         description: "Total ownership percentage cannot exceed 100%.",
@@ -192,8 +148,37 @@ export default function BeneficialOwnershipPage() {
       return
     }
 
+    // Enforce maximum allocation based on number of existing owners
+    const maxAllocation = owners.length === 0 ? 48 : owners.length === 1 ? 33 : 25
+    if (newOwnerPercentage > maxAllocation) {
+      toast({
+        title: "Validation Error",
+        description: `You cannot allocate more than ${maxAllocation}% to this owner.`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Ensure CEO maintains highest percentage
+    const newCeoPercentage = 100 - (otherOwnersTotal + newOwnerPercentage)
+    const highestNonCeoPercentage = Math.max(
+      ...owners.filter((o) => !o.isDefault).map((o) => o.ownershipPercentage),
+      newOwnerPercentage,
+    )
+
+    if (newCeoPercentage <= highestNonCeoPercentage) {
+      toast({
+        title: "Validation Error",
+        description: "The CEO must maintain the highest ownership percentage.",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
-      const response = await fetch("/api/beneficial-ownership", {
+      setSubmitting(true)
+
+      const res = await fetch("/api/beneficial-ownership", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -201,35 +186,48 @@ export default function BeneficialOwnershipPage() {
         body: JSON.stringify(formData),
       })
 
-      const data = await response.json()
+      const data = await res.json()
 
-      if (!response.ok) {
+      if (!res.ok) {
         throw new Error(data.error || "Failed to add owner")
       }
 
-      // Refresh the owners list
-      fetchOwners()
-      setShowAddDialog(false)
-
       toast({
-        title: "Owner Added",
-        description: "Beneficial owner has been added successfully.",
+        title: "Success",
+        description: "Beneficial owner added successfully.",
       })
+
+      setOpenAddDialog(false)
+      setFormData({
+        name: "",
+        title: "",
+        ownershipPercentage: "",
+      })
+
+      fetchOwners()
     } catch (error) {
       console.error("Error adding owner:", error)
       toast({
         title: "Error",
-        description: (error as Error).message || "Failed to add beneficial owner.",
+        description: (error as Error).message,
         variant: "destructive",
       })
+    } finally {
+      setSubmitting(false)
     }
+  }
+
+  const handleEditOwner = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    await submitEditOwner()
   }
 
   const submitEditOwner = async () => {
     if (!currentOwner) return
 
     // Validate form data
-    if (!formData.name || !formData.title || formData.ownershipPercentage <= 0) {
+    if (!formData.name || !formData.title || !formData.ownershipPercentage || parseFloat(formData.ownershipPercentage) <= 0) {
       toast({
         title: "Validation Error",
         description: "Please fill in all fields with valid values.",
@@ -238,39 +236,91 @@ export default function BeneficialOwnershipPage() {
       return
     }
 
-    // Calculate new total ownership excluding current owner
-    const otherOwnersTotal = owners.reduce(
-      (sum, owner) => (owner.id === currentOwner.id ? sum : sum + owner.ownershipPercentage),
-      0,
-    )
+    const newOwnerPercentage = Number.parseFloat(formData.ownershipPercentage)
 
-    const newTotal = otherOwnersTotal + formData.ownershipPercentage
-    if (newTotal > 100) {
-      toast({
-        title: "Validation Error",
-        description: "Total ownership percentage cannot exceed 100%.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Check minimum ownership rules for default owner
+    // If editing the CEO (default owner)
     if (currentOwner.isDefault) {
-      const totalOwners = owners.length
-      let minOwnership = 0
+      // Calculate total of other owners
+      const otherOwnersTotal = owners.reduce((sum, owner) => sum + (owner.isDefault ? 0 : owner.ownershipPercentage), 0)
 
-      if (totalOwners === 2) {
-        minOwnership = 51 // If 2 owners, primary must have at least 51%
-      } else if (totalOwners === 3) {
-        minOwnership = 34 // If 3 owners, primary must have at least 34%
-      } else if (totalOwners > 3) {
-        minOwnership = 25 // If more than 3 owners, primary must have at least 25%
-      }
-
-      if (formData.ownershipPercentage < minOwnership) {
+      // Check if total would exceed 100%
+      if (newOwnerPercentage + otherOwnersTotal > 100) {
         toast({
           title: "Validation Error",
-          description: `Primary owner must maintain at least ${minOwnership}% ownership with ${totalOwners} total owners.`,
+          description: "Total ownership percentage cannot exceed 100%.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Ensure CEO maintains highest percentage
+      const highestNonCeoPercentage = Math.max(
+        ...owners.filter((o) => !o.isDefault).map((o) => o.ownershipPercentage),
+        0,
+      )
+
+      if (newOwnerPercentage <= highestNonCeoPercentage) {
+        toast({
+          title: "Validation Error",
+          description: "As CEO, you must maintain the highest ownership percentage.",
+          variant: "destructive",
+        })
+        return
+      }
+    } else {
+      // If editing a non-CEO owner
+
+      // Calculate new total ownership excluding current owner
+      const otherOwnersTotal = owners.reduce(
+        (sum, owner) => (owner.id === currentOwner.id ? sum : sum + owner.ownershipPercentage),
+        0,
+      )
+
+      const newTotal = otherOwnersTotal + newOwnerPercentage
+      if (newTotal > 100) {
+        toast({
+          title: "Validation Error",
+          description: "Total ownership percentage cannot exceed 100%.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Get the CEO owner
+      const ceoOwner = owners.find((o) => o.isDefault)
+      if (!ceoOwner) {
+        toast({
+          title: "Error",
+          description: "Default owner not found. Please refresh the page.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Calculate new CEO percentage after this change
+      const newCeoPercentage = ceoOwner.ownershipPercentage - (newOwnerPercentage - currentOwner.ownershipPercentage)
+
+      // Ensure CEO maintains highest percentage
+      const highestNonCeoPercentage = Math.max(
+        ...owners.filter((o) => !o.isDefault && o.id !== currentOwner.id).map((o) => o.ownershipPercentage),
+        newOwnerPercentage,
+      )
+
+      if (newCeoPercentage <= highestNonCeoPercentage) {
+        toast({
+          title: "Validation Error",
+          description: "The CEO must maintain the highest ownership percentage.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Enforce maximum allocation based on number of existing owners
+      const maxAllocation = owners.length <= 2 ? 48 : owners.length === 3 ? 33 : 25
+      if (newOwnerPercentage > maxAllocation) {
+        toast({
+          title: "Validation Error",
+          description: `You cannot allocate more than ${maxAllocation}% to this owner.`,
           variant: "destructive",
         })
         return
@@ -278,7 +328,9 @@ export default function BeneficialOwnershipPage() {
     }
 
     try {
-      const response = await fetch(`/api/beneficial-ownership/${currentOwner.id}`, {
+      setSubmitting(true)
+
+      const res = await fetch(`/api/beneficial-ownership/${currentOwner.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -286,369 +338,386 @@ export default function BeneficialOwnershipPage() {
         body: JSON.stringify(formData),
       })
 
-      const data = await response.json()
+      const data = await res.json()
 
-      if (!response.ok) {
+      if (!res.ok) {
         throw new Error(data.error || "Failed to update owner")
       }
 
-      // Refresh the owners list
-      fetchOwners()
-      setShowEditDialog(false)
-
       toast({
-        title: "Owner Updated",
-        description: "Beneficial owner has been updated successfully.",
+        title: "Success",
+        description: "Beneficial owner updated successfully.",
       })
+
+      setOpenEditDialog(false)
+      setCurrentOwner(null)
+
+      fetchOwners()
     } catch (error) {
       console.error("Error updating owner:", error)
       toast({
         title: "Error",
-        description: (error as Error).message || "Failed to update beneficial owner.",
+        description: (error as Error).message,
         variant: "destructive",
       })
+    } finally {
+      setSubmitting(false)
     }
   }
 
-  const confirmDeleteOwner = async () => {
+  const handleDeleteOwner = async () => {
     if (!currentOwner) return
 
-    // Don't allow deleting the default owner
-    if (currentOwner.isDefault) {
-      toast({
-        title: "Cannot Delete",
-        description: "The primary owner cannot be deleted.",
-        variant: "destructive",
-      })
-      setShowDeleteDialog(false)
-      return
-    }
-
     try {
-      const response = await fetch(`/api/beneficial-ownership/${currentOwner.id}`, {
+      setSubmitting(true)
+
+      const res = await fetch(`/api/beneficial-ownership/${currentOwner.id}`, {
         method: "DELETE",
       })
 
-      const data = await response.json()
+      const data = await res.json()
 
-      if (!response.ok) {
+      if (!res.ok) {
         throw new Error(data.error || "Failed to delete owner")
       }
 
-      // Refresh the owners list
-      fetchOwners()
-      setShowDeleteDialog(false)
-
       toast({
-        title: "Owner Deleted",
-        description: "Beneficial owner has been deleted successfully.",
+        title: "Success",
+        description: "Beneficial owner deleted successfully.",
       })
+
+      setOpenDeleteDialog(false)
+      setCurrentOwner(null)
+
+      fetchOwners()
     } catch (error) {
       console.error("Error deleting owner:", error)
       toast({
         title: "Error",
-        description: (error as Error).message || "Failed to delete beneficial owner.",
+        description: (error as Error).message,
         variant: "destructive",
       })
+    } finally {
+      setSubmitting(false)
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
+  const openEdit = (owner: any) => {
+    setCurrentOwner(owner)
+    setFormData({
+      name: owner.name,
+      title: owner.isDefault ? "CEO" : owner.title,
+      ownershipPercentage: owner.ownershipPercentage.toString(),
     })
+    setOpenEditDialog(true)
+  }
+
+  const openDelete = (owner: any) => {
+    setCurrentOwner(owner)
+    setOpenDeleteDialog(true)
   }
 
   const getStatusBadge = (status: string) => {
-    if (status === "reported") {
-      return <Badge className="bg-green-100 text-green-800">Reported</Badge>
+    switch (status) {
+      case "pending":
+        return (
+          <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+            Pending
+          </Badge>
+        )
+      case "reported":
+        return (
+          <Badge variant="outline" className="bg-green-100 text-green-800">
+            Reported
+          </Badge>
+        )
+      default:
+        return <Badge variant="outline">{status}</Badge>
     }
-    return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="p-8 flex justify-center items-center min-h-[60vh]">
-        <div className="flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-t-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-4 text-muted-foreground">Loading ownership information...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Loading beneficial ownership data...</span>
       </div>
     )
   }
 
-  if (!isTableChecked) {
-    return (
-      <div className="p-8 flex justify-center items-center min-h-[60vh]">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Database Setup Required</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-4">The beneficial ownership table does not exist in the database.</p>
-            <p className="mb-4">Please contact an administrator to set up the required database tables.</p>
-            <Button onClick={checkTable}>Check Again</Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  const totalOwnership = owners.reduce((sum, owner) => sum + owner.ownershipPercentage, 0)
 
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Beneficial Ownership</h1>
-          <p className="text-muted-foreground mt-1">Manage your company's beneficial ownership information</p>
-        </div>
-        <Button onClick={handleAddOwner} className="flex items-center gap-2">
-          <Plus size={16} />
-          Add Owner
-        </Button>
-      </div>
-
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Ownership Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Total Ownership Allocated</span>
-                <span className="text-sm font-bold">{totalOwnership}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-primary h-2.5 rounded-full" style={{ width: `${totalOwnership}%` }}></div>
-              </div>
-              <div className="mt-4 text-sm text-muted-foreground">
-                {totalOwnership < 100 ? (
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-yellow-500" />
-                    <span>{100 - totalOwnership}% of ownership remains unallocated</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span>All ownership has been allocated</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="flex-1">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-muted p-4 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Total Owners</p>
-                  <p className="text-2xl font-bold">{owners.length}</p>
-                </div>
-                <div className="bg-muted p-4 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Pending Updates</p>
-                  <p className="text-2xl font-bold">{owners.filter((owner) => owner.status === "pending").length}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
+    <div className="container mx-auto py-6">
       <Card>
         <CardHeader>
-          <CardTitle>Beneficial Owners</CardTitle>
+          <CardTitle>Beneficial Ownership</CardTitle>
+          <CardDescription>
+            Manage your company's beneficial ownership information. All changes require approval.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
+          <div className="flex justify-end mb-4">
+            <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Owner
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Beneficial Owner</DialogTitle>
+                  <DialogDescription>
+                    Add a new beneficial owner to your company. The total ownership percentage cannot exceed 100%.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleAddOwner}>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="name" className="text-right">
+                        Name
+                      </Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        className="col-span-3"
+                        required
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="title" className="text-right">
+                        Title
+                      </Label>
+                      <Input
+                        id="title"
+                        name="title"
+                        value={formData.title}
+                        onChange={handleInputChange}
+                        className="col-span-3"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="ownershipPercentage">Ownership Percentage (%)</Label>
+                      <Input
+                        id="ownershipPercentage"
+                        name="ownershipPercentage"
+                        type="number"
+                        min="0.01"
+                        max={owners.length === 0 ? 48 : owners.length === 1 ? 33 : 25}
+                        value={formData.ownershipPercentage}
+                        onChange={handleInputChange}
+                        placeholder="Enter ownership percentage"
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Available: {100 - (owners.find((o) => o.isDefault)?.ownershipPercentage || 0)}%
+                      </p>
+                      {owners.length === 0 && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          You can allocate up to 48% to this owner. The CEO must maintain at least 52% ownership.
+                        </p>
+                      )}
+                      {owners.length === 1 && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          Recommended split for 3 owners: 34% (CEO), 33% (Owner 1), 33% (New Owner).
+                        </p>
+                      )}
+                      {owners.length >= 2 && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          The CEO must maintain the highest ownership percentage.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit" disabled={submitting}>
+                      {submitting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        "Add Owner"
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Table>
+            <TableCaption>List of beneficial owners for your company.</TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Ownership %</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {owners.length === 0 ? (
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Ownership %</TableHead>
-                  <TableHead>Date Added</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableCell colSpan={5} className="text-center">
+                    No beneficial owners found.
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {owners.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                      No beneficial owners found. Add your first owner.
+              ) : (
+                owners.map((owner) => (
+                  <TableRow key={owner.id}>
+                    <TableCell className="font-medium">
+                      {owner.name}
+                      {owner.isDefault && (
+                        <Badge variant="secondary" className="ml-2">
+                          Primary
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>{owner.title}</TableCell>
+                    <TableCell>{owner.ownershipPercentage}%</TableCell>
+                    <TableCell>{getStatusBadge(owner.status)}</TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm" onClick={() => openEdit(owner)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {!owner.isDefault && (
+                          <Button variant="outline" size="sm" onClick={() => openDelete(owner)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  owners.map((owner) => (
-                    <TableRow key={owner.id}>
-                      <TableCell className="font-medium">{owner.name}</TableCell>
-                      <TableCell>{owner.title}</TableCell>
-                      <TableCell>{owner.ownershipPercentage}%</TableCell>
-                      <TableCell>{formatDate(owner.dateAdded)}</TableCell>
-                      <TableCell>{getStatusBadge(owner.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleEditOwner(owner)}>
-                            <Edit className="h-4 w-4" />
-                            <span className="sr-only">Edit</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteOwner(owner)}
-                            disabled={owner.isDefault}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete</span>
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
+        <CardFooter className="flex justify-between">
+          <p className="text-sm text-muted-foreground">
+            Note: Changes to beneficial ownership require approval and will be marked as pending until reviewed.
+          </p>
+        </CardFooter>
       </Card>
 
-      {/* Add Owner Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Beneficial Owner</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div>
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="Enter full name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="title">Title/Position</Label>
-              <Input
-                id="title"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                placeholder="Enter title or position"
-              />
-            </div>
-            <div>
-              <Label htmlFor="ownershipPercentage">Ownership Percentage (%)</Label>
-              <Input
-                id="ownershipPercentage"
-                name="ownershipPercentage"
-                type="number"
-                min="0"
-                max="100"
-                value={formData.ownershipPercentage}
-                onChange={handleInputChange}
-                placeholder="Enter ownership percentage"
-              />
-              <p className="text-sm text-muted-foreground mt-1">Available: {100 - totalOwnership}%</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={submitAddOwner}>Add Owner</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Owner Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+      {/* Edit Dialog */}
+      <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Beneficial Owner</DialogTitle>
+            <DialogDescription>
+              {currentOwner?.isDefault
+                ? "You can only update the ownership percentage of the primary owner."
+                : "Update the beneficial owner's information."}
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div>
-              <Label htmlFor="edit-name">Full Name</Label>
-              <Input
-                id="edit-name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="Enter full name"
-                disabled={currentOwner?.isDefault}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-title">Title/Position</Label>
-              <Input
-                id="edit-title"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                placeholder="Enter title or position"
-                disabled={currentOwner?.isDefault}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-ownershipPercentage">Ownership Percentage (%)</Label>
-              <Input
-                id="edit-ownershipPercentage"
-                name="ownershipPercentage"
-                type="number"
-                min="0"
-                max="100"
-                value={formData.ownershipPercentage}
-                onChange={handleInputChange}
-                placeholder="Enter ownership percentage"
-              />
-              {currentOwner && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Available: {100 - totalOwnership + currentOwner.ownershipPercentage}%
-                </p>
-              )}
-            </div>
-            {currentOwner?.isDefault && (
-              <div className="bg-yellow-50 p-3 rounded-md border border-yellow-200">
-                <p className="text-sm text-yellow-800">
-                  This is the primary owner. You can only change the ownership percentage.
-                </p>
+          <form onSubmit={handleEditOwner}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-name" className="text-right">
+                  Name
+                </Label>
+                <Input
+                  id="edit-name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  disabled={currentOwner?.isDefault}
+                  required
+                />
               </div>
-            )}
-            {!currentOwner?.isDefault && (
-              <div className="bg-blue-50 p-3 rounded-md border border-blue-200">
-                <p className="text-sm text-blue-800">
-                  Editing this owner will change the status to "Pending" until approved by an administrator.
-                </p>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-title" className="text-right">
+                  Title
+                </Label>
+                <Input
+                  id="edit-title"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  disabled={currentOwner?.isDefault}
+                  required
+                />
               </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={submitEditOwner}>Save Changes</Button>
-          </DialogFooter>
+              <div>
+                <Label htmlFor="edit-ownershipPercentage">Ownership Percentage (%)</Label>
+                <Input
+                  id="edit-ownershipPercentage"
+                  name="ownershipPercentage"
+                  type="number"
+                  min="0.01"
+                  max={currentOwner?.isDefault ? 100 : owners.length <= 2 ? 48 : owners.length === 3 ? 33 : 25}
+                  value={formData.ownershipPercentage}
+                  onChange={handleInputChange}
+                  placeholder="Enter ownership percentage"
+                />
+                {currentOwner && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {currentOwner.isDefault
+                      ? `As CEO, you must maintain the highest ownership percentage.`
+                      : `Available: ${100 - totalOwnership + currentOwner.ownershipPercentage}%`}
+                  </p>
+                )}
+                {!currentOwner?.isDefault && owners.length === 2 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Recommended split for 2 owners: 52% (CEO), 48% (This Owner).
+                  </p>
+                )}
+                {!currentOwner?.isDefault && owners.length === 3 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Recommended split for 3 owners: 34% (CEO), 33% (Owner 1), 33% (Owner 2).
+                  </p>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Owner"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Owner Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Beneficial Owner</AlertDialogTitle>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this beneficial owner? This action cannot be undone.
+              This will permanently delete the beneficial owner. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteOwner} className="bg-red-600 hover:bg-red-700">
-              Delete
+            <AlertDialogAction
+              onClick={handleDeleteOwner}
+              disabled={submitting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -656,4 +725,3 @@ export default function BeneficialOwnershipPage() {
     </div>
   )
 }
-
