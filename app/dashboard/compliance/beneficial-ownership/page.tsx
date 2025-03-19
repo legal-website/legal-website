@@ -31,13 +31,17 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
-import { Loader2, Plus, Pencil, Trash2, AlertCircle } from "lucide-react"
+import { Loader2, Plus, Pencil, Trash2, AlertCircle, RefreshCw, Filter } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function BeneficialOwnershipPage() {
   const { data: session } = useSession()
   const router = useRouter()
   const [owners, setOwners] = useState<any[]>([])
+  const [filteredOwners, setFilteredOwners] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [backgroundRefreshing, setBackgroundRefreshing] = useState(false)
   const [openAddDialog, setOpenAddDialog] = useState(false)
   const [openEditDialog, setOpenEditDialog] = useState(false)
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false)
@@ -48,6 +52,7 @@ export default function BeneficialOwnershipPage() {
     ownershipPercentage: "",
   })
   const [submitting, setSubmitting] = useState(false)
+  const [statusFilter, setStatusFilter] = useState("all")
 
   useEffect(() => {
     if (!session) {
@@ -77,26 +82,73 @@ export default function BeneficialOwnershipPage() {
         })
         setLoading(false)
       })
+
+    // Set up auto-refresh every 2 minutes
+    const interval = setInterval(() => {
+      fetchOwners(false, true)
+    }, 120000)
+
+    return () => clearInterval(interval)
   }, [session])
 
-  const fetchOwners = async () => {
+  // Apply filters whenever owners or statusFilter changes
+  useEffect(() => {
+    if (owners.length > 0) {
+      let filtered = [...owners]
+
+      // Apply status filter
+      if (statusFilter !== "all") {
+        filtered = filtered.filter((owner) => owner.status === statusFilter)
+      }
+
+      setFilteredOwners(filtered)
+    } else {
+      setFilteredOwners([])
+    }
+  }, [owners, statusFilter])
+
+  const fetchOwners = async (showToast = false, isBackground = false) => {
     try {
-      setLoading(true)
+      if (!isBackground) {
+        setLoading(true)
+      }
+      if (showToast) {
+        setRefreshing(true)
+      }
+      if (isBackground) {
+        setBackgroundRefreshing(true)
+      }
+
       const res = await fetch("/api/beneficial-ownership")
       const data = await res.json()
 
       if (data.owners) {
         setOwners(data.owners)
       }
+
+      if (showToast) {
+        toast({
+          title: "Refreshed",
+          description: "Beneficial ownership data has been refreshed.",
+        })
+      }
     } catch (error) {
       console.error("Error fetching owners:", error)
-      toast({
-        title: "Error",
-        description: "Failed to fetch beneficial owners.",
-        variant: "destructive",
-      })
+      if (showToast) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch beneficial owners.",
+          variant: "destructive",
+        })
+      }
     } finally {
-      setLoading(false)
+      if (!isBackground) {
+        setLoading(false)
+      }
+      if (showToast) {
+        setRefreshing(false)
+      }
+      setBackgroundRefreshing(false)
     }
   }
 
@@ -470,6 +522,10 @@ export default function BeneficialOwnershipPage() {
     }
   }
 
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -484,12 +540,54 @@ export default function BeneficialOwnershipPage() {
 
   return (
     <div className="container mx-auto py-6">
+      {backgroundRefreshing && (
+        <div className="fixed top-0 left-0 right-0 h-1 z-50">
+          <div className="h-full bg-primary animate-pulse"></div>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle>Beneficial Ownership</CardTitle>
-          <CardDescription>
-            Manage your company's beneficial ownership information. All changes require approval.
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <CardTitle>Beneficial Ownership</CardTitle>
+              <CardDescription>
+                Manage your company's beneficial ownership information. All changes require approval.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+                <SelectTrigger className="w-[140px]">
+                  <div className="flex items-center">
+                    <Filter className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder="Filter" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="reported">Reported</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => fetchOwners(true)}
+                disabled={refreshing}
+                className="relative"
+              >
+                <div
+                  className={`absolute inset-0 flex items-center justify-center ${refreshing ? "opacity-100" : "opacity-0"}`}
+                >
+                  <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                </div>
+                <div className={refreshing ? "opacity-0" : "opacity-100"}>
+                  <RefreshCw className="h-4 w-4" />
+                </div>
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex justify-end mb-4">
@@ -500,7 +598,7 @@ export default function BeneficialOwnershipPage() {
                   Add Owner
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                   <DialogTitle>Add Beneficial Owner</DialogTitle>
                   <DialogDescription>
@@ -509,33 +607,29 @@ export default function BeneficialOwnershipPage() {
                 </DialogHeader>
                 <form onSubmit={handleAddOwner}>
                   <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="name" className="text-right">
-                        Name
-                      </Label>
+                    <div className="grid grid-cols-1 gap-2">
+                      <Label htmlFor="name">Name</Label>
                       <Input
                         id="name"
                         name="name"
                         value={formData.name}
                         onChange={handleInputChange}
-                        className="col-span-3"
+                        className="w-full"
                         required
                       />
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="title" className="text-right">
-                        Title
-                      </Label>
+                    <div className="grid grid-cols-1 gap-2">
+                      <Label htmlFor="title">Title</Label>
                       <Input
                         id="title"
                         name="title"
                         value={formData.title}
                         onChange={handleInputChange}
-                        className="col-span-3"
+                        className="w-full"
                         required
                       />
                     </div>
-                    <div>
+                    <div className="grid grid-cols-1 gap-2">
                       <Label htmlFor="ownershipPercentage">Ownership Percentage (%)</Label>
                       <Input
                         id="ownershipPercentage"
@@ -550,9 +644,9 @@ export default function BeneficialOwnershipPage() {
                         required
                       />
                       <div className="flex items-center gap-2 mt-2 text-sm text-amber-600">
-                        <AlertCircle className="h-4 w-4" />
+                        <AlertCircle className="h-4 w-4 flex-shrink-0" />
                         <p>
-                          Your ownership will automatically adjust to{" "}
+                          Available:{" "}
                           {formData.ownershipPercentage
                             ? (
                                 100 -
@@ -565,8 +659,8 @@ export default function BeneficialOwnershipPage() {
                       </div>
                     </div>
                   </div>
-                  <DialogFooter>
-                    <Button type="submit" disabled={submitting}>
+                  <DialogFooter className="flex flex-col sm:flex-row gap-2">
+                    <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
                       {submitting ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -582,55 +676,57 @@ export default function BeneficialOwnershipPage() {
             </Dialog>
           </div>
 
-          <Table>
-            <TableCaption>List of beneficial owners for your company.</TableCaption>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Ownership %</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {owners.length === 0 ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableCaption>List of beneficial owners for your company.</TableCaption>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center">
-                    No beneficial owners found.
-                  </TableCell>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Ownership %</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ) : (
-                owners.map((owner) => (
-                  <TableRow key={owner.id}>
-                    <TableCell className="font-medium">
-                      {owner.name}
-                      {owner.isDefault && (
-                        <Badge variant="secondary" className="ml-2">
-                          Primary
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>{owner.title}</TableCell>
-                    <TableCell>{owner.ownershipPercentage}%</TableCell>
-                    <TableCell>{getStatusBadge(owner.status)}</TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => openEdit(owner)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        {!owner.isDefault && (
-                          <Button variant="outline" size="sm" onClick={() => openDelete(owner)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {filteredOwners.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center">
+                      No beneficial owners found.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  filteredOwners.map((owner) => (
+                    <TableRow key={owner.id}>
+                      <TableCell className="font-medium">
+                        {owner.name}
+                        {owner.isDefault && (
+                          <Badge variant="secondary" className="ml-2">
+                            Primary
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>{owner.title}</TableCell>
+                      <TableCell>{owner.ownershipPercentage}%</TableCell>
+                      <TableCell>{getStatusBadge(owner.status)}</TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => openEdit(owner)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          {!owner.isDefault && (
+                            <Button variant="outline" size="sm" onClick={() => openDelete(owner)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
         <CardFooter className="flex justify-between">
           <p className="text-sm text-muted-foreground">
@@ -641,7 +737,7 @@ export default function BeneficialOwnershipPage() {
 
       {/* Edit Dialog */}
       <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Edit Beneficial Owner</DialogTitle>
             <DialogDescription>
@@ -652,33 +748,29 @@ export default function BeneficialOwnershipPage() {
           </DialogHeader>
           <form onSubmit={handleEditOwner}>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-name" className="text-right">
-                  Name
-                </Label>
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="edit-name">Name</Label>
                 <Input
                   id="edit-name"
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  className="col-span-3"
+                  className="w-full"
                   required
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-title" className="text-right">
-                  Title
-                </Label>
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="edit-title">Title</Label>
                 <Input
                   id="edit-title"
                   name="title"
                   value={formData.title}
                   onChange={handleInputChange}
-                  className="col-span-3"
+                  className="w-full"
                   required
                 />
               </div>
-              <div>
+              <div className="grid grid-cols-1 gap-2">
                 <Label htmlFor="edit-ownershipPercentage">Ownership Percentage (%)</Label>
                 <Input
                   id="edit-ownershipPercentage"
@@ -694,9 +786,9 @@ export default function BeneficialOwnershipPage() {
                 />
                 {currentOwner && !currentOwner.isDefault && (
                   <div className="flex items-center gap-2 mt-2 text-sm text-amber-600">
-                    <AlertCircle className="h-4 w-4" />
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
                     <p>
-                      Primary owner's percentage will adjust to{" "}
+                      Available:{" "}
                       {formData.ownershipPercentage
                         ? (
                             100 -
@@ -713,8 +805,8 @@ export default function BeneficialOwnershipPage() {
                 )}
               </div>
             </div>
-            <DialogFooter>
-              <Button type="submit" disabled={submitting}>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2">
+              <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
                 {submitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -739,12 +831,12 @@ export default function BeneficialOwnershipPage() {
               percentage will increase by {currentOwner?.ownershipPercentage || 0}%.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteOwner}
               disabled={submitting}
-              className="bg-red-600 hover:bg-red-700"
+              className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
             >
               {submitting ? (
                 <>
