@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
-import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Loader2, Plus, Pencil, Trash2, AlertCircle } from "lucide-react"
 
 export default function BeneficialOwnershipPage() {
   const { data: session } = useSession()
@@ -113,7 +113,12 @@ export default function BeneficialOwnershipPage() {
 
   const submitAddOwner = async () => {
     // Validate form data
-    if (!formData.name || !formData.title || !formData.ownershipPercentage || parseFloat(formData.ownershipPercentage) <= 0) {
+    if (
+      !formData.name ||
+      !formData.title ||
+      !formData.ownershipPercentage ||
+      Number.parseFloat(formData.ownershipPercentage) <= 0
+    ) {
       toast({
         title: "Validation Error",
         description: "Please fill in all fields with valid values.",
@@ -133,13 +138,13 @@ export default function BeneficialOwnershipPage() {
       return
     }
 
-    // Calculate new total ownership
+    // Calculate new total ownership excluding CEO
     const newOwnerPercentage = Number.parseFloat(formData.ownershipPercentage)
     const otherOwnersTotal = owners.reduce((sum, owner) => sum + (owner.isDefault ? 0 : owner.ownershipPercentage), 0)
     const newTotal = otherOwnersTotal + newOwnerPercentage
 
     // Check if total ownership would exceed 100%
-    if (newTotal + ceoOwner.ownershipPercentage > 100) {
+    if (newTotal > 100) {
       toast({
         title: "Validation Error",
         description: "Total ownership percentage cannot exceed 100%.",
@@ -148,36 +153,31 @@ export default function BeneficialOwnershipPage() {
       return
     }
 
-    // Enforce maximum allocation based on number of existing owners
-    const maxAllocation = owners.length === 0 ? 48 : owners.length === 1 ? 33 : 25
-    if (newOwnerPercentage > maxAllocation) {
-      toast({
-        title: "Validation Error",
-        description: `You cannot allocate more than ${maxAllocation}% to this owner.`,
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Ensure CEO maintains highest percentage
-    const newCeoPercentage = 100 - (otherOwnersTotal + newOwnerPercentage)
-    const highestNonCeoPercentage = Math.max(
-      ...owners.filter((o) => !o.isDefault).map((o) => o.ownershipPercentage),
-      newOwnerPercentage,
-    )
-
-    if (newCeoPercentage <= highestNonCeoPercentage) {
-      toast({
-        title: "Validation Error",
-        description: "The CEO must maintain the highest ownership percentage.",
-        variant: "destructive",
-      })
-      return
-    }
+    // Calculate new CEO percentage (automatically adjust to maintain 100% total)
+    const newCeoPercentage = 100 - newTotal
 
     try {
       setSubmitting(true)
 
+      // First update the CEO's ownership percentage
+      const ceoUpdateRes = await fetch(`/api/beneficial-ownership/${ceoOwner.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: ceoOwner.name,
+          title: ceoOwner.title,
+          ownershipPercentage: newCeoPercentage.toString(),
+        }),
+      })
+
+      if (!ceoUpdateRes.ok) {
+        const ceoData = await ceoUpdateRes.json()
+        throw new Error(ceoData.error || "Failed to update CEO ownership")
+      }
+
+      // Then add the new owner
       const res = await fetch("/api/beneficial-ownership", {
         method: "POST",
         headers: {
@@ -227,7 +227,12 @@ export default function BeneficialOwnershipPage() {
     if (!currentOwner) return
 
     // Validate form data
-    if (!formData.name || !formData.title || !formData.ownershipPercentage || parseFloat(formData.ownershipPercentage) <= 0) {
+    if (
+      !formData.name ||
+      !formData.title ||
+      !formData.ownershipPercentage ||
+      Number.parseFloat(formData.ownershipPercentage) <= 0
+    ) {
       toast({
         title: "Validation Error",
         description: "Please fill in all fields with valid values.",
@@ -252,40 +257,8 @@ export default function BeneficialOwnershipPage() {
         })
         return
       }
-
-      // Ensure CEO maintains highest percentage
-      const highestNonCeoPercentage = Math.max(
-        ...owners.filter((o) => !o.isDefault).map((o) => o.ownershipPercentage),
-        0,
-      )
-
-      if (newOwnerPercentage <= highestNonCeoPercentage) {
-        toast({
-          title: "Validation Error",
-          description: "As CEO, you must maintain the highest ownership percentage.",
-          variant: "destructive",
-        })
-        return
-      }
     } else {
       // If editing a non-CEO owner
-
-      // Calculate new total ownership excluding current owner
-      const otherOwnersTotal = owners.reduce(
-        (sum, owner) => (owner.id === currentOwner.id ? sum : sum + owner.ownershipPercentage),
-        0,
-      )
-
-      const newTotal = otherOwnersTotal + newOwnerPercentage
-      if (newTotal > 100) {
-        toast({
-          title: "Validation Error",
-          description: "Total ownership percentage cannot exceed 100%.",
-          variant: "destructive",
-        })
-        return
-      }
-
       // Get the CEO owner
       const ceoOwner = owners.find((o) => o.isDefault)
       if (!ceoOwner) {
@@ -297,32 +270,54 @@ export default function BeneficialOwnershipPage() {
         return
       }
 
-      // Calculate new CEO percentage after this change
-      const newCeoPercentage = ceoOwner.ownershipPercentage - (newOwnerPercentage - currentOwner.ownershipPercentage)
-
-      // Ensure CEO maintains highest percentage
-      const highestNonCeoPercentage = Math.max(
-        ...owners.filter((o) => !o.isDefault && o.id !== currentOwner.id).map((o) => o.ownershipPercentage),
-        newOwnerPercentage,
+      // Calculate new total ownership excluding CEO and current owner
+      const otherOwnersTotal = owners.reduce(
+        (sum, owner) => (owner.isDefault || owner.id === currentOwner.id ? sum : sum + owner.ownershipPercentage),
+        0,
       )
 
-      if (newCeoPercentage <= highestNonCeoPercentage) {
+      // Calculate new total with updated ownership
+      const newTotal = otherOwnersTotal + newOwnerPercentage
+
+      // Check if total would exceed 100%
+      if (newTotal > 100) {
         toast({
           title: "Validation Error",
-          description: "The CEO must maintain the highest ownership percentage.",
+          description: "Total ownership percentage cannot exceed 100%.",
           variant: "destructive",
         })
         return
       }
 
-      // Enforce maximum allocation based on number of existing owners
-      const maxAllocation = owners.length <= 2 ? 48 : owners.length === 3 ? 33 : 25
-      if (newOwnerPercentage > maxAllocation) {
+      // Calculate new CEO percentage
+      const newCeoPercentage = 100 - newTotal
+
+      // Update CEO's ownership first
+      try {
+        const ceoUpdateRes = await fetch(`/api/beneficial-ownership/${ceoOwner.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: ceoOwner.name,
+            title: ceoOwner.title,
+            ownershipPercentage: newCeoPercentage.toString(),
+          }),
+        })
+
+        if (!ceoUpdateRes.ok) {
+          const ceoData = await ceoUpdateRes.json()
+          throw new Error(ceoData.error || "Failed to update CEO ownership")
+        }
+      } catch (error) {
+        console.error("Error updating CEO ownership:", error)
         toast({
-          title: "Validation Error",
-          description: `You cannot allocate more than ${maxAllocation}% to this owner.`,
+          title: "Error",
+          description: (error as Error).message,
           variant: "destructive",
         })
+        setSubmitting(false)
         return
       }
     }
@@ -330,6 +325,7 @@ export default function BeneficialOwnershipPage() {
     try {
       setSubmitting(true)
 
+      // Update the current owner
       const res = await fetch(`/api/beneficial-ownership/${currentOwner.id}`, {
         method: "PUT",
         headers: {
@@ -368,9 +364,53 @@ export default function BeneficialOwnershipPage() {
   const handleDeleteOwner = async () => {
     if (!currentOwner) return
 
+    // Don't allow deleting the default owner
+    if (currentOwner.isDefault) {
+      toast({
+        title: "Cannot Delete",
+        description: "The primary owner cannot be deleted.",
+        variant: "destructive",
+      })
+      setOpenDeleteDialog(false)
+      return
+    }
+
+    // Get the CEO owner
+    const ceoOwner = owners.find((o) => o.isDefault)
+    if (!ceoOwner) {
+      toast({
+        title: "Error",
+        description: "Default owner not found. Please refresh the page.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Calculate new CEO percentage after deletion
+    const newCeoPercentage = ceoOwner.ownershipPercentage + currentOwner.ownershipPercentage
+
     try {
       setSubmitting(true)
 
+      // First update the CEO's ownership percentage
+      const ceoUpdateRes = await fetch(`/api/beneficial-ownership/${ceoOwner.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: ceoOwner.name,
+          title: ceoOwner.title,
+          ownershipPercentage: newCeoPercentage.toString(),
+        }),
+      })
+
+      if (!ceoUpdateRes.ok) {
+        const ceoData = await ceoUpdateRes.json()
+        throw new Error(ceoData.error || "Failed to update CEO ownership")
+      }
+
+      // Then delete the owner
       const res = await fetch(`/api/beneficial-ownership/${currentOwner.id}`, {
         method: "DELETE",
       })
@@ -406,7 +446,7 @@ export default function BeneficialOwnershipPage() {
     setCurrentOwner(owner)
     setFormData({
       name: owner.name,
-      title: owner.isDefault ? "CEO" : owner.title,
+      title: owner.title,
       ownershipPercentage: owner.ownershipPercentage.toString(),
     })
     setOpenEditDialog(true)
@@ -446,6 +486,7 @@ export default function BeneficialOwnershipPage() {
   }
 
   const totalOwnership = owners.reduce((sum, owner) => sum + owner.ownershipPercentage, 0)
+  const ceoOwner = owners.find((o) => o.isDefault)
 
   return (
     <div className="container mx-auto py-6">
@@ -469,7 +510,7 @@ export default function BeneficialOwnershipPage() {
                 <DialogHeader>
                   <DialogTitle>Add Beneficial Owner</DialogTitle>
                   <DialogDescription>
-                    Add a new beneficial owner to your company. The total ownership percentage cannot exceed 100%.
+                    Add a new beneficial owner to your company. Your ownership percentage will automatically adjust.
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleAddOwner}>
@@ -507,29 +548,27 @@ export default function BeneficialOwnershipPage() {
                         name="ownershipPercentage"
                         type="number"
                         min="0.01"
-                        max={owners.length === 0 ? 48 : owners.length === 1 ? 33 : 25}
+                        max="100"
+                        step="0.01"
                         value={formData.ownershipPercentage}
                         onChange={handleInputChange}
                         placeholder="Enter ownership percentage"
+                        required
                       />
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Available: {100 - (owners.find((o) => o.isDefault)?.ownershipPercentage || 0)}%
-                      </p>
-                      {owners.length === 0 && (
-                        <p className="text-xs text-amber-600 mt-1">
-                          You can allocate up to 48% to this owner. The CEO must maintain at least 52% ownership.
+                      <div className="flex items-center gap-2 mt-2 text-sm text-amber-600">
+                        <AlertCircle className="h-4 w-4" />
+                        <p>
+                          Your ownership will automatically adjust to{" "}
+                          {formData.ownershipPercentage
+                            ? (
+                                100 -
+                                Number.parseFloat(formData.ownershipPercentage) -
+                                owners.reduce((sum, o) => (o.isDefault ? 0 : sum + o.ownershipPercentage), 0)
+                              ).toFixed(2)
+                            : ceoOwner?.ownershipPercentage}
+                          %
                         </p>
-                      )}
-                      {owners.length === 1 && (
-                        <p className="text-xs text-amber-600 mt-1">
-                          Recommended split for 3 owners: 34% (CEO), 33% (Owner 1), 33% (New Owner).
-                        </p>
-                      )}
-                      {owners.length >= 2 && (
-                        <p className="text-xs text-amber-600 mt-1">
-                          The CEO must maintain the highest ownership percentage.
-                        </p>
-                      )}
+                      </div>
                     </div>
                   </div>
                   <DialogFooter>
@@ -613,8 +652,8 @@ export default function BeneficialOwnershipPage() {
             <DialogTitle>Edit Beneficial Owner</DialogTitle>
             <DialogDescription>
               {currentOwner?.isDefault
-                ? "You can only update the ownership percentage of the primary owner."
-                : "Update the beneficial owner's information."}
+                ? "Update the primary owner's information."
+                : "Update the beneficial owner's information. Your ownership will automatically adjust."}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditOwner}>
@@ -629,7 +668,6 @@ export default function BeneficialOwnershipPage() {
                   value={formData.name}
                   onChange={handleInputChange}
                   className="col-span-3"
-                  disabled={currentOwner?.isDefault}
                   required
                 />
               </div>
@@ -643,7 +681,6 @@ export default function BeneficialOwnershipPage() {
                   value={formData.title}
                   onChange={handleInputChange}
                   className="col-span-3"
-                  disabled={currentOwner?.isDefault}
                   required
                 />
               </div>
@@ -654,27 +691,31 @@ export default function BeneficialOwnershipPage() {
                   name="ownershipPercentage"
                   type="number"
                   min="0.01"
-                  max={currentOwner?.isDefault ? 100 : owners.length <= 2 ? 48 : owners.length === 3 ? 33 : 25}
+                  max="100"
+                  step="0.01"
                   value={formData.ownershipPercentage}
                   onChange={handleInputChange}
                   placeholder="Enter ownership percentage"
+                  required
                 />
-                {currentOwner && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {currentOwner.isDefault
-                      ? `As CEO, you must maintain the highest ownership percentage.`
-                      : `Available: ${100 - totalOwnership + currentOwner.ownershipPercentage}%`}
-                  </p>
-                )}
-                {!currentOwner?.isDefault && owners.length === 2 && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    Recommended split for 2 owners: 52% (CEO), 48% (This Owner).
-                  </p>
-                )}
-                {!currentOwner?.isDefault && owners.length === 3 && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    Recommended split for 3 owners: 34% (CEO), 33% (Owner 1), 33% (Owner 2).
-                  </p>
+                {currentOwner && !currentOwner.isDefault && (
+                  <div className="flex items-center gap-2 mt-2 text-sm text-amber-600">
+                    <AlertCircle className="h-4 w-4" />
+                    <p>
+                      Primary owner's percentage will adjust to{" "}
+                      {formData.ownershipPercentage
+                        ? (
+                            100 -
+                            Number.parseFloat(formData.ownershipPercentage) -
+                            owners.reduce(
+                              (sum, o) => (o.isDefault || o.id === currentOwner.id ? 0 : sum + o.ownershipPercentage),
+                              0,
+                            )
+                          ).toFixed(2)
+                        : ceoOwner?.ownershipPercentage}
+                      %
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
@@ -700,7 +741,8 @@ export default function BeneficialOwnershipPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the beneficial owner. This action cannot be undone.
+              This will permanently delete the beneficial owner. This action cannot be undone. The primary owner's
+              percentage will increase by {currentOwner?.ownershipPercentage || 0}%.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -725,3 +767,4 @@ export default function BeneficialOwnershipPage() {
     </div>
   )
 }
+
