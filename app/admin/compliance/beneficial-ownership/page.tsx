@@ -256,6 +256,7 @@ export default function AdminBeneficialOwnershipPage() {
     const newStatus = selectedOwner.status === "pending" ? "reported" : "pending"
 
     try {
+      // Fix the API endpoint URL - change from beneficial-ownership to admin/beneficial-ownership
       const response = await fetch(`/api/admin/beneficial-ownership/status/${selectedOwner.id}`, {
         method: "PUT",
         headers: {
@@ -264,11 +265,20 @@ export default function AdminBeneficialOwnershipPage() {
         body: JSON.stringify({ status: newStatus }),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to update status")
+        const errorData = await response.text()
+        let errorMessage = "Failed to update status"
+        try {
+          const jsonError = JSON.parse(errorData)
+          errorMessage = jsonError.error || errorMessage
+        } catch (e) {
+          // If parsing fails, use the text as is
+          errorMessage = errorData || errorMessage
+        }
+        throw new Error(errorMessage)
       }
+
+      const data = await response.json()
 
       // Update owner status in the local state
       const updatedOwners = owners.map((owner) => {
@@ -918,16 +928,14 @@ export default function AdminBeneficialOwnershipPage() {
 
                 <div className="border-t pt-4">
                   <p className="text-sm text-muted-foreground mb-1">Client Information</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium">{selectedOwner.user?.name || "Unknown"}</p>
-                      <p className="text-xs text-muted-foreground">{selectedOwner.user?.email || "No email"}</p>
-                    </div>
-                    <div className="text-right">
-                      <Button variant="outline" size="sm" onClick={() => setShowViewDialog(false)}>
-                        Close
-                      </Button>
-                    </div>
+                  <div>
+                    <p className="text-sm font-medium">{selectedOwner.user?.name || "Unknown"}</p>
+                    <p className="text-xs text-muted-foreground">{selectedOwner.user?.email || "No email"}</p>
+                  </div>
+                  <div className="mt-4 text-right">
+                    <Button variant="outline" size="sm" onClick={() => setShowViewDialog(false)}>
+                      Close
+                    </Button>
                   </div>
                 </div>
               </Card>
@@ -1046,7 +1054,14 @@ function OwnerTable({
           <TableBody>
             {owners.map((owner) => (
               <TableRow key={owner.id}>
-                <TableCell>{owner.user?.name || "Unknown"}</TableCell>
+                <TableCell>
+                  <div>
+                    <div className="font-medium">{owner.user?.name || "Unknown"}</div>
+                    <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                      {owner.user?.email || ""}
+                    </div>
+                  </div>
+                </TableCell>
                 <TableCell className="font-medium">{owner.name}</TableCell>
                 <TableCell>{owner.title}</TableCell>
                 <TableCell>{owner.ownershipPercentage}%</TableCell>
