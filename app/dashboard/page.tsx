@@ -1279,7 +1279,7 @@ export default function DashboardPage() {
               </div>
             ) : amendments.length > 0 ? (
               <div className="space-y-4">
-                {amendments.map((amendment) => (
+                {amendments.slice(0, 2).map((amendment) => (
                   <div key={amendment.id} className="border rounded-lg p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
@@ -1334,7 +1334,7 @@ export default function DashboardPage() {
               </div>
             ) : upcomingDeadlines.length > 0 ? (
               <div className="space-y-4">
-                {upcomingDeadlines.slice(0, 3).map((deadline) => {
+                {upcomingDeadlines.slice(0, 2).map((deadline) => {
                   const daysLeft = calculateDaysLeft(deadline.dueDate)
                   const isUrgent = daysLeft <= 30
                   const isPending = deadline.status === "pending"
