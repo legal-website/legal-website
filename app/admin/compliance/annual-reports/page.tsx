@@ -1088,21 +1088,25 @@ export default function AdminAnnualReportsPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    getPageItems(sortedFilings).map((filing) => (
+                    getPageItems(sortedFilings).map((filing: any) => (
                       <TableRow key={filing.id}>
-                        <TableCell className="font-medium">{filing.deadlineTitle || filing.deadline?.title}</TableCell>
+                        <TableCell className="font-medium">
+                          {filing.deadlineTitle || filing.deadline?.title || "Unknown Deadline"}
+                        </TableCell>
                         <TableCell>
                           <div>
-                            <p>{filing.userName || "Unknown"}</p>
-                            <p className="text-sm text-muted-foreground">{filing.userEmail}</p>
+                            <p>{filing.userName || filing.user?.name || "Unknown"}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {filing.userEmail || filing.user?.email || "unknown@example.com"}
+                            </p>
                           </div>
                         </TableCell>
-                        <TableCell>{formatDate(filing.dueDate || filing.deadline?.dueDate)}</TableCell>
+                        <TableCell>{formatDate(filing.dueDate || filing.deadline?.dueDate || null)}</TableCell>
                         <TableCell>
                           <Badge className={getStatusBadgeColor(filing.status)}>
                             {filing.status
                               .split("_")
-                              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                              .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
                               .join(" ")}
                           </Badge>
                         </TableCell>
