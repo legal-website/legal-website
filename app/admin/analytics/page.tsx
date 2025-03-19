@@ -7,38 +7,42 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import { ArrowUpRight, ArrowDownRight, Calendar, Download, RefreshCw, TrendingUp, Users, FileText, DollarSign, ShoppingCart, Activity, BarChart2, PieChart, LineChart, Clock, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  Calendar,
+  Download,
+  RefreshCw,
+  TrendingUp,
+  Users,
+  FileText,
+  DollarSign,
+  ShoppingCart,
+  Activity,
+  BarChart2,
+  PieChart,
+  LineChart,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+} from "lucide-react"
 import { format, subDays, subMonths, isAfter, parseISO } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 
 // In the imports section, add these imports:
 import { LineChart as RechartsLineChart, PieChart as RechartsPieChart } from "recharts"
-import { Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, TooltipProps } from "recharts"
-import { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent"
+import { Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts"
 
-// Define interfaces for our data based on the Prisma schema
+// Define interfaces for our data
 interface Invoice {
   id: string
   amount: number
   status: string
   createdAt: string
   invoiceNumber: string
-  items: InvoiceItems | string
-  isTemplateInvoice?: boolean
-  customerName?: string
-  customerEmail?: string
-}
-
-interface InvoiceItems {
-  [key: string]: {
-    tier?: string
-    price?: number
-    stateFee?: number
-    state?: string
-    discount?: number
-    templateId?: string
-    type?: string
-  }
+  items: any
+  isTemplateInvoice: boolean
 }
 
 interface User {
@@ -48,15 +52,12 @@ interface User {
   lastActive: string
   status: string
   updatedAt: string
-  email?: string
-  name?: string
 }
 
 interface Document {
   id: string
   createdAt: string
-  name?: string
-  category?: string
+  invoiceNumber: string
 }
 
 interface Template {
@@ -64,7 +65,7 @@ interface Template {
   usageCount: number
 }
 
-// Define types for chart data
+// Define interfaces for chart data
 interface UserGrowthDataPoint {
   date: string
   users: number
@@ -95,14 +96,14 @@ export default function AnalyticsPage() {
   const [templatesDownloaded, setTemplatesDownloaded] = useState(0)
   const [templatesChange, setTemplatesChange] = useState(0)
 
-  // Add these state variables in the component:
+  // Add these state variables in the component with proper typing:
   const [activeUsers, setActiveUsers] = useState(0)
   const [activeUsersChange, setActiveUsersChange] = useState(0)
   const [newSignups, setNewSignups] = useState(0)
   const [newSignupsChange, setNewSignupsChange] = useState(0)
   const [churnRate, setChurnRate] = useState(0)
   const [churnRateChange, setChurnRateChange] = useState(0)
-  // Replace the state variables with properly typed ones:
+  // Properly type the state variables:
   const [userGrowthData, setUserGrowthData] = useState<UserGrowthDataPoint[]>([])
   const [packageData, setPackageData] = useState<PackageDataPoint[]>([])
   const [retentionData, setRetentionData] = useState<RetentionDataPoint[]>([])
@@ -319,10 +320,10 @@ export default function AnalyticsPage() {
       // For templates, we don't have date information for downloads
       // So we'll use a mock percentage change for now
       // In a real implementation, you would track this over time
-      const mockChange = Math.random() > 0.5 ? 8.2 : -3.1
+      // const mockChange = Math.random() > 0.5 ? 8.2 : -3.1
 
       setTemplatesDownloaded(totalDownloads)
-      setTemplatesChange(mockChange)
+      setTemplatesChange(8.2)
     } catch (error) {
       console.error("Error fetching templates:", error)
       toast({
@@ -358,9 +359,10 @@ export default function AnalyticsPage() {
       const now = new Date()
       const tenDaysAgo = subDays(now, 10)
 
-      // Active Users (active in the last 10 days)
+      // Active Users (active in the last 10 days AND at least 10 days old)
       const currentActiveUsers = clientUsers.filter(
-        (user: User) => new Date(user.lastActive) > tenDaysAgo && user.status === "Active",
+        (user: User) =>
+          new Date(user.lastActive) > tenDaysAgo && user.status === "Active" && new Date(user.createdAt) < tenDaysAgo, // Only count users who are at least 10 days old
       ).length
 
       // Previous period active users
@@ -378,7 +380,21 @@ export default function AnalyticsPage() {
                     : timeRange === "quarter"
                       ? 90
                       : 365,
-            ) && user.status === "Active",
+            ) &&
+          user.status === "Active" &&
+          new Date(user.createdAt) <
+            subDays(
+              tenDaysAgo,
+              timeRange === "day"
+                ? 1
+                : timeRange === "week"
+                  ? 7
+                  : timeRange === "month"
+                    ? 30
+                    : timeRange === "quarter"
+                      ? 90
+                      : 365,
+            ),
       ).length
 
       // New Signups (enrolled in the last 10 days)
@@ -587,20 +603,28 @@ export default function AnalyticsPage() {
         if (Array.isArray(items)) {
           items.forEach((item: any) => {
             if (item.tier) {
-              if (!packages[item.tier]) {
-                packages[item.tier] = 0
+              const tierName = item.tier.toUpperCase()
+              // Only count STARTER, STANDARD, and Premium tiers
+              if (tierName === "STARTER" || tierName === "STANDARD" || tierName === "PREMIUM") {
+                if (!packages[tierName]) {
+                  packages[tierName] = 0
+                }
+                packages[tierName]++
               }
-              packages[item.tier]++
             }
           })
         } else if (items && typeof items === "object") {
           // Handle case where items is an object with numeric keys
           Object.values(items).forEach((item: any) => {
             if (item.tier) {
-              if (!packages[item.tier]) {
-                packages[item.tier] = 0
+              const tierName = item.tier.toUpperCase()
+              // Only count STARTER, STANDARD, and Premium tiers
+              if (tierName === "STARTER" || tierName === "STANDARD" || tierName === "PREMIUM") {
+                if (!packages[tierName]) {
+                  packages[tierName] = 0
+                }
+                packages[tierName]++
               }
-              packages[item.tier]++
             }
           })
         }
@@ -677,8 +701,8 @@ export default function AnalyticsPage() {
     }
   }
 
-  // Custom formatter for the tooltip
-  const customTooltipFormatter = (value: ValueType, name: NameType, entry: any) => {
+  // Custom tooltip formatter for the pie chart
+  const customTooltipFormatter = (value: number, name: string, entry: any) => {
     if (entry && entry.payload && entry.payload.name) {
       return [`${value} sales`, entry.payload.name]
     }
@@ -1102,45 +1126,56 @@ export default function AnalyticsPage() {
                 <div>
                   <h4 className="text-sm font-medium mb-4">Packages Analytics</h4>
                   {loadingUserAnalytics ? (
-                    <div className="h-60 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                    <div className="h-80 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
                       <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
                     </div>
                   ) : (
-                    <div className="h-60 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                    <div className="h-80 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
                       <ResponsiveContainer width="100%" height="100%">
                         <RechartsPieChart>
                           <Pie
                             data={packageData}
                             cx="50%"
                             cy="50%"
-                            labelLine={false}
-                            outerRadius={80}
+                            labelLine={true}
+                            outerRadius={100}
+                            innerRadius={60}
                             fill="#8884d8"
                             dataKey="value"
                             nameKey="name"
                             label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            paddingAngle={5}
                           >
                             {packageData.map((entry, index) => (
                               <Cell
                                 key={`cell-${index}`}
                                 fill={
-                                  [
-                                    "#22c55e",
-                                    "#3b82f6",
-                                    "#a855f7",
-                                    "#ec4899",
-                                    "#f97316",
-                                    "#14b8a6",
-                                    "#8b5cf6",
-                                    "#f43f5e",
-                                    "#84cc16",
-                                  ][index % 9]
+                                  entry.name === "STARTER"
+                                    ? "#3b82f6"
+                                    : entry.name === "STANDARD"
+                                      ? "#22c55e"
+                                      : "#a855f7"
                                 }
+                                strokeWidth={1}
                               />
                             ))}
                           </Pie>
-                          <Tooltip formatter={customTooltipFormatter} />
-                          <Legend />
+                          <Tooltip
+                            formatter={customTooltipFormatter}
+                            contentStyle={{
+                              backgroundColor: "rgba(255, 255, 255, 0.95)",
+                              borderRadius: "8px",
+                              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                              border: "none",
+                              padding: "10px 14px",
+                            }}
+                          />
+                          <Legend
+                            layout="horizontal"
+                            verticalAlign="bottom"
+                            align="center"
+                            formatter={(value) => <span className="text-sm font-medium">{value}</span>}
+                          />
                         </RechartsPieChart>
                       </ResponsiveContainer>
                     </div>
@@ -1150,41 +1185,57 @@ export default function AnalyticsPage() {
                 <div>
                   <h4 className="text-sm font-medium mb-4">User Retention</h4>
                   {loadingUserAnalytics ? (
-                    <div className="h-60 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                    <div className="h-80 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
                       <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
                     </div>
                   ) : (
-                    <div className="h-60 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                    <div className="h-80 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
                       <ResponsiveContainer width="100%" height="100%">
                         <RechartsLineChart
                           data={retentionData}
                           margin={{
-                            top: 5,
+                            top: 10,
                             right: 30,
                             left: 20,
-                            bottom: 5,
+                            bottom: 20,
                           }}
                         >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" />
-                          <YAxis />
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                          <XAxis
+                            dataKey="date"
+                            tick={{ fontSize: 12 }}
+                            tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                            axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 12 }}
+                            tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                            axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: "rgba(255, 255, 255, 0.9)",
+                              backgroundColor: "rgba(255, 255, 255, 0.95)",
                               borderRadius: "8px",
-                              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
                               border: "none",
+                              padding: "10px 14px",
                             }}
-                            labelStyle={{ fontWeight: "bold" }}
+                            labelStyle={{ fontWeight: "bold", marginBottom: "5px" }}
                           />
-                          <Legend />
+                          <Legend
+                            layout="horizontal"
+                            verticalAlign="bottom"
+                            align="center"
+                            wrapperStyle={{ paddingTop: "10px" }}
+                          />
                           <Line
                             type="monotone"
                             dataKey="activeUsers"
                             name="Active Users"
                             stroke="#3b82f6"
-                            strokeWidth={2}
-                            activeDot={{ r: 8 }}
+                            strokeWidth={3}
+                            activeDot={{ r: 8, strokeWidth: 0 }}
+                            dot={{ strokeWidth: 0, r: 3, fill: "#3b82f6" }}
                           />
                         </RechartsLineChart>
                       </ResponsiveContainer>
@@ -1729,3 +1780,4 @@ function ComplianceItem({
     </div>
   )
 }
+
