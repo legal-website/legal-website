@@ -4,31 +4,36 @@ import { authOptions } from "@/lib/auth"
 import { UserRole } from "@/lib/db/schema"
 import prisma from "@/lib/prisma"
 
-// Define the Filing type
-interface Filing {
+// Define a type for filings with related data using Prisma types
+type FilingWithRelations = {
   id: string
   userId: string
   deadlineId: string
+  receiptUrl: string | null
+  reportUrl: string | null
   status: string
+  userNotes: string | null
+  adminNotes: string | null
+  filedDate: Date | null
   createdAt: Date
   updatedAt: Date
-  deadlineTitle?: string
-  dueDate?: Date | null
-  userName?: string
-  userEmail?: string
   user: {
     id: string
     name: string | null
-    email: string | null
+    email: string
   } | null
   deadline: {
     id: string
     title: string
     dueDate: Date
-    fee: number
-    lateFee: number
+    fee: any // Using any for Decimal type
+    lateFee: any | null // Using any for Decimal type
     status: string
   } | null
+  deadlineTitle?: string
+  dueDate?: Date | null
+  userName?: string
+  userEmail?: string
 }
 
 export async function GET(req: Request) {
@@ -75,7 +80,7 @@ export async function GET(req: Request) {
       console.log(`Admin filings API: Successfully fetched ${filings.length} filings`)
 
       // Process filings to ensure all required data is present
-      const processedFilings = filings.map((filing: Filing) => {
+      const processedFilings = filings.map((filing: FilingWithRelations) => {
         return {
           ...filing,
           // Ensure these fields are never undefined

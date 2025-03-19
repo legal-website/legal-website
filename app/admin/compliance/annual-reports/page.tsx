@@ -285,7 +285,7 @@ export default function AdminAnnualReportsPage() {
           console.log("Admin page: Fetched filings:", filingsData.filings?.length || 0)
 
           // Process filings to ensure they have user info
-          const processedFilings = filingsData.filings.map((filing: Filing) => {
+          const processedFilings = filingsData.filings.map((filing: any) => {
             const user = usersData.users.find((u: User) => u.id === filing.userId)
             return {
               ...filing,

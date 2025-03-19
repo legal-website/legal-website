@@ -3,36 +3,30 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 
-// Define types for our data
-interface Deadline {
-  id: string
-  title: string
-  dueDate: string | Date
-  fee: number
-  lateFee: number | null
-  status: string
-}
-
-interface Filing {
+// Update the type definition to use a more direct approach
+// Replace the FilingWithDeadline type with:
+type FilingWithDeadline = {
   id: string
   userId: string
   deadlineId: string
-  status: string
-  createdAt: string | Date
-  updatedAt: string | Date
   receiptUrl: string | null
   reportUrl: string | null
-  filedDate: string | Date | null
+  status: string
   userNotes: string | null
   adminNotes: string | null
+  filedDate: Date | null
+  createdAt: Date
+  updatedAt: Date
   deadline?: {
     id: string
     title: string
-    dueDate: string | Date
-    fee: number
-    lateFee: number | null
+    dueDate: Date
+    fee: any // Using any for Decimal type
+    lateFee: any | null // Using any for Decimal type
     status: string
   } | null
+  deadlineTitle?: string
+  dueDate?: Date | null
 }
 
 export async function GET(req: Request) {
@@ -66,7 +60,7 @@ export async function GET(req: Request) {
     })
 
     // Process filings to ensure all required data is present
-    const processedFilings = filings.map((filing: Filing) => {
+    const processedFilings = filings.map((filing: FilingWithDeadline) => {
       return {
         ...filing,
         deadlineTitle: filing.deadline?.title || "Unknown Deadline",
