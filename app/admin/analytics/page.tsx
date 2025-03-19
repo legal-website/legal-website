@@ -27,12 +27,12 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react"
-import { format, subDays, subMonths, isAfter, parseISO } from "date-fns"
+import { format, subDays, subMonths, isAfter, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 
 // In the imports section, add these imports:
-import { LineChart as RechartsLineChart, PieChart as RechartsPieChart } from "recharts"
-import { Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts"
+import { LineChart as RechartsLineChart, PieChart as RechartsPieChart, BarChart as RechartsBarChart } from "recharts"
+import { Line, Pie, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts"
 
 // Define interfaces for our data
 interface Invoice {
@@ -65,6 +65,26 @@ interface Template {
   usageCount: number
 }
 
+interface Amendment {
+  id: string
+  status: string
+  paymentAmount: number
+  createdAt: string
+}
+
+interface AnnualReportFiling {
+  id: string
+  status: string
+  deadlineId: string
+  createdAt: string
+}
+
+interface AnnualReportDeadline {
+  id: string
+  fee: number
+  lateFee: number | null
+}
+
 // Define interfaces for chart data
 interface UserGrowthDataPoint {
   date: string
@@ -79,6 +99,21 @@ interface RetentionDataPoint {
 interface PackageDataPoint {
   name: string
   value: number
+}
+
+interface RevenueDataPoint {
+  name: string
+  value: number
+}
+
+interface RevenueByMonthDataPoint {
+  month: string
+  revenue: number
+}
+
+interface TemplateRevenueDataPoint {
+  name: string
+  revenue: number
 }
 
 export default function AnalyticsPage() {
@@ -114,6 +149,14 @@ export default function AnalyticsPage() {
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [loadingDocuments, setLoadingDocuments] = useState(true)
   const [loadingTemplates, setLoadingTemplates] = useState(true)
+
+  // Revenue analytics states
+  const [averageOrderValue, setAverageOrderValue] = useState(0)
+  const [monthlyRecurringRevenue, setMonthlyRecurringRevenue] = useState(0)
+  const [revenueByProductData, setRevenueByProductData] = useState<RevenueDataPoint[]>([])
+  const [revenueByTemplateData, setRevenueByTemplateData] = useState<TemplateRevenueDataPoint[]>([])
+  const [revenueTrendData, setRevenueTrendData] = useState<RevenueByMonthDataPoint[]>([])
+  const [loadingRevenueAnalytics, setLoadingRevenueAnalytics] = useState(true)
 
   // Date range calculation based on selected time range
   const getDateRange = useCallback(() => {
@@ -666,6 +709,182 @@ export default function AnalyticsPage() {
     }
   }, [toast])
 
+  // Fetch revenue analytics data
+  const fetchRevenueAnalytics = useCallback(async () => {
+    try {
+      setLoadingRevenueAnalytics(true)
+
+      // Fetch invoices
+      const invoicesResponse = await fetch("/api/admin/invoices")
+      if (!invoicesResponse.ok) {
+        throw new Error("Failed to fetch invoices")
+      }
+      const invoicesData = await invoicesResponse.json()
+      const invoices: Invoice[] = invoicesData.invoices || []
+
+      // Fetch amendments
+      const amendmentsResponse = await fetch("/api/admin/amendments")
+      if (!amendmentsResponse.ok) {
+        console.warn("Failed to fetch amendments, using empty array")
+      }
+      const amendmentsData = await amendmentsResponse.json().catch(() => ({ amendments: [] }))
+      const amendments: Amendment[] = amendmentsData.amendments || []
+
+      // Fetch annual report filings
+      const filingsResponse = await fetch("/api/admin/annual-reports/filings")
+      if (!filingsResponse.ok) {
+        console.warn("Failed to fetch annual report filings, using empty array")
+      }
+      const filingsData = await filingsResponse.json().catch(() => ({ filings: [] }))
+      const filings: AnnualReportFiling[] = filingsData.filings || []
+
+      // Fetch annual report deadlines
+      const deadlinesResponse = await fetch("/api/admin/annual-reports/deadlines")
+      if (!deadlinesResponse.ok) {
+        console.warn("Failed to fetch annual report deadlines, using empty array")
+      }
+      const deadlinesData = await deadlinesResponse.json().catch(() => ({ deadlines: [] }))
+      const deadlines: AnnualReportDeadline[] = deadlinesData.deadlines || []
+
+      // Calculate revenue metrics
+      // 1. Filter paid invoices
+      const paidInvoices = invoices.filter((invoice) => invoice.status === "paid")
+
+      // 2. Calculate total revenue
+      const totalRevenue = paidInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+
+      // 3. Calculate average order value
+      const avgOrderValue = paidInvoices.length > 0 ? totalRevenue / paidInvoices.length : 0
+      setAverageOrderValue(avgOrderValue)
+
+      // 4. Calculate MRR (Monthly Recurring Revenue)
+      // For this example, we'll use the average monthly revenue from the last 3 months
+      const now = new Date()
+      const threeMonthsAgo = subMonths(now, 3)
+      const recentInvoices = paidInvoices.filter(
+        (invoice) => new Date(invoice.createdAt) >= threeMonthsAgo && new Date(invoice.createdAt) <= now,
+      )
+      const recentRevenue = recentInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+      const mrr = recentRevenue / 3 // Average over 3 months
+      setMonthlyRecurringRevenue(mrr)
+
+      // 5. Calculate revenue by product
+      // a. Revenue from packages (non-template invoices)
+      const packageInvoices = paidInvoices.filter(
+        (invoice) => invoice.invoiceNumber.startsWith("INV") || !invoice.isTemplateInvoice,
+      )
+      const packageRevenue = packageInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+
+      // b. Revenue from amendments
+      const approvedAmendments = amendments.filter((amendment) => amendment.status === "approved")
+      const amendmentRevenue = approvedAmendments.reduce((sum, amendment) => sum + (amendment.paymentAmount || 0), 0)
+
+      // c. Revenue from annual report filings
+      const completedFilings = filings.filter(
+        (filing) => filing.status === "completed" || filing.status === "payment_received",
+      )
+      let annualReportRevenue = 0
+      completedFilings.forEach((filing) => {
+        const deadline = deadlines.find((d) => d.id === filing.deadlineId)
+        if (deadline) {
+          annualReportRevenue += deadline.fee + (deadline.lateFee || 0)
+        }
+      })
+
+      // Set revenue by product data
+      const revenueByProduct: RevenueDataPoint[] = [
+        { name: "Packages", value: packageRevenue },
+        { name: "Amendments", value: amendmentRevenue },
+        { name: "Annual Reports", value: annualReportRevenue },
+      ]
+      setRevenueByProductData(revenueByProduct)
+
+      // 6. Calculate revenue by templates
+      const templateInvoices = paidInvoices.filter(
+        (invoice) => !invoice.invoiceNumber.startsWith("INV") && invoice.isTemplateInvoice,
+      )
+
+      // Group template invoices by template type
+      const templateRevenueMap: Record<string, number> = {}
+      templateInvoices.forEach((invoice) => {
+        let templateName = "Unknown Template"
+
+        // Try to extract template name from items
+        try {
+          let items = invoice.items
+          if (typeof items === "string") {
+            items = JSON.parse(items)
+          }
+
+          if (Array.isArray(items)) {
+            if (items.length > 0 && items[0].tier) {
+              templateName = items[0].tier
+            }
+          } else if (items && typeof items === "object") {
+            // Check if it's an object with numeric keys
+            if (items["0"] && items["0"].tier) {
+              templateName = items["0"].tier
+            } else if (items.templateName) {
+              templateName = items.templateName
+            }
+          }
+        } catch (e) {
+          console.error("Error parsing template invoice items:", e)
+        }
+
+        if (!templateRevenueMap[templateName]) {
+          templateRevenueMap[templateName] = 0
+        }
+        templateRevenueMap[templateName] += invoice.amount
+      })
+
+      // Convert to array for chart
+      const templateRevenueData: TemplateRevenueDataPoint[] = Object.entries(templateRevenueMap).map(
+        ([name, revenue]) => ({
+          name,
+          revenue,
+        }),
+      )
+
+      // Sort by revenue (descending)
+      templateRevenueData.sort((a, b) => b.revenue - a.revenue)
+      setRevenueByTemplateData(templateRevenueData)
+
+      // 7. Calculate revenue trend (monthly)
+      // Get the last 12 months
+      const twelveMonthsAgo = subMonths(now, 11)
+      const monthRange = eachMonthOfInterval({
+        start: startOfMonth(twelveMonthsAgo),
+        end: endOfMonth(now),
+      })
+
+      const revenueTrend: RevenueByMonthDataPoint[] = monthRange.map((month) => {
+        const monthStart = startOfMonth(month)
+        const monthEnd = endOfMonth(month)
+
+        const monthlyRevenue = paidInvoices
+          .filter((invoice) => new Date(invoice.createdAt) >= monthStart && new Date(invoice.createdAt) <= monthEnd)
+          .reduce((sum, invoice) => sum + invoice.amount, 0)
+
+        return {
+          month: format(month, "MMM yyyy"),
+          revenue: monthlyRevenue,
+        }
+      })
+
+      setRevenueTrendData(revenueTrend)
+    } catch (error) {
+      console.error("Error fetching revenue analytics:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load revenue analytics data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingRevenueAnalytics(false)
+    }
+  }, [toast])
+
   // Fetch all data when component mounts or time range changes
   useEffect(() => {
     fetchInvoices()
@@ -674,7 +893,17 @@ export default function AnalyticsPage() {
     fetchTemplates()
     fetchUserAnalytics()
     fetchPackageAnalytics()
-  }, [fetchInvoices, fetchUsers, fetchDocuments, fetchTemplates, fetchUserAnalytics, fetchPackageAnalytics, timeRange])
+    fetchRevenueAnalytics()
+  }, [
+    fetchInvoices,
+    fetchUsers,
+    fetchDocuments,
+    fetchTemplates,
+    fetchUserAnalytics,
+    fetchPackageAnalytics,
+    fetchRevenueAnalytics,
+    timeRange,
+  ])
 
   // Handle refresh button click
   const handleRefresh = () => {
@@ -684,6 +913,7 @@ export default function AnalyticsPage() {
     fetchTemplates()
     fetchUserAnalytics()
     fetchPackageAnalytics()
+    fetchRevenueAnalytics()
 
     toast({
       title: "Refreshed",
@@ -722,7 +952,24 @@ export default function AnalyticsPage() {
     if (entry && entry.payload && entry.payload.name) {
       return [`${value} sales`, entry.payload.name]
     }
+
     return [`${value} sales`, name]
+  }
+
+  // Custom tooltip formatter for the revenue pie chart
+  const revenueTooltipFormatter = (value: number, name: string, entry: any) => {
+    if (entry && entry.payload && entry.payload.name) {
+      return [`$${value.toFixed(2)}`, entry.payload.name]
+    }
+    return [`$${value.toFixed(2)}`, name]
+  }
+
+  // Format currency
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(value)
   }
 
   return (
@@ -1319,8 +1566,21 @@ export default function AnalyticsPage() {
                   <h4 className="text-sm font-medium text-gray-500 mb-2">Total Revenue</h4>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold">$128,430</p>
-                      <p className="text-sm text-green-500">+12.5% vs last month</p>
+                      {loadingRevenueAnalytics ? (
+                        <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                      ) : (
+                        <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
+                      )}
+                      <p className="text-sm text-green-500">
+                        {loadingRevenueAnalytics ? (
+                          <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        ) : (
+                          <>
+                            <ArrowUpRight className="h-3 w-3 inline mr-1" />
+                            {Math.abs(revenueChange).toFixed(1)}% vs last period
+                          </>
+                        )}
+                      </p>
                     </div>
                     <div className="h-12 w-12 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center">
                       <DollarSign className="h-6 w-6 text-green-500" />
@@ -1332,8 +1592,21 @@ export default function AnalyticsPage() {
                   <h4 className="text-sm font-medium text-gray-500 mb-2">Average Order Value</h4>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold">$245.80</p>
-                      <p className="text-sm text-green-500">+3.2% vs last month</p>
+                      {loadingRevenueAnalytics ? (
+                        <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                      ) : (
+                        <p className="text-2xl font-bold">{formatCurrency(averageOrderValue)}</p>
+                      )}
+                      <p className="text-sm text-green-500">
+                        {loadingRevenueAnalytics ? (
+                          <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        ) : (
+                          <>
+                            <ArrowUpRight className="h-3 w-3 inline mr-1" />
+                            +3.2% vs last month
+                          </>
+                        )}
+                      </p>
                     </div>
                     <div className="h-12 w-12 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
                       <ShoppingCart className="h-6 w-6 text-blue-500" />
@@ -1345,8 +1618,21 @@ export default function AnalyticsPage() {
                   <h4 className="text-sm font-medium text-gray-500 mb-2">MRR</h4>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold">$42,580</p>
-                      <p className="text-sm text-green-500">+8.7% vs last month</p>
+                      {loadingRevenueAnalytics ? (
+                        <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                      ) : (
+                        <p className="text-2xl font-bold">{formatCurrency(monthlyRecurringRevenue)}</p>
+                      )}
+                      <p className="text-sm text-green-500">
+                        {loadingRevenueAnalytics ? (
+                          <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        ) : (
+                          <>
+                            <ArrowUpRight className="h-3 w-3 inline mr-1" />
+                            +8.7% vs last month
+                          </>
+                        )}
+                      </p>
                     </div>
                     <div className="h-12 w-12 bg-purple-50 dark:bg-purple-900/20 rounded-full flex items-center justify-center">
                       <TrendingUp className="h-6 w-6 text-purple-500" />
@@ -1357,27 +1643,203 @@ export default function AnalyticsPage() {
 
               <div className="mb-6">
                 <h4 className="text-sm font-medium mb-4">Revenue Trend</h4>
-                <div className="h-80 w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                  <LineChart className="h-16 w-16 text-gray-300" />
-                  <span className="ml-4 text-gray-400">Revenue Trend Chart</span>
-                </div>
+                {loadingRevenueAnalytics ? (
+                  <div className="h-80 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="h-80 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsLineChart
+                        data={revenueTrendData}
+                        margin={{
+                          top: 20,
+                          right: 30,
+                          left: 20,
+                          bottom: 20,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                        <XAxis
+                          dataKey="month"
+                          tick={{ fontSize: 12 }}
+                          tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 12 }}
+                          tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          tickFormatter={(value) => `$${value.toLocaleString()}`}
+                        />
+                        <Tooltip
+                          formatter={(value) => [`$${Number(value).toLocaleString()}`, "Revenue"]}
+                          contentStyle={{
+                            backgroundColor: "rgba(255, 255, 255, 0.95)",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                            border: "none",
+                            padding: "10px 14px",
+                          }}
+                          labelStyle={{ fontWeight: "bold", marginBottom: "5px" }}
+                        />
+                        <Legend
+                          layout="horizontal"
+                          verticalAlign="top"
+                          align="right"
+                          wrapperStyle={{ paddingBottom: "10px" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="revenue"
+                          name="Monthly Revenue"
+                          stroke="#22c55e"
+                          strokeWidth={3}
+                          activeDot={{ r: 8, strokeWidth: 0 }}
+                          dot={{ strokeWidth: 0, r: 3, fill: "#22c55e" }}
+                        />
+                      </RechartsLineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                   <h4 className="text-sm font-medium mb-4">Revenue by Product</h4>
-                  <div className="h-60 w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                    <PieChart className="h-12 w-12 text-gray-300" />
-                    <span className="ml-4 text-gray-400">Revenue by Product Chart</span>
-                  </div>
+                  {loadingRevenueAnalytics ? (
+                    <div className="h-80 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="h-80 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Pie
+                            data={revenueByProductData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={true}
+                            outerRadius={100}
+                            innerRadius={60}
+                            fill="#8884d8"
+                            dataKey="value"
+                            nameKey="name"
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            paddingAngle={5}
+                          >
+                            {revenueByProductData.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={
+                                  entry.name === "Packages"
+                                    ? "#3b82f6"
+                                    : entry.name === "Amendments"
+                                      ? "#22c55e"
+                                      : "#a855f7"
+                                }
+                                strokeWidth={1}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={revenueTooltipFormatter}
+                            contentStyle={{
+                              backgroundColor: "rgba(255, 255, 255, 0.95)",
+                              borderRadius: "8px",
+                              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                              border: "none",
+                              padding: "10px 14px",
+                            }}
+                          />
+                          <Legend
+                            layout="horizontal"
+                            verticalAlign="bottom"
+                            align="center"
+                            formatter={(value) => <span className="text-sm font-medium">{value}</span>}
+                          />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-medium mb-4">Revenue by Channel</h4>
-                  <div className="h-60 w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                    <BarChart2 className="h-12 w-12 text-gray-300" />
-                    <span className="ml-4 text-gray-400">Revenue by Channel Chart</span>
-                  </div>
+                  <h4 className="text-sm font-medium mb-4">Revenue by Templates</h4>
+                  {loadingRevenueAnalytics ? (
+                    <div className="h-80 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="h-80 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsBarChart
+                          data={revenueByTemplateData}
+                          margin={{
+                            top: 20,
+                            right: 30,
+                            left: 20,
+                            bottom: 60,
+                          }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+
+                          <XAxis
+                            dataKey="name"
+                            tick={(props) => {
+                              const { x, y, payload } = props
+                              return (
+                                <g transform={`translate(${x},${y})`}>
+                                  <text
+                                    x={0}
+                                    y={0}
+                                    dy={16}
+                                    textAnchor="end"
+                                    fill="#666"
+                                    fontSize={12}
+                                    transform="rotate(-45)"
+                                  >
+                                    {payload.value}
+                                  </text>
+                                </g>
+                              )
+                            }}
+                            height={60}
+                            tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                            axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 12 }}
+                            tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                            axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                            tickFormatter={(value) => `$${value.toLocaleString()}`}
+                          />
+                          <Tooltip
+                            formatter={(value) => [`$${Number(value).toLocaleString()}`, "Revenue"]}
+                            contentStyle={{
+                              backgroundColor: "rgba(255, 255, 255, 0.95)",
+                              borderRadius: "8px",
+                              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                              border: "none",
+                              padding: "10px 14px",
+                            }}
+                            labelStyle={{ fontWeight: "bold", marginBottom: "5px" }}
+                          />
+                          <Legend
+                            layout="horizontal"
+                            verticalAlign="top"
+                            align="right"
+                            wrapperStyle={{ paddingBottom: "10px" }}
+                          />
+                          <Bar dataKey="revenue" name="Template Revenue" fill="#8884d8" radius={[4, 4, 0, 0]}>
+                            {revenueByTemplateData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={`hsl(${(index * 45) % 360}, 70%, 60%)`} />
+                            ))}
+                          </Bar>
+                        </RechartsBarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                 </div>
               </div>
 
