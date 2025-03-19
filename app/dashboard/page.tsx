@@ -1127,6 +1127,125 @@ export default function DashboardPage() {
       {/* Action Buttons - Removed logo button, updated phone button */}
       <div className="mb-8">{renderPhoneNumberButton()}</div>
 
+      {/* Amendments and Deadlines Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Amendments Card */}
+        <Card>
+          <div className="p-6 border-b flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Status of My Amendments</h2>
+            <Link href="/dashboard/compliance/amendments" passHref>
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <span>View All</span>
+                <ExternalLink className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+          <div className="p-6">
+            {amendmentsLoading ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              </div>
+            ) : amendments.length > 0 ? (
+              <div className="space-y-4">
+                {amendments.map((amendment) => (
+                  <div key={amendment.id} className="border rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="font-medium">{amendment.type}</p>
+                        <p className="text-xs text-gray-600">
+                          Submitted: {new Date(amendment.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                        Payment Required
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700 mb-3 line-clamp-2">{amendment.details}</p>
+                    {amendment.paymentAmount && (
+                      <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <p className="text-sm font-medium">Payment Required:</p>
+                          <p className="font-bold">{formatCurrency(amendment.paymentAmount)}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500 mb-4">No amendments requiring payment</p>
+                <Link href="/dashboard/compliance/amendments" passHref>
+                  <Button variant="default">Submit Amendment</Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Deadlines Card */}
+        <Card>
+          <div className="p-6 border-b flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Upcoming Deadlines</h2>
+            <Link href="/dashboard/compliance/annual-reports" passHref>
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <span>View All</span>
+                <ExternalLink className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+          <div className="p-6">
+            {deadlinesLoading ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              </div>
+            ) : deadlines.length > 0 ? (
+              <div className="space-y-4">
+                {deadlines.slice(0, 3).map((deadline) => {
+                  const daysLeft = calculateDaysLeft(deadline.dueDate)
+                  const isUrgent = daysLeft <= 30
+
+                  return (
+                    <div key={deadline.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          {isUrgent ? (
+                            <AlertCircle className="h-5 w-5 text-red-500" />
+                          ) : (
+                            <CalendarIcon className="h-5 w-5 text-[#22c984]" />
+                          )}
+                          <div>
+                            <p className="font-medium">{deadline.title}</p>
+                            <p className="text-xs text-gray-600">
+                              Due: {new Date(deadline.dueDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full ${
+                            isUrgent ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {daysLeft} days left
+                        </span>
+                      </div>
+                      {deadline.description && (
+                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">{deadline.description}</p>
+                      )}
+                      <p className="text-sm text-gray-600">Fee: ${Number(deadline.fee).toFixed(2)}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No upcoming deadlines at this time</p>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
       {/* Documents Section - Updated to show templates */}
       <Card className="mb-8">
         <div className="p-6 border-b flex justify-between items-center">
@@ -1295,125 +1414,6 @@ export default function DashboardPage() {
           )}
         </div>
       </Card>
-
-      {/* Amendments and Deadlines Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Amendments Card */}
-        <Card>
-          <div className="p-6 border-b flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Status of My Amendments</h2>
-            <Link href="/dashboard/compliance/amendments" passHref>
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
-                <span>View All</span>
-                <ExternalLink className="w-4 h-4" />
-              </Button>
-            </Link>
-          </div>
-          <div className="p-6">
-            {amendmentsLoading ? (
-              <div className="flex justify-center items-center py-8">
-                <Loader2 className="w-8 h-8 text-primary animate-spin" />
-              </div>
-            ) : amendments.length > 0 ? (
-              <div className="space-y-4">
-                {amendments.map((amendment) => (
-                  <div key={amendment.id} className="border rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <p className="font-medium">{amendment.type}</p>
-                        <p className="text-xs text-gray-600">
-                          Submitted: {new Date(amendment.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                        Payment Required
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-700 mb-3 line-clamp-2">{amendment.details}</p>
-                    {amendment.paymentAmount && (
-                      <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
-                        <div className="flex justify-between items-center">
-                          <p className="text-sm font-medium">Payment Required:</p>
-                          <p className="font-bold">{formatCurrency(amendment.paymentAmount)}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-500 mb-4">No amendments requiring payment</p>
-                <Link href="/dashboard/compliance/amendments" passHref>
-                  <Button variant="default">Submit Amendment</Button>
-                </Link>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Deadlines Card */}
-        <Card>
-          <div className="p-6 border-b flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Upcoming Deadlines</h2>
-            <Link href="/dashboard/compliance/annual-reports" passHref>
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
-                <span>View All</span>
-                <ExternalLink className="w-4 h-4" />
-              </Button>
-            </Link>
-          </div>
-          <div className="p-6">
-            {deadlinesLoading ? (
-              <div className="flex justify-center items-center py-8">
-                <Loader2 className="w-8 h-8 text-primary animate-spin" />
-              </div>
-            ) : deadlines.length > 0 ? (
-              <div className="space-y-4">
-                {deadlines.slice(0, 3).map((deadline) => {
-                  const daysLeft = calculateDaysLeft(deadline.dueDate)
-                  const isUrgent = daysLeft <= 30
-
-                  return (
-                    <div key={deadline.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
-                          {isUrgent ? (
-                            <AlertCircle className="h-5 w-5 text-red-500" />
-                          ) : (
-                            <CalendarIcon className="h-5 w-5 text-[#22c984]" />
-                          )}
-                          <div>
-                            <p className="font-medium">{deadline.title}</p>
-                            <p className="text-xs text-gray-600">
-                              Due: {new Date(deadline.dueDate).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <span
-                          className={`text-xs px-2 py-1 rounded-full ${
-                            isUrgent ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"
-                          }`}
-                        >
-                          {daysLeft} days left
-                        </span>
-                      </div>
-                      {deadline.description && (
-                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">{deadline.description}</p>
-                      )}
-                      <p className="text-sm text-gray-600">Fee: ${Number(deadline.fee).toFixed(2)}</p>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-500">No upcoming deadlines at this time</p>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
 
       {/* Help Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
