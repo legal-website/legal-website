@@ -528,9 +528,66 @@ export default function BeneficialOwnershipPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Loading beneficial ownership data...</span>
+      <div className="container mx-auto py-6 space-y-4">
+        <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+          {/* Card Header Skeleton */}
+          <div className="p-6 flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+            <div className="space-y-2">
+              <div className="h-6 w-48 bg-muted rounded animate-pulse"></div>
+              <div className="h-4 w-72 bg-muted rounded animate-pulse"></div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-[140px] bg-muted rounded animate-pulse"></div>
+              <div className="h-9 w-9 bg-muted rounded animate-pulse"></div>
+            </div>
+          </div>
+
+          {/* Card Content Skeleton */}
+          <div className="p-6">
+            <div className="flex justify-end mb-4">
+              <div className="h-9 w-32 bg-muted rounded animate-pulse"></div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <div className="min-w-full divide-y divide-border">
+                {/* Table Header */}
+                <div className="grid grid-cols-5 gap-4 py-3">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="h-5 bg-muted rounded animate-pulse"></div>
+                  ))}
+                </div>
+
+                {/* Table Rows */}
+                {[...Array(4)].map((_, rowIndex) => (
+                  <div key={rowIndex} className="grid grid-cols-5 gap-4 py-4">
+                    {[...Array(5)].map((_, colIndex) => (
+                      <div
+                        key={colIndex}
+                        className={`h-5 bg-muted rounded animate-pulse ${
+                          colIndex === 0 ? "w-32" : colIndex === 4 ? "w-20" : "w-full"
+                        }`}
+                        style={{
+                          animationDelay: `${(rowIndex * 5 + colIndex) * 50}ms`,
+                        }}
+                      ></div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Card Footer Skeleton */}
+          <div className="p-6 flex justify-between">
+            <div className="h-4 w-3/4 bg-muted rounded animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* Loading Indicator */}
+        <div className="fixed bottom-4 right-4 bg-primary text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center space-x-2 animate-bounce">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm font-medium">Loading data...</span>
+        </div>
       </div>
     )
   }
