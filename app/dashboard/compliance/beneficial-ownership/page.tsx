@@ -537,7 +537,7 @@ export default function BeneficialOwnershipPage() {
               <div className="h-4 w-72 bg-muted rounded animate-pulse"></div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="h-9 w-[140px] bg-muted rounded animate-pulse"></div>
+              <div className="h-9 w-[180px] sm:w-[200px] bg-muted rounded animate-pulse"></div>
               <div className="h-9 w-9 bg-muted rounded animate-pulse"></div>
             </div>
           </div>
@@ -614,10 +614,10 @@ export default function BeneficialOwnershipPage() {
             </div>
             <div className="flex items-center gap-2">
               <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-[180px] sm:w-[200px]">
                   <div className="flex items-center">
                     <Filter className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Filter" />
+                    <SelectValue placeholder="Filter by status" />
                   </div>
                 </SelectTrigger>
                 <SelectContent>
