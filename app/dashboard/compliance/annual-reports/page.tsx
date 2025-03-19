@@ -219,13 +219,9 @@ export default function AnnualReportsPage() {
       console.log("Dashboard: Filtered deadlines count:", filteredDeadlines.length)
       setUpcomingDeadlines(filteredDeadlines)
 
-      // Separate past filings (completed, rejected, or with filedDate)
+      // Separate past filings (only completed or closed)
       const pastFilingsData = processedFilings.filter(
-        (filing: Filing) =>
-          filing.status === "completed" ||
-          filing.status === "rejected" ||
-          filing.filedDate ||
-          filing.status === "payment_received",
+        (filing: Filing) => filing.status === "completed" || filing.status === "closed",
       )
 
       console.log("Dashboard: Past filings found:", pastFilingsData.length)
