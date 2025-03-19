@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -30,6 +28,8 @@ import { useToast } from "@/components/ui/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
 
+import type React from "react"
+
 // Define Role enum since we can't import it directly
 enum Role {
   ADMIN = "ADMIN",
@@ -40,8 +40,14 @@ enum Role {
 interface Owner {
   id: string
   userId: string
-  userName: string
-  userEmail: string
+  user: {
+    id: string
+    name: string
+    email: string
+    business?: {
+      name: string
+    }
+  }
   name: string
   title: string
   ownershipPercentage: number
@@ -54,7 +60,9 @@ interface User {
   id: string
   name: string
   email: string
-  company: string
+  business?: {
+    name: string
+  }
 }
 
 export default function AdminBeneficialOwnershipPage() {
@@ -71,6 +79,7 @@ export default function AdminBeneficialOwnershipPage() {
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [activeTab, setActiveTab] = useState("all")
   const [selectedClient, setSelectedClient] = useState("All Clients")
+  const [isTableChecked, setIsTableChecked] = useState(false)
 
   // Sorting and filtering states
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "pending" | "reported" | "none">("newest")
@@ -97,17 +106,79 @@ export default function AdminBeneficialOwnershipPage() {
           variant: "destructive",
         })
       } else {
-        fetchData()
+        checkTable()
       }
     } else if (status === "unauthenticated") {
       router.push("/login?callbackUrl=/admin/compliance/beneficial-ownership")
     }
   }, [status, session, router])
 
+  const checkTable = async () => {
+    try {
+      const response = await fetch("/api/beneficial-ownership/check-table")
+      const data = await response.json()
+
+      if (data.tableExists) {
+        setIsTableChecked(true)
+        fetchData()
+      } else {
+        toast({
+          title: "Database Setup Required",
+          description: "The beneficial ownership table does not exist. Would you like to create it?",
+          action: (
+            <Button variant="default" size="sm" onClick={createTable}>
+              Create Table
+            </Button>
+          ),
+        })
+        setIsLoading(false)
+      }
+    } catch (error) {
+      console.error("Error checking table:", error)
+      toast({
+        title: "Error",
+        description: "Failed to check database setup. Please try again later.",
+        variant: "destructive",
+      })
+      setIsLoading(false)
+    }
+  }
+
+  const createTable = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch("/api/beneficial-ownership/create-table")
+      const data = await response.json()
+
+      if (data.tableCreated || data.tableExists) {
+        toast({
+          title: "Success",
+          description: "Beneficial ownership table has been created successfully.",
+        })
+        setIsTableChecked(true)
+        fetchData()
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to create beneficial ownership table.",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+      }
+    } catch (error) {
+      console.error("Error creating table:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create beneficial ownership table.",
+        variant: "destructive",
+      })
+      setIsLoading(false)
+    }
+  }
+
   const fetchData = async () => {
     setIsLoading(true)
     try {
-      // In a real app, these would be API calls
       await Promise.all([fetchOwners(), fetchUsers()])
     } catch (error) {
       console.error("Error fetching data:", error)
@@ -123,30 +194,12 @@ export default function AdminBeneficialOwnershipPage() {
 
   const fetchOwners = async () => {
     try {
-      // Simulate API call with timeout
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await fetch("/api/beneficial-ownership")
+      const data = await response.json()
 
-      // Generate mock data
-      const mockOwners: Owner[] = []
-
-      // Add 20 mock owners
-      for (let i = 1; i <= 20; i++) {
-        const isDefault = i % 5 === 0
-        mockOwners.push({
-          id: `owner-${i}`,
-          userId: `user-${Math.ceil(i / 3)}`,
-          userName: `Client ${Math.ceil(i / 3)}`,
-          userEmail: `client${Math.ceil(i / 3)}@example.com`,
-          name: `Owner ${i}`,
-          title: isDefault ? "CEO" : ["Director", "Manager", "Partner", "Shareholder"][i % 4],
-          ownershipPercentage: isDefault ? 100 : 25 + (i % 15),
-          dateAdded: new Date(2023, i % 12, i + 1).toISOString(),
-          status: i % 3 === 0 ? "pending" : "reported",
-          isDefault,
-        })
+      if (data.owners) {
+        setOwners(data.owners)
       }
-
-      setOwners(mockOwners)
     } catch (error) {
       console.error("Error fetching owners:", error)
       throw error
@@ -155,23 +208,12 @@ export default function AdminBeneficialOwnershipPage() {
 
   const fetchUsers = async () => {
     try {
-      // Simulate API call with timeout
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      const response = await fetch("/api/admin/users")
+      const data = await response.json()
 
-      // Generate mock users
-      const mockUsers: User[] = []
-
-      // Add 10 mock users
-      for (let i = 1; i <= 10; i++) {
-        mockUsers.push({
-          id: `user-${i}`,
-          name: `Client ${i}`,
-          email: `client${i}@example.com`,
-          company: `Company ${i}`,
-        })
+      if (data.users) {
+        setUsers(data.users)
       }
-
-      setUsers(mockUsers)
     } catch (error) {
       console.error("Error fetching users:", error)
       throw error
@@ -208,26 +250,49 @@ export default function AdminBeneficialOwnershipPage() {
     setShowStatusDialog(true)
   }
 
-  const confirmStatusChange = () => {
+  const confirmStatusChange = async () => {
     if (!selectedOwner) return
 
     const newStatus = selectedOwner.status === "pending" ? "reported" : "pending"
 
-    // Update owner status
-    const updatedOwners = owners.map((owner) => {
-      if (owner.id === selectedOwner.id) {
-        return { ...owner, status: newStatus as "pending" | "reported" }
+    try {
+      const response = await fetch(`/api/admin/beneficial-ownership/status/${selectedOwner.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update status")
       }
-      return owner
-    })
 
-    setOwners(updatedOwners)
-    setShowStatusDialog(false)
+      // Update owner status in the local state
+      const updatedOwners = owners.map((owner) => {
+        if (owner.id === selectedOwner.id) {
+          return { ...owner, status: newStatus as "pending" | "reported" }
+        }
+        return owner
+      })
 
-    toast({
-      title: "Status Updated",
-      description: `Owner status has been changed to ${newStatus}.`,
-    })
+      setOwners(updatedOwners)
+      setShowStatusDialog(false)
+
+      toast({
+        title: "Status Updated",
+        description: `Owner status has been changed to ${newStatus}.`,
+      })
+    } catch (error) {
+      console.error("Error updating status:", error)
+      toast({
+        title: "Error",
+        description: (error as Error).message || "Failed to update status.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleSortChange = (value: string) => {
@@ -286,7 +351,7 @@ export default function AdminBeneficialOwnershipPage() {
     // Convert owner data to CSV format
     const ownerDataCSV = filteredOwners.map((owner) => [
       owner.id,
-      owner.userName,
+      owner.user?.name || "Unknown",
       owner.name,
       owner.title,
       owner.ownershipPercentage,
@@ -318,7 +383,7 @@ export default function AdminBeneficialOwnershipPage() {
     .filter((owner) => {
       const matchesSearch =
         owner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        owner.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (owner.user?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         owner.title.toLowerCase().includes(searchQuery.toLowerCase())
 
       const matchesTab =
@@ -326,7 +391,7 @@ export default function AdminBeneficialOwnershipPage() {
         (activeTab === "reported" && owner.status === "reported") ||
         activeTab === "all"
 
-      const matchesClient = selectedClient === "All Clients" || owner.userName === selectedClient
+      const matchesClient = selectedClient === "All Clients" || (owner.user?.name || "Unknown") === selectedClient
 
       // Add date filtering
       let matchesDateFilter = true
@@ -408,6 +473,24 @@ export default function AdminBeneficialOwnershipPage() {
           </div>
           <p className="mt-4 text-muted-foreground">Loading ownership information...</p>
         </div>
+      </div>
+    )
+  }
+
+  if (!isTableChecked) {
+    return (
+      <div className="p-8 flex justify-center items-center min-h-[60vh]">
+        <Card className="w-full max-w-md p-6">
+          <h2 className="text-xl font-bold mb-4">Database Setup Required</h2>
+          <p className="mb-4">The beneficial ownership table does not exist in the database.</p>
+          <p className="mb-6">Would you like to create the required table now?</p>
+          <div className="flex gap-4">
+            <Button variant="outline" onClick={checkTable}>
+              Check Again
+            </Button>
+            <Button onClick={createTable}>Create Table</Button>
+          </div>
+        </Card>
       </div>
     )
   }
@@ -837,8 +920,8 @@ export default function AdminBeneficialOwnershipPage() {
                   <p className="text-sm text-muted-foreground mb-1">Client Information</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm font-medium">{selectedOwner.userName}</p>
-                      <p className="text-xs text-muted-foreground">{selectedOwner.userEmail}</p>
+                      <p className="text-sm font-medium">{selectedOwner.user?.name || "Unknown"}</p>
+                      <p className="text-xs text-muted-foreground">{selectedOwner.user?.email || "No email"}</p>
                     </div>
                     <div className="text-right">
                       <Button variant="outline" size="sm" onClick={() => setShowViewDialog(false)}>
@@ -963,7 +1046,7 @@ function OwnerTable({
           <TableBody>
             {owners.map((owner) => (
               <TableRow key={owner.id}>
-                <TableCell>{owner.userName}</TableCell>
+                <TableCell>{owner.user?.name || "Unknown"}</TableCell>
                 <TableCell className="font-medium">{owner.name}</TableCell>
                 <TableCell>{owner.title}</TableCell>
                 <TableCell>{owner.ownershipPercentage}%</TableCell>
