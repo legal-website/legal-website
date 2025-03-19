@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -25,11 +25,323 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  Loader2,
 } from "lucide-react"
+import { format, subDays, subMonths, isAfter, parseISO } from "date-fns"
+import { useToast } from "@/components/ui/use-toast"
+
+// Define interfaces for our data
+interface Invoice {
+  id: string
+  amount: number
+  status: string
+  createdAt: string
+}
+
+interface User {
+  id: string
+  role: string
+  createdAt: string
+}
+
+interface Document {
+  id: string
+  createdAt: string
+}
+
+interface Template {
+  id: string
+  usageCount: number
+}
 
 export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState("month")
   const [activeTab, setActiveTab] = useState("overview")
+  const { toast } = useToast()
+
+  // Add states for metrics
+  const [totalRevenue, setTotalRevenue] = useState(0)
+  const [revenueChange, setRevenueChange] = useState(0)
+  const [newUsers, setNewUsers] = useState(0)
+  const [usersChange, setUsersChange] = useState(0)
+  const [documentUploads, setDocumentUploads] = useState(0)
+  const [documentsChange, setDocumentsChange] = useState(0)
+  const [templatesDownloaded, setTemplatesDownloaded] = useState(0)
+  const [templatesChange, setTemplatesChange] = useState(0)
+
+  // Add loading states
+  const [loadingRevenue, setLoadingRevenue] = useState(true)
+  const [loadingUsers, setLoadingUsers] = useState(true)
+  const [loadingDocuments, setLoadingDocuments] = useState(true)
+  const [loadingTemplates, setLoadingTemplates] = useState(true)
+
+  // Date range calculation based on selected time range
+  const getDateRange = useCallback(() => {
+    const now = new Date()
+    let startDate: Date
+    let previousStartDate: Date
+
+    switch (timeRange) {
+      case "day":
+        startDate = new Date(now.setHours(0, 0, 0, 0))
+        previousStartDate = subDays(startDate, 1)
+        break
+      case "week":
+        startDate = subDays(new Date(now.setHours(0, 0, 0, 0)), 7)
+        previousStartDate = subDays(startDate, 7)
+        break
+      case "month":
+        startDate = subDays(new Date(now.setHours(0, 0, 0, 0)), 30)
+        previousStartDate = subDays(startDate, 30)
+        break
+      case "quarter":
+        startDate = subDays(new Date(now.setHours(0, 0, 0, 0)), 90)
+        previousStartDate = subDays(startDate, 90)
+        break
+      case "year":
+        startDate = subMonths(new Date(now.setHours(0, 0, 0, 0)), 12)
+        previousStartDate = subMonths(startDate, 12)
+        break
+      default:
+        startDate = subDays(new Date(now.setHours(0, 0, 0, 0)), 30)
+        previousStartDate = subDays(startDate, 30)
+    }
+
+    return {
+      startDate,
+      previousStartDate,
+      endDate: now,
+      previousEndDate: startDate,
+    }
+  }, [timeRange])
+
+  // Fetch invoices data
+  const fetchInvoices = useCallback(async () => {
+    try {
+      setLoadingRevenue(true)
+      const response = await fetch("/api/admin/invoices")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch invoices")
+      }
+
+      const data = await response.json()
+      const invoices: Invoice[] = data.invoices || []
+
+      // Calculate metrics based on date range
+      const { startDate, previousStartDate, endDate, previousEndDate } = getDateRange()
+
+      // Current period revenue (only count paid invoices)
+      const currentRevenue = invoices
+        .filter(
+          (invoice) =>
+            invoice.status === "paid" &&
+            isAfter(parseISO(invoice.createdAt), startDate) &&
+            !isAfter(parseISO(invoice.createdAt), endDate),
+        )
+        .reduce((sum, invoice) => sum + invoice.amount, 0)
+
+      // Previous period revenue
+      const previousRevenue = invoices
+        .filter(
+          (invoice) =>
+            invoice.status === "paid" &&
+            isAfter(parseISO(invoice.createdAt), previousStartDate) &&
+            !isAfter(parseISO(invoice.createdAt), previousEndDate),
+        )
+        .reduce((sum, invoice) => sum + invoice.amount, 0)
+
+      // Calculate percentage change
+      const change = previousRevenue === 0 ? 100 : ((currentRevenue - previousRevenue) / previousRevenue) * 100
+
+      setTotalRevenue(currentRevenue)
+      setRevenueChange(change)
+    } catch (error) {
+      console.error("Error fetching invoices:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load revenue data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingRevenue(false)
+    }
+  }, [getDateRange, toast])
+
+  // Fetch users data
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoadingUsers(true)
+      const response = await fetch("/api/admin/users")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch users")
+      }
+
+      const data = await response.json()
+      const users: User[] = data.users || []
+
+      // Calculate metrics based on date range
+      const { startDate, previousStartDate, endDate, previousEndDate } = getDateRange()
+
+      // Current period new client users
+      const currentUsers = users.filter(
+        (user) =>
+          user.role === "CLIENT" &&
+          isAfter(parseISO(user.createdAt), startDate) &&
+          !isAfter(parseISO(user.createdAt), endDate),
+      ).length
+
+      // Previous period new client users
+      const previousUsers = users.filter(
+        (user) =>
+          user.role === "CLIENT" &&
+          isAfter(parseISO(user.createdAt), previousStartDate) &&
+          !isAfter(parseISO(user.createdAt), previousEndDate),
+      ).length
+
+      // Calculate percentage change
+      const change = previousUsers === 0 ? 100 : ((currentUsers - previousUsers) / previousUsers) * 100
+
+      setNewUsers(currentUsers)
+      setUsersChange(change)
+    } catch (error) {
+      console.error("Error fetching users:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load user data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingUsers(false)
+    }
+  }, [getDateRange, toast])
+
+  // Fetch documents data
+  const fetchDocuments = useCallback(async () => {
+    try {
+      setLoadingDocuments(true)
+      const response = await fetch("/api/admin/documents/client")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch documents")
+      }
+
+      const data = await response.json()
+      const documents: Document[] = data.documents || []
+
+      // Calculate metrics based on date range
+      const { startDate, previousStartDate, endDate, previousEndDate } = getDateRange()
+
+      // Current period document uploads
+      const currentDocuments = documents.filter(
+        (doc) => isAfter(parseISO(doc.createdAt), startDate) && !isAfter(parseISO(doc.createdAt), endDate),
+      ).length
+
+      // Previous period document uploads
+      const previousDocuments = documents.filter(
+        (doc) =>
+          isAfter(parseISO(doc.createdAt), previousStartDate) && !isAfter(parseISO(doc.createdAt), previousEndDate),
+      ).length
+
+      // Calculate percentage change
+      const change = previousDocuments === 0 ? 100 : ((currentDocuments - previousDocuments) / previousDocuments) * 100
+
+      setDocumentUploads(currentDocuments)
+      setDocumentsChange(change)
+    } catch (error) {
+      console.error("Error fetching documents:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load document data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingDocuments(false)
+    }
+  }, [getDateRange, toast])
+
+  // Fetch templates data
+  const fetchTemplates = useCallback(async () => {
+    try {
+      setLoadingTemplates(true)
+      const response = await fetch("/api/admin/templates")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch templates")
+      }
+
+      const data = await response.json()
+      const templates: Template[] = data.templates || []
+
+      // Sum all template downloads
+      const totalDownloads = templates.reduce((sum, template) => sum + (template.usageCount || 0), 0)
+
+      // For templates, we don't have date information for downloads
+      // So we'll use a mock percentage change for now
+      // In a real implementation, you would track this over time
+      const mockChange = Math.random() > 0.5 ? 8.2 : -3.1
+
+      setTemplatesDownloaded(totalDownloads)
+      setTemplatesChange(mockChange)
+    } catch (error) {
+      console.error("Error fetching templates:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load template data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingTemplates(false)
+    }
+  }, [toast])
+
+  // Fetch all data when component mounts or time range changes
+  useEffect(() => {
+    fetchInvoices()
+    fetchUsers()
+    fetchDocuments()
+    fetchTemplates()
+  }, [fetchInvoices, fetchUsers, fetchDocuments, fetchTemplates, timeRange])
+
+  // Handle refresh button click
+  const handleRefresh = () => {
+    fetchInvoices()
+    fetchUsers()
+    fetchDocuments()
+    fetchTemplates()
+
+    toast({
+      title: "Refreshed",
+      description: "Dashboard data has been refreshed",
+    })
+  }
+
+  // Format date range for display
+  const getFormattedDateRange = () => {
+    const now = new Date()
+    let startDate: Date
+
+    switch (timeRange) {
+      case "day":
+        return format(now, "MMM d, yyyy")
+      case "week":
+        startDate = subDays(now, 7)
+        return `${format(startDate, "MMM d, yyyy")} - ${format(now, "MMM d, yyyy")}`
+      case "month":
+        startDate = subDays(now, 30)
+        return `${format(startDate, "MMM d, yyyy")} - ${format(now, "MMM d, yyyy")}`
+      case "quarter":
+        startDate = subDays(now, 90)
+        return `${format(startDate, "MMM d, yyyy")} - ${format(now, "MMM d, yyyy")}`
+      case "year":
+        startDate = subMonths(now, 12)
+        return `${format(startDate, "MMM d, yyyy")} - ${format(now, "MMM d, yyyy")}`
+      default:
+        startDate = subDays(now, 30)
+        return `${format(startDate, "MMM d, yyyy")} - ${format(now, "MMM d, yyyy")}`
+    }
+  }
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto">
@@ -40,8 +352,10 @@ export default function AnalyticsPage() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">Comprehensive insights and performance metrics</p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <Button variant="outline" size="sm" className="flex items-center">
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <Button variant="outline" size="sm" className="flex items-center" onClick={handleRefresh}>
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${loadingRevenue || loadingUsers || loadingDocuments || loadingTemplates ? "animate-spin" : ""}`}
+            />
             Refresh
           </Button>
           <Button variant="outline" size="sm" className="flex items-center">
@@ -69,7 +383,7 @@ export default function AnalyticsPage() {
         </div>
         <div className="ml-auto flex items-center">
           <Calendar className="h-4 w-4 mr-2 text-gray-500" />
-          <span className="text-sm text-gray-500">Mar 1, 2025 - Mar 31, 2025</span>
+          <span className="text-sm text-gray-500">{getFormattedDateRange()}</span>
         </div>
       </div>
 
@@ -77,34 +391,45 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <MetricCard
           title="Total Revenue"
-          value="$128,430"
-          change="+12.5%"
-          trend="up"
+          value={`$${totalRevenue.toFixed(2)}`}
+          change={`${Math.abs(revenueChange).toFixed(1)}%`}
+          trend={revenueChange >= 0 ? "up" : "down"}
           icon={DollarSign}
           color="bg-green-500"
+          loading={loadingRevenue}
         />
-        <MetricCard title="New Users" value="342" change="+8.2%" trend="up" icon={Users} color="bg-blue-500" />
+        <MetricCard
+          title="New Users"
+          value={newUsers.toString()}
+          change={`${Math.abs(usersChange).toFixed(1)}%`}
+          trend={usersChange >= 0 ? "up" : "down"}
+          icon={Users}
+          color="bg-blue-500"
+          loading={loadingUsers}
+        />
         <MetricCard
           title="Document Uploads"
-          value="1,842"
-          change="-3.1%"
-          trend="down"
+          value={documentUploads.toString()}
+          change={`${Math.abs(documentsChange).toFixed(1)}%`}
+          trend={documentsChange >= 0 ? "up" : "down"}
           icon={FileText}
           color="bg-purple-500"
+          loading={loadingDocuments}
         />
         <MetricCard
-          title="Conversion Rate"
-          value="24.8%"
-          change="+2.3%"
-          trend="up"
+          title="Templates Downloaded"
+          value={templatesDownloaded.toString()}
+          change={`${Math.abs(templatesChange).toFixed(1)}%`}
+          trend={templatesChange >= 0 ? "up" : "down"}
           icon={TrendingUp}
           color="bg-amber-500"
+          loading={loadingTemplates}
         />
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="mb-6">
+        <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">User Analytics</TabsTrigger>
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
@@ -792,6 +1117,7 @@ export default function AnalyticsPage() {
   )
 }
 
+// Update the MetricCard component to handle loading state
 // Component for metric cards
 function MetricCard({
   title,
@@ -800,6 +1126,7 @@ function MetricCard({
   trend,
   icon: Icon,
   color,
+  loading = false,
 }: {
   title: string
   value: string
@@ -807,20 +1134,31 @@ function MetricCard({
   trend: "up" | "down"
   icon: React.ElementType
   color: string
+  loading?: boolean
 }) {
   return (
     <Card>
-      <div className="p-6 mb-40">
+      <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div className={`w-12 h-12 rounded-lg ${color} flex items-center justify-center`}>
             <Icon className="h-6 w-6 text-white" />
           </div>
           <div className={`flex items-center ${trend === "up" ? "text-green-500" : "text-red-500"}`}>
-            {trend === "up" ? <ArrowUpRight className="h-4 w-4 mr-1" /> : <ArrowDownRight className="h-4 w-4 mr-1" />}
+            {loading ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : trend === "up" ? (
+              <ArrowUpRight className="h-4 w-4 mr-1" />
+            ) : (
+              <ArrowDownRight className="h-4 w-4 mr-1" />
+            )}
             <span className="text-sm font-medium">{change}</span>
           </div>
         </div>
-        <h3 className="text-2xl font-bold mb-1">{value}</h3>
+        {loading ? (
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1"></div>
+        ) : (
+          <h3 className="text-2xl font-bold mb-1">{value}</h3>
+        )}
         <p className="text-gray-500 dark:text-gray-400 text-sm">{title}</p>
       </div>
     </Card>
