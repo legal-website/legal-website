@@ -585,6 +585,7 @@ export default function BeneficialOwnershipPage() {
     setOpenDeleteDialog(true)
   }
 
+  // Update the getStatusBadge function to make the "filed" status more prominent
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
@@ -602,8 +603,11 @@ export default function BeneficialOwnershipPage() {
         )
       case "filed":
         return (
-          <Badge variant="outline" className="bg-green-100 text-green-800">
-            <CheckCircle className="mr-1 h-3 w-3" />
+          <Badge
+            variant="outline"
+            className="bg-green-100 text-green-800 font-medium text-base px-3 py-1 shadow-sm border-green-300 animate-pulse"
+          >
+            <CheckCircle className="mr-1 h-4 w-4" />
             Filed
           </Badge>
         )
@@ -903,8 +907,8 @@ export default function BeneficialOwnershipPage() {
                 <div key={filing.id} className="border rounded-lg p-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-medium text-lg">{filing.title}</h3>
-                      <p className="text-sm text-muted-foreground">Filed on: {formatDate(filing.filedDate)}</p>
+                      <h3 className="font-medium text-[15px]">{filing.title}</h3>
+                      <p className="text-[15px] text-muted-foreground">Filed on: {formatDate(filing.filedDate)}</p>
                     </div>
                     <div className="flex items-center">{getStatusBadge(filing.status)}</div>
                   </div>
