@@ -104,6 +104,7 @@ const menuItems: MenuItem[] = [
     subItems: [
       { label: "Amendments", href: "/admin/compliance/amendments", badge: "New" },
       { label: "Annual Reports", href: "/admin/compliance/annual-reports" },
+      { label: "Beneficial Ownership", href: "/admin/compliance/beneficial-ownership" },
     ],
   },
   {
