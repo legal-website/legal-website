@@ -773,24 +773,17 @@ export default function AnalyticsPage() {
       const amendmentsData = await amendmentsResponse.json().catch(() => ({ amendments: [] }))
       const amendments: Amendment[] = amendmentsData.amendments || []
 
-      // Fetch annual report filings
-      const filingsResponse = await fetch("/api/admin/annual-reports/filings")
-      if (!filingsResponse.ok) {
-        console.warn("Failed to fetch annual report filings, using empty array")
+      // Fetch template invoices from the template tab
+      const templateInvoicesResponse = await fetch("/api/admin/billing/invoices?tab=template")
+      if (!templateInvoicesResponse.ok) {
+        console.warn("Failed to fetch template invoices, using empty array")
       }
-      const filingsData = await filingsResponse.json().catch(() => ({ filings: [] }))
-      const filings: AnnualReportFiling[] = filingsData.filings || []
-
-      // Fetch annual report deadlines
-      const deadlinesResponse = await fetch("/api/admin/annual-reports/deadlines")
-      if (!deadlinesResponse.ok) {
-        console.warn("Failed to fetch annual report deadlines, using empty array")
-      }
-      const deadlinesData = await deadlinesResponse.json().catch(() => ({ deadlines: [] }))
-      const deadlines: AnnualReportDeadline[] = deadlinesData.deadlines || []
+      const templateInvoicesData = await templateInvoicesResponse.json().catch(() => ({ invoices: [] }))
+      const templateInvoices: Invoice[] = templateInvoicesData.invoices || []
 
       // 1. Filter paid invoices
       const paidInvoices = invoices.filter((invoice) => invoice.status === "paid")
+      const paidTemplateInvoices = templateInvoices.filter((invoice) => invoice.status === "paid")
 
       // 2. Calculate total revenue
       const totalRevenue = paidInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
@@ -863,41 +856,21 @@ export default function AnalyticsPage() {
       const approvedAmendments = amendments.filter((amendment) => amendment.status === "approved")
       const amendmentRevenue = approvedAmendments.reduce((sum, amendment) => sum + (amendment.paymentAmount || 0), 0)
 
-      // c. Revenue from annual report filings
-      let annualReportRevenue = 0
+      // Calculate total template revenue from template tab
+      const totalTemplateRevenue = paidTemplateInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
 
-      // Only count filings with status "completed" or "payment_received"
-      const completedFilings = filings.filter(
-        (filing) => filing.status === "completed" || filing.status === "payment_received",
-      )
-
-      completedFilings.forEach((filing) => {
-        const deadline = deadlines.find((d) => d.id === filing.deadlineId)
-        if (deadline) {
-          // Add the base fee
-          annualReportRevenue += deadline.fee
-
-          // Add late fee if applicable
-          if (deadline.lateFee) {
-            annualReportRevenue += deadline.lateFee
-          }
-        }
-      })
-
-      // Set revenue by product data
+      // Set revenue by product data - EXCLUDING Annual Reports
       const revenueByProduct: RevenueDataPoint[] = [
         { name: "Packages", value: packageRevenue },
         { name: "Amendments", value: amendmentRevenue },
-        { name: "Annual Reports", value: annualReportRevenue },
+        { name: "Templates", value: totalTemplateRevenue },
       ]
 
       // Filter out zero values
       const filteredRevenueByProduct = revenueByProduct.filter((item) => item.value > 0)
       setRevenueByProductData(filteredRevenueByProduct)
 
-      // 6. Calculate revenue by templates - monthly trend instead of by template type
-      const templateInvoices = paidInvoices.filter((invoice) => isTemplateInvoice(invoice))
-
+      // 6. Calculate revenue by templates - monthly trend
       // Group template invoices by month
       const monthlyTemplateRevenue: Record<string, number> = {}
 
@@ -915,7 +888,7 @@ export default function AnalyticsPage() {
       })
 
       // Add revenue to appropriate months
-      templateInvoices.forEach((invoice) => {
+      paidTemplateInvoices.forEach((invoice) => {
         const invoiceDate = new Date(invoice.createdAt)
         if (invoiceDate >= twelveMonthsAgoDate && invoiceDate <= now) {
           const monthKey = format(invoiceDate, "MMM yyyy")
