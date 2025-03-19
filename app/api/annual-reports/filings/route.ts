@@ -3,9 +3,23 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 
-// Update the type definition to use a more direct approach
-// Replace the FilingWithDeadline type with:
-type FilingWithDeadline = {
+// Define more explicit types with optional properties
+interface User {
+  id: string
+  name: string | null
+  email: string
+}
+
+interface Deadline {
+  id: string
+  title: string
+  dueDate: Date
+  fee: any
+  lateFee: any | null
+  status: string
+}
+
+interface Filing {
   id: string
   userId: string
   deadlineId: string
@@ -17,65 +31,98 @@ type FilingWithDeadline = {
   filedDate: Date | null
   createdAt: Date
   updatedAt: Date
-  deadline?: {
-    id: string
-    title: string
-    dueDate: Date
-    fee: any // Using any for Decimal type
-    lateFee: any | null // Using any for Decimal type
-    status: string
-  } | null
-  deadlineTitle?: string
-  dueDate?: Date | null
+  deadline?: Deadline | null
 }
 
 export async function GET(req: Request) {
+  console.log("Client filings API: Starting request")
+
   try {
+    // Step 1: Check authentication
     const session = await getServerSession(authOptions)
 
     if (!session?.user) {
+      console.log("Client filings API: Unauthorized access attempt")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log("Client filings API: Fetching filings for user", session.user.id)
+    console.log("Client filings API: Authentication successful, fetching filings for user", session.user.id)
 
-    // Get filings for the current user with complete deadline data
-    const filings = await prisma.annualReportFiling.findMany({
-      where: {
-        userId: session.user.id,
-      },
-      include: {
-        deadline: {
-          select: {
-            id: true,
-            title: true,
-            dueDate: true,
-            fee: true,
-            lateFee: true,
-            status: true,
+    try {
+      // Step 2: First, try to get the filings without includes to check if that works
+      console.log("Client filings API: Fetching basic filings without includes")
+      const basicFilings = await prisma.annualReportFiling.findMany({
+        where: {
+          userId: session.user.id,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      })
+
+      console.log(`Client filings API: Successfully fetched ${basicFilings.length} basic filings`)
+
+      // Step 3: Now try to get the deadline data separately
+      console.log("Client filings API: Fetching deadlines for filings")
+      const deadlineIds = [...new Set(basicFilings.map((filing: Filing) => filing.deadlineId))]
+      const deadlines = await prisma.annualReportDeadline.findMany({
+        where: {
+          id: {
+            in: deadlineIds,
           },
         },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    })
+        select: {
+          id: true,
+          title: true,
+          dueDate: true,
+          fee: true,
+          lateFee: true,
+          status: true,
+        },
+      })
 
-    // Process filings to ensure all required data is present
-    const processedFilings = filings.map((filing: any) => {
-      return {
-        ...filing,
-        deadlineTitle: filing.deadline?.title || "Unknown Deadline",
-        dueDate: filing.deadline?.dueDate || null,
-      }
-    })
+      console.log(`Client filings API: Successfully fetched ${deadlines.length} deadlines`)
 
-    console.log(`Client API: Found ${filings.length} filings for user ${session.user.id}`)
+      // Create a map for quick deadline lookup
+      const deadlineMap = new Map(deadlines.map((deadline: Deadline) => [deadline.id, deadline]))
 
-    return NextResponse.json({ filings: processedFilings })
+      // Step 4: Now manually combine the data with proper type checking
+      console.log("Client filings API: Processing filings data")
+      const processedFilings = basicFilings.map((filing: Filing) => {
+        const deadline = deadlineMap.get(filing.deadlineId) as Deadline | undefined
+
+        return {
+          ...filing,
+          deadline: deadline || null,
+          // Ensure these fields are never undefined
+          deadlineTitle: deadline ? deadline.title : "Unknown Deadline",
+          dueDate: deadline ? deadline.dueDate : null,
+        }
+      })
+
+      console.log(`Client filings API: Successfully processed ${processedFilings.length} filings`)
+      return NextResponse.json({ filings: processedFilings })
+    } catch (dbError) {
+      console.error("Client filings API: Database error:", dbError)
+      return NextResponse.json(
+        {
+          error: "Database error fetching filings",
+          details: (dbError as Error).message,
+          stack: process.env.NODE_ENV === "development" ? (dbError as Error).stack : undefined,
+        },
+        { status: 500 },
+      )
+    }
   } catch (error) {
-    console.error("Error fetching filings:", error)
-    return NextResponse.json({ error: "Failed to fetch filings", details: (error as Error).message }, { status: 500 })
+    console.error("Client filings API: Unhandled error:", error)
+    return NextResponse.json(
+      {
+        error: "Error fetching filings",
+        details: (error as Error).message,
+        stack: process.env.NODE_ENV === "development" ? (error as Error).stack : undefined,
+      },
+      { status: 500 },
+    )
   }
 }
 

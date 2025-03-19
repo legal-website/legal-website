@@ -21,6 +21,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { CustomCalendar } from "@/components/custom-calendar"
+import { DebugButton } from "./debug-button"
 
 // Types
 interface Deadline {
@@ -560,39 +561,28 @@ export default function AnnualReportsPage() {
           <Card className="p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Filing Requirements</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleManualRefresh}
-                disabled={refreshing || backgroundRefreshing}
-                className="relative"
-              >
-                <div
-                  className={`absolute inset-0 flex items-center justify-center ${
-                    backgroundRefreshing ? "opacity-100" : "opacity-0"
-                  }`}
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleManualRefresh}
+                  disabled={refreshing || backgroundRefreshing}
+                  className="relative"
                 >
-                  <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                </div>
-                <div className={backgroundRefreshing ? "opacity-0" : "opacity-100"}>
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-                </div>
-                <span className="sr-only">Refresh</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  console.log("Debug - Upcoming deadlines:", upcomingDeadlines)
-                  console.log("Debug - Past filings:", pastFilings)
-                  toast({
-                    title: "Debug Info",
-                    description: `Deadlines: ${upcomingDeadlines.length}, Filings: ${pastFilings.length}`,
-                  })
-                }}
-              >
-                Debug
-              </Button>
+                  <div
+                    className={`absolute inset-0 flex items-center justify-center ${
+                      backgroundRefreshing ? "opacity-100" : "opacity-0"
+                    }`}
+                  >
+                    <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                  <div className={backgroundRefreshing ? "opacity-0" : "opacity-100"}>
+                    <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                  </div>
+                  <span className="sr-only">Refresh</span>
+                </Button>
+                <DebugButton />
+              </div>
             </div>
             <div className="space-y-4">
               {requirements.map((requirement: FilingRequirement) => (
