@@ -746,6 +746,7 @@ export default function AnalyticsPage() {
       const deadlinesData = await deadlinesResponse.json().catch(() => ({ deadlines: [] }))
       const deadlines: AnnualReportDeadline[] = deadlinesData.deadlines || []
 
+      // Calculate revenue metrics
       // 1. Filter paid invoices
       const paidInvoices = invoices.filter((invoice) => invoice.status === "paid")
 
@@ -768,71 +769,25 @@ export default function AnalyticsPage() {
       setMonthlyRecurringRevenue(mrr)
 
       // 5. Calculate revenue by product
-      // a. Revenue from packages (only STARTER, STANDARD, PREMIUM packages)
+      // a. Revenue from packages (non-template invoices)
       const packageInvoices = paidInvoices.filter(
-        (invoice) => (invoice.invoiceNumber.startsWith("INV") || !invoice.isTemplateInvoice) && invoice.items, // Make sure items exist
+        (invoice) => invoice.invoiceNumber.startsWith("INV") || !invoice.isTemplateInvoice,
       )
-
-      let packageRevenue = 0
-
-      packageInvoices.forEach((invoice) => {
-        let items = invoice.items
-
-        // Parse items if they're a string
-        if (typeof items === "string") {
-          try {
-            items = JSON.parse(items)
-          } catch (e) {
-            console.error("Error parsing invoice items:", e)
-            return
-          }
-        }
-
-        // Process items to only count STARTER, STANDARD, and PREMIUM tiers
-        if (Array.isArray(items)) {
-          items.forEach((item: any) => {
-            if (item.tier) {
-              const tierName = item.tier.toUpperCase()
-              if (tierName === "STARTER" || tierName === "STANDARD" || tierName === "PREMIUM") {
-                packageRevenue += item.amount || 0
-              }
-            }
-          })
-        } else if (items && typeof items === "object") {
-          // Handle case where items is an object with numeric keys
-          Object.values(items).forEach((item: any) => {
-            if (item.tier) {
-              const tierName = item.tier.toUpperCase()
-              if (tierName === "STARTER" || tierName === "STANDARD" || tierName === "PREMIUM") {
-                packageRevenue += item.amount || 0
-              }
-            }
-          })
-        }
-      })
+      const packageRevenue = packageInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
 
       // b. Revenue from amendments
       const approvedAmendments = amendments.filter((amendment) => amendment.status === "approved")
       const amendmentRevenue = approvedAmendments.reduce((sum, amendment) => sum + (amendment.paymentAmount || 0), 0)
 
       // c. Revenue from annual report filings
-      let annualReportRevenue = 0
-
-      // Only count filings with status "completed" or "payment_received"
       const completedFilings = filings.filter(
         (filing) => filing.status === "completed" || filing.status === "payment_received",
       )
-
+      let annualReportRevenue = 0
       completedFilings.forEach((filing) => {
         const deadline = deadlines.find((d) => d.id === filing.deadlineId)
         if (deadline) {
-          // Add the base fee
-          annualReportRevenue += deadline.fee
-
-          // Add late fee if applicable
-          if (deadline.lateFee) {
-            annualReportRevenue += deadline.lateFee
-          }
+          annualReportRevenue += deadline.fee + (deadline.lateFee || 0)
         }
       })
 
@@ -844,14 +799,13 @@ export default function AnalyticsPage() {
       ]
       setRevenueByProductData(revenueByProduct)
 
-      // 6. Calculate revenue by templates - only from template invoices
+      // 6. Calculate revenue by templates
       const templateInvoices = paidInvoices.filter(
         (invoice) => !invoice.invoiceNumber.startsWith("INV") && invoice.isTemplateInvoice,
       )
 
       // Group template invoices by template type
       const templateRevenueMap: Record<string, number> = {}
-
       templateInvoices.forEach((invoice) => {
         let templateName = "Unknown Template"
 
@@ -1781,10 +1735,8 @@ export default function AnalyticsPage() {
                                   entry.name === "Packages"
                                     ? "#3b82f6"
                                     : entry.name === "Amendments"
-                                      ? "#a855f7"
-                                      : entry.name === "Annual Reports"
-                                        ? "#22c55e"
-                                        : "#a855f7"
+                                      ? "#22c55e"
+                                      : "#a855f7"
                                 }
                                 strokeWidth={1}
                               />
