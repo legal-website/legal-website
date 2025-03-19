@@ -81,11 +81,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
     // If client is updating and it's the default owner, they can only update ownershipPercentage
     if (!isAdmin && owner.isDefault) {
-      if (data.title) {
-        return NextResponse.json({ error: "You cannot change the title of the primary owner" }, { status: 400 })
-      }
-
-      // Only allow ownershipPercentage update
+      // Only allow ownershipPercentage update for default owner
       const { ownershipPercentage } = data
 
       if (ownershipPercentage === undefined) {
@@ -110,28 +106,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         return NextResponse.json({ error: "Total ownership percentage cannot exceed 100%" }, { status: 400 })
       }
 
-      // Check minimum ownership rules based on number of owners
-      const totalOwners = otherOwners.length + 1
-      let minOwnership = 0
-
-      if (totalOwners === 2) {
-        minOwnership = 51 // If 2 owners, primary must have at least 51%
-      } else if (totalOwners === 3) {
-        minOwnership = 34 // If 3 owners, primary must have at least 34%
-      } else if (totalOwners > 3) {
-        minOwnership = 25 // If more than 3 owners, primary must have at least 25%
-      }
-
-      if (Number(ownershipPercentage) < minOwnership) {
-        return NextResponse.json(
-          {
-            error: `Primary owner must maintain at least ${minOwnership}% ownership with ${totalOwners} total owners`,
-          },
-          { status: 400 },
-        )
-      }
-
-      // Update the owner
+      // Update the owner with ONLY the ownership percentage
       const updatedOwner = await prisma.beneficialOwner.update({
         where: {
           id: ownerId,
@@ -178,7 +153,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
         // Calculate total ownership after update
         const otherTotal = otherOwners.reduce((sum: number, o: any) => sum + Number(o.ownershipPercentage), 0)
-
         const newTotal = otherTotal + Number(data.ownershipPercentage)
 
         if (newTotal > 100) {

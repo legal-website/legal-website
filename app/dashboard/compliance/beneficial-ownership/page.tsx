@@ -159,15 +159,13 @@ export default function BeneficialOwnershipPage() {
     try {
       setSubmitting(true)
 
-      // First update the CEO's ownership percentage
+      // First update the CEO's ownership percentage ONLY
       const ceoUpdateRes = await fetch(`/api/beneficial-ownership/${ceoOwner.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: ceoOwner.name,
-          title: ceoOwner.title,
           ownershipPercentage: newCeoPercentage.toString(),
         }),
       })
@@ -292,7 +290,7 @@ export default function BeneficialOwnershipPage() {
       // Calculate new CEO percentage
       const newCeoPercentage = 100 - newTotal
 
-      // Update CEO's ownership first
+      // Update CEO's ownership first - ONLY update the ownership percentage
       try {
         const ceoUpdateRes = await fetch(`/api/beneficial-ownership/${ceoOwner.id}`, {
           method: "PUT",
@@ -300,8 +298,6 @@ export default function BeneficialOwnershipPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            name: ceoOwner.name,
-            title: ceoOwner.title,
             ownershipPercentage: newCeoPercentage.toString(),
           }),
         })
@@ -392,15 +388,13 @@ export default function BeneficialOwnershipPage() {
     try {
       setSubmitting(true)
 
-      // First update the CEO's ownership percentage
+      // First update the CEO's ownership percentage ONLY
       const ceoUpdateRes = await fetch(`/api/beneficial-ownership/${ceoOwner.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: ceoOwner.name,
-          title: ceoOwner.title,
           ownershipPercentage: newCeoPercentage.toString(),
         }),
       })
