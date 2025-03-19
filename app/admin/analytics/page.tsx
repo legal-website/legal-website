@@ -30,18 +30,28 @@ import {
 import { format, subDays, subMonths, isAfter, parseISO } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 
+// In the imports section, add these imports:
+import { LineChart as RechartsLineChart, PieChart as RechartsPieChart } from "recharts"
+import { Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts"
+
 // Define interfaces for our data
 interface Invoice {
   id: string
   amount: number
   status: string
   createdAt: string
+  invoiceNumber: string
+  items: any
+  isTemplateInvoice: boolean
 }
 
 interface User {
   id: string
   role: string
   createdAt: string
+  lastActive: string
+  status: string
+  updatedAt: string
 }
 
 interface Document {
@@ -68,6 +78,18 @@ export default function AnalyticsPage() {
   const [documentsChange, setDocumentsChange] = useState(0)
   const [templatesDownloaded, setTemplatesDownloaded] = useState(0)
   const [templatesChange, setTemplatesChange] = useState(0)
+
+  // Add these state variables in the component:
+  const [activeUsers, setActiveUsers] = useState(0)
+  const [activeUsersChange, setActiveUsersChange] = useState(0)
+  const [newSignups, setNewSignups] = useState(0)
+  const [newSignupsChange, setNewSignupsChange] = useState(0)
+  const [churnRate, setChurnRate] = useState(0)
+  const [churnRateChange, setChurnRateChange] = useState(0)
+  const [userGrowthData, setUserGrowthData] = useState([])
+  const [packageData, setPackageData] = useState([])
+  const [retentionData, setRetentionData] = useState([])
+  const [loadingUserAnalytics, setLoadingUserAnalytics] = useState(true)
 
   // Add loading states
   const [loadingRevenue, setLoadingRevenue] = useState(true)
@@ -296,13 +318,306 @@ export default function AnalyticsPage() {
     }
   }, [toast])
 
+  // Add these functions after the fetchTemplates function:
+
+  // Fetch user analytics data
+  const fetchUserAnalytics = useCallback(async () => {
+    try {
+      setLoadingUserAnalytics(true)
+      const response = await fetch("/api/admin/users")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch users")
+      }
+
+      const data = await response.json()
+      const users = data.users || []
+
+      // Filter only client users
+      const clientUsers = users.filter((user) => user.role === "CLIENT")
+
+      // Calculate metrics based on date range
+      const { startDate, previousStartDate, endDate, previousEndDate } = getDateRange()
+      const now = new Date()
+      const tenDaysAgo = subDays(now, 10)
+
+      // Active Users (active in the last 10 days)
+      const currentActiveUsers = clientUsers.filter(
+        (user) => new Date(user.lastActive) > tenDaysAgo && user.status === "Active",
+      ).length
+
+      // Previous period active users
+      const previousActiveUsers = clientUsers.filter(
+        (user) =>
+          new Date(user.lastActive) >
+            subDays(
+              tenDaysAgo,
+              timeRange === "day"
+                ? 1
+                : timeRange === "week"
+                  ? 7
+                  : timeRange === "month"
+                    ? 30
+                    : timeRange === "quarter"
+                      ? 90
+                      : 365,
+            ) && user.status === "Active",
+      ).length
+
+      // New Signups (enrolled in the last 10 days)
+      const currentNewSignups = clientUsers.filter((user) => new Date(user.createdAt) > tenDaysAgo).length
+
+      // Previous period new signups
+      const previousNewSignups = clientUsers.filter(
+        (user) =>
+          new Date(user.createdAt) >
+            subDays(
+              tenDaysAgo,
+              timeRange === "day"
+                ? 1
+                : timeRange === "week"
+                  ? 7
+                  : timeRange === "month"
+                    ? 30
+                    : timeRange === "quarter"
+                      ? 90
+                      : 365,
+            ) && new Date(user.createdAt) < tenDaysAgo,
+      ).length
+
+      // Calculate Churn Rate
+      const inactiveUsers = clientUsers.filter(
+        (user) => user.status !== "Active" && new Date(user.updatedAt) > tenDaysAgo,
+      ).length
+
+      const totalUsersBeforeTenDays = clientUsers.filter((user) => new Date(user.createdAt) < tenDaysAgo).length
+
+      const currentChurnRate = totalUsersBeforeTenDays > 0 ? (inactiveUsers / totalUsersBeforeTenDays) * 100 : 0
+
+      // Previous period churn rate
+      const previousInactiveUsers = clientUsers.filter(
+        (user) =>
+          user.status !== "Active" &&
+          new Date(user.updatedAt) >
+            subDays(
+              tenDaysAgo,
+              timeRange === "day"
+                ? 1
+                : timeRange === "week"
+                  ? 7
+                  : timeRange === "month"
+                    ? 30
+                    : timeRange === "quarter"
+                      ? 90
+                      : 365,
+            ) &&
+          new Date(user.updatedAt) < tenDaysAgo,
+      ).length
+
+      const previousTotalUsersBeforeTenDays = clientUsers.filter(
+        (user) =>
+          new Date(user.createdAt) <
+          subDays(
+            tenDaysAgo,
+            timeRange === "day"
+              ? 1
+              : timeRange === "week"
+                ? 7
+                : timeRange === "month"
+                  ? 30
+                  : timeRange === "quarter"
+                    ? 90
+                    : 365,
+          ),
+      ).length
+
+      const previousChurnRate =
+        previousTotalUsersBeforeTenDays > 0 ? (previousInactiveUsers / previousTotalUsersBeforeTenDays) * 100 : 0
+
+      // Calculate percentage changes
+      const activeUsersChangePercent =
+        previousActiveUsers === 0 ? 100 : ((currentActiveUsers - previousActiveUsers) / previousActiveUsers) * 100
+
+      const newSignupsChangePercent =
+        previousNewSignups === 0 ? 100 : ((currentNewSignups - previousNewSignups) / previousNewSignups) * 100
+
+      const churnRateChangePercent =
+        previousChurnRate === 0 ? 0 : ((currentChurnRate - previousChurnRate) / previousChurnRate) * 100
+
+      // Prepare user growth data for chart
+      const growthData = []
+
+      // Determine interval based on time range
+      let interval = 1 // days
+      let steps = 30
+
+      if (timeRange === "day") {
+        interval = 1
+        steps = 24 // hours
+      } else if (timeRange === "week") {
+        interval = 1
+        steps = 7
+      } else if (timeRange === "month") {
+        interval = 1
+        steps = 30
+      } else if (timeRange === "quarter") {
+        interval = 7
+        steps = 13
+      } else if (timeRange === "year") {
+        interval = 30
+        steps = 12
+      }
+
+      // Generate data points
+      for (let i = steps - 1; i >= 0; i--) {
+        const date = timeRange === "day" ? subDays(now, 0).setHours(now.getHours() - i) : subDays(now, i * interval)
+
+        const formattedDate =
+          timeRange === "day"
+            ? format(new Date(date), "HH:mm")
+            : timeRange === "year"
+              ? format(new Date(date), "MMM")
+              : format(new Date(date), "MMM dd")
+
+        const usersAtDate = clientUsers.filter((user) => new Date(user.createdAt) <= new Date(date)).length
+
+        growthData.push({
+          date: formattedDate,
+          users: usersAtDate,
+        })
+      }
+
+      // Prepare retention data
+      const retentionData = []
+
+      for (let i = steps - 1; i >= 0; i--) {
+        const date = timeRange === "day" ? subDays(now, 0).setHours(now.getHours() - i) : subDays(now, i * interval)
+
+        const formattedDate =
+          timeRange === "day"
+            ? format(new Date(date), "HH:mm")
+            : timeRange === "year"
+              ? format(new Date(date), "MMM")
+              : format(new Date(date), "MMM dd")
+
+        const activeUsersAtDate = clientUsers.filter(
+          (user) =>
+            new Date(user.createdAt) <= new Date(date) &&
+            (user.status === "Active" || new Date(user.updatedAt) > new Date(date)),
+        ).length
+
+        retentionData.push({
+          date: formattedDate,
+          activeUsers: activeUsersAtDate,
+        })
+      }
+
+      // Update state with calculated metrics
+      setActiveUsers(currentActiveUsers)
+      setActiveUsersChange(activeUsersChangePercent)
+      setNewSignups(currentNewSignups)
+      setNewSignupsChange(newSignupsChangePercent)
+      setChurnRate(currentChurnRate)
+      setChurnRateChange(churnRateChangePercent)
+      setUserGrowthData(growthData)
+      setRetentionData(retentionData)
+    } catch (error) {
+      console.error("Error fetching user analytics:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load user analytics data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingUserAnalytics(false)
+    }
+  }, [getDateRange, timeRange, toast])
+
+  // Fetch package analytics data
+  const fetchPackageAnalytics = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/invoices")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch invoices")
+      }
+
+      const data = await response.json()
+      const invoices = data.invoices || []
+
+      // Filter regular invoices (those starting with INV)
+      const regularInvoices = invoices.filter(
+        (invoice) => invoice.invoiceNumber.startsWith("INV") || (invoice.items && !invoice.isTemplateInvoice),
+      )
+
+      // Extract package data
+      const packages = {}
+
+      regularInvoices.forEach((invoice) => {
+        let items = invoice.items
+
+        // Parse items if they're a string
+        if (typeof items === "string") {
+          try {
+            items = JSON.parse(items)
+          } catch (e) {
+            console.error("Error parsing invoice items:", e)
+            return
+          }
+        }
+
+        // Process items
+        if (Array.isArray(items)) {
+          items.forEach((item) => {
+            if (item.tier) {
+              if (!packages[item.tier]) {
+                packages[item.tier] = 0
+              }
+              packages[item.tier]++
+            }
+          })
+        } else if (items && typeof items === "object") {
+          // Handle case where items is an object with numeric keys
+          Object.values(items).forEach((item) => {
+            if (item.tier) {
+              if (!packages[item.tier]) {
+                packages[item.tier] = 0
+              }
+              packages[item.tier]++
+            }
+          })
+        }
+      })
+
+      // Convert to array for chart
+      const packageData = Object.entries(packages).map(([name, count]) => ({
+        name,
+        value: count,
+      }))
+
+      // Sort by count (descending)
+      packageData.sort((a, b) => b.value - a.value)
+
+      setPackageData(packageData)
+    } catch (error) {
+      console.error("Error fetching package analytics:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load package analytics data",
+        variant: "destructive",
+      })
+    }
+  }, [toast])
+
   // Fetch all data when component mounts or time range changes
   useEffect(() => {
     fetchInvoices()
     fetchUsers()
     fetchDocuments()
     fetchTemplates()
-  }, [fetchInvoices, fetchUsers, fetchDocuments, fetchTemplates, timeRange])
+    fetchUserAnalytics()
+    fetchPackageAnalytics()
+  }, [fetchInvoices, fetchUsers, fetchDocuments, fetchTemplates, fetchUserAnalytics, fetchPackageAnalytics, timeRange])
 
   // Handle refresh button click
   const handleRefresh = () => {
@@ -310,6 +625,8 @@ export default function AnalyticsPage() {
     fetchUsers()
     fetchDocuments()
     fetchTemplates()
+    fetchUserAnalytics()
+    fetchPackageAnalytics()
 
     toast({
       title: "Refreshed",
@@ -624,8 +941,25 @@ export default function AnalyticsPage() {
                   <h4 className="text-sm font-medium text-gray-500 mb-2">Active Users</h4>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold">2,543</p>
-                      <p className="text-sm text-green-500">+12.5% vs last month</p>
+                      {loadingUserAnalytics ? (
+                        <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                      ) : (
+                        <p className="text-2xl font-bold">{activeUsers}</p>
+                      )}
+                      <p className={`text-sm ${activeUsersChange >= 0 ? "text-green-500" : "text-red-500"}`}>
+                        {loadingUserAnalytics ? (
+                          <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        ) : (
+                          <>
+                            {activeUsersChange >= 0 ? (
+                              <ArrowUpRight className="h-3 w-3 inline mr-1" />
+                            ) : (
+                              <ArrowDownRight className="h-3 w-3 inline mr-1" />
+                            )}
+                            {Math.abs(activeUsersChange).toFixed(1)}% vs last period
+                          </>
+                        )}
+                      </p>
                     </div>
                     <div className="h-12 w-12 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
                       <Users className="h-6 w-6 text-blue-500" />
@@ -637,8 +971,25 @@ export default function AnalyticsPage() {
                   <h4 className="text-sm font-medium text-gray-500 mb-2">New Signups</h4>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold">342</p>
-                      <p className="text-sm text-green-500">+8.2% vs last month</p>
+                      {loadingUserAnalytics ? (
+                        <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                      ) : (
+                        <p className="text-2xl font-bold">{newSignups}</p>
+                      )}
+                      <p className={`text-sm ${newSignupsChange >= 0 ? "text-green-500" : "text-red-500"}`}>
+                        {loadingUserAnalytics ? (
+                          <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        ) : (
+                          <>
+                            {newSignupsChange >= 0 ? (
+                              <ArrowUpRight className="h-3 w-3 inline mr-1" />
+                            ) : (
+                              <ArrowDownRight className="h-3 w-3 inline mr-1" />
+                            )}
+                            {Math.abs(newSignupsChange).toFixed(1)}% vs last period
+                          </>
+                        )}
+                      </p>
                     </div>
                     <div className="h-12 w-12 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center">
                       <Users className="h-6 w-6 text-green-500" />
@@ -650,8 +1001,25 @@ export default function AnalyticsPage() {
                   <h4 className="text-sm font-medium text-gray-500 mb-2">Churn Rate</h4>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold">2.4%</p>
-                      <p className="text-sm text-red-500">+0.3% vs last month</p>
+                      {loadingUserAnalytics ? (
+                        <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                      ) : (
+                        <p className="text-2xl font-bold">{churnRate.toFixed(1)}%</p>
+                      )}
+                      <p className={`text-sm ${churnRateChange <= 0 ? "text-green-500" : "text-red-500"}`}>
+                        {loadingUserAnalytics ? (
+                          <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        ) : (
+                          <>
+                            {churnRateChange <= 0 ? (
+                              <ArrowDownRight className="h-3 w-3 inline mr-1" />
+                            ) : (
+                              <ArrowUpRight className="h-3 w-3 inline mr-1" />
+                            )}
+                            {Math.abs(churnRateChange).toFixed(1)}% vs last period
+                          </>
+                        )}
+                      </p>
                     </div>
                     <div className="h-12 w-12 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center">
                       <Users className="h-6 w-6 text-red-500" />
@@ -662,27 +1030,149 @@ export default function AnalyticsPage() {
 
               <div className="mb-6">
                 <h4 className="text-sm font-medium mb-4">User Growth Trend</h4>
-                <div className="h-80 w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                  <LineChart className="h-16 w-16 text-gray-300" />
-                  <span className="ml-4 text-gray-400">User Growth Chart</span>
-                </div>
+                {loadingUserAnalytics ? (
+                  <div className="h-80 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="h-80 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsLineChart
+                        data={userGrowthData}
+                        margin={{
+                          top: 5,
+                          right: 30,
+                          left: 20,
+                          bottom: 5,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "rgba(255, 255, 255, 0.9)",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                            border: "none",
+                          }}
+                          labelStyle={{ fontWeight: "bold" }}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="users"
+                          name="Total Users"
+                          stroke="#22c55e"
+                          strokeWidth={2}
+                          activeDot={{ r: 8 }}
+                        />
+                      </RechartsLineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
-                  <h4 className="text-sm font-medium mb-4">User Segments</h4>
-                  <div className="h-60 w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                    <PieChart className="h-12 w-12 text-gray-300" />
-                    <span className="ml-4 text-gray-400">User Segments Chart</span>
-                  </div>
+                  <h4 className="text-sm font-medium mb-4">Packages Analytics</h4>
+                  {loadingUserAnalytics ? (
+                    <div className="h-60 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="h-60 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Pie
+                            data={packageData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                            nameKey="name"
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          >
+                            {packageData.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={
+                                  [
+                                    "#22c55e",
+                                    "#3b82f6",
+                                    "#a855f7",
+                                    "#ec4899",
+                                    "#f97316",
+                                    "#14b8a6",
+                                    "#8b5cf6",
+                                    "#f43f5e",
+                                    "#84cc16",
+                                  ][index % 9]
+                                }
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value, name, props) => [`${value} sales`, props.payload.name]}
+                            contentStyle={{
+                              backgroundColor: "rgba(255, 255, 255, 0.9)",
+                              borderRadius: "8px",
+                              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                              border: "none",
+                            }}
+                          />
+                          <Legend />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <h4 className="text-sm font-medium mb-4">User Retention</h4>
-                  <div className="h-60 w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                    <Activity className="h-12 w-12 text-gray-300" />
-                    <span className="ml-4 text-gray-400">User Retention Chart</span>
-                  </div>
+                  {loadingUserAnalytics ? (
+                    <div className="h-60 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="h-60 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsLineChart
+                          data={retentionData}
+                          margin={{
+                            top: 5,
+                            right: 30,
+                            left: 20,
+                            bottom: 5,
+                          }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "rgba(255, 255, 255, 0.9)",
+                              borderRadius: "8px",
+                              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                              border: "none",
+                            }}
+                            labelStyle={{ fontWeight: "bold" }}
+                          />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            dataKey="activeUsers"
+                            name="Active Users"
+                            stroke="#3b82f6"
+                            strokeWidth={2}
+                            activeDot={{ r: 8 }}
+                          />
+                        </RechartsLineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                 </div>
               </div>
 
