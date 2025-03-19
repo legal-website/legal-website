@@ -1,1395 +1,1715 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import type React from "react"
+
+import { useState, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Progress } from "@/components/ui/progress"
 import {
-  Search,
-  Filter,
+  ArrowUpRight,
+  ArrowDownRight,
+  Calendar,
   Download,
-  Eye,
+  RefreshCw,
+  TrendingUp,
+  Users,
   FileText,
-  CheckCircle2,
+  DollarSign,
+  ShoppingCart,
+  Activity,
+  BarChart2,
+  PieChart,
+  LineChart,
   Clock,
+  CheckCircle2,
   AlertCircle,
-  Mail,
-  CheckCircle,
-  X,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
+  Loader2,
 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { format, subDays, subMonths, isAfter, parseISO } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
-import { format } from "date-fns"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
-import { useNotifications } from "@/components/admin/header"
-import { invoiceEvents } from "@/lib/invoice-notifications"
-import { getLastSeenInvoices, updateLastSeenInvoices } from "@/lib/invoice-tracker"
 
-// First, let's define a proper interface for the invoice item
-interface InvoiceItem {
-  id: string
-  tier: string
-  price: number
-  stateFee?: number
-  state?: string
-  discount?: number
-  templateId?: string
-  type?: string
-}
+// In the imports section, add these imports:
+import { LineChart as RechartsLineChart, PieChart as RechartsPieChart } from "recharts"
+import { Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts"
 
-// Then define the full invoice interface
+// Define interfaces for our data
 interface Invoice {
   id: string
-  invoiceNumber: string
-  customerName: string
-  customerEmail: string
-  customerPhone?: string
-  customerCompany?: string
-  customerAddress?: string
-  customerCity?: string
-  customerState?: string
-  customerZip?: string
-  customerCountry?: string
   amount: number
   status: string
-  items: InvoiceItem[] | string
-  paymentReceipt?: string
-  paymentDate?: string
   createdAt: string
-  updatedAt: string
-  userId?: string
-  isTemplateInvoice?: boolean
+  invoiceNumber: string
+  items: any
+  isTemplateInvoice: boolean
 }
 
-export default function InvoicesAdminPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [activeTab, setActiveTab] = useState("all")
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
-  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
-  const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [sortOrder, setSortOrder] = useState<string>("newest")
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([])
-  const [itemsPerPage, setItemsPerPage] = useState(20)
+interface User {
+  id: string
+  role: string
+  createdAt: string
+  lastActive: string
+  status: string
+  updatedAt: string
+}
+
+interface Document {
+  id: string
+  createdAt: string
+}
+
+interface Template {
+  id: string
+  usageCount: number
+}
+
+export default function AnalyticsPage() {
+  const [timeRange, setTimeRange] = useState("month")
+  const [activeTab, setActiveTab] = useState("overview")
   const { toast } = useToast()
-  const router = useRouter()
-  const { data: session, status } = useSession()
-  const { addNotification } = useNotifications()
-  const [
-    /*templateIdInput, setTemplateIdInput*/
-  ] = useState<string>("")
 
-  useEffect(() => {
-    // Check if user is authenticated and has admin role
-    if (status === "unauthenticated") {
-      router.push("/login?callbackUrl=/admin/billing/invoices")
-      return
+  // Add states for metrics
+  const [totalRevenue, setTotalRevenue] = useState(0)
+  const [revenueChange, setRevenueChange] = useState(0)
+  const [newUsers, setNewUsers] = useState(0)
+  const [usersChange, setUsersChange] = useState(0)
+  const [documentUploads, setDocumentUploads] = useState(0)
+  const [documentsChange, setDocumentsChange] = useState(0)
+  const [templatesDownloaded, setTemplatesDownloaded] = useState(0)
+  const [templatesChange, setTemplatesChange] = useState(0)
+
+  // Add these state variables in the component:
+  const [activeUsers, setActiveUsers] = useState(0)
+  const [activeUsersChange, setActiveUsersChange] = useState(0)
+  const [newSignups, setNewSignups] = useState(0)
+  const [newSignupsChange, setNewSignupsChange] = useState(0)
+  const [churnRate, setChurnRate] = useState(0)
+  const [churnRateChange, setChurnRateChange] = useState(0)
+  const [userGrowthData, setUserGrowthData] = useState([])
+  const [packageData, setPackageData] = useState([])
+  const [retentionData, setRetentionData] = useState([])
+  const [loadingUserAnalytics, setLoadingUserAnalytics] = useState(true)
+
+  // Add loading states
+  const [loadingRevenue, setLoadingRevenue] = useState(true)
+  const [loadingUsers, setLoadingUsers] = useState(true)
+  const [loadingDocuments, setLoadingDocuments] = useState(true)
+  const [loadingTemplates, setLoadingTemplates] = useState(true)
+
+  // Date range calculation based on selected time range
+  const getDateRange = useCallback(() => {
+    const now = new Date()
+    let startDate: Date
+    let previousStartDate: Date
+
+    switch (timeRange) {
+      case "day":
+        startDate = new Date(now.setHours(0, 0, 0, 0))
+        previousStartDate = subDays(startDate, 1)
+        break
+      case "week":
+        startDate = subDays(new Date(now.setHours(0, 0, 0, 0)), 7)
+        previousStartDate = subDays(startDate, 7)
+        break
+      case "month":
+        startDate = subDays(new Date(now.setHours(0, 0, 0, 0)), 30)
+        previousStartDate = subDays(startDate, 30)
+        break
+      case "quarter":
+        startDate = subDays(new Date(now.setHours(0, 0, 0, 0)), 90)
+        previousStartDate = subDays(startDate, 90)
+        break
+      case "year":
+        startDate = subMonths(new Date(now.setHours(0, 0, 0, 0)), 12)
+        previousStartDate = subMonths(startDate, 12)
+        break
+      default:
+        startDate = subDays(new Date(now.setHours(0, 0, 0, 0)), 30)
+        previousStartDate = subDays(startDate, 30)
     }
 
-    if (status === "authenticated" && (session?.user as any)?.role !== "ADMIN") {
-      toast({
-        title: "Access Denied",
-        description: "You don't have permission to access this page.",
-        variant: "destructive",
-      })
-      router.push("/dashboard")
-      return
+    return {
+      startDate,
+      previousStartDate,
+      endDate: now,
+      previousEndDate: startDate,
     }
+  }, [timeRange])
 
-    if (status === "authenticated") {
-      fetchInvoices()
-    }
-  }, [status, session, router])
-
-  // Reset to first page when changing tabs or search query
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [activeTab, searchQuery])
-
-  const fetchInvoices = async () => {
+  // Fetch invoices data
+  const fetchInvoices = useCallback(async () => {
     try {
-      setLoading(true)
-      setError(null)
-      console.log("Fetching invoices...")
-      const response = await fetch("/api/admin/invoices", {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        // Include credentials to send cookies with the request
-        credentials: "include",
-      })
-
-      console.log("Response status:", response.status)
-
-      if (response.status === 401) {
-        toast({
-          title: "Authentication Error",
-          description: "You must be logged in to view invoices.",
-          variant: "destructive",
-        })
-        router.push("/login?callbackUrl=/admin/billing/invoices")
-        return
-      }
-
-      if (response.status === 403) {
-        toast({
-          title: "Access Denied",
-          description: "You don't have permission to view invoices.",
-          variant: "destructive",
-        })
-        router.push("/dashboard")
-        return
-      }
+      setLoadingRevenue(true)
+      const response = await fetch("/api/admin/invoices")
 
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error("Error response text:", errorText)
-
-        let errorData = {}
-        try {
-          errorData = JSON.parse(errorText)
-        } catch (e) {
-          console.error("Error parsing error response:", e)
-        }
-
-        console.error("Error response:", errorData)
-        throw new Error((errorData as any).error || `Failed to fetch invoices: ${response.status}`)
+        throw new Error("Failed to fetch invoices")
       }
 
       const data = await response.json()
-      console.log(`Received ${data.invoices?.length || 0} invoices`)
+      const invoices: Invoice[] = data.invoices || []
 
-      if (!data.invoices) {
-        console.error("No invoices array in response:", data)
-        throw new Error("Invalid response format")
-      }
+      // Calculate metrics based on date range
+      const { startDate, previousStartDate, endDate, previousEndDate } = getDateRange()
 
-      // Process the invoices to ensure items are properly parsed
-      const processedInvoices = data.invoices.map((invoice: any) => {
-        // Parse items if they're stored as a JSON string
-        let parsedItems = invoice.items
-        try {
-          if (typeof invoice.items === "string") {
-            parsedItems = JSON.parse(invoice.items)
-          }
-        } catch (e) {
-          console.error(`Error parsing items for invoice ${invoice.id}:`, e)
-          parsedItems = []
-        }
+      // Current period revenue (only count paid invoices)
+      const currentRevenue = invoices
+        .filter(
+          (invoice) =>
+            invoice.status === "paid" &&
+            isAfter(parseISO(invoice.createdAt), startDate) &&
+            !isAfter(parseISO(invoice.createdAt), endDate),
+        )
+        .reduce((sum, invoice) => sum + invoice.amount, 0)
 
-        return {
-          ...invoice,
-          items: parsedItems,
-          // Add a flag to identify template invoices
-          isTemplateInvoice:
-            typeof parsedItems === "object" &&
-            (parsedItems.isTemplateInvoice ||
-              (Array.isArray(parsedItems) &&
-                parsedItems.some(
-                  (item: any) =>
-                    item.type === "template" || (item.tier && item.tier.toLowerCase().includes("template")),
-                )) ||
-              (typeof invoice.items === "string" &&
-                (invoice.items.toLowerCase().includes("template") ||
-                  invoice.items.toLowerCase().includes("istemplateinvoice")))),
-        }
-      })
+      // Previous period revenue
+      const previousRevenue = invoices
+        .filter(
+          (invoice) =>
+            invoice.status === "paid" &&
+            isAfter(parseISO(invoice.createdAt), previousStartDate) &&
+            !isAfter(parseISO(invoice.createdAt), previousEndDate),
+        )
+        .reduce((sum, invoice) => sum + invoice.amount, 0)
 
-      // Check for new invoices
-      const lastSeenInvoices = getLastSeenInvoices()
-      const currentInvoiceIds = processedInvoices.map((invoice: Invoice) => invoice.id)
+      // Calculate percentage change
+      const change = previousRevenue === 0 ? 100 : ((currentRevenue - previousRevenue) / previousRevenue) * 100
 
-      // Find new invoices (those not in lastSeenInvoices)
-      const newInvoices = processedInvoices.filter((invoice: Invoice) => !lastSeenInvoices.includes(invoice.id))
-
-      // Notify about new invoices
-      if (newInvoices.length > 0 && lastSeenInvoices.length > 0) {
-        // Only notify if we've loaded invoices before (to avoid notifications on first load)
-        newInvoices.forEach((invoice: Invoice) => {
-          addNotification(invoiceEvents.invoiceCreated(invoice.invoiceNumber, invoice.customerName))
-        })
-      }
-
-      // Update the last seen invoices
-      updateLastSeenInvoices(currentInvoiceIds)
-
-      setInvoices(processedInvoices)
-      console.log("Invoices data structure:", JSON.stringify(processedInvoices.slice(0, 2), null, 2))
-    } catch (error: any) {
-      console.error("Error in fetchInvoices:", error)
-      setError(error.message || "Failed to load invoices")
-      toast({
-        title: "Error",
-        description: `Failed to load invoices: ${error.message || "Unknown error"}`,
-        variant: "destructive",
-      })
-      // Initialize with empty array to prevent further errors
-      setInvoices([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Function to determine if an invoice is a template invoice
-  const isTemplateInvoice = (invoice: Invoice) => {
-    if (invoice.isTemplateInvoice) return true
-
-    // Check items if they're an array
-    if (Array.isArray(invoice.items)) {
-      return invoice.items.some(
-        (item) =>
-          item.type === "template" ||
-          (item.tier && typeof item.tier === "string" && item.tier.toLowerCase().includes("template")),
-      )
-    }
-
-    // Check if items is a string that contains template indicators
-    if (typeof invoice.items === "string") {
-      const lowerItems = invoice.items.toLowerCase()
-      return lowerItems.includes("template") || lowerItems.includes("istemplateinvoice")
-    }
-
-    return false
-  }
-
-  // Add this helper function to extract template name from invoice items
-  const getTemplateName = (invoice: any) => {
-    try {
-      // If items is a string, try to parse it
-      if (typeof invoice.items === "string") {
-        const parsedItems = JSON.parse(invoice.items)
-
-        // Check for direct templateName property
-        if (parsedItems.templateName) {
-          return parsedItems.templateName
-        }
-
-        // Check for array with tier property
-        if (Array.isArray(parsedItems) && parsedItems.length > 0 && parsedItems[0].tier) {
-          return parsedItems[0].tier
-        }
-
-        // Check for object with numeric keys (our new format)
-        if (parsedItems["0"] && parsedItems["0"].tier) {
-          return parsedItems["0"].tier
-        }
-      }
-      // If items is already an object/array
-      else if (typeof invoice.items === "object") {
-        // Direct templateName property
-        if (invoice.items.templateName) {
-          return invoice.items.templateName
-        }
-
-        // Array with tier property
-        if (Array.isArray(invoice.items) && invoice.items.length > 0 && invoice.items[0].tier) {
-          return invoice.items[0].tier
-        }
-
-        // Object with numeric keys
-        if (invoice.items["0"] && invoice.items["0"].tier) {
-          return invoice.items["0"].tier
-        }
-      }
-
-      // Default fallback
-      return "Unknown Template"
-    } catch (e) {
-      console.error("Error extracting template name:", e)
-      return "Unknown Template"
-    }
-  }
-
-  const filteredInvoices = invoices
-    .filter((invoice) => {
-      // Ensure invoice has all required properties
-      if (
-        !invoice ||
-        !invoice.invoiceNumber ||
-        !invoice.customerName ||
-        !invoice.customerEmail ||
-        invoice.amount === undefined ||
-        !invoice.status ||
-        !invoice.createdAt
-      ) {
-        console.warn("Filtering out invalid invoice:", invoice)
-        return false
-      }
-
-      // Filter by search query
-      const matchesSearch =
-        invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        invoice.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        invoice.customerEmail.toLowerCase().includes(searchQuery.toLowerCase())
-
-      // Filter by status tab
-      const matchesTab =
-        activeTab === "all" ||
-        (activeTab === "paid" && invoice.status === "paid") ||
-        (activeTab === "pending" && invoice.status === "pending") ||
-        (activeTab === "cancelled" && invoice.status === "cancelled") ||
-        (activeTab === "template" && isTemplateInvoice(invoice)) ||
-        (activeTab === "regular" && !isTemplateInvoice(invoice))
-
-      return matchesSearch && matchesTab
-    })
-    .sort((a, b) => {
-      // Sort by selected order
-      switch (sortOrder) {
-        case "newest":
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        case "oldest":
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        case "highest":
-          return b.amount - a.amount
-        case "lowest":
-          return a.amount - b.amount
-        default:
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      }
-    })
-
-  // Pagination logic
-  const indexOfLastItem = currentPage * itemsPerPage
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentInvoices = filteredInvoices.slice(indexOfFirstItem, indexOfLastItem)
-  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage)
-
-  const nextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1)
-      // Scroll to top of the table
-      document.querySelector(".invoices-table")?.scrollIntoView({ behavior: "smooth" })
-    }
-  }
-
-  const prevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1)
-      // Scroll to top of the table
-      document.querySelector(".invoices-table")?.scrollIntoView({ behavior: "smooth" })
-    }
-  }
-
-  const toggleInvoiceSelection = (invoiceId: string) => {
-    setSelectedInvoices((prev) =>
-      prev.includes(invoiceId) ? prev.filter((id) => id !== invoiceId) : [...prev, invoiceId],
-    )
-  }
-
-  const selectAllInvoices = () => {
-    if (selectedInvoices.length === currentInvoices.length) {
-      setSelectedInvoices([])
-    } else {
-      setSelectedInvoices(currentInvoices.map((invoice) => invoice.id))
-    }
-  }
-
-  const viewInvoiceDetails = (invoice: Invoice) => {
-    setSelectedInvoice(invoice)
-    setShowInvoiceDialog(true)
-  }
-
-  const confirmDeleteInvoice = (invoice?: Invoice) => {
-    if (invoice) {
-      setInvoiceToDelete(invoice)
-      setSelectedInvoices([invoice.id])
-    }
-    setShowDeleteDialog(true)
-  }
-
-  const deleteInvoice = async () => {
-    if (!invoiceToDelete) return
-
-    try {
-      setIsDeleting(true)
-      const response = await fetch(`/api/admin/invoices/${invoiceToDelete.id}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to delete invoice")
-      }
-
-      // Remove the invoice from the local state
-      setInvoices((prevInvoices) => prevInvoices.filter((inv) => inv.id !== invoiceToDelete.id))
-
-      // Add notification
-      addNotification(invoiceEvents.invoiceDeleted(invoiceToDelete.invoiceNumber))
-
-      toast({
-        title: "Invoice deleted",
-        description: `Invoice ${invoiceToDelete.invoiceNumber} has been deleted successfully.`,
-      })
-
-      // Close the dialog
-      setShowDeleteDialog(false)
-
-      // If the deleted invoice is currently being viewed, close that dialog too
-      if (selectedInvoice && selectedInvoice.id === invoiceToDelete.id) {
-        setShowInvoiceDialog(false)
-      }
+      setTotalRevenue(currentRevenue)
+      setRevenueChange(change)
     } catch (error) {
+      console.error("Error fetching invoices:", error)
       toast({
         title: "Error",
-        description: "Failed to delete invoice. Please try again.",
+        description: "Failed to load revenue data",
         variant: "destructive",
       })
     } finally {
-      setIsDeleting(false)
-      setInvoiceToDelete(null)
+      setLoadingRevenue(false)
     }
-  }
+  }, [getDateRange, toast])
 
-  const deleteSelectedInvoices = async () => {
+  // Fetch users data
+  const fetchUsers = useCallback(async () => {
     try {
-      setIsDeleting(true)
+      setLoadingUsers(true)
+      const response = await fetch("/api/admin/users")
 
-      // Create an array of promises for each delete operation
-      const deletePromises = selectedInvoices.map((invoiceId) =>
-        fetch(`/api/admin/invoices/${invoiceId}`, {
-          method: "DELETE",
-        }),
+      if (!response.ok) {
+        throw new Error("Failed to fetch users")
+      }
+
+      const data = await response.json()
+      const users: User[] = data.users || []
+
+      // Calculate metrics based on date range
+      const { startDate, previousStartDate, endDate, previousEndDate } = getDateRange()
+
+      // Current period new client users
+      const currentUsers = users.filter(
+        (user) =>
+          user.role === "CLIENT" &&
+          isAfter(parseISO(user.createdAt), startDate) &&
+          !isAfter(parseISO(user.createdAt), endDate),
+      ).length
+
+      // Previous period new client users
+      const previousUsers = users.filter(
+        (user) =>
+          user.role === "CLIENT" &&
+          isAfter(parseISO(user.createdAt), previousStartDate) &&
+          !isAfter(parseISO(user.createdAt), previousEndDate),
+      ).length
+
+      // Calculate percentage change
+      const change = previousUsers === 0 ? 100 : ((currentUsers - previousUsers) / previousUsers) * 100
+
+      setNewUsers(currentUsers)
+      setUsersChange(change)
+    } catch (error) {
+      console.error("Error fetching users:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load user data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingUsers(false)
+    }
+  }, [getDateRange, toast])
+
+  // Fetch documents data
+  const fetchDocuments = useCallback(async () => {
+    try {
+      setLoadingDocuments(true)
+      const response = await fetch("/api/admin/documents/client")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch documents")
+      }
+
+      const data = await response.json()
+      const documents: Document[] = data.documents || []
+
+      // Calculate metrics based on date range
+      const { startDate, previousStartDate, endDate, previousEndDate } = getDateRange()
+
+      // Current period document uploads
+      const currentDocuments = documents.filter(
+        (doc) => isAfter(parseISO(doc.createdAt), startDate) && !isAfter(parseISO(doc.createdAt), endDate),
+      ).length
+
+      // Previous period document uploads
+      const previousDocuments = documents.filter(
+        (doc) =>
+          isAfter(parseISO(doc.createdAt), previousStartDate) && !isAfter(parseISO(doc.createdAt), previousEndDate),
+      ).length
+
+      // Calculate percentage change
+      const change = previousDocuments === 0 ? 100 : ((currentDocuments - previousDocuments) / previousDocuments) * 100
+
+      setDocumentUploads(currentDocuments)
+      setDocumentsChange(change)
+    } catch (error) {
+      console.error("Error fetching documents:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load document data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingDocuments(false)
+    }
+  }, [getDateRange, toast])
+
+  // Fetch templates data
+  const fetchTemplates = useCallback(async () => {
+    try {
+      setLoadingTemplates(true)
+      const response = await fetch("/api/admin/templates")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch templates")
+      }
+
+      const data = await response.json()
+      const templates: Template[] = data.templates || []
+
+      // Sum all template downloads
+      const totalDownloads = templates.reduce((sum, template) => sum + (template.usageCount || 0), 0)
+
+      // For templates, we don't have date information for downloads
+      // So we'll use a mock percentage change for now
+      // In a real implementation, you would track this over time
+      const mockChange = Math.random() > 0.5 ? 8.2 : -3.1
+
+      setTemplatesDownloaded(totalDownloads)
+      setTemplatesChange(mockChange)
+    } catch (error) {
+      console.error("Error fetching templates:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load template data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingTemplates(false)
+    }
+  }, [toast])
+
+  // Add these functions after the fetchTemplates function:
+
+  // Fetch user analytics data
+  const fetchUserAnalytics = useCallback(async () => {
+    try {
+      setLoadingUserAnalytics(true)
+      const response = await fetch("/api/admin/users")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch users")
+      }
+
+      const data = await response.json()
+      const users = data.users || []
+
+      // Filter only client users
+      const clientUsers = users.filter((user) => user.role === "CLIENT")
+
+      // Calculate metrics based on date range
+      const { startDate, previousStartDate, endDate, previousEndDate } = getDateRange()
+      const now = new Date()
+      const tenDaysAgo = subDays(now, 10)
+
+      // Active Users (active in the last 10 days)
+      const currentActiveUsers = clientUsers.filter(
+        (user) => new Date(user.lastActive) > tenDaysAgo && user.status === "Active",
+      ).length
+
+      // Previous period active users
+      const previousActiveUsers = clientUsers.filter(
+        (user) =>
+          new Date(user.lastActive) >
+            subDays(
+              tenDaysAgo,
+              timeRange === "day"
+                ? 1
+                : timeRange === "week"
+                  ? 7
+                  : timeRange === "month"
+                    ? 30
+                    : timeRange === "quarter"
+                      ? 90
+                      : 365,
+            ) && user.status === "Active",
+      ).length
+
+      // New Signups (enrolled in the last 10 days)
+      const currentNewSignups = clientUsers.filter((user) => new Date(user.createdAt) > tenDaysAgo).length
+
+      // Previous period new signups
+      const previousNewSignups = clientUsers.filter(
+        (user) =>
+          new Date(user.createdAt) >
+            subDays(
+              tenDaysAgo,
+              timeRange === "day"
+                ? 1
+                : timeRange === "week"
+                  ? 7
+                  : timeRange === "month"
+                    ? 30
+                    : timeRange === "quarter"
+                      ? 90
+                      : 365,
+            ) && new Date(user.createdAt) < tenDaysAgo,
+      ).length
+
+      // Calculate Churn Rate
+      const inactiveUsers = clientUsers.filter(
+        (user) => user.status !== "Active" && new Date(user.updatedAt) > tenDaysAgo,
+      ).length
+
+      const totalUsersBeforeTenDays = clientUsers.filter((user) => new Date(user.createdAt) < tenDaysAgo).length
+
+      const currentChurnRate = totalUsersBeforeTenDays > 0 ? (inactiveUsers / totalUsersBeforeTenDays) * 100 : 0
+
+      // Previous period churn rate
+      const previousInactiveUsers = clientUsers.filter(
+        (user) =>
+          user.status !== "Active" &&
+          new Date(user.updatedAt) >
+            subDays(
+              tenDaysAgo,
+              timeRange === "day"
+                ? 1
+                : timeRange === "week"
+                  ? 7
+                  : timeRange === "month"
+                    ? 30
+                    : timeRange === "quarter"
+                      ? 90
+                      : 365,
+            ) &&
+          new Date(user.updatedAt) < tenDaysAgo,
+      ).length
+
+      const previousTotalUsersBeforeTenDays = clientUsers.filter(
+        (user) =>
+          new Date(user.createdAt) <
+          subDays(
+            tenDaysAgo,
+            timeRange === "day"
+              ? 1
+              : timeRange === "week"
+                ? 7
+                : timeRange === "month"
+                  ? 30
+                  : timeRange === "quarter"
+                    ? 90
+                    : 365,
+          ),
+      ).length
+
+      const previousChurnRate =
+        previousTotalUsersBeforeTenDays > 0 ? (previousInactiveUsers / previousTotalUsersBeforeTenDays) * 100 : 0
+
+      // Calculate percentage changes
+      const activeUsersChangePercent =
+        previousActiveUsers === 0 ? 100 : ((currentActiveUsers - previousActiveUsers) / previousActiveUsers) * 100
+
+      const newSignupsChangePercent =
+        previousNewSignups === 0 ? 100 : ((currentNewSignups - previousNewSignups) / previousNewSignups) * 100
+
+      const churnRateChangePercent =
+        previousChurnRate === 0 ? 0 : ((currentChurnRate - previousChurnRate) / previousChurnRate) * 100
+
+      // Prepare user growth data for chart
+      const growthData = []
+
+      // Determine interval based on time range
+      let interval = 1 // days
+      let steps = 30
+
+      if (timeRange === "day") {
+        interval = 1
+        steps = 24 // hours
+      } else if (timeRange === "week") {
+        interval = 1
+        steps = 7
+      } else if (timeRange === "month") {
+        interval = 1
+        steps = 30
+      } else if (timeRange === "quarter") {
+        interval = 7
+        steps = 13
+      } else if (timeRange === "year") {
+        interval = 30
+        steps = 12
+      }
+
+      // Generate data points
+      for (let i = steps - 1; i >= 0; i--) {
+        const date = timeRange === "day" ? subDays(now, 0).setHours(now.getHours() - i) : subDays(now, i * interval)
+
+        const formattedDate =
+          timeRange === "day"
+            ? format(new Date(date), "HH:mm")
+            : timeRange === "year"
+              ? format(new Date(date), "MMM")
+              : format(new Date(date), "MMM dd")
+
+        const usersAtDate = clientUsers.filter((user) => new Date(user.createdAt) <= new Date(date)).length
+
+        growthData.push({
+          date: formattedDate,
+          users: usersAtDate,
+        })
+      }
+
+      // Prepare retention data
+      const retentionData = []
+
+      for (let i = steps - 1; i >= 0; i--) {
+        const date = timeRange === "day" ? subDays(now, 0).setHours(now.getHours() - i) : subDays(now, i * interval)
+
+        const formattedDate =
+          timeRange === "day"
+            ? format(new Date(date), "HH:mm")
+            : timeRange === "year"
+              ? format(new Date(date), "MMM")
+              : format(new Date(date), "MMM dd")
+
+        const activeUsersAtDate = clientUsers.filter(
+          (user) =>
+            new Date(user.createdAt) <= new Date(date) &&
+            (user.status === "Active" || new Date(user.updatedAt) > new Date(date)),
+        ).length
+
+        retentionData.push({
+          date: formattedDate,
+          activeUsers: activeUsersAtDate,
+        })
+      }
+
+      // Update state with calculated metrics
+      setActiveUsers(currentActiveUsers)
+      setActiveUsersChange(activeUsersChangePercent)
+      setNewSignups(currentNewSignups)
+      setNewSignupsChange(newSignupsChangePercent)
+      setChurnRate(currentChurnRate)
+      setChurnRateChange(churnRateChangePercent)
+      setUserGrowthData(growthData)
+      setRetentionData(retentionData)
+    } catch (error) {
+      console.error("Error fetching user analytics:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load user analytics data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingUserAnalytics(false)
+    }
+  }, [getDateRange, timeRange, toast])
+
+  // Fetch package analytics data
+  const fetchPackageAnalytics = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/invoices")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch invoices")
+      }
+
+      const data = await response.json()
+      const invoices = data.invoices || []
+
+      // Filter regular invoices (those starting with INV)
+      const regularInvoices = invoices.filter(
+        (invoice) => invoice.invoiceNumber.startsWith("INV") || (invoice.items && !invoice.isTemplateInvoice),
       )
 
-      // Wait for all delete operations to complete
-      const results = await Promise.allSettled(deletePromises)
+      // Extract package data
+      const packages = {}
 
-      // Count successful and failed operations
-      const successful = results.filter((result) => result.status === "fulfilled").length
-      const failed = results.filter((result) => result.status === "rejected").length
+      regularInvoices.forEach((invoice) => {
+        let items = invoice.items
 
-      // Remove the deleted invoices from the local state
-      setInvoices((prevInvoices) => prevInvoices.filter((inv) => !selectedInvoices.includes(inv.id)))
-
-      // Add notification
-      addNotification({
-        title: "Invoices Deleted",
-        description: `${successful} invoices deleted successfully${failed > 0 ? `, ${failed} failed` : ""}`,
-        source: "invoices",
-      })
-
-      toast({
-        title: "Invoices deleted",
-        description: `${successful} invoices have been deleted successfully${failed > 0 ? `, ${failed} failed` : ""}`,
-      })
-
-      // Close the dialog and clear selection
-      setShowDeleteDialog(false)
-      setSelectedInvoices([])
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete invoices. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
-  // Update the approvePayment function to handle template invoices
-  const approvePayment = async (invoiceId: string) => {
-    try {
-      setIsProcessing(true)
-      const invoice = invoices.find((inv) => inv.id === invoiceId)
-      if (!invoice) return
-
-      console.log(`Approving invoice ${invoiceId}...`)
-
-      // Check if this is a template invoice
-      const isTemplate = isTemplateInvoice(invoice)
-      console.log(`Is template invoice: ${isTemplate}`)
-
-      let response
-
-      if (isTemplate) {
-        // Use the template-specific route
-        console.log("Using template invoice route")
-        response = await fetch(`/api/template-invoice/update-status`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            invoiceId,
-            status: "paid",
-          }),
-        })
-      } else {
-        // Try both API paths to ensure compatibility
-        try {
-          console.log("Using standard invoice route")
-          response = await fetch(`/api/admin/invoices/${invoiceId}/approve`, {
-            method: "POST",
-          })
-
-          if (!response.ok) {
-            console.log(`First approval attempt failed, trying alternate path...`)
-            response = await fetch(`/api/invoices/${invoiceId}/approve`, {
-              method: "POST",
-            })
+        // Parse items if they're a string
+        if (typeof items === "string") {
+          try {
+            items = JSON.parse(items)
+          } catch (e) {
+            console.error("Error parsing invoice items:", e)
+            return
           }
-        } catch (error) {
-          console.error("First approval attempt error:", error)
-          // Try alternate path if first one fails
-          response = await fetch(`/api/invoices/${invoiceId}/approve`, {
-            method: "POST",
+        }
+
+        // Process items
+        if (Array.isArray(items)) {
+          items.forEach((item) => {
+            if (item.tier) {
+              if (!packages[item.tier]) {
+                packages[item.tier] = 0
+              }
+              packages[item.tier]++
+            }
+          })
+        } else if (items && typeof items === "object") {
+          // Handle case where items is an object with numeric keys
+          Object.values(items).forEach((item) => {
+            if (item.tier) {
+              if (!packages[item.tier]) {
+                packages[item.tier] = 0
+              }
+              packages[item.tier]++
+            }
           })
         }
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("Approval error response:", errorData)
-        throw new Error(errorData.error || "Failed to approve payment")
-      }
-
-      // Update the invoice in the local state
-      setInvoices((prevInvoices) =>
-        prevInvoices.map((inv) =>
-          inv.id === invoiceId ? { ...inv, status: "paid", paymentDate: new Date().toISOString() } : inv,
-        ),
-      )
-
-      // Update the selected invoice if it's open
-      if (selectedInvoice && selectedInvoice.id === invoiceId) {
-        setSelectedInvoice({
-          ...selectedInvoice,
-          status: "paid",
-          paymentDate: new Date().toISOString(),
-        })
-      }
-
-      // Add notification
-      addNotification(invoiceEvents.paymentApproved(invoice.invoiceNumber, invoice.customerName))
-
-      toast({
-        title: "Payment approved",
-        description: "The payment has been approved successfully.",
       })
 
-      // Close the dialog if it's open
-      setShowInvoiceDialog(false)
+      // Convert to array for chart
+      const packageData = Object.entries(packages).map(([name, count]) => ({
+        name,
+        value: count,
+      }))
 
-      // Refresh the invoices list
-      fetchInvoices()
-    } catch (error: any) {
-      console.error("Error approving payment:", error)
-      toast({
-        title: "Error",
-        description: `Failed to approve payment: ${error.message || "Unknown error"}`,
-        variant: "destructive",
-      })
-    } finally {
-      setIsProcessing(false)
-    }
-  }
+      // Sort by count (descending)
+      packageData.sort((a, b) => b.value - a.value)
 
-  // Update the rejectPayment function to handle template invoices
-  const rejectPayment = async (invoiceId: string) => {
-    try {
-      setIsProcessing(true)
-      const invoice = invoices.find((inv) => inv.id === invoiceId)
-      if (!invoice) return
-
-      console.log(`Rejecting invoice ${invoiceId}...`)
-
-      // Check if this is a template invoice
-      const isTemplate = isTemplateInvoice(invoice)
-      console.log(`Is template invoice: ${isTemplate}`)
-
-      let response
-
-      if (isTemplate) {
-        // Use the template-specific route
-        console.log("Using template invoice route")
-        response = await fetch(`/api/template-invoice/update-status`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            invoiceId,
-            status: "cancelled",
-          }),
-        })
-      } else {
-        // Try both API paths to ensure compatibility
-        try {
-          console.log("Using standard invoice route")
-          response = await fetch(`/api/admin/invoices/${invoiceId}/reject`, {
-            method: "POST",
-          })
-
-          if (!response.ok) {
-            console.log(`First rejection attempt failed, trying alternate path...`)
-            response = await fetch(`/api/invoices/${invoiceId}/reject`, {
-              method: "POST",
-            })
-          }
-        } catch (error) {
-          console.error("First rejection attempt error:", error)
-          // Try alternate path if first one fails
-          response = await fetch(`/api/invoices/${invoiceId}/reject`, {
-            method: "POST",
-          })
-        }
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("Rejection error response:", errorData)
-        throw new Error(errorData.error || "Failed to reject payment")
-      }
-
-      // Update the invoice in the local state
-      setInvoices((prevInvoices) =>
-        prevInvoices.map((inv) => (inv.id === invoiceId ? { ...inv, status: "cancelled" } : inv)),
-      )
-
-      // Update the selected invoice if it's open
-      if (selectedInvoice && selectedInvoice.id === invoiceId) {
-        setSelectedInvoice({
-          ...selectedInvoice,
-          status: "cancelled",
-        })
-      }
-
-      // Add notification
-      addNotification(invoiceEvents.paymentRejected(invoice.invoiceNumber, invoice.customerName))
-
-      toast({
-        title: "Payment rejected",
-        description: "The payment has been rejected.",
-      })
-
-      // Close the dialog if it's open
-      setShowInvoiceDialog(false)
-
-      // Refresh the invoices list
-      fetchInvoices()
-    } catch (error: any) {
-      console.error("Error rejecting payment:", error)
-      toast({
-        title: "Error",
-        description: `Failed to reject payment: ${error.message || "Unknown error"}`,
-        variant: "destructive",
-      })
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  const sendEmail = async (invoiceId: string) => {
-    try {
-      const invoice = invoices.find((inv) => inv.id === invoiceId)
-      if (!invoice) return
-
-      const response = await fetch(`/api/admin/invoices/${invoiceId}/send-email`, {
-        method: "POST",
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to send email")
-      }
-
-      // Add notification
-      addNotification(invoiceEvents.emailSent(invoice.invoiceNumber, invoice.customerEmail))
-
-      toast({
-        title: "Email sent",
-        description: `Invoice has been sent to ${invoice.customerEmail}.`,
-      })
+      setPackageData(packageData)
     } catch (error) {
+      console.error("Error fetching package analytics:", error)
       toast({
         title: "Error",
-        description: "Failed to send email. Please try again.",
+        description: "Failed to load package analytics data",
         variant: "destructive",
       })
     }
-  }
+  }, [toast])
 
-  const exportInvoices = () => {
-    // Create CSV header
-    let csv = "Invoice Number,Customer,Email,Amount,Date,Status\n"
+  // Fetch all data when component mounts or time range changes
+  useEffect(() => {
+    fetchInvoices()
+    fetchUsers()
+    fetchDocuments()
+    fetchTemplates()
+    fetchUserAnalytics()
+    fetchPackageAnalytics()
+  }, [fetchInvoices, fetchUsers, fetchDocuments, fetchTemplates, fetchUserAnalytics, fetchPackageAnalytics, timeRange])
 
-    // Add each invoice as a row
-    filteredInvoices.forEach((invoice) => {
-      csv += `${invoice.invoiceNumber},"${invoice.customerName}","${invoice.customerEmail}",${invoice.amount},${new Date(invoice.createdAt).toLocaleDateString()},${invoice.status}\n`
-    })
+  // Handle refresh button click
+  const handleRefresh = () => {
+    fetchInvoices()
+    fetchUsers()
+    fetchDocuments()
+    fetchTemplates()
+    fetchUserAnalytics()
+    fetchPackageAnalytics()
 
-    // Create a blob and download link
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.setAttribute("href", url)
-    link.setAttribute("download", "invoices.csv")
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-
-    // Add notification
-    addNotification({
-      title: "Invoices Exported",
-      description: `${filteredInvoices.length} invoices exported to CSV`,
-      source: "invoices",
+    toast({
+      title: "Refreshed",
+      description: "Dashboard data has been refreshed",
     })
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-4 p-8 rounded-lg bg-white shadow-lg dark:bg-gray-800 max-w-md text-center">
-          <div className="relative">
-            <div className="w-20 h-20 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
-            <FileText className="h-8 w-8 text-blue-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Loading Invoices</h3>
-            <p className="text-gray-500 dark:text-gray-400">Please wait while we fetch your invoice data...</p>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2 overflow-hidden">
-            <div className="bg-blue-500 h-1.5 rounded-full animate-pulse" style={{ width: "100%" }}></div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // Format date range for display
+  const getFormattedDateRange = () => {
+    const now = new Date()
+    let startDate: Date
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-2 max-w-md text-center">
-          <AlertCircle className="h-8 w-8 text-red-500" />
-          <h2 className="text-xl font-bold">Error Loading Invoices</h2>
-          <p className="text-gray-600 dark:text-gray-400">{error}</p>
-          <Button onClick={fetchInvoices} className="mt-4">
-            Try Again
-          </Button>
-        </div>
-      </div>
-    )
+    switch (timeRange) {
+      case "day":
+        return format(now, "MMM d, yyyy")
+      case "week":
+        startDate = subDays(now, 7)
+        return `${format(startDate, "MMM d, yyyy")} - ${format(now, "MMM d, yyyy")}`
+      case "month":
+        startDate = subDays(now, 30)
+        return `${format(startDate, "MMM d, yyyy")} - ${format(now, "MMM d, yyyy")}`
+      case "quarter":
+        startDate = subDays(now, 90)
+        return `${format(startDate, "MMM d, yyyy")} - ${format(now, "MMM d, yyyy")}`
+      case "year":
+        startDate = subMonths(now, 12)
+        return `${format(startDate, "MMM d, yyyy")} - ${format(now, "MMM d, yyyy")}`
+      default:
+        startDate = subDays(now, 30)
+        return `${format(startDate, "MMM d, yyyy")} - ${format(now, "MMM d, yyyy")}`
+    }
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+    <div className="p-6 max-w-[1600px] mx-auto">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Invoices</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage and track all client invoices</p>
+          <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Comprehensive insights and performance metrics</p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center text-red-600"
-            onClick={() => {
-              if (selectedInvoices.length > 0) {
-                confirmDeleteInvoice()
-              } else {
-                toast({
-                  title: "No invoices selected",
-                  description: "Please select at least one invoice to delete.",
-                })
-              }
-            }}
-            disabled={selectedInvoices.length === 0}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete Selected ({selectedInvoices.length})
+          <Button variant="outline" size="sm" className="flex items-center" onClick={handleRefresh}>
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${loadingRevenue || loadingUsers || loadingDocuments || loadingTemplates ? "animate-spin" : ""}`}
+            />
+            Refresh
           </Button>
-          <Button variant="outline" size="sm" className="flex items-center" onClick={exportInvoices}>
+          <Button variant="outline" size="sm" className="flex items-center">
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
         </div>
       </div>
 
-      {/* Filters and Search */}
-      <div className="flex flex-wrap items-center gap-4 mb-8">
-        <div className="relative flex-1 min-w-[240px]">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Search invoices..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      {/* Time Range Selector */}
+      <div className="flex items-center mb-6 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
+        <span className="text-sm font-medium mr-3">Time Range:</span>
+        <div className="flex space-x-2">
+          {["day", "week", "month", "quarter", "year"].map((range) => (
+            <Button
+              key={range}
+              variant={timeRange === range ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setTimeRange(range)}
+              className={timeRange === range ? "bg-purple-600 text-white" : ""}
+            >
+              {range.charAt(0).toUpperCase() + range.slice(1)}
+            </Button>
+          ))}
         </div>
-
-        <Button variant="outline" onClick={() => setSearchQuery("")}>
-          <Filter className="mr-2 h-4 w-4" />
-          Clear Filters
-        </Button>
-
-        <Button variant="outline" onClick={fetchInvoices}>
-          <Clock className="mr-2 h-4 w-4" />
-          Refresh
-        </Button>
-
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500 whitespace-nowrap">Items per page:</span>
-          <Select
-            value={itemsPerPage.toString()}
-            onValueChange={(value) => {
-              setItemsPerPage(Number.parseInt(value))
-              setCurrentPage(1) // Reset to first page when changing items per page
-            }}
-          >
-            <SelectTrigger className="w-[80px]">
-              <SelectValue placeholder="20" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="20">20</SelectItem>
-              <SelectItem value="30">30</SelectItem>
-              <SelectItem value="50">50</SelectItem>
-              <SelectItem value="100">100</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500 whitespace-nowrap">Sort by:</span>
-          <Select value={sortOrder} onValueChange={setSortOrder}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort order" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">Most Recent</SelectItem>
-              <SelectItem value="oldest">Oldest First</SelectItem>
-              <SelectItem value="highest">Highest Amount</SelectItem>
-              <SelectItem value="lowest">Lowest Amount</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="ml-auto flex items-center">
+          <Calendar className="h-4 w-4 mr-2 text-gray-500" />
+          <span className="text-sm text-gray-500">{getFormattedDateRange()}</span>
         </div>
       </div>
 
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <MetricCard
+          title="Total Revenue"
+          value={`$${totalRevenue.toFixed(2)}`}
+          change={`${Math.abs(revenueChange).toFixed(1)}%`}
+          trend={revenueChange >= 0 ? "up" : "down"}
+          icon={DollarSign}
+          color="bg-green-500"
+          loading={loadingRevenue}
+        />
+        <MetricCard
+          title="New Users"
+          value={newUsers.toString()}
+          change={`${Math.abs(usersChange).toFixed(1)}%`}
+          trend={usersChange >= 0 ? "up" : "down"}
+          icon={Users}
+          color="bg-blue-500"
+          loading={loadingUsers}
+        />
+        <MetricCard
+          title="Document Uploads"
+          value={documentUploads.toString()}
+          change={`${Math.abs(documentsChange).toFixed(1)}%`}
+          trend={documentsChange >= 0 ? "up" : "down"}
+          icon={FileText}
+          color="bg-purple-500"
+          loading={loadingDocuments}
+        />
+        <MetricCard
+          title="Templates Downloaded"
+          value={templatesDownloaded.toString()}
+          change={`${Math.abs(templatesChange).toFixed(1)}%`}
+          trend={templatesChange >= 0 ? "up" : "down"}
+          icon={TrendingUp}
+          color="bg-amber-500"
+          loading={loadingTemplates}
+        />
+      </div>
+
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-        <TabsList className="grid grid-cols-6 w-full max-w-md gap-1">
-          <TabsTrigger value="all" className="px-4">
-            All
-          </TabsTrigger>
-          <TabsTrigger value="paid" className="px-4">
-            Paid
-          </TabsTrigger>
-          <TabsTrigger value="pending" className="px-4">
-            Pending
-          </TabsTrigger>
-          <TabsTrigger value="cancelled" className="px-4">
-            Cancelled
-          </TabsTrigger>
-          <TabsTrigger value="template" className="px-4">
-            Template
-          </TabsTrigger>
-          <TabsTrigger value="regular" className="px-4">
-            Regular
-          </TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="users">User Analytics</TabsTrigger>
+          <TabsTrigger value="revenue">Revenue</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="compliance">Compliance</TabsTrigger>
         </TabsList>
 
-        <div className="mt-4 text-sm text-gray-500">
-          {activeTab === "all" && "Showing all invoices"}
-          {activeTab === "paid" && "Showing paid invoices only"}
-          {activeTab === "pending" && "Showing pending invoices only"}
-          {activeTab === "cancelled" && "Showing cancelled invoices only"}
-          {activeTab === "template" && "Showing template invoices only"}
-          {activeTab === "regular" && "Showing regular invoices only"}
-          {filteredInvoices.length > 0 && ` (${filteredInvoices.length} found)`}
-        </div>
-      </Tabs>
+        <TabsContent value="overview" className="space-y-6">
+          {/* Revenue and User Growth Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <Card>
+              <div className="p-6 border-b">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">Revenue Overview</h3>
+                  <select className="text-sm border rounded-md px-2 py-1">
+                    <option>Last 30 days</option>
+                    <option>Last quarter</option>
+                    <option>Last year</option>
+                  </select>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="h-80 w-full">
+                  {/* This would be a chart in a real implementation */}
+                  <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                    <LineChart className="h-16 w-16 text-gray-300" />
+                    <span className="ml-4 text-gray-400">Revenue Chart</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
 
-      {/* Invoices Table */}
-      <Card className="invoices-table">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left p-4 font-medium text-sm w-10">
-                  <input
-                    type="checkbox"
-                    className="rounded border-gray-300"
-                    checked={selectedInvoices.length > 0 && selectedInvoices.length === currentInvoices.length}
-                    onChange={selectAllInvoices}
+            <Card>
+              <div className="p-6 border-b">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">User Growth</h3>
+                  <select className="text-sm border rounded-md px-2 py-1">
+                    <option>Last 30 days</option>
+                    <option>Last quarter</option>
+                    <option>Last year</option>
+                  </select>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="h-80 w-full">
+                  {/* This would be a chart in a real implementation */}
+                  <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                    <BarChart2 className="h-16 w-16 text-gray-300" />
+                    <span className="ml-4 text-gray-400">User Growth Chart</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Top Products and Conversion Funnel */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <Card>
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-medium">Top Products</h3>
+              </div>
+              <div className="p-6">
+                <div className="space-y-4">
+                  <ProductPerformanceItem name="LLC Formation Package" revenue="$42,580" sales={215} growth="+12.5%" />
+                  <ProductPerformanceItem
+                    name="Registered Agent Service"
+                    revenue="$28,350"
+                    sales={189}
+                    growth="+8.3%"
                   />
-                </th>
-                <th className="text-left p-4 font-medium text-sm">Invoice</th>
-                <th className="text-left p-4 font-medium text-sm">Customer</th>
-                <th className="text-left p-4 font-medium text-sm">Amount</th>
-                <th className="text-left p-4 font-medium text-sm">Date</th>
-                <th className="text-left p-4 font-medium text-sm">Status</th>
-                <th className="text-left p-4 font-medium text-sm">Receipt</th>
-                <th className="text-left p-4 font-medium text-sm">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentInvoices.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-4 text-center text-gray-500">
-                    No invoices found
-                  </td>
-                </tr>
-              ) : (
-                currentInvoices.map((invoice) => (
-                  <tr key={invoice.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="p-4">
-                      <input
-                        type="checkbox"
-                        className="rounded border-gray-300"
-                        checked={selectedInvoices.includes(invoice.id)}
-                        onChange={() => toggleInvoiceSelection(invoice.id)}
-                      />
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center">
-                        <FileText className="h-4 w-4 mr-2 text-gray-400" />
-                        <span>{invoice.invoiceNumber}</span>
-                        {isTemplateInvoice(invoice) && (
-                          <span className="ml-2 px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
-                            Template
-                          </span>
-                        )}
+                  <ProductPerformanceItem name="Annual Report Filing" revenue="$18,720" sales={156} growth="+15.2%" />
+                  <ProductPerformanceItem
+                    name="Business License Package"
+                    revenue="$15,840"
+                    sales={132}
+                    growth="-2.1%"
+                    trend="down"
+                  />
+                  <ProductPerformanceItem
+                    name="Tax Preparation Service"
+                    revenue="$12,450"
+                    sales={83}
+                    growth="+5.7%"
+                    border={false}
+                  />
+                </div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-medium">Conversion Funnel</h3>
+              </div>
+              <div className="p-6">
+                <div className="h-80 w-full">
+                  {/* This would be a chart in a real implementation */}
+                  <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                    <Activity className="h-16 w-16 text-gray-300" />
+                    <span className="ml-4 text-gray-400">Conversion Funnel Chart</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Geographic Distribution and Device Usage */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-medium">Geographic Distribution</h3>
+              </div>
+              <div className="p-6">
+                <div className="h-80 w-full">
+                  {/* This would be a map chart in a real implementation */}
+                  <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                    <span className="text-gray-400">Geographic Map</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-medium">Device & Browser Usage</h3>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="text-sm font-medium mb-4">Device Type</h4>
+                    <div className="h-40 w-full">
+                      {/* This would be a pie chart in a real implementation */}
+                      <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                        <PieChart className="h-10 w-10 text-gray-300" />
                       </div>
-                    </td>
-                    <td className="p-4">
-                      <div>
-                        <p className="font-medium">{invoice.customerName}</p>
-                        <p className="text-sm text-gray-500">{invoice.customerEmail}</p>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Desktop</span>
+                        <span className="text-sm font-medium">58%</span>
                       </div>
-                    </td>
-                    <td className="p-4 font-medium">${invoice.amount.toFixed(2)}</td>
-                    <td className="p-4 text-gray-500">{format(new Date(invoice.createdAt), "MMM d, yyyy")}</td>
-                    <td className="p-4">
-                      <InvoiceStatusBadge status={invoice.status} />
-                    </td>
-                    <td className="p-4">
-                      {invoice.paymentReceipt ? (
-                        <Button variant="ghost" size="sm" asChild>
-                          <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
-                            View Receipt
-                          </a>
-                        </Button>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Mobile</span>
+                        <span className="text-sm font-medium">32%</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Tablet</span>
+                        <span className="text-sm font-medium">10%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-medium mb-4">Browser</h4>
+                    <div className="h-40 w-full">
+                      {/* This would be a pie chart in a real implementation */}
+                      <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                        <PieChart className="h-10 w-10 text-gray-300" />
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Chrome</span>
+                        <span className="text-sm font-medium">64%</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Safari</span>
+                        <span className="text-sm font-medium">18%</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Firefox</span>
+                        <span className="text-sm font-medium">12%</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Edge</span>
+                        <span className="text-sm font-medium">6%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="users">
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-medium mb-4">User Analytics</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Active Users</h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      {loadingUserAnalytics ? (
+                        <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
                       ) : (
-                        <span className="text-gray-500">No receipt</span>
+                        <p className="text-2xl font-bold">{activeUsers}</p>
                       )}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex space-x-2">
-                        <Button variant="ghost" size="sm" onClick={() => viewInvoiceDetails(invoice)}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View
-                        </Button>
-
-                        {invoice.status === "pending" && (
+                      <p className={`text-sm ${activeUsersChange >= 0 ? "text-green-500" : "text-red-500"}`}>
+                        {loadingUserAnalytics ? (
+                          <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        ) : (
                           <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-green-600 hover:text-green-700"
-                              onClick={() => approvePayment(invoice.id)}
-                              disabled={isProcessing}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Approve
-                            </Button>
-
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => rejectPayment(invoice.id)}
-                              disabled={isProcessing}
-                            >
-                              <X className="h-4 w-4 mr-2" />
-                              Reject
-                            </Button>
+                            {activeUsersChange >= 0 ? (
+                              <ArrowUpRight className="h-3 w-3 inline mr-1" />
+                            ) : (
+                              <ArrowDownRight className="h-3 w-3 inline mr-1" />
+                            )}
+                            {Math.abs(activeUsersChange).toFixed(1)}% vs last period
                           </>
                         )}
-
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 hover:text-red-700"
-                          onClick={() => confirmDeleteInvoice(invoice)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {filteredInvoices.length > itemsPerPage && (
-          <div className="flex items-center justify-between p-4 border-t">
-            <div className="text-sm text-gray-500">
-              Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredInvoices.length)} of{" "}
-              {filteredInvoices.length} invoices
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={prevPage}
-                disabled={currentPage === 1}
-                className="flex items-center"
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Previous
-              </Button>
-              <div className="text-sm font-medium">
-                Page {currentPage} of {totalPages}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={nextPage}
-                disabled={currentPage === totalPages}
-                className="flex items-center"
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
-          </div>
-        )}
-      </Card>
-
-      {/* Invoice Details Dialog */}
-      {selectedInvoice && (
-        <Dialog
-          open={showInvoiceDialog}
-          onOpenChange={(open) => {
-            setShowInvoiceDialog(open)
-          }}
-        >
-          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                Invoice {selectedInvoice.invoiceNumber}
-                {isTemplateInvoice(selectedInvoice) && (
-                  <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">Template</span>
-                )}
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="py-4">
-              {/* Invoice Header */}
-              <div className="flex flex-col md:flex-row md:justify-between mb-8">
-                <div>
-                  <h3 className="text-lg font-bold mb-1">Invoice</h3>
-                  <p className="text-gray-500">{selectedInvoice.invoiceNumber}</p>
-                  <div className="mt-4">
-                    <p className="font-medium">Billed To:</p>
-                    <p>{selectedInvoice.customerName}</p>
-                    <p className="text-gray-500">{selectedInvoice.customerEmail}</p>
-                    {selectedInvoice.customerPhone && <p className="text-gray-500">{selectedInvoice.customerPhone}</p>}
-                    {selectedInvoice.customerCompany && <p>{selectedInvoice.customerCompany}</p>}
-                    {selectedInvoice.customerAddress && (
-                      <p>
-                        {selectedInvoice.customerAddress},
-                        {selectedInvoice.customerCity && ` ${selectedInvoice.customerCity},`}
-                        {selectedInvoice.customerState && ` ${selectedInvoice.customerState}`}
-                        {selectedInvoice.customerZip && ` ${selectedInvoice.customerZip}`}
                       </p>
-                    )}
-                    {selectedInvoice.customerCountry && <p>{selectedInvoice.customerCountry}</p>}
+                    </div>
+                    <div className="h-12 w-12 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+                      <Users className="h-6 w-6 text-blue-500" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="mt-4 md:mt-0 md:text-right">
-                  <div className="mb-4">
-                    <p className="text-sm text-gray-500">Status</p>
-                    <InvoiceStatusBadge status={selectedInvoice.status} />
-                  </div>
-                  <div className="mb-2">
-                    <p className="text-sm text-gray-500">Invoice Date</p>
-                    <p>{format(new Date(selectedInvoice.createdAt), "MMM d, yyyy")}</p>
-                  </div>
-                  {selectedInvoice.paymentDate && (
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">New Signups</h4>
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-500">Payment Date</p>
-                      <p>{format(new Date(selectedInvoice.paymentDate), "MMM d, yyyy")}</p>
+                      {loadingUserAnalytics ? (
+                        <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                      ) : (
+                        <p className="text-2xl font-bold">{newSignups}</p>
+                      )}
+                      <p className={`text-sm ${newSignupsChange >= 0 ? "text-green-500" : "text-red-500"}`}>
+                        {loadingUserAnalytics ? (
+                          <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        ) : (
+                          <>
+                            {newSignupsChange >= 0 ? (
+                              <ArrowUpRight className="h-3 w-3 inline mr-1" />
+                            ) : (
+                              <ArrowDownRight className="h-3 w-3 inline mr-1" />
+                            )}
+                            {Math.abs(newSignupsChange).toFixed(1)}% vs last period
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <div className="h-12 w-12 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                      <Users className="h-6 w-6 text-green-500" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Churn Rate</h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      {loadingUserAnalytics ? (
+                        <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                      ) : (
+                        <p className="text-2xl font-bold">{churnRate.toFixed(1)}%</p>
+                      )}
+                      <p className={`text-sm ${churnRateChange <= 0 ? "text-green-500" : "text-red-500"}`}>
+                        {loadingUserAnalytics ? (
+                          <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        ) : (
+                          <>
+                            {churnRateChange <= 0 ? (
+                              <ArrowDownRight className="h-3 w-3 inline mr-1" />
+                            ) : (
+                              <ArrowUpRight className="h-3 w-3 inline mr-1" />
+                            )}
+                            {Math.abs(churnRateChange).toFixed(1)}% vs last period
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <div className="h-12 w-12 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+                      <Users className="h-6 w-6 text-red-500" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h4 className="text-sm font-medium mb-4">User Growth Trend</h4>
+                {loadingUserAnalytics ? (
+                  <div className="h-80 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="h-80 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsLineChart
+                        data={userGrowthData}
+                        margin={{
+                          top: 5,
+                          right: 30,
+                          left: 20,
+                          bottom: 5,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "rgba(255, 255, 255, 0.9)",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                            border: "none",
+                          }}
+                          labelStyle={{ fontWeight: "bold" }}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="users"
+                          name="Total Users"
+                          stroke="#22c55e"
+                          strokeWidth={2}
+                          activeDot={{ r: 8 }}
+                        />
+                      </RechartsLineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                  <h4 className="text-sm font-medium mb-4">Packages Analytics</h4>
+                  {loadingUserAnalytics ? (
+                    <div className="h-60 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="h-60 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Pie
+                            data={packageData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                            nameKey="name"
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          >
+                            {packageData.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={
+                                  [
+                                    "#22c55e",
+                                    "#3b82f6",
+                                    "#a855f7",
+                                    "#ec4899",
+                                    "#f97316",
+                                    "#14b8a6",
+                                    "#8b5cf6",
+                                    "#f43f5e",
+                                    "#84cc16",
+                                  ][index % 9]
+                                }
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value, name, props) => [`${value} sales`, props.payload.name]}
+                            contentStyle={{
+                              backgroundColor: "rgba(255, 255, 255, 0.9)",
+                              borderRadius: "8px",
+                              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                              border: "none",
+                            }}
+                          />
+                          <Legend />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-medium mb-4">User Retention</h4>
+                  {loadingUserAnalytics ? (
+                    <div className="h-60 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="h-60 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsLineChart
+                          data={retentionData}
+                          margin={{
+                            top: 5,
+                            right: 30,
+                            left: 20,
+                            bottom: 5,
+                          }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "rgba(255, 255, 255, 0.9)",
+                              borderRadius: "8px",
+                              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                              border: "none",
+                            }}
+                            labelStyle={{ fontWeight: "bold" }}
+                          />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            dataKey="activeUsers"
+                            name="Active Users"
+                            stroke="#3b82f6"
+                            strokeWidth={2}
+                            activeDot={{ r: 8 }}
+                          />
+                        </RechartsLineChart>
+                      </ResponsiveContainer>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Template Name Display (for template invoices) */}
-              {selectedInvoice && isTemplateInvoice(selectedInvoice) && (
-                <div className="mb-4">
-                  <h3 className="font-semibold text-lg mb-2">Template Information</h3>
-                  <div className="p-4 border rounded-lg">
-                    <p className="text-sm font-medium">
-                      <span className="text-gray-600">Template Name:</span> {getTemplateName(selectedInvoice)}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Note: Template access is managed separately. Approving this invoice will not automatically unlock
-                      the template.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Invoice Items */}
-              <div className="mb-8">
+              <div>
+                <h4 className="text-sm font-medium mb-4">Top User Locations</h4>
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-2 font-medium text-sm">Item</th>
-                      <th className="text-right p-2 font-medium text-sm">Price</th>
-                      <th className="text-right p-2 font-medium text-sm">Quantity</th>
-                      <th className="text-right p-2 font-medium text-sm">Total</th>
+                      <th className="text-left p-3 font-medium text-sm">Location</th>
+                      <th className="text-left p-3 font-medium text-sm">Users</th>
+                      <th className="text-left p-3 font-medium text-sm">Growth</th>
+                      <th className="text-left p-3 font-medium text-sm">Conversion</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {Array.isArray(selectedInvoice.items) ? (
-                      selectedInvoice.items.map((item, index) => (
-                        <tr key={index} className="border-b">
-                          <td className="p-2">
-                            <div>
-                              <p>{item.tier} Package</p>
-                              {item.state && <p className="text-sm text-gray-500">{item.state} State Filing Fee</p>}
-                            </div>
-                          </td>
-                          <td className="p-2 text-right">
-                            <div>
-                              <p>${item.price.toFixed(2)}</p>
-                              {item.stateFee && <p className="text-sm text-gray-500">${item.stateFee.toFixed(2)}</p>}
-                            </div>
-                          </td>
-                          <td className="p-2 text-right">1</td>
-                          <td className="p-2 text-right">
-                            ${(item.price + (item.stateFee || 0) - (item.discount || 0)).toFixed(2)}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={4} className="p-2 text-center text-gray-500">
-                          No items found or invalid items format
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td colSpan={3} className="p-2 text-right font-medium">
-                        Total
-                      </td>
-                      <td className="p-2 text-right font-bold">${selectedInvoice.amount.toFixed(2)}</td>
+                    <tr className="border-b">
+                      <td className="p-3">United States</td>
+                      <td className="p-3">1,245</td>
+                      <td className="p-3 text-green-500">+12.5%</td>
+                      <td className="p-3">24.8%</td>
                     </tr>
-                  </tfoot>
+                    <tr className="border-b">
+                      <td className="p-3">Canada</td>
+                      <td className="p-3">432</td>
+                      <td className="p-3 text-green-500">+8.2%</td>
+                      <td className="p-3">22.3%</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="p-3">United Kingdom</td>
+                      <td className="p-3">287</td>
+                      <td className="p-3 text-green-500">+5.7%</td>
+                      <td className="p-3">19.5%</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="p-3">Australia</td>
+                      <td className="p-3">156</td>
+                      <td className="p-3 text-red-500">-2.1%</td>
+                      <td className="p-3">18.2%</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3">Germany</td>
+                      <td className="p-3">124</td>
+                      <td className="p-3 text-green-500">+3.4%</td>
+                      <td className="p-3">17.8%</td>
+                    </tr>
+                  </tbody>
                 </table>
               </div>
+            </div>
+          </Card>
+        </TabsContent>
 
-              {/* Payment Receipt */}
-              {selectedInvoice.paymentReceipt && (
-                <div className="mb-8">
-                  <h3 className="font-semibold text-lg mb-4">Payment Receipt</h3>
-                  <div className="border rounded-lg p-4">
-                    <div className="flex justify-between items-center">
-                      <p>Receipt uploaded by customer</p>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={selectedInvoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
-                          View Receipt
-                        </a>
-                      </Button>
+        <TabsContent value="revenue">
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-medium mb-4">Revenue Analytics</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Total Revenue</h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold">$128,430</p>
+                      <p className="text-sm text-green-500">+12.5% vs last month</p>
+                    </div>
+                    <div className="h-12 w-12 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                      <DollarSign className="h-6 w-6 text-green-500" />
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* Payment Actions */}
-              {selectedInvoice.status === "pending" && (
-                <div className="flex space-x-3 mt-4">
-                  <Button
-                    onClick={() => approvePayment(selectedInvoice.id)}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                    disabled={isProcessing}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Approve Payment
-                      </>
-                    )}
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-                    onClick={() => rejectPayment(selectedInvoice.id)}
-                    disabled={isProcessing}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2"></div>
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <X className="h-4 w-4 mr-2" />
-                        Reject Payment
-                      </>
-                    )}
-                  </Button>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Average Order Value</h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold">$245.80</p>
+                      <p className="text-sm text-green-500">+3.2% vs last month</p>
+                    </div>
+                    <div className="h-12 w-12 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+                      <ShoppingCart className="h-6 w-6 text-blue-500" />
+                    </div>
+                  </div>
                 </div>
-              )}
+
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">MRR</h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold">$42,580</p>
+                      <p className="text-sm text-green-500">+8.7% vs last month</p>
+                    </div>
+                    <div className="h-12 w-12 bg-purple-50 dark:bg-purple-900/20 rounded-full flex items-center justify-center">
+                      <TrendingUp className="h-6 w-6 text-purple-500" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h4 className="text-sm font-medium mb-4">Revenue Trend</h4>
+                <div className="h-80 w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                  <LineChart className="h-16 w-16 text-gray-300" />
+                  <span className="ml-4 text-gray-400">Revenue Trend Chart</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                  <h4 className="text-sm font-medium mb-4">Revenue by Product</h4>
+                  <div className="h-60 w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                    <PieChart className="h-12 w-12 text-gray-300" />
+                    <span className="ml-4 text-gray-400">Revenue by Product Chart</span>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-medium mb-4">Revenue by Channel</h4>
+                  <div className="h-60 w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                    <BarChart2 className="h-12 w-12 text-gray-300" />
+                    <span className="ml-4 text-gray-400">Revenue by Channel Chart</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium mb-4">Top Revenue Sources</h4>
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-3 font-medium text-sm">Product</th>
+                      <th className="text-left p-3 font-medium text-sm">Revenue</th>
+                      <th className="text-left p-3 font-medium text-sm">Growth</th>
+                      <th className="text-left p-3 font-medium text-sm">Customers</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b">
+                      <td className="p-3">LLC Formation Package</td>
+                      <td className="p-3">$42,580</td>
+                      <td className="p-3 text-green-500">+12.5%</td>
+                      <td className="p-3">215</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="p-3">Registered Agent Service</td>
+                      <td className="p-3">$28,350</td>
+                      <td className="p-3 text-green-500">+8.3%</td>
+                      <td className="p-3">189</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="p-3">Annual Report Filing</td>
+                      <td className="p-3">$18,720</td>
+                      <td className="p-3 text-green-500">+15.2%</td>
+                      <td className="p-3">156</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="p-3">Business License Package</td>
+                      <td className="p-3">$15,840</td>
+                      <td className="p-3 text-red-500">-2.1%</td>
+                      <td className="p-3">132</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3">Tax Preparation Service</td>
+                      <td className="p-3">$12,450</td>
+                      <td className="p-3 text-green-500">+5.7%</td>
+                      <td className="p-3">83</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
+          </Card>
+        </TabsContent>
 
-            <DialogFooter className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => setShowInvoiceDialog(false)}>
-                Close
-              </Button>
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Download PDF
-              </Button>
-              <Button variant="outline" onClick={() => sendEmail(selectedInvoice.id)}>
-                <Mail className="h-4 w-4 mr-2" />
-                Email Customer
-              </Button>
-              <Button
-                variant="outline"
-                className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-                onClick={() => confirmDeleteInvoice(selectedInvoice)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Invoice
-              </Button>
-              <Button
-                variant="outline"
-                className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
-                onClick={() => {
-                  if (selectedInvoice) {
-                    console.log("Invoice details:", selectedInvoice)
+        <TabsContent value="documents">
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-medium mb-4">Document Analytics</h3>
 
-                    // Try to parse items if they're a string
-                    if (typeof selectedInvoice.items === "string") {
-                      try {
-                        const parsedItems = JSON.parse(selectedInvoice.items)
-                        console.log("Parsed items:", parsedItems)
-                      } catch (e) {
-                        console.error("Error parsing items:", e)
-                      }
-                    } else {
-                      console.log("Items (already parsed):", selectedInvoice.items)
-                    }
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Total Documents</h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold">8,942</p>
+                      <p className="text-sm text-green-500">+23.1% vs last month</p>
+                    </div>
+                    <div className="h-12 w-12 bg-purple-50 dark:bg-purple-900/20 rounded-full flex items-center justify-center">
+                      <FileText className="h-6 w-6 text-purple-500" />
+                    </div>
+                  </div>
+                </div>
 
-                    toast({
-                      title: "Debug Info",
-                      description: "Invoice details logged to console",
-                    })
-                  }
-                }}
-              >
-                <AlertCircle className="h-4 w-4 mr-2" />
-                Debug Info
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Document Uploads</h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold">1,842</p>
+                      <p className="text-sm text-red-500">-3.1% vs last month</p>
+                    </div>
+                    <div className="h-12 w-12 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+                      <FileText className="h-6 w-6 text-blue-500" />
+                    </div>
+                  </div>
+                </div>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {selectedInvoices.length === 1 && invoiceToDelete
-                ? `This will permanently delete invoice ${invoiceToDelete.invoiceNumber}.`
-                : `This will permanently delete ${selectedInvoices.length} invoices.`}
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault()
-                if (selectedInvoices.length === 1 && invoiceToDelete) {
-                  deleteInvoice()
-                } else {
-                  deleteSelectedInvoices()
-                }
-              }}
-              disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              {isDeleting ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Template Usage</h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold">3,456</p>
+                      <p className="text-sm text-green-500">+15.7% vs last month</p>
+                    </div>
+                    <div className="h-12 w-12 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                      <FileText className="h-6 w-6 text-green-500" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h4 className="text-sm font-medium mb-4">Document Activity Over Time</h4>
+                <div className="h-80 w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                  <LineChart className="h-16 w-16 text-gray-300" />
+                  <span className="ml-4 text-gray-400">Document Activity Chart</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                  <h4 className="text-sm font-medium mb-4">Documents by Type</h4>
+                  <div className="h-60 w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                    <PieChart className="h-12 w-12 text-gray-300" />
+                    <span className="ml-4 text-gray-400">Documents by Type Chart</span>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-medium mb-4">Document Processing Time</h4>
+                  <div className="h-60 w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                    <Clock className="h-12 w-12 text-gray-300" />
+                    <span className="ml-4 text-gray-400">Processing Time Chart</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium mb-4">Most Used Templates</h4>
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-3 font-medium text-sm">Template</th>
+                      <th className="text-left p-3 font-medium text-sm">Usage Count</th>
+                      <th className="text-left p-3 font-medium text-sm">Growth</th>
+                      <th className="text-left p-3 font-medium text-sm">Avg. Completion Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b">
+                      <td className="p-3">Articles of Organization</td>
+                      <td className="p-3">342</td>
+                      <td className="p-3 text-green-500">+12.5%</td>
+                      <td className="p-3">8 min</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="p-3">Operating Agreement</td>
+                      <td className="p-3">287</td>
+                      <td className="p-3 text-green-500">+8.3%</td>
+                      <td className="p-3">15 min</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="p-3">Annual Report Template</td>
+                      <td className="p-3">156</td>
+                      <td className="p-3 text-green-500">+15.2%</td>
+                      <td className="p-3">12 min</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="p-3">Tax Filing Checklist</td>
+                      <td className="p-3">98</td>
+                      <td className="p-3 text-red-500">-2.1%</td>
+                      <td className="p-3">5 min</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3">Employee Handbook</td>
+                      <td className="p-3">75</td>
+                      <td className="p-3 text-green-500">+5.7%</td>
+                      <td className="p-3">22 min</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="compliance">
+          <Card>
+            <div className="p-6">
+              <h3 className="text-lg font-medium mb-4">Compliance Analytics</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Overall Compliance</h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold">87%</p>
+                      <p className="text-sm text-green-500">+3.5% vs last month</p>
+                    </div>
+                    <div className="h-12 w-12 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                      <CheckCircle2 className="h-6 w-6 text-green-500" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Pending Verifications</h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold">124</p>
+                      <p className="text-sm text-red-500">+12.7% vs last month</p>
+                    </div>
+                    <div className="h-12 w-12 bg-amber-50 dark:bg-amber-900/20 rounded-full flex items-center justify-center">
+                      <Clock className="h-6 w-6 text-amber-500" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Compliance Alerts</h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold">18</p>
+                      <p className="text-sm text-red-500">+5.2% vs last month</p>
+                    </div>
+                    <div className="h-12 w-12 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+                      <AlertCircle className="h-6 w-6 text-red-500" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h4 className="text-sm font-medium mb-4">Compliance Trend</h4>
+                <div className="h-80 w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                  <LineChart className="h-16 w-16 text-gray-300" />
+                  <span className="ml-4 text-gray-400">Compliance Trend Chart</span>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-sm font-medium mb-4">Compliance by Category</h4>
+                  <div className="space-y-4">
+                    <ComplianceItem title="Document Verification" value={85} color="bg-green-500" />
+                    <ComplianceItem title="User Identity Verification" value={72} color="bg-amber-500" />
+                    <ComplianceItem title="Annual Report Submissions" value={94} color="bg-green-500" />
+                    <ComplianceItem title="Tax Compliance" value={68} color="bg-amber-500" />
+                    <ComplianceItem title="Data Protection" value={98} color="bg-green-500" />
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-medium mb-4">Recent Compliance Alerts</h4>
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-3 font-medium text-sm">Alert</th>
+                        <th className="text-left p-3 font-medium text-sm">User/Company</th>
+                        <th className="text-left p-3 font-medium text-sm">Date</th>
+                        <th className="text-left p-3 font-medium text-sm">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b">
+                        <td className="p-3">Missing Annual Report</td>
+                        <td className="p-3">Rapid Ventures LLC</td>
+                        <td className="p-3">Mar 7, 2025</td>
+                        <td className="p-3">
+                          <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                            Critical
+                          </span>
+                        </td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="p-3">Expired Business License</td>
+                        <td className="p-3">Blue Ocean Inc</td>
+                        <td className="p-3">Mar 5, 2025</td>
+                        <td className="p-3">
+                          <span className="px-2 py-1 text-xs rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                            Warning
+                          </span>
+                        </td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="p-3">Incomplete Tax Filing</td>
+                        <td className="p-3">Summit Solutions</td>
+                        <td className="p-3">Mar 3, 2025</td>
+                        <td className="p-3">
+                          <span className="px-2 py-1 text-xs rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                            Warning
+                          </span>
+                        </td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="p-3">Unverified User Identity</td>
+                        <td className="p-3">John Smith</td>
+                        <td className="p-3">Mar 2, 2025</td>
+                        <td className="p-3">
+                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                            Info
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="p-3">Missing Contact Information</td>
+                        <td className="p-3">Horizon Group</td>
+                        <td className="p-3">Mar 1, 2025</td>
+                        <td className="p-3">
+                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                            Info
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
 
-function InvoiceStatusBadge({ status }: { status: string }) {
-  switch (status) {
-    case "paid":
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-          <CheckCircle2 className="h-3 w-3 mr-1" />
-          Paid
-        </span>
-      )
-    case "pending":
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-          <Clock className="h-3 w-3 mr-1" />
-          Pending
-        </span>
-      )
-    case "cancelled":
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-          <AlertCircle className="h-3 w-3 mr-1" />
-          Cancelled
-        </span>
-      )
-    default:
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
-          {status}
-        </span>
-      )
-  }
+// Update the MetricCard component to handle loading state
+// Component for metric cards
+function MetricCard({
+  title,
+  value,
+  change,
+  trend,
+  icon: Icon,
+  color,
+  loading = false,
+}: {
+  title: string
+  value: string
+  change: string
+  trend: "up" | "down"
+  icon: React.ElementType
+  color: string
+  loading?: boolean
+}) {
+  return (
+    <Card>
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className={`w-12 h-12 rounded-lg ${color} flex items-center justify-center`}>
+            <Icon className="h-6 w-6 text-white" />
+          </div>
+          <div className={`flex items-center ${trend === "up" ? "text-green-500" : "text-red-500"}`}>
+            {loading ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : trend === "up" ? (
+              <ArrowUpRight className="h-4 w-4 mr-1" />
+            ) : (
+              <ArrowDownRight className="h-4 w-4 mr-1" />
+            )}
+            <span className="text-sm font-medium">{change}</span>
+          </div>
+        </div>
+        {loading ? (
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1"></div>
+        ) : (
+          <h3 className="text-2xl font-bold mb-1">{value}</h3>
+        )}
+        <p className="text-gray-500 dark:text-gray-400 text-sm">{title}</p>
+      </div>
+    </Card>
+  )
+}
+
+// Component for product performance items
+function ProductPerformanceItem({
+  name,
+  revenue,
+  sales,
+  growth,
+  trend = "up",
+  border = true,
+}: {
+  name: string
+  revenue: string
+  sales: number
+  growth: string
+  trend?: "up" | "down"
+  border?: boolean
+}) {
+  return (
+    <div className={`flex items-center justify-between py-3 ${border ? "border-b" : ""}`}>
+      <div>
+        <p className="font-medium">{name}</p>
+        <p className="text-sm text-gray-500">{sales} sales</p>
+      </div>
+      <div className="text-right">
+        <p className="font-medium">{revenue}</p>
+        <p className={`text-sm ${trend === "up" ? "text-green-500" : "text-red-500"}`}>
+          {trend === "up" ? (
+            <ArrowUpRight className="h-3 w-3 inline mr-1" />
+          ) : (
+            <ArrowDownRight className="h-3 w-3 inline mr-1" />
+          )}
+          {growth}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// Component for compliance items
+function ComplianceItem({
+  title,
+  value,
+  color,
+}: {
+  title: string
+  value: number
+  color: string
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium">{title}</span>
+        <span className="text-sm font-medium">{value}%</span>
+      </div>
+      <Progress value={value} className={`h-2 ${color}`} />
+    </div>
+  )
 }
 
