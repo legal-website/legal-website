@@ -42,7 +42,7 @@ interface Invoice {
   createdAt: string
   invoiceNumber: string
   items: any
-  isTemplateInvoice: boolean
+  isTemplateInvoice?: boolean
 }
 
 interface User {
@@ -639,7 +639,7 @@ export default function AnalyticsPage() {
 
       // Filter regular invoices (those starting with INV)
       const regularInvoices = invoices.filter(
-        (invoice: Invoice) => invoice.invoiceNumber.startsWith("INV") || (invoice.items && !invoice.isTemplateInvoice),
+        (invoice: Invoice) => invoice.invoiceNumber.startsWith("INV") && !isTemplateInvoice(invoice),
       )
 
       // Extract package data
@@ -709,6 +709,49 @@ export default function AnalyticsPage() {
     }
   }, [toast])
 
+  // Helper function to determine if an invoice is for a template
+  const isTemplateInvoice = (invoice: Invoice) => {
+    // Check if the invoice is explicitly marked as a template invoice
+    if (invoice.isTemplateInvoice) {
+      return true
+    }
+
+    if (invoice.items) {
+      // Parse items if they're a string
+      let items = invoice.items
+      if (typeof items === "string") {
+        try {
+          items = JSON.parse(items)
+
+          // Check if the parsed items indicate a template invoice
+          if (items.isTemplateInvoice) {
+            return true
+          }
+        } catch (e) {
+          console.error("Error parsing invoice items:", e)
+        }
+      }
+
+      // Check if any item has a template property
+      if (Array.isArray(items)) {
+        return items.some((item) => item.template || item.isTemplate)
+      } else if (items && typeof items === "object") {
+        // Check if it's an object with template indicators
+        return Object.values(items).some(
+          (item: any) =>
+            item.template ||
+            item.isTemplate ||
+            (item.tier &&
+              typeof item.tier === "string" &&
+              !["STARTER", "STANDARD", "PREMIUM"].includes(item.tier.toUpperCase())),
+        )
+      }
+    }
+
+    // Check invoice number pattern for templates
+    return !invoice.invoiceNumber.startsWith("INV") && !invoice.invoiceNumber.startsWith("AMD")
+  }
+
   // Fetch revenue analytics data
   const fetchRevenueAnalytics = useCallback(async () => {
     try {
@@ -770,7 +813,7 @@ export default function AnalyticsPage() {
       // 5. Calculate revenue by product
       // a. Revenue from packages (only STARTER, STANDARD, PREMIUM packages)
       const packageInvoices = paidInvoices.filter(
-        (invoice) => (invoice.invoiceNumber.startsWith("INV") || !invoice.isTemplateInvoice) && invoice.items, // Make sure items exist
+        (invoice) => invoice.invoiceNumber.startsWith("INV") && !isTemplateInvoice(invoice),
       )
 
       let packageRevenue = 0
@@ -811,6 +854,11 @@ export default function AnalyticsPage() {
         }
       })
 
+      // If packageRevenue is still 0, try a different approach - just count the full invoice amount
+      if (packageRevenue === 0 && packageInvoices.length > 0) {
+        packageRevenue = packageInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+      }
+
       // b. Revenue from amendments
       const approvedAmendments = amendments.filter((amendment) => amendment.status === "approved")
       const amendmentRevenue = approvedAmendments.reduce((sum, amendment) => sum + (amendment.paymentAmount || 0), 0)
@@ -842,12 +890,13 @@ export default function AnalyticsPage() {
         { name: "Amendments", value: amendmentRevenue },
         { name: "Annual Reports", value: annualReportRevenue },
       ]
-      setRevenueByProductData(revenueByProduct)
+
+      // Filter out zero values
+      const filteredRevenueByProduct = revenueByProduct.filter((item) => item.value > 0)
+      setRevenueByProductData(filteredRevenueByProduct)
 
       // 6. Calculate revenue by templates - only from template invoices
-      const templateInvoices = paidInvoices.filter(
-        (invoice) => !invoice.invoiceNumber.startsWith("INV") && invoice.isTemplateInvoice,
-      )
+      const templateInvoices = paidInvoices.filter((invoice) => isTemplateInvoice(invoice))
 
       // Group template invoices by template type
       const templateRevenueMap: Record<string, number> = {}
@@ -863,15 +912,29 @@ export default function AnalyticsPage() {
           }
 
           if (Array.isArray(items)) {
-            if (items.length > 0 && items[0].tier) {
-              templateName = items[0].tier
+            if (items.length > 0) {
+              if (items[0].tier) {
+                templateName = items[0].tier
+              } else if (items[0].template) {
+                templateName = items[0].template
+              } else if (items[0].name) {
+                templateName = items[0].name
+              }
             }
           } else if (items && typeof items === "object") {
             // Check if it's an object with numeric keys
-            if (items["0"] && items["0"].tier) {
-              templateName = items["0"].tier
+            if (items["0"]) {
+              if (items["0"].tier) {
+                templateName = items["0"].tier
+              } else if (items["0"].template) {
+                templateName = items["0"].template
+              } else if (items["0"].name) {
+                templateName = items["0"].name
+              }
             } else if (items.templateName) {
               templateName = items.templateName
+            } else if (items.name) {
+              templateName = items.name
             }
           }
         } catch (e) {
@@ -1766,8 +1829,8 @@ export default function AnalyticsPage() {
                             cx="50%"
                             cy="50%"
                             labelLine={true}
-                            outerRadius={100}
-                            innerRadius={60}
+                            outerRadius={80}
+                            innerRadius={50}
                             fill="#8884d8"
                             dataKey="value"
                             nameKey="name"
@@ -1801,9 +1864,9 @@ export default function AnalyticsPage() {
                             }}
                           />
                           <Legend
-                            layout="horizontal"
-                            verticalAlign="bottom"
-                            align="center"
+                            layout="vertical"
+                            verticalAlign="middle"
+                            align="right"
                             formatter={(value) => <span className="text-sm font-medium">{value}</span>}
                           />
                         </RechartsPieChart>
