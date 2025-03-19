@@ -615,15 +615,6 @@ export default function AnnualReportsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {filing.status === "completed" && (
-                          <Badge
-                            variant="outline"
-                            className="flex items-center gap-1 px-2.5 py-0.5 font-medium bg-green-100 text-green-800 border-green-200"
-                          >
-                            <CheckCircle className="h-3.5 w-3.5" />
-                            Filed
-                          </Badge>
-                        )}
                         {filing.reportUrl && (
                           <Button variant="ghost" size="icon" asChild>
                             <a href={filing.reportUrl} target="_blank" rel="noopener noreferrer" download>
@@ -634,6 +625,15 @@ export default function AnnualReportsPage() {
                         <Button variant="outline" size="sm" onClick={() => handleViewFiling(filing)}>
                           View
                         </Button>
+                        {filing.status === "completed" && (
+                          <Badge
+                            variant="outline"
+                            className="flex items-center gap-1 px-2.5 py-0.5 font-medium bg-green-100 text-green-800 border-green-200"
+                          >
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            Filed
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   )
