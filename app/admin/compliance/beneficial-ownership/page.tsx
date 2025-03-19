@@ -256,7 +256,8 @@ export default function AdminBeneficialOwnershipPage() {
     const newStatus = selectedOwner.status === "pending" ? "reported" : "pending"
 
     try {
-      // Fix the API endpoint URL - change from beneficial-ownership to admin/beneficial-ownership
+      console.log(`Sending request to: /api/admin/beneficial-ownership/status/${selectedOwner.id}`)
+
       const response = await fetch(`/api/admin/beneficial-ownership/status/${selectedOwner.id}`, {
         method: "PUT",
         headers: {
@@ -265,20 +266,26 @@ export default function AdminBeneficialOwnershipPage() {
         body: JSON.stringify({ status: newStatus }),
       })
 
+      console.log(`Response status: ${response.status}`)
+
       if (!response.ok) {
-        const errorData = await response.text()
+        const errorText = await response.text()
+        console.error("Error response:", errorText)
+
         let errorMessage = "Failed to update status"
         try {
-          const jsonError = JSON.parse(errorData)
-          errorMessage = jsonError.error || errorMessage
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.error || errorMessage
         } catch (e) {
           // If parsing fails, use the text as is
-          errorMessage = errorData || errorMessage
+          errorMessage = errorText || errorMessage
         }
-        throw new Error(errorMessage)
+
+        throw new Error(`${errorMessage} (Status: ${response.status})`)
       }
 
       const data = await response.json()
+      console.log("Success response:", data)
 
       // Update owner status in the local state
       const updatedOwners = owners.map((owner) => {
