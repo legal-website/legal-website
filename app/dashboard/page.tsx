@@ -18,6 +18,10 @@ import {
   Loader2,
   AlertCircle,
   CalendarIcon,
+  Clock,
+  DollarSign,
+  PenTool,
+  FileText,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
@@ -93,11 +97,23 @@ interface Amendment {
   id: string
   type: string
   details: string
-  status: string
+  status:
+    | "pending"
+    | "in_review"
+    | "waiting_for_payment"
+    | "payment_confirmation_pending"
+    | "payment_received"
+    | "approved"
+    | "rejected"
+    | "amendment_in_progress"
+    | "amendment_resolved"
+    | "closed"
   createdAt: string
   updatedAt: string
   paymentAmount?: number | string
   notes?: string
+  documentUrl?: string
+  receiptUrl?: string
 }
 
 interface Deadline {
@@ -178,22 +194,32 @@ export default function DashboardPage() {
   const [ticketsLoading, setTicketsLoading] = useState(true)
   // Add these state variables in the DashboardPage component
   const [amendments, setAmendments] = useState<Amendment[]>([])
-  const [deadlines, setDeadlines] = useState<Deadline[]>([])
+  const [upcomingDeadlines, setUpcomingDeadlines] = useState<Deadline[]>([])
   const [amendmentsLoading, setAmendmentsLoading] = useState(true)
   const [deadlinesLoading, setDeadlinesLoading] = useState(true)
 
   const fetchAmendments = async () => {
     try {
-      // Replace with your actual API endpoint
-      const response = await fetch("/api/user/amendments")
-      if (response.ok) {
-        const data = await response.json()
-        setAmendments(data.amendments || [])
-      } else {
-        console.error("Failed to fetch amendments")
+      setAmendmentsLoading(true)
+      // Use the same endpoint as in the amendments page
+      const response = await fetch("/api/amendments")
+      if (!response.ok) {
+        throw new Error("Failed to fetch amendments")
       }
+
+      const data = await response.json()
+
+      // Get all amendments
+      const allAmendments = data.amendments || []
+
+      // Filter active amendments (not closed)
+      const activeAmendments = allAmendments.filter((a: Amendment) => a.status !== "closed")
+
+      setAmendments(activeAmendments)
     } catch (error) {
       console.error("Error fetching amendments:", error)
+      // Set empty array in case of error
+      setAmendments([])
     } finally {
       setAmendmentsLoading(false)
     }
@@ -201,16 +227,76 @@ export default function DashboardPage() {
 
   const fetchDeadlines = async () => {
     try {
-      // Replace with your actual API endpoint
-      const response = await fetch("/api/user/deadlines")
-      if (response.ok) {
-        const data = await response.json()
-        setDeadlines(data.deadlines || [])
-      } else {
-        console.error("Failed to fetch deadlines")
+      setDeadlinesLoading(true)
+      // Use the same endpoints as in the annual reports page
+      const deadlinesResponse = await fetch("/api/annual-reports/deadlines")
+      if (!deadlinesResponse.ok) throw new Error("Failed to fetch deadlines")
+      const deadlinesData = await deadlinesResponse.json()
+
+      const filingsResponse = await fetch("/api/annual-reports/filings")
+      if (!filingsResponse.ok) throw new Error("Failed to fetch filings")
+      const filingsData = await filingsResponse.json()
+
+      // Process filings to ensure they have the right format
+      const processedFilings =
+        filingsData.filings?.map((filing: any) => {
+          // Find the associated deadline from deadlinesData
+          const deadline = deadlinesData.deadlines?.find((d: Deadline) => d.id === filing.deadlineId)
+
+          return {
+            ...filing,
+            deadlineTitle: filing.deadlineTitle || (deadline ? deadline.title : "Unknown Deadline"),
+            dueDate: filing.dueDate || (deadline ? deadline.dueDate : null),
+            deadline: deadline
+              ? {
+                  title: deadline.title,
+                  dueDate: deadline.dueDate,
+                }
+              : filing.deadline || null,
+          }
+        }) || []
+
+      // Update deadline statuses based on filings
+      let updatedDeadlines = deadlinesData.deadlines || []
+
+      if (processedFilings.length > 0 && updatedDeadlines.length > 0) {
+        // Create a map of the latest filing status for each deadline
+        const deadlineFilingStatusMap = new Map()
+
+        processedFilings.forEach((filing: any) => {
+          // Only update if this is a newer filing or we don't have one yet
+          if (
+            !deadlineFilingStatusMap.has(filing.deadlineId) ||
+            new Date(filing.createdAt || 0) > new Date(deadlineFilingStatusMap.get(filing.deadlineId)?.createdAt || 0)
+          ) {
+            deadlineFilingStatusMap.set(filing.deadlineId, filing)
+          }
+        })
+
+        // Update deadline statuses based on filing statuses
+        updatedDeadlines = updatedDeadlines.map((deadline: Deadline) => {
+          const latestFiling = deadlineFilingStatusMap.get(deadline.id)
+
+          if (latestFiling) {
+            // If there's a filing, update the deadline status based on the filing status
+            return { ...deadline, status: latestFiling.status }
+          }
+
+          // If no filing or status doesn't need updating, return the original deadline
+          return deadline
+        })
       }
+
+      // Filter out completed or rejected deadlines from upcoming deadlines
+      const filteredDeadlines = updatedDeadlines.filter(
+        (deadline: Deadline) => deadline.status !== "completed" && deadline.status !== "rejected",
+      )
+
+      setUpcomingDeadlines(filteredDeadlines)
     } catch (error) {
       console.error("Error fetching deadlines:", error)
+      // Set empty array in case of error
+      setUpcomingDeadlines([])
     } finally {
       setDeadlinesLoading(false)
     }
@@ -962,6 +1048,52 @@ export default function DashboardPage() {
     return diffDays
   }
 
+  // Helper function to get status badge
+  const getStatusBadge = (status: Amendment["status"]) => {
+    const statusConfig = {
+      pending: { bg: "bg-blue-100", text: "text-blue-800", label: "Pending" },
+      in_review: { bg: "bg-purple-100", text: "text-purple-800", label: "In Review" },
+      waiting_for_payment: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Payment Required" },
+      payment_confirmation_pending: { bg: "bg-blue-100", text: "text-blue-800", label: "Payment Verification Pending" },
+      payment_received: { bg: "bg-indigo-100", text: "text-indigo-800", label: "Payment Received" },
+      approved: { bg: "bg-green-100", text: "text-green-800", label: "Approved" },
+      rejected: { bg: "bg-red-100", text: "text-red-800", label: "Rejected" },
+      amendment_in_progress: { bg: "bg-purple-100", text: "text-purple-800", label: "Amendment In Progress" },
+      amendment_resolved: { bg: "bg-green-100", text: "text-green-800", label: "Amendment Resolved" },
+      closed: { bg: "bg-gray-100", text: "text-gray-800", label: "Closed" },
+    }
+
+    const config = statusConfig[status]
+
+    return <span className={`text-xs px-2 py-1 ${config.bg} ${config.text} rounded-full`}>{config.label}</span>
+  }
+
+  // Helper function to get status icon
+  const getAmendmentStatusIcon = (status: Amendment["status"]) => {
+    switch (status) {
+      case "pending":
+        return <Clock className="h-5 w-5 text-blue-500" />
+      case "in_review":
+        return <FileText className="h-5 w-5 text-purple-500" />
+      case "waiting_for_payment":
+        return <DollarSign className="h-5 w-5 text-yellow-500" />
+      case "payment_confirmation_pending":
+        return <Clock className="h-5 w-5 text-blue-500" />
+      case "payment_received":
+        return <DollarSign className="h-5 w-5 text-indigo-500" />
+      case "approved":
+        return <CheckCircle className="h-5 w-5 text-green-500" />
+      case "rejected":
+        return <AlertCircle className="h-5 w-5 text-red-500" />
+      case "amendment_in_progress":
+        return <PenTool className="h-5 w-5 text-purple-500" />
+      case "amendment_resolved":
+        return <CheckCircle className="h-5 w-5 text-green-500" />
+      case "closed":
+        return <CheckCircle className="h-5 w-5 text-gray-500" />
+    }
+  }
+
   if (loading) {
     return <DashboardLoader />
   }
@@ -1150,18 +1282,19 @@ export default function DashboardPage() {
                 {amendments.map((amendment) => (
                   <div key={amendment.id} className="border rounded-lg p-4">
                     <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <p className="font-medium">{amendment.type}</p>
-                        <p className="text-xs text-gray-600">
-                          Submitted: {new Date(amendment.createdAt).toLocaleDateString()}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        {getAmendmentStatusIcon(amendment.status)}
+                        <div>
+                          <p className="font-medium">{amendment.type}</p>
+                          <p className="text-xs text-gray-600">
+                            Submitted: {new Date(amendment.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
-                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                        Payment Required
-                      </span>
+                      {getStatusBadge(amendment.status)}
                     </div>
                     <p className="text-sm text-gray-700 mb-3 line-clamp-2">{amendment.details}</p>
-                    {amendment.paymentAmount && (
+                    {amendment.status === "waiting_for_payment" && amendment.paymentAmount && (
                       <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
                         <div className="flex justify-between items-center">
                           <p className="text-sm font-medium">Payment Required:</p>
@@ -1174,7 +1307,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-gray-500 mb-4">No amendments requiring payment</p>
+                <p className="text-gray-500 mb-4">No amendments found</p>
                 <Link href="/dashboard/compliance/amendments" passHref>
                   <Button variant="default">Submit Amendment</Button>
                 </Link>
@@ -1199,11 +1332,12 @@ export default function DashboardPage() {
               <div className="flex justify-center items-center py-8">
                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
               </div>
-            ) : deadlines.length > 0 ? (
+            ) : upcomingDeadlines.length > 0 ? (
               <div className="space-y-4">
-                {deadlines.slice(0, 3).map((deadline) => {
+                {upcomingDeadlines.slice(0, 3).map((deadline) => {
                   const daysLeft = calculateDaysLeft(deadline.dueDate)
                   const isUrgent = daysLeft <= 30
+                  const isPending = deadline.status === "pending"
 
                   return (
                     <div key={deadline.id} className="border rounded-lg p-4">
@@ -1232,7 +1366,16 @@ export default function DashboardPage() {
                       {deadline.description && (
                         <p className="text-sm text-gray-600 mb-2 line-clamp-2">{deadline.description}</p>
                       )}
-                      <p className="text-sm text-gray-600">Fee: ${Number(deadline.fee).toFixed(2)}</p>
+                      <div className="flex justify-between items-center">
+                        <p className="text-sm text-gray-600">Fee: ${Number(deadline.fee).toFixed(2)}</p>
+                        {isPending && (
+                          <Link href="/dashboard/compliance/annual-reports" passHref>
+                            <Button size="sm" variant="outline">
+                              File Now
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
