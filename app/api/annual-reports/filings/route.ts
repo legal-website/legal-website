@@ -37,6 +37,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    console.log("Client filings API: Fetching filings for user", session.user.id)
+
     // Get filings for the current user with complete deadline data
     const filings = await prisma.annualReportFiling.findMany({
       where: {
@@ -60,7 +62,7 @@ export async function GET(req: Request) {
     })
 
     // Process filings to ensure all required data is present
-    const processedFilings = filings.map((filing: FilingWithDeadline) => {
+    const processedFilings = filings.map((filing: any) => {
       return {
         ...filing,
         deadlineTitle: filing.deadline?.title || "Unknown Deadline",
@@ -73,7 +75,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ filings: processedFilings })
   } catch (error) {
     console.error("Error fetching filings:", error)
-    return NextResponse.json({ filings: [] }, { status: 200 })
+    return NextResponse.json({ error: "Failed to fetch filings", details: (error as Error).message }, { status: 500 })
   }
 }
 

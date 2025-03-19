@@ -11,6 +11,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    console.log("Client deadlines API: Fetching deadlines for user", session.user.id)
+
     // Get deadlines for the current user
     const deadlines = await db.annualReportDeadline.findMany({
       where: {
@@ -21,10 +23,12 @@ export async function GET(req: Request) {
       },
     })
 
+    console.log(`Client deadlines API: Found ${deadlines.length} deadlines`)
+
     return NextResponse.json({ deadlines })
   } catch (error) {
     console.error("Error fetching deadlines:", error)
-    return NextResponse.json({ deadlines: [] }, { status: 200 })
+    return NextResponse.json({ error: "Failed to fetch deadlines", details: (error as Error).message }, { status: 500 })
   }
 }
 

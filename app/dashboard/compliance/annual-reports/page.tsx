@@ -112,10 +112,21 @@ export default function AnnualReportsPage() {
   useEffect(() => {
     if (date && upcomingDeadlines.length > 0) {
       const formattedDate = format(date, "yyyy-MM-dd")
-      const deadlineOnDate = upcomingDeadlines.find(
-        (deadline) => format(new Date(deadline.dueDate), "yyyy-MM-dd") === formattedDate,
+      console.log("Looking for deadline on date:", formattedDate)
+      console.log(
+        "Available deadlines:",
+        upcomingDeadlines.map((d) => ({
+          id: d.id,
+          title: d.title,
+          date: format(new Date(d.dueDate), "yyyy-MM-dd"),
+        })),
       )
 
+      const deadlineOnDate = upcomingDeadlines.find(
+        (deadline: Deadline) => format(new Date(deadline.dueDate), "yyyy-MM-dd") === formattedDate,
+      )
+
+      console.log("Found deadline for selected date:", deadlineOnDate)
       setSelectedDateInfo(deadlineOnDate || null)
     } else {
       setSelectedDateInfo(null)
@@ -136,24 +147,25 @@ export default function AnnualReportsPage() {
       if (!deadlinesResponse.ok) throw new Error("Failed to fetch deadlines")
       const deadlinesData = await deadlinesResponse.json()
 
-      // Store deadlines in a map for quick lookup
-      const deadlinesMap = new Map((deadlinesData.deadlines || []).map((deadline: Deadline) => [deadline.id, deadline]))
+      console.log("Dashboard: Fetched deadlines:", deadlinesData.deadlines?.length || 0)
 
       // Fetch filings
       const filingsResponse = await fetch("/api/annual-reports/filings")
       if (!filingsResponse.ok) throw new Error("Failed to fetch filings")
       const filingsData = await filingsResponse.json()
 
+      console.log("Dashboard: Fetched filings:", filingsData.filings?.length || 0)
+
       // Process filings to ensure they have the right format
       const processedFilings =
         filingsData.filings?.map((filing: Filing) => {
-          // Find the associated deadline
-          const deadline = deadlinesMap.get(filing.deadlineId) as Deadline | undefined
+          // Find the associated deadline from deadlinesData
+          const deadline = deadlinesData.deadlines?.find((d: Deadline) => d.id === filing.deadlineId)
 
           return {
             ...filing,
-            deadlineTitle: filing.deadlineTitle || deadline?.title || "Unknown Deadline",
-            dueDate: filing.dueDate || deadline?.dueDate || null,
+            deadlineTitle: filing.deadlineTitle || (deadline ? deadline.title : "Unknown Deadline"),
+            dueDate: filing.dueDate || (deadline ? deadline.dueDate : null),
             deadline: deadline
               ? {
                   title: deadline.title,
@@ -163,8 +175,13 @@ export default function AnnualReportsPage() {
           }
         }) || []
 
+      console.log("Dashboard: Processed filings:", processedFilings.length)
+
       // Update deadline statuses based on filings
-      if (processedFilings.length > 0 && deadlinesData.deadlines) {
+      let updatedDeadlines = deadlinesData.deadlines || []
+      console.log("Dashboard: Initial deadlines count:", updatedDeadlines.length)
+
+      if (processedFilings.length > 0 && updatedDeadlines.length > 0) {
         // Create a map of the latest filing status for each deadline
         const deadlineFilingStatusMap = new Map()
 
@@ -172,19 +189,18 @@ export default function AnnualReportsPage() {
           // Only update if this is a newer filing or we don't have one yet
           if (
             !deadlineFilingStatusMap.has(filing.deadlineId) ||
-            new Date(filing.createdAt || 0) > new Date(deadlineFilingStatusMap.get(filing.deadlineId).createdAt || 0)
+            new Date(filing.createdAt || 0) > new Date(deadlineFilingStatusMap.get(filing.deadlineId)?.createdAt || 0)
           ) {
             deadlineFilingStatusMap.set(filing.deadlineId, filing)
           }
         })
 
         // Update deadline statuses based on filing statuses
-        const updatedDeadlines = deadlinesData.deadlines.map((deadline: Deadline) => {
+        updatedDeadlines = updatedDeadlines.map((deadline: Deadline) => {
           const latestFiling = deadlineFilingStatusMap.get(deadline.id)
 
           if (latestFiling) {
             // If there's a filing, update the deadline status based on the filing status
-            // Preserve the exact filing status instead of mapping to generic statuses
             return { ...deadline, status: latestFiling.status }
           }
 
@@ -192,15 +208,16 @@ export default function AnnualReportsPage() {
           return deadline
         })
 
-        // Filter out completed or rejected deadlines from upcoming deadlines
-        const filteredDeadlines = updatedDeadlines.filter(
-          (deadline: Deadline) => deadline.status !== "completed" && deadline.status !== "rejected",
-        )
-
-        setUpcomingDeadlines(filteredDeadlines)
-      } else {
-        setUpcomingDeadlines(deadlinesData.deadlines || [])
+        console.log("Dashboard: Updated deadlines with filing statuses")
       }
+
+      // Filter out completed or rejected deadlines from upcoming deadlines
+      const filteredDeadlines = updatedDeadlines.filter(
+        (deadline: Deadline) => deadline.status !== "completed" && deadline.status !== "rejected",
+      )
+
+      console.log("Dashboard: Filtered deadlines count:", filteredDeadlines.length)
+      setUpcomingDeadlines(filteredDeadlines)
 
       // Separate past filings (completed, rejected, or with filedDate)
       const pastFilingsData = processedFilings.filter(
@@ -211,18 +228,19 @@ export default function AnnualReportsPage() {
           filing.status === "payment_received",
       )
 
-      console.log("Past filings found:", pastFilingsData.length)
+      console.log("Dashboard: Past filings found:", pastFilingsData.length)
       setPastFilings(pastFilingsData)
 
       // Fetch requirements
       const requirementsResponse = await fetch("/api/annual-reports/requirements")
       if (!requirementsResponse.ok) throw new Error("Failed to fetch requirements")
       const requirementsData = await requirementsResponse.json()
+      console.log("Dashboard: Fetched requirements:", requirementsData.requirements?.length || 0)
       setRequirements(requirementsData.requirements || [])
 
       // Set calendar highlight dates - only for deadlines that are not completed or rejected
       const activeDates =
-        deadlinesData.deadlines
+        updatedDeadlines
           ?.filter((deadline: Deadline) => deadline.status !== "completed" && deadline.status !== "rejected")
           .map((deadline: Deadline) => new Date(deadline.dueDate)) || []
 
@@ -254,6 +272,7 @@ export default function AnnualReportsPage() {
 
   // Handle file now button click
   const handleFileNow = (deadline: Deadline) => {
+    console.log("Filing for deadline:", deadline)
     setSelectedDeadline(deadline)
     setFilingForm({
       receiptFile: null,
@@ -489,7 +508,7 @@ export default function AnnualReportsPage() {
               <div className="p-4 text-center text-gray-500">No upcoming deadlines at this time.</div>
             ) : (
               <div className="space-y-4">
-                {upcomingDeadlines.map((deadline) => {
+                {upcomingDeadlines.map((deadline: Deadline) => {
                   const daysLeft = calculateDaysLeft(deadline.dueDate)
                   const isUrgent = daysLeft <= 30
                   const isPending = deadline.status === "pending"
@@ -560,15 +579,29 @@ export default function AnnualReportsPage() {
                 </div>
                 <span className="sr-only">Refresh</span>
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  console.log("Debug - Upcoming deadlines:", upcomingDeadlines)
+                  console.log("Debug - Past filings:", pastFilings)
+                  toast({
+                    title: "Debug Info",
+                    description: `Deadlines: ${upcomingDeadlines.length}, Filings: ${pastFilings.length}`,
+                  })
+                }}
+              >
+                Debug
+              </Button>
             </div>
             <div className="space-y-4">
-              {requirements.map((requirement) => (
+              {requirements.map((requirement: FilingRequirement) => (
                 <div key={requirement.id} className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                   <h4 className="font-medium mb-2">{requirement.title}</h4>
                   <p className="text-sm text-gray-600 mb-2">{requirement.description}</p>
                   {requirement.details && (
                     <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
-                      {requirement.details.split("\n").map((detail, i) => (
+                      {requirement.details.split("\n").map((detail: string, i: number) => (
                         <li key={i}>{detail}</li>
                       ))}
                     </ul>
@@ -584,7 +617,7 @@ export default function AnnualReportsPage() {
               <div className="p-4 text-center text-gray-500">No past filings found.</div>
             ) : (
               <div className="space-y-4">
-                {pastFilings.map((filing) => {
+                {pastFilings.map((filing: Filing) => {
                   const deadlineTitle =
                     filing.deadlineTitle || (filing.deadline ? filing.deadline.title : "Unknown Deadline")
 
