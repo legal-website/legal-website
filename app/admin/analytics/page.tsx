@@ -939,6 +939,7 @@ export default function AnalyticsPage() {
       })
 
       setRevenueByTemplateData(templateRevenueData)
+
       // 7. Calculate revenue trend (monthly)
       // Get the last 12 months
       const twelveMonthsAgo = subMonths(now, 11)
@@ -1483,56 +1484,71 @@ export default function AnalyticsPage() {
                     </div>
                   ) : (
                     <div className="h-96 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RechartsPieChart>
-                          <Pie
-                            data={packageData}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            outerRadius={90}
-                            innerRadius={60}
-                            fill="#8884d8"
-                            dataKey="value"
-                            nameKey="name"
-                            label={({ name, percent }) =>
-                              percent > 0.05 ? `${name}: ${(percent * 100).toFixed(0)}%` : ""
-                            }
-                            paddingAngle={5}
-                          >
-                            {packageData.map((entry, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={
-                                  entry.name === "STARTER"
-                                    ? "#3b82f6"
-                                    : entry.name === "STANDARD"
-                                      ? "#22c55e"
-                                      : "#a855f7"
-                                }
-                                strokeWidth={1}
+                      <div className="flex flex-col items-center">
+                        <div className="w-full h-80">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <RechartsPieChart>
+                              <Pie
+                                data={packageData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                outerRadius={110}
+                                innerRadius={70}
+                                fill="#8884d8"
+                                dataKey="value"
+                                nameKey="name"
+                                label={({ name, percent }) => (percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : "")}
+                                paddingAngle={5}
+                              >
+                                {packageData.map((entry, index) => (
+                                  <Cell
+                                    key={`cell-${index}`}
+                                    fill={
+                                      entry.name === "STARTER"
+                                        ? "#3b82f6"
+                                        : entry.name === "STANDARD"
+                                          ? "#22c55e"
+                                          : "#a855f7"
+                                    }
+                                    strokeWidth={1}
+                                  />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                formatter={customTooltipFormatter}
+                                contentStyle={{
+                                  backgroundColor: "rgba(255, 255, 255, 0.95)",
+                                  borderRadius: "8px",
+                                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                                  border: "none",
+                                  padding: "10px 14px",
+                                }}
                               />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            formatter={customTooltipFormatter}
-                            contentStyle={{
-                              backgroundColor: "rgba(255, 255, 255, 0.95)",
-                              borderRadius: "8px",
-                              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-                              border: "none",
-                              padding: "10px 14px",
-                            }}
-                          />
-                          <Legend
-                            layout="vertical"
-                            verticalAlign="middle"
-                            align="right"
-                            formatter={(value) => <span className="text-sm font-medium">{value}</span>}
-                            wrapperStyle={{ paddingLeft: "20px" }}
-                          />
-                        </RechartsPieChart>
-                      </ResponsiveContainer>
+                            </RechartsPieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex flex-wrap justify-center gap-4 mt-2">
+                          {packageData.map((entry, index) => (
+                            <div key={index} className="flex items-center">
+                              <div
+                                className="w-3 h-3 rounded-full mr-2"
+                                style={{
+                                  backgroundColor:
+                                    entry.name === "STARTER"
+                                      ? "#3b82f6"
+                                      : entry.name === "STANDARD"
+                                        ? "#22c55e"
+                                        : "#a855f7",
+                                }}
+                              />
+                              <span className="text-sm font-medium">
+                                {entry.name}: {entry.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1805,64 +1821,86 @@ export default function AnalyticsPage() {
                     </div>
                   ) : (
                     <div className="h-96 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RechartsPieChart>
-                          <Pie
-                            data={revenueByProductData}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            outerRadius={90}
-                            innerRadius={60}
-                            fill="#8884d8"
-                            dataKey="value"
-                            nameKey="name"
-                            label={({ name, percent }) =>
-                              percent > 0.05 ? `${name}: ${(percent * 100).toFixed(0)}%` : ""
-                            }
-                            paddingAngle={5}
-                          >
-                            {revenueByProductData.map((entry, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={
-                                  entry.name === "Packages"
-                                    ? "#3b82f6"
-                                    : entry.name === "Amendments"
-                                      ? "#a855f7"
-                                      : entry.name === "Annual Reports"
-                                        ? "#22c55e"
-                                        : "#f59e0b"
-                                }
-                                strokeWidth={1}
+                      <div className="flex flex-col items-center">
+                        <div className="w-full h-80">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <RechartsPieChart>
+                              <Pie
+                                data={revenueByProductData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                outerRadius={110}
+                                innerRadius={70}
+                                fill="#8884d8"
+                                dataKey="value"
+                                nameKey="name"
+                                label={({ name, percent }) => (percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : "")}
+                                paddingAngle={5}
+                              >
+                                {revenueByProductData.map((entry, index) => (
+                                  <Cell
+                                    key={`cell-${index}`}
+                                    fill={
+                                      entry.name === "Packages"
+                                        ? "#3b82f6"
+                                        : entry.name === "Amendments"
+                                          ? "#a855f7"
+                                          : entry.name === "Annual Reports"
+                                            ? "#22c55e"
+                                            : "#f59e0b"
+                                    }
+                                    strokeWidth={1}
+                                  />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                formatter={revenueTooltipFormatter}
+                                contentStyle={{
+                                  backgroundColor: "rgba(255, 255, 255, 0.95)",
+                                  borderRadius: "8px",
+                                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                                  border: "none",
+                                  padding: "10px 14px",
+                                }}
                               />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            formatter={revenueTooltipFormatter}
-                            contentStyle={{
-                              backgroundColor: "rgba(255, 255, 255, 0.95)",
-                              borderRadius: "8px",
-                              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-                              border: "none",
-                              padding: "10px 14px",
-                            }}
-                          />
-                          <Legend
-                            layout="vertical"
-                            verticalAlign="middle"
-                            align="right"
-                            formatter={(value) => <span className="text-sm font-medium">{value}</span>}
-                            wrapperStyle={{ paddingLeft: "20px" }}
-                          />
-                        </RechartsPieChart>
-                      </ResponsiveContainer>
+                            </RechartsPieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex flex-wrap justify-center gap-4 mt-2">
+                          {revenueByProductData.map((entry, index) => (
+                            <div key={index} className="flex items-center">
+                              <div
+                                className="w-3 h-3 rounded-full mr-2"
+                                style={{
+                                  backgroundColor:
+                                    entry.name === "Packages"
+                                      ? "#3b82f6"
+                                      : entry.name === "Amendments"
+                                        ? "#a855f7"
+                                        : entry.name === "Annual Reports"
+                                          ? "#22c55e"
+                                          : entry.name === "Templates"
+                                            ? "#f59e0b"
+                                            : "#9333ea",
+                                }}
+                              />
+                              <span className="text-sm font-medium">
+                                {entry.name}: {formatCurrency(entry.value)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-medium mb-4">Monthly Template Revenue</h4>
+                  <h4 className="text-sm font-medium mb-4">
+                    Template Revenue by Month (Total:{" "}
+                    {formatCurrency(revenueByTemplateData.reduce((sum, item) => sum + item.revenue, 0))})
+                  </h4>
                   {loadingRevenueAnalytics ? (
                     <div className="h-96 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
                       <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
