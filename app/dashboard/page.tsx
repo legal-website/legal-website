@@ -16,6 +16,8 @@ import {
   Download,
   ExternalLink,
   Loader2,
+  AlertCircle,
+  CalendarIcon,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
@@ -86,6 +88,28 @@ interface Template {
   downloadCount?: number // User-specific download count
 }
 
+// Add these interfaces after the other interfaces
+interface Amendment {
+  id: string
+  type: string
+  details: string
+  status: string
+  createdAt: string
+  updatedAt: string
+  paymentAmount?: number | string
+  notes?: string
+}
+
+interface Deadline {
+  id: string
+  title: string
+  description: string | null
+  dueDate: string
+  fee: number
+  lateFee: number | null
+  status: string
+}
+
 // Add this interface after the other interfaces
 interface Ticket {
   id: string
@@ -152,6 +176,45 @@ export default function DashboardPage() {
   // Add this to the state declarations at the top of the component
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [ticketsLoading, setTicketsLoading] = useState(true)
+  // Add these state variables in the DashboardPage component
+  const [amendments, setAmendments] = useState<Amendment[]>([])
+  const [deadlines, setDeadlines] = useState<Deadline[]>([])
+  const [amendmentsLoading, setAmendmentsLoading] = useState(true)
+  const [deadlinesLoading, setDeadlinesLoading] = useState(true)
+
+  const fetchAmendments = async () => {
+    try {
+      // Replace with your actual API endpoint
+      const response = await fetch("/api/user/amendments")
+      if (response.ok) {
+        const data = await response.json()
+        setAmendments(data.amendments || [])
+      } else {
+        console.error("Failed to fetch amendments")
+      }
+    } catch (error) {
+      console.error("Error fetching amendments:", error)
+    } finally {
+      setAmendmentsLoading(false)
+    }
+  }
+
+  const fetchDeadlines = async () => {
+    try {
+      // Replace with your actual API endpoint
+      const response = await fetch("/api/user/deadlines")
+      if (response.ok) {
+        const data = await response.json()
+        setDeadlines(data.deadlines || [])
+      } else {
+        console.error("Failed to fetch deadlines")
+      }
+    } catch (error) {
+      console.error("Error fetching deadlines:", error)
+    } finally {
+      setDeadlinesLoading(false)
+    }
+  }
 
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -186,6 +249,8 @@ export default function DashboardPage() {
       fetchTemplates()
       fetchUserDownloadCounts()
       fetchTickets() // Add this line
+      fetchAmendments() // Add this line
+      fetchDeadlines() // Add this line
     } else {
       setLoading(false)
     }
@@ -880,6 +945,23 @@ export default function DashboardPage() {
     ? templates.filter((t) => t.isPurchased && !t.isFree) // Show purchased non-free templates
     : templates.filter((t) => t.isFree) // Show only free templates if no purchases
 
+  // Add a helper function to format currency
+  const formatCurrency = (amount: number | string | undefined): string => {
+    if (amount === undefined || amount === null) return "$0.00"
+    const numAmount = typeof amount === "number" ? amount : Number(amount)
+    if (isNaN(numAmount)) return "$0.00"
+    return `$${numAmount.toFixed(2)}`
+  }
+
+  // Add a helper function to calculate days left
+  const calculateDaysLeft = (dueDate: string) => {
+    const today = new Date()
+    const due = new Date(dueDate)
+    const diffTime = due.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays
+  }
+
   if (loading) {
     return <DashboardLoader />
   }
@@ -1213,6 +1295,125 @@ export default function DashboardPage() {
           )}
         </div>
       </Card>
+
+      {/* Amendments and Deadlines Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Amendments Card */}
+        <Card>
+          <div className="p-6 border-b flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Status of My Amendments</h2>
+            <Link href="/dashboard/compliance/amendments" passHref>
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <span>View All</span>
+                <ExternalLink className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+          <div className="p-6">
+            {amendmentsLoading ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              </div>
+            ) : amendments.length > 0 ? (
+              <div className="space-y-4">
+                {amendments.map((amendment) => (
+                  <div key={amendment.id} className="border rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="font-medium">{amendment.type}</p>
+                        <p className="text-xs text-gray-600">
+                          Submitted: {new Date(amendment.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                        Payment Required
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700 mb-3 line-clamp-2">{amendment.details}</p>
+                    {amendment.paymentAmount && (
+                      <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <p className="text-sm font-medium">Payment Required:</p>
+                          <p className="font-bold">{formatCurrency(amendment.paymentAmount)}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500 mb-4">No amendments requiring payment</p>
+                <Link href="/dashboard/compliance/amendments" passHref>
+                  <Button variant="default">Submit Amendment</Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Deadlines Card */}
+        <Card>
+          <div className="p-6 border-b flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Upcoming Deadlines</h2>
+            <Link href="/dashboard/compliance/annual-reports" passHref>
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <span>View All</span>
+                <ExternalLink className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+          <div className="p-6">
+            {deadlinesLoading ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              </div>
+            ) : deadlines.length > 0 ? (
+              <div className="space-y-4">
+                {deadlines.slice(0, 3).map((deadline) => {
+                  const daysLeft = calculateDaysLeft(deadline.dueDate)
+                  const isUrgent = daysLeft <= 30
+
+                  return (
+                    <div key={deadline.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          {isUrgent ? (
+                            <AlertCircle className="h-5 w-5 text-red-500" />
+                          ) : (
+                            <CalendarIcon className="h-5 w-5 text-[#22c984]" />
+                          )}
+                          <div>
+                            <p className="font-medium">{deadline.title}</p>
+                            <p className="text-xs text-gray-600">
+                              Due: {new Date(deadline.dueDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full ${
+                            isUrgent ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {daysLeft} days left
+                        </span>
+                      </div>
+                      {deadline.description && (
+                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">{deadline.description}</p>
+                      )}
+                      <p className="text-sm text-gray-600">Fee: ${Number(deadline.fee).toFixed(2)}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No upcoming deadlines at this time</p>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
 
       {/* Help Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
