@@ -112,7 +112,7 @@ interface RevenueByMonthDataPoint {
 }
 
 interface TemplateRevenueDataPoint {
-  name: string
+  name: string // Month
   revenue: number
 }
 
@@ -895,70 +895,50 @@ export default function AnalyticsPage() {
       const filteredRevenueByProduct = revenueByProduct.filter((item) => item.value > 0)
       setRevenueByProductData(filteredRevenueByProduct)
 
-      // 6. Calculate revenue by templates - only from template invoices
+      // 6. Calculate revenue by templates - monthly trend instead of by template type
       const templateInvoices = paidInvoices.filter((invoice) => isTemplateInvoice(invoice))
 
-      // Group template invoices by template type
-      const templateRevenueMap: Record<string, number> = {}
+      // Group template invoices by month
+      const monthlyTemplateRevenue: Record<string, number> = {}
 
+      // Get the last 12 months
+      const twelveMonthsAgoDate = subMonths(now, 11)
+      const monthRangeTemplate = eachMonthOfInterval({
+        start: startOfMonth(twelveMonthsAgoDate),
+        end: endOfMonth(now),
+      })
+
+      // Initialize all months with zero
+      monthRangeTemplate.forEach((month) => {
+        const monthKey = format(month, "MMM yyyy")
+        monthlyTemplateRevenue[monthKey] = 0
+      })
+
+      // Add revenue to appropriate months
       templateInvoices.forEach((invoice) => {
-        let templateName = "Unknown Template"
-
-        // Try to extract template name from items
-        try {
-          let items = invoice.items
-          if (typeof items === "string") {
-            items = JSON.parse(items)
-          }
-
-          if (Array.isArray(items)) {
-            if (items.length > 0) {
-              if (items[0].tier) {
-                templateName = items[0].tier
-              } else if (items[0].template) {
-                templateName = items[0].template
-              } else if (items[0].name) {
-                templateName = items[0].name
-              }
-            }
-          } else if (items && typeof items === "object") {
-            // Check if it's an object with numeric keys
-            if (items["0"]) {
-              if (items["0"].tier) {
-                templateName = items["0"].tier
-              } else if (items["0"].template) {
-                templateName = items["0"].template
-              } else if (items["0"].name) {
-                templateName = items["0"].name
-              }
-            } else if (items.templateName) {
-              templateName = items.templateName
-            } else if (items.name) {
-              templateName = items.name
-            }
-          }
-        } catch (e) {
-          console.error("Error parsing template invoice items:", e)
+        const invoiceDate = new Date(invoice.createdAt)
+        if (invoiceDate >= twelveMonthsAgoDate && invoiceDate <= now) {
+          const monthKey = format(invoiceDate, "MMM yyyy")
+          monthlyTemplateRevenue[monthKey] = (monthlyTemplateRevenue[monthKey] || 0) + invoice.amount
         }
-
-        if (!templateRevenueMap[templateName]) {
-          templateRevenueMap[templateName] = 0
-        }
-        templateRevenueMap[templateName] += invoice.amount
       })
 
       // Convert to array for chart
-      const templateRevenueData: TemplateRevenueDataPoint[] = Object.entries(templateRevenueMap).map(
-        ([name, revenue]) => ({
-          name,
+      const templateRevenueData: TemplateRevenueDataPoint[] = Object.entries(monthlyTemplateRevenue).map(
+        ([month, revenue]) => ({
+          name: month,
           revenue,
         }),
       )
 
-      // Sort by revenue (descending)
-      templateRevenueData.sort((a, b) => b.revenue - a.revenue)
-      setRevenueByTemplateData(templateRevenueData)
+      // Sort chronologically
+      templateRevenueData.sort((a, b) => {
+        const dateA = new Date(a.name)
+        const dateB = new Date(b.name)
+        return dateA.getTime() - dateB.getTime()
+      })
 
+      setRevenueByTemplateData(templateRevenueData)
       // 7. Calculate revenue trend (monthly)
       // Get the last 12 months
       const twelveMonthsAgo = subMonths(now, 11)
@@ -1498,24 +1478,26 @@ export default function AnalyticsPage() {
                 <div>
                   <h4 className="text-sm font-medium mb-4">Packages Analytics</h4>
                   {loadingUserAnalytics ? (
-                    <div className="h-80 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                    <div className="h-96 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
                       <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
                     </div>
                   ) : (
-                    <div className="h-80 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                    <div className="h-96 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
                       <ResponsiveContainer width="100%" height="100%">
                         <RechartsPieChart>
                           <Pie
                             data={packageData}
                             cx="50%"
                             cy="50%"
-                            labelLine={true}
-                            outerRadius={100}
+                            labelLine={false}
+                            outerRadius={90}
                             innerRadius={60}
                             fill="#8884d8"
                             dataKey="value"
                             nameKey="name"
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            label={({ name, percent }) =>
+                              percent > 0.05 ? `${name}: ${(percent * 100).toFixed(0)}%` : ""
+                            }
                             paddingAngle={5}
                           >
                             {packageData.map((entry, index) => (
@@ -1543,10 +1525,11 @@ export default function AnalyticsPage() {
                             }}
                           />
                           <Legend
-                            layout="horizontal"
-                            verticalAlign="bottom"
-                            align="center"
+                            layout="vertical"
+                            verticalAlign="middle"
+                            align="right"
                             formatter={(value) => <span className="text-sm font-medium">{value}</span>}
+                            wrapperStyle={{ paddingLeft: "20px" }}
                           />
                         </RechartsPieChart>
                       </ResponsiveContainer>
@@ -1557,11 +1540,11 @@ export default function AnalyticsPage() {
                 <div>
                   <h4 className="text-sm font-medium mb-4">User Retention</h4>
                   {loadingUserAnalytics ? (
-                    <div className="h-80 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                    <div className="h-96 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
                       <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
                     </div>
                   ) : (
-                    <div className="h-80 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                    <div className="h-96 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
                       <ResponsiveContainer width="100%" height="100%">
                         <RechartsLineChart
                           data={retentionData}
@@ -1817,24 +1800,26 @@ export default function AnalyticsPage() {
                 <div>
                   <h4 className="text-sm font-medium mb-4">Revenue by Product</h4>
                   {loadingRevenueAnalytics ? (
-                    <div className="h-80 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                    <div className="h-96 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
                       <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
                     </div>
                   ) : (
-                    <div className="h-80 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                    <div className="h-96 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
                       <ResponsiveContainer width="100%" height="100%">
                         <RechartsPieChart>
                           <Pie
                             data={revenueByProductData}
                             cx="50%"
                             cy="50%"
-                            labelLine={true}
-                            outerRadius={80}
-                            innerRadius={50}
+                            labelLine={false}
+                            outerRadius={90}
+                            innerRadius={60}
                             fill="#8884d8"
                             dataKey="value"
                             nameKey="name"
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            label={({ name, percent }) =>
+                              percent > 0.05 ? `${name}: ${(percent * 100).toFixed(0)}%` : ""
+                            }
                             paddingAngle={5}
                           >
                             {revenueByProductData.map((entry, index) => (
@@ -1847,7 +1832,7 @@ export default function AnalyticsPage() {
                                       ? "#a855f7"
                                       : entry.name === "Annual Reports"
                                         ? "#22c55e"
-                                        : "#a855f7"
+                                        : "#f59e0b"
                                 }
                                 strokeWidth={1}
                               />
@@ -1868,6 +1853,7 @@ export default function AnalyticsPage() {
                             verticalAlign="middle"
                             align="right"
                             formatter={(value) => <span className="text-sm font-medium">{value}</span>}
+                            wrapperStyle={{ paddingLeft: "20px" }}
                           />
                         </RechartsPieChart>
                       </ResponsiveContainer>
@@ -1876,13 +1862,13 @@ export default function AnalyticsPage() {
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-medium mb-4">Revenue by Templates</h4>
+                  <h4 className="text-sm font-medium mb-4">Monthly Template Revenue</h4>
                   {loadingRevenueAnalytics ? (
-                    <div className="h-80 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                    <div className="h-96 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
                       <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
                     </div>
                   ) : (
-                    <div className="h-80 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
+                    <div className="h-96 w-full bg-white dark:bg-gray-800 rounded-lg border p-4">
                       <ResponsiveContainer width="100%" height="100%">
                         <RechartsBarChart
                           data={revenueByTemplateData}
@@ -1890,34 +1876,17 @@ export default function AnalyticsPage() {
                             top: 20,
                             right: 30,
                             left: 20,
-                            bottom: 60,
+                            bottom: 30,
                           }}
                         >
                           <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
-
                           <XAxis
                             dataKey="name"
-                            tick={(props) => {
-                              const { x, y, payload } = props
-                              return (
-                                <g transform={`translate(${x},${y})`}>
-                                  <text
-                                    x={0}
-                                    y={0}
-                                    dy={16}
-                                    textAnchor="end"
-                                    fill="#666"
-                                    fontSize={12}
-                                    transform="rotate(-45)"
-                                  >
-                                    {payload.value}
-                                  </text>
-                                </g>
-                              )
-                            }}
-                            height={60}
+                            tick={{ fontSize: 12 }}
                             tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
                             axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                            height={50}
+                            tickFormatter={(value) => value.split(" ")[0]} // Just show month abbreviation
                           />
                           <YAxis
                             tick={{ fontSize: 12 }}
@@ -1944,7 +1913,7 @@ export default function AnalyticsPage() {
                           />
                           <Bar dataKey="revenue" name="Template Revenue" fill="#8884d8" radius={[4, 4, 0, 0]}>
                             {revenueByTemplateData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={`hsl(${(index * 45) % 360}, 70%, 60%)`} />
+                              <Cell key={`cell-${index}`} fill="#8884d8" />
                             ))}
                           </Bar>
                         </RechartsBarChart>
