@@ -7,42 +7,38 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import {
-  ArrowUpRight,
-  ArrowDownRight,
-  Calendar,
-  Download,
-  RefreshCw,
-  TrendingUp,
-  Users,
-  FileText,
-  DollarSign,
-  ShoppingCart,
-  Activity,
-  BarChart2,
-  PieChart,
-  LineChart,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-} from "lucide-react"
+import { ArrowUpRight, ArrowDownRight, Calendar, Download, RefreshCw, TrendingUp, Users, FileText, DollarSign, ShoppingCart, Activity, BarChart2, PieChart, LineChart, Clock, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { format, subDays, subMonths, isAfter, parseISO } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 
 // In the imports section, add these imports:
 import { LineChart as RechartsLineChart, PieChart as RechartsPieChart } from "recharts"
-import { Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts"
+import { Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, TooltipProps } from "recharts"
+import { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent"
 
-// Define interfaces for our data
+// Define interfaces for our data based on the Prisma schema
 interface Invoice {
   id: string
   amount: number
   status: string
   createdAt: string
   invoiceNumber: string
-  items: any
-  isTemplateInvoice: boolean
+  items: InvoiceItems | string
+  isTemplateInvoice?: boolean
+  customerName?: string
+  customerEmail?: string
+}
+
+interface InvoiceItems {
+  [key: string]: {
+    tier?: string
+    price?: number
+    stateFee?: number
+    state?: string
+    discount?: number
+    templateId?: string
+    type?: string
+  }
 }
 
 interface User {
@@ -52,16 +48,36 @@ interface User {
   lastActive: string
   status: string
   updatedAt: string
+  email?: string
+  name?: string
 }
 
 interface Document {
   id: string
   createdAt: string
+  name?: string
+  category?: string
 }
 
 interface Template {
   id: string
   usageCount: number
+}
+
+// Define types for chart data
+interface UserGrowthDataPoint {
+  date: string
+  users: number
+}
+
+interface RetentionDataPoint {
+  date: string
+  activeUsers: number
+}
+
+interface PackageDataPoint {
+  name: string
+  value: number
 }
 
 export default function AnalyticsPage() {
@@ -86,9 +102,10 @@ export default function AnalyticsPage() {
   const [newSignupsChange, setNewSignupsChange] = useState(0)
   const [churnRate, setChurnRate] = useState(0)
   const [churnRateChange, setChurnRateChange] = useState(0)
-  const [userGrowthData, setUserGrowthData] = useState([])
-  const [packageData, setPackageData] = useState([])
-  const [retentionData, setRetentionData] = useState([])
+  // Replace the state variables with properly typed ones:
+  const [userGrowthData, setUserGrowthData] = useState<UserGrowthDataPoint[]>([])
+  const [packageData, setPackageData] = useState<PackageDataPoint[]>([])
+  const [retentionData, setRetentionData] = useState<RetentionDataPoint[]>([])
   const [loadingUserAnalytics, setLoadingUserAnalytics] = useState(true)
 
   // Add loading states
@@ -334,7 +351,7 @@ export default function AnalyticsPage() {
       const users = data.users || []
 
       // Filter only client users
-      const clientUsers = users.filter((user) => user.role === "CLIENT")
+      const clientUsers = users.filter((user: User) => user.role === "CLIENT")
 
       // Calculate metrics based on date range
       const { startDate, previousStartDate, endDate, previousEndDate } = getDateRange()
@@ -343,12 +360,12 @@ export default function AnalyticsPage() {
 
       // Active Users (active in the last 10 days)
       const currentActiveUsers = clientUsers.filter(
-        (user) => new Date(user.lastActive) > tenDaysAgo && user.status === "Active",
+        (user: User) => new Date(user.lastActive) > tenDaysAgo && user.status === "Active",
       ).length
 
       // Previous period active users
       const previousActiveUsers = clientUsers.filter(
-        (user) =>
+        (user: User) =>
           new Date(user.lastActive) >
             subDays(
               tenDaysAgo,
@@ -365,11 +382,11 @@ export default function AnalyticsPage() {
       ).length
 
       // New Signups (enrolled in the last 10 days)
-      const currentNewSignups = clientUsers.filter((user) => new Date(user.createdAt) > tenDaysAgo).length
+      const currentNewSignups = clientUsers.filter((user: User) => new Date(user.createdAt) > tenDaysAgo).length
 
       // Previous period new signups
       const previousNewSignups = clientUsers.filter(
-        (user) =>
+        (user: User) =>
           new Date(user.createdAt) >
             subDays(
               tenDaysAgo,
@@ -387,16 +404,16 @@ export default function AnalyticsPage() {
 
       // Calculate Churn Rate
       const inactiveUsers = clientUsers.filter(
-        (user) => user.status !== "Active" && new Date(user.updatedAt) > tenDaysAgo,
+        (user: User) => user.status !== "Active" && new Date(user.updatedAt) > tenDaysAgo,
       ).length
 
-      const totalUsersBeforeTenDays = clientUsers.filter((user) => new Date(user.createdAt) < tenDaysAgo).length
+      const totalUsersBeforeTenDays = clientUsers.filter((user: User) => new Date(user.createdAt) < tenDaysAgo).length
 
       const currentChurnRate = totalUsersBeforeTenDays > 0 ? (inactiveUsers / totalUsersBeforeTenDays) * 100 : 0
 
       // Previous period churn rate
       const previousInactiveUsers = clientUsers.filter(
-        (user) =>
+        (user: User) =>
           user.status !== "Active" &&
           new Date(user.updatedAt) >
             subDays(
@@ -415,7 +432,7 @@ export default function AnalyticsPage() {
       ).length
 
       const previousTotalUsersBeforeTenDays = clientUsers.filter(
-        (user) =>
+        (user: User) =>
           new Date(user.createdAt) <
           subDays(
             tenDaysAgo,
@@ -445,7 +462,7 @@ export default function AnalyticsPage() {
         previousChurnRate === 0 ? 0 : ((currentChurnRate - previousChurnRate) / previousChurnRate) * 100
 
       // Prepare user growth data for chart
-      const growthData = []
+      const growthData: UserGrowthDataPoint[] = []
 
       // Determine interval based on time range
       let interval = 1 // days
@@ -479,7 +496,7 @@ export default function AnalyticsPage() {
               ? format(new Date(date), "MMM")
               : format(new Date(date), "MMM dd")
 
-        const usersAtDate = clientUsers.filter((user) => new Date(user.createdAt) <= new Date(date)).length
+        const usersAtDate = clientUsers.filter((user: User) => new Date(user.createdAt) <= new Date(date)).length
 
         growthData.push({
           date: formattedDate,
@@ -488,7 +505,7 @@ export default function AnalyticsPage() {
       }
 
       // Prepare retention data
-      const retentionData = []
+      const retentionData: RetentionDataPoint[] = []
 
       for (let i = steps - 1; i >= 0; i--) {
         const date = timeRange === "day" ? subDays(now, 0).setHours(now.getHours() - i) : subDays(now, i * interval)
@@ -501,7 +518,7 @@ export default function AnalyticsPage() {
               : format(new Date(date), "MMM dd")
 
         const activeUsersAtDate = clientUsers.filter(
-          (user) =>
+          (user: User) =>
             new Date(user.createdAt) <= new Date(date) &&
             (user.status === "Active" || new Date(user.updatedAt) > new Date(date)),
         ).length
@@ -547,13 +564,13 @@ export default function AnalyticsPage() {
 
       // Filter regular invoices (those starting with INV)
       const regularInvoices = invoices.filter(
-        (invoice) => invoice.invoiceNumber.startsWith("INV") || (invoice.items && !invoice.isTemplateInvoice),
+        (invoice: Invoice) => invoice.invoiceNumber.startsWith("INV") || (invoice.items && !invoice.isTemplateInvoice),
       )
 
       // Extract package data
-      const packages = {}
+      const packages: Record<string, number> = {}
 
-      regularInvoices.forEach((invoice) => {
+      regularInvoices.forEach((invoice: Invoice) => {
         let items = invoice.items
 
         // Parse items if they're a string
@@ -568,7 +585,7 @@ export default function AnalyticsPage() {
 
         // Process items
         if (Array.isArray(items)) {
-          items.forEach((item) => {
+          items.forEach((item: any) => {
             if (item.tier) {
               if (!packages[item.tier]) {
                 packages[item.tier] = 0
@@ -578,7 +595,7 @@ export default function AnalyticsPage() {
           })
         } else if (items && typeof items === "object") {
           // Handle case where items is an object with numeric keys
-          Object.values(items).forEach((item) => {
+          Object.values(items).forEach((item: any) => {
             if (item.tier) {
               if (!packages[item.tier]) {
                 packages[item.tier] = 0
@@ -590,7 +607,7 @@ export default function AnalyticsPage() {
       })
 
       // Convert to array for chart
-      const packageData = Object.entries(packages).map(([name, count]) => ({
+      const packageData: PackageDataPoint[] = Object.entries(packages).map(([name, count]) => ({
         name,
         value: count,
       }))
@@ -658,6 +675,14 @@ export default function AnalyticsPage() {
         startDate = subDays(now, 30)
         return `${format(startDate, "MMM d, yyyy")} - ${format(now, "MMM d, yyyy")}`
     }
+  }
+
+  // Custom formatter for the tooltip
+  const customTooltipFormatter = (value: ValueType, name: NameType, entry: any) => {
+    if (entry && entry.payload && entry.payload.name) {
+      return [`${value} sales`, entry.payload.name]
+    }
+    return [`${value} sales`, name]
   }
 
   return (
@@ -1114,15 +1139,7 @@ export default function AnalyticsPage() {
                               />
                             ))}
                           </Pie>
-                          <Tooltip
-                            formatter={(value, name, props) => [`${value} sales`, props.payload.name]}
-                            contentStyle={{
-                              backgroundColor: "rgba(255, 255, 255, 0.9)",
-                              borderRadius: "8px",
-                              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                              border: "none",
-                            }}
-                          />
+                          <Tooltip formatter={customTooltipFormatter} />
                           <Legend />
                         </RechartsPieChart>
                       </ResponsiveContainer>
@@ -1712,4 +1729,3 @@ function ComplianceItem({
     </div>
   )
 }
-
