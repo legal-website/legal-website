@@ -722,6 +722,14 @@ export default function AnalyticsPage() {
       const invoicesData = await invoicesResponse.json()
       const invoices: Invoice[] = invoicesData.invoices || []
 
+      // Fetch amendments
+      const amendmentsResponse = await fetch("/api/admin/amendments")
+      if (!amendmentsResponse.ok) {
+        console.warn("Failed to fetch amendments, using empty array")
+      }
+      const amendmentsData = await amendmentsResponse.json().catch(() => ({ amendments: [] }))
+      const amendments: Amendment[] = amendmentsData.amendments || []
+
       // Fetch annual report filings
       const filingsResponse = await fetch("/api/admin/annual-reports/filings")
       if (!filingsResponse.ok) {
@@ -803,6 +811,10 @@ export default function AnalyticsPage() {
         }
       })
 
+      // b. Revenue from amendments
+      const approvedAmendments = amendments.filter((amendment) => amendment.status === "approved")
+      const amendmentRevenue = approvedAmendments.reduce((sum, amendment) => sum + (amendment.paymentAmount || 0), 0)
+
       // c. Revenue from annual report filings
       let annualReportRevenue = 0
 
@@ -827,6 +839,7 @@ export default function AnalyticsPage() {
       // Set revenue by product data
       const revenueByProduct: RevenueDataPoint[] = [
         { name: "Packages", value: packageRevenue },
+        { name: "Amendments", value: amendmentRevenue },
         { name: "Annual Reports", value: annualReportRevenue },
       ]
       setRevenueByProductData(revenueByProduct)
@@ -1767,9 +1780,11 @@ export default function AnalyticsPage() {
                                 fill={
                                   entry.name === "Packages"
                                     ? "#3b82f6"
-                                    : entry.name === "Annual Reports"
-                                      ? "#22c55e"
-                                      : "#a855f7"
+                                    : entry.name === "Amendments"
+                                      ? "#a855f7"
+                                      : entry.name === "Annual Reports"
+                                        ? "#22c55e"
+                                        : "#a855f7"
                                 }
                                 strokeWidth={1}
                               />
