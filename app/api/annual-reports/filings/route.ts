@@ -3,6 +3,38 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 
+// Define types for our data
+interface Deadline {
+  id: string
+  title: string
+  dueDate: string | Date
+  fee: number
+  lateFee: number | null
+  status: string
+}
+
+interface Filing {
+  id: string
+  userId: string
+  deadlineId: string
+  status: string
+  createdAt: string | Date
+  updatedAt: string | Date
+  receiptUrl: string | null
+  reportUrl: string | null
+  filedDate: string | Date | null
+  userNotes: string | null
+  adminNotes: string | null
+  deadline?: {
+    id: string
+    title: string
+    dueDate: string | Date
+    fee: number
+    lateFee: number | null
+    status: string
+  } | null
+}
+
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -11,17 +43,40 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get filings for the current user
+    // Get filings for the current user with complete deadline data
     const filings = await prisma.annualReportFiling.findMany({
       where: {
         userId: session.user.id,
+      },
+      include: {
+        deadline: {
+          select: {
+            id: true,
+            title: true,
+            dueDate: true,
+            fee: true,
+            lateFee: true,
+            status: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
       },
     })
 
-    return NextResponse.json({ filings })
+    // Process filings to ensure all required data is present
+    const processedFilings = filings.map((filing: Filing) => {
+      return {
+        ...filing,
+        deadlineTitle: filing.deadline?.title || "Unknown Deadline",
+        dueDate: filing.deadline?.dueDate || null,
+      }
+    })
+
+    console.log(`Client API: Found ${filings.length} filings for user ${session.user.id}`)
+
+    return NextResponse.json({ filings: processedFilings })
   } catch (error) {
     console.error("Error fetching filings:", error)
     return NextResponse.json({ filings: [] }, { status: 200 })
@@ -48,6 +103,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Receipt URL is required" }, { status: 400 })
     }
 
+    // Get the deadline to include in the response
+    const deadline = await prisma.annualReportDeadline.findUnique({
+      where: { id: data.deadlineId },
+      select: {
+        id: true,
+        title: true,
+        dueDate: true,
+        fee: true,
+        lateFee: true,
+        status: true,
+      },
+    })
+
+    if (!deadline) {
+      return NextResponse.json({ error: "Deadline not found" }, { status: 404 })
+    }
+
     // Create a new filing
     try {
       const filing = await prisma.annualReportFiling.create({
@@ -62,7 +134,22 @@ export async function POST(req: Request) {
       })
 
       console.log("Filing created successfully:", filing)
-      return NextResponse.json({ filing })
+
+      // Update the deadline status
+      await prisma.annualReportDeadline.update({
+        where: { id: data.deadlineId },
+        data: { status: "pending_payment" },
+      })
+
+      // Return the filing with the deadline data
+      return NextResponse.json({
+        filing: {
+          ...filing,
+          deadline,
+          deadlineTitle: deadline.title,
+          dueDate: deadline.dueDate,
+        },
+      })
     } catch (dbError: any) {
       console.error("Database error creating filing:", dbError)
       console.error("Error code:", dbError.code)

@@ -1,36 +1,111 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
 import { UserRole } from "@/lib/db/schema"
+import prisma from "@/lib/prisma"
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+// Define the Filing type
+interface Filing {
+  id: string
+  userId: string
+  deadlineId: string
+  status: string
+  createdAt: Date
+  updatedAt: Date
+  deadlineTitle?: string
+  dueDate?: Date | null
+  userName?: string
+  userEmail?: string
+  user: {
+    id: string
+    name: string | null
+    email: string | null
+  } | null
+  deadline: {
+    id: string
+    title: string
+    dueDate: Date
+    fee: number
+    lateFee: number
+    status: string
+  } | null
+}
+
+export async function GET(req: Request) {
+  console.log("Admin filings API: Starting request")
+
   try {
+    // Check authentication
     const session = await getServerSession(authOptions)
 
     if (!session?.user || (session.user as any).role !== UserRole.ADMIN) {
+      console.log("Admin filings API: Unauthorized access attempt")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const data = await req.json()
+    console.log("Admin filings API: Authentication successful, fetching filings")
 
-    // Update the filing
-    const filing = await db.annualReportFiling.update({
-      where: {
-        id: params.id,
-      },
-      data: {
-        status: data.status,
-        adminNotes: data.adminNotes,
-        reportUrl: data.reportUrl,
-        filedDate: data.filedDate ? new Date(data.filedDate) : undefined,
-      },
-    })
+    try {
+      // Simplify the query to help identify issues
+      const filings = await prisma.annualReportFiling.findMany({
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          deadline: {
+            select: {
+              id: true,
+              title: true,
+              dueDate: true,
+              fee: true,
+              lateFee: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      })
 
-    return NextResponse.json({ filing })
+      console.log(`Admin filings API: Successfully fetched ${filings.length} filings`)
+
+      // Process filings to ensure all required data is present
+      const processedFilings = filings.map((filing: Filing) => {
+        return {
+          ...filing,
+          // Ensure these fields are never undefined
+          deadlineTitle: filing.deadline?.title || "Unknown Deadline",
+          dueDate: filing.deadline?.dueDate || null,
+          userName: filing.user?.name || "Unknown User",
+          userEmail: filing.user?.email || "unknown@example.com",
+        }
+      })
+
+      return NextResponse.json({ filings: processedFilings })
+    } catch (dbError) {
+      console.error("Admin filings API: Database error:", dbError)
+      return NextResponse.json(
+        {
+          error: "Database error fetching filings",
+          details: (dbError as Error).message,
+        },
+        { status: 500 },
+      )
+    }
   } catch (error) {
-    console.error("Error updating filing:", error)
-    return NextResponse.json({ error: "Failed to update filing" }, { status: 500 })
+    console.error("Admin filings API: Unhandled error:", error)
+    return NextResponse.json(
+      {
+        error: "Error fetching filings",
+        details: (error as Error).message,
+      },
+      { status: 500 },
+    )
   }
 }
 
