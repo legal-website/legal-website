@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     }
 
     // Add tag filter if provided
-    if (tag && tag !== "all_tags") {
+    if (tag && tag !== "all_tags" && tag !== "") {
       const tagFilter = `p.id IN (
         SELECT pt.postId 
         FROM PostTag pt 
