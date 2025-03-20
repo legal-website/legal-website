@@ -43,6 +43,7 @@ export interface UserModel {
   name: string | null
   email: string
   role: string
+  image?: string | null
   // Add other fields as needed
 }
 
@@ -117,6 +118,68 @@ export interface FilingRequirementModel {
   updatedAt: Date
 }
 
+// Community models
+export interface PostModel {
+  id: string
+  title: string
+  content: string
+  authorId: string
+  status: string
+  createdAt: Date
+  updatedAt: Date
+  author?: UserModel
+  comments?: CommentModel[]
+  likes?: LikeModel[]
+  tags?: PostTagModel[]
+  _count?: {
+    likes: number
+    comments: number
+  }
+}
+
+export interface CommentModel {
+  id: string
+  content: string
+  postId: string
+  authorId: string
+  createdAt: Date
+  updatedAt: Date
+  post?: PostModel
+  author?: UserModel
+  likes?: LikeModel[]
+  _count?: {
+    likes: number
+  }
+}
+
+export interface LikeModel {
+  id: string
+  postId?: string | null
+  commentId?: string | null
+  authorId: string
+  createdAt: Date
+  post?: PostModel
+  comment?: CommentModel
+  author?: UserModel
+}
+
+export interface TagModel {
+  id: string
+  name: string
+  posts?: PostTagModel[]
+  _count?: {
+    posts: number
+  }
+}
+
+export interface PostTagModel {
+  id: string
+  postId: string
+  tagId: string
+  post?: PostModel
+  tag?: TagModel
+}
+
 // Define query options types
 export interface AmendmentInclude {
   user?: boolean | { select?: { id?: boolean; name?: boolean; email?: boolean } }
@@ -177,6 +240,46 @@ export interface FilingRequirementDelegate {
   delete: (args: { where: { id: string } }) => Promise<FilingRequirementModel>
 }
 
+// Community delegates
+export interface PostDelegate {
+  findMany: (args?: any) => Promise<PostModel[]>
+  findUnique: (args: { where: { id: string }; include?: any }) => Promise<PostModel | null>
+  create: (args: { data: any; include?: any }) => Promise<PostModel>
+  update: (args: { where: { id: string }; data: any }) => Promise<PostModel>
+  delete: (args: { where: { id: string } }) => Promise<PostModel>
+  count: (args?: any) => Promise<number>
+}
+
+export interface CommentDelegate {
+  findMany: (args?: any) => Promise<CommentModel[]>
+  findUnique: (args: { where: { id: string }; include?: any }) => Promise<CommentModel | null>
+  create: (args: { data: any; include?: any }) => Promise<CommentModel>
+  update: (args: { where: { id: string }; data: any }) => Promise<CommentModel>
+  delete: (args: { where: { id: string } }) => Promise<CommentModel>
+  count: (args?: any) => Promise<number>
+}
+
+export interface LikeDelegate {
+  findMany: (args?: any) => Promise<LikeModel[]>
+  findFirst: (args: { where: any }) => Promise<LikeModel | null>
+  create: (args: { data: any }) => Promise<LikeModel>
+  delete: (args: { where: any }) => Promise<LikeModel>
+  deleteMany: (args: { where: any }) => Promise<{ count: number }>
+}
+
+export interface TagDelegate {
+  findMany: (args?: any) => Promise<TagModel[]>
+  findUnique: (args: { where: any; include?: any }) => Promise<TagModel | null>
+  create: (args: { data: any }) => Promise<TagModel>
+  update: (args: { where: any; data: any }) => Promise<TagModel>
+  count: (args?: any) => Promise<number>
+}
+
+export interface PostTagDelegate {
+  create: (args: { data: any }) => Promise<PostTagModel>
+  deleteMany: (args: { where: any }) => Promise<{ count: number }>
+}
+
 // Extended PrismaClient with all models - SINGLE DEFINITION
 export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   amendment: AmendmentDelegate
@@ -184,7 +287,16 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   annualReportDeadline: AnnualReportDeadlineDelegate
   annualReportFiling: AnnualReportFilingDelegate
   filingRequirement: FilingRequirementDelegate
+  // Add community models
+  post: PostDelegate
+  comment: CommentDelegate
+  like: LikeDelegate
+  tag: TagDelegate
+  postTag: PostTagDelegate
   // Include raw query methods with proper typing
-  $queryRaw: any  // Using 'any' to avoid TypeScript errors
-  $executeRaw: any  // Using 'any' to avoid TypeScript errors
+  $queryRaw: any // Using 'any' to avoid TypeScript errors
+  $executeRaw: any // Using 'any' to avoid TypeScript errors
+  $queryRawUnsafe: <T = any>(query: string, ...values: any[]) => Promise<T>
+  $executeRawUnsafe: <T = any>(query: string, ...values: any[]) => Promise<T>
 }
+

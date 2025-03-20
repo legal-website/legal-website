@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Ticket,
   CreditCard,
+  MessageCircle,
 } from "lucide-react"
 
 interface MenuItem {
@@ -75,6 +76,17 @@ const menuItems: MenuItem[] = [
     icon: Bell,
     label: "Notifications",
     href: "/admin/notifications",
+  },
+  {
+    icon: MessageCircle,
+    label: "Community",
+    href: "/admin/community",
+    badge: "New",
+    subItems: [
+      { label: "Manage Posts", href: "/admin/community" },
+      { label: "Moderation", href: "/admin/community/moderation" },
+      { label: "Reports", href: "/admin/community/reports" },
+    ],
   },
   {
     icon: BarChart3,
