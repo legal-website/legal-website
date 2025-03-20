@@ -70,6 +70,7 @@ interface Amendment {
   status: string
   paymentAmount: number
   createdAt: string
+  type?: string
 }
 
 interface AnnualReportFiling {
@@ -158,6 +159,17 @@ export default function AnalyticsPage() {
   const [revenueTrendData, setRevenueTrendData] = useState<RevenueByMonthDataPoint[]>([])
   const [loadingRevenueAnalytics, setLoadingRevenueAnalytics] = useState(true)
   const [totalTemplateRevenue, setTotalTemplateRevenue] = useState(0)
+
+  // First, add these new state variables and functions near the other state declarations
+  const [topRevenueSources, setTopRevenueSources] = useState<
+    {
+      name: string
+      revenue: number
+      growth: number
+      customers: number
+    }[]
+  >([])
+  const [loadingRevenueSources, setLoadingRevenueSources] = useState(true)
 
   // Date range calculation based on selected time range
   const getDateRange = useCallback(() => {
@@ -791,8 +803,13 @@ export default function AnalyticsPage() {
 
           // If we have template invoices from this endpoint, use them
           if (templateTabInvoices.length > 0) {
-            const paidTemplateTabInvoices = templateTabInvoices.filter((inv: { status: string }) => inv.status === "paid")
-            const templateTabRevenue = paidTemplateTabInvoices.reduce((sum: any, inv: { amount: any }) => sum + inv.amount, 0)
+            const paidTemplateTabInvoices = templateTabInvoices.filter(
+              (inv: { status: string }) => inv.status === "paid",
+            )
+            const templateTabRevenue = paidTemplateTabInvoices.reduce(
+              (sum: any, inv: { amount: any }) => sum + inv.amount,
+              0,
+            )
             console.log(`Template tab revenue: ${templateTabRevenue}`)
 
             // Use these invoices if we found paid ones
@@ -1050,6 +1067,169 @@ export default function AnalyticsPage() {
     }
   }, [toast])
 
+  // Add this new function after fetchRevenueAnalytics
+  const fetchTopRevenueSources = useCallback(async () => {
+    try {
+      setLoadingRevenueSources(true)
+
+      // Fetch invoices for package data
+      const invoicesResponse = await fetch("/api/admin/invoices")
+      if (!invoicesResponse.ok) {
+        throw new Error("Failed to fetch invoices")
+      }
+      const invoicesData = await invoicesResponse.json()
+      const invoices: Invoice[] = invoicesData.invoices || []
+
+      // Fetch amendments for amendment types
+      const amendmentsResponse = await fetch("/api/admin/amendments")
+      if (!amendmentsResponse.ok) {
+        console.warn("Failed to fetch amendments, using empty array")
+      }
+      const amendmentsData = await amendmentsResponse.json().catch(() => ({ amendments: [] }))
+      const amendments: Amendment[] = amendmentsData.amendments || []
+
+      // Get current and previous month date ranges
+      const now = new Date()
+      const currentMonthStart = startOfMonth(now)
+      const previousMonthStart = startOfMonth(subMonths(now, 1))
+      const previousMonthEnd = endOfMonth(subMonths(now, 1))
+
+      // Process package data from invoices
+      const packageRevenues: Record<string, { currentRevenue: number; previousRevenue: number; customers: number }> = {
+        "STARTER Package": { currentRevenue: 0, previousRevenue: 0, customers: 0 },
+        "STANDARD Package": { currentRevenue: 0, previousRevenue: 0, customers: 0 },
+        "PREMIUM Package": { currentRevenue: 0, previousRevenue: 0, customers: 0 },
+      }
+
+      // Only process paid invoices
+      const paidInvoices = invoices.filter((invoice) => invoice.status === "paid")
+
+      paidInvoices.forEach((invoice) => {
+        const invoiceDate = new Date(invoice.createdAt)
+        const isCurrentMonth = invoiceDate >= currentMonthStart
+        const isPreviousMonth = invoiceDate >= previousMonthStart && invoiceDate <= previousMonthEnd
+
+        if (!isCurrentMonth && !isPreviousMonth) return
+
+        let items = invoice.items
+
+        // Parse items if they're a string
+        if (typeof items === "string") {
+          try {
+            items = JSON.parse(items)
+          } catch (e) {
+            console.error("Error parsing invoice items:", e)
+            return
+          }
+        }
+
+        // Process items to extract package information
+        if (Array.isArray(items)) {
+          items.forEach((item: any) => {
+            if (item.tier) {
+              const tierName = item.tier.toUpperCase()
+              if (tierName === "STARTER" || tierName === "STANDARD" || tierName === "PREMIUM") {
+                const packageName = `${tierName} Package`
+                const amount = item.price || 0
+
+                if (isCurrentMonth) {
+                  packageRevenues[packageName].currentRevenue += amount
+                  packageRevenues[packageName].customers += 1
+                } else if (isPreviousMonth) {
+                  packageRevenues[packageName].previousRevenue += amount
+                }
+              }
+            }
+          })
+        } else if (items && typeof items === "object") {
+          // Handle case where items is an object with numeric keys
+          Object.values(items).forEach((item: any) => {
+            if (item.tier) {
+              const tierName = item.tier.toUpperCase()
+              if (tierName === "STARTER" || tierName === "STANDARD" || tierName === "PREMIUM") {
+                const packageName = `${tierName} Package`
+                const amount = item.price || 0
+
+                if (isCurrentMonth) {
+                  packageRevenues[packageName].currentRevenue += amount
+                  packageRevenues[packageName].customers += 1
+                } else if (isPreviousMonth) {
+                  packageRevenues[packageName].previousRevenue += amount
+                }
+              }
+            }
+          })
+        }
+      })
+
+      // Process amendment data
+      const amendmentRevenues: Record<string, { currentRevenue: number; previousRevenue: number; customers: number }> =
+        {}
+
+      // Only process approved amendments
+      const approvedAmendments = amendments.filter((amendment) => amendment.status === "approved")
+
+      approvedAmendments.forEach((amendment) => {
+        const amendmentDate = new Date(amendment.createdAt)
+        const isCurrentMonth = amendmentDate >= currentMonthStart
+        const isPreviousMonth = amendmentDate >= previousMonthStart && amendmentDate <= previousMonthEnd
+
+        if (!isCurrentMonth && !isPreviousMonth) return
+
+        const amendmentType = `${amendment.type} Amendment`
+        if (!amendmentRevenues[amendmentType]) {
+          amendmentRevenues[amendmentType] = { currentRevenue: 0, previousRevenue: 0, customers: 0 }
+        }
+
+        const amount = Number(amendment.paymentAmount) || 0
+
+        if (isCurrentMonth) {
+          amendmentRevenues[amendmentType].currentRevenue += amount
+          amendmentRevenues[amendmentType].customers += 1
+        } else if (isPreviousMonth) {
+          amendmentRevenues[amendmentType].previousRevenue += amount
+        }
+      })
+
+      // Combine package and amendment data
+      const allRevenueSources = { ...packageRevenues, ...amendmentRevenues }
+
+      // Convert to array and calculate growth
+      const revenueSourcesArray = Object.entries(allRevenueSources).map(([name, data]) => {
+        const growth =
+          data.previousRevenue === 0
+            ? data.currentRevenue > 0
+              ? 100
+              : 0
+            : ((data.currentRevenue - data.previousRevenue) / data.previousRevenue) * 100
+
+        return {
+          name,
+          revenue: data.currentRevenue,
+          growth,
+          customers: data.customers,
+        }
+      })
+
+      // Sort by revenue (highest first)
+      revenueSourcesArray.sort((a, b) => b.revenue - a.revenue)
+
+      // Take top 5 or all if less than 5
+      const topSources = revenueSourcesArray.slice(0, 5)
+
+      setTopRevenueSources(topSources)
+    } catch (error) {
+      console.error("Error fetching top revenue sources:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load top revenue sources data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingRevenueSources(false)
+    }
+  }, [toast])
+
   // Fetch all data when component mounts or time range changes
   useEffect(() => {
     fetchInvoices()
@@ -1059,6 +1239,7 @@ export default function AnalyticsPage() {
     fetchUserAnalytics()
     fetchPackageAnalytics()
     fetchRevenueAnalytics()
+    fetchTopRevenueSources() // Add this line
   }, [
     fetchInvoices,
     fetchUsers,
@@ -1067,6 +1248,7 @@ export default function AnalyticsPage() {
     fetchUserAnalytics,
     fetchPackageAnalytics,
     fetchRevenueAnalytics,
+    fetchTopRevenueSources, // Add this line
     timeRange,
   ])
 
@@ -1079,6 +1261,7 @@ export default function AnalyticsPage() {
     fetchUserAnalytics()
     fetchPackageAnalytics()
     fetchRevenueAnalytics()
+    fetchTopRevenueSources() // Add this line
 
     toast({
       title: "Refreshed",
@@ -2031,48 +2214,39 @@ export default function AnalyticsPage() {
 
               <div>
                 <h4 className="text-sm font-medium mb-4">Top Revenue Sources</h4>
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-3 font-medium text-sm">Product</th>
-                      <th className="text-left p-3 font-medium text-sm">Revenue</th>
-                      <th className="text-left p-3 font-medium text-sm">Growth</th>
-                      <th className="text-left p-3 font-medium text-sm">Customers</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b">
-                      <td className="p-3">LLC Formation Package</td>
-                      <td className="p-3">$42,580</td>
-                      <td className="p-3 text-green-500">+12.5%</td>
-                      <td className="p-3">215</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="p-3">Registered Agent Service</td>
-                      <td className="p-3">$28,350</td>
-                      <td className="p-3 text-green-500">+8.3%</td>
-                      <td className="p-3">189</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="p-3">Annual Report Filing</td>
-                      <td className="p-3">$18,720</td>
-                      <td className="p-3 text-green-500">+15.2%</td>
-                      <td className="p-3">156</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="p-3">Business License Package</td>
-                      <td className="p-3">$15,840</td>
-                      <td className="p-3 text-red-500">-2.1%</td>
-                      <td className="p-3">132</td>
-                    </tr>
-                    <tr>
-                      <td className="p-3">Tax Preparation Service</td>
-                      <td className="p-3">$12,450</td>
-                      <td className="p-3 text-green-500">+5.7%</td>
-                      <td className="p-3">83</td>
-                    </tr>
-                  </tbody>
-                </table>
+                {loadingRevenueSources ? (
+                  <div className="h-60 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                  </div>
+                ) : topRevenueSources.length === 0 ? (
+                  <div className="text-center py-10 bg-gray-50 rounded-lg">
+                    <p className="text-lg text-gray-500">No revenue data available</p>
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-3 font-medium text-sm">Product</th>
+                        <th className="text-left p-3 font-medium text-sm">Revenue</th>
+                        <th className="text-left p-3 font-medium text-sm">Growth</th>
+                        <th className="text-left p-3 font-medium text-sm">Customers</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topRevenueSources.map((source, index) => (
+                        <tr key={index} className={index < topRevenueSources.length - 1 ? "border-b" : ""}>
+                          <td className="p-3">{source.name}</td>
+                          <td className="p-3">{formatCurrency(source.revenue)}</td>
+                          <td className={`p-3 ${source.growth >= 0 ? "text-green-500" : "text-red-500"}`}>
+                            {source.growth >= 0 ? "+" : ""}
+                            {source.growth.toFixed(1)}%
+                          </td>
+                          <td className="p-3">{source.customers}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           </Card>
