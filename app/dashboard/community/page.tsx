@@ -136,21 +136,34 @@ export default function CommunityPage() {
 
       console.log(`Fetching posts with params: ${queryParams.toString()}`)
 
-      // First try the debug endpoint to see if we can fetch posts with this status
+      // First try the debug trace endpoint to diagnose issues
       try {
-        const debugResponse = await fetch(`/api/community/debug-fetch?status=published`)
+        console.log("Running debug trace...")
+        const debugResponse = await fetch(`/api/community/debug-trace?status=published`)
         const debugData = await debugResponse.json()
-        console.log("Debug fetch response:", debugData)
+        console.log("Debug trace response:", debugData)
+
+        if (!debugData.success) {
+          console.error("Debug trace failed:", debugData.error)
+          console.log("Debug logs:", debugData.logs)
+        }
       } catch (debugError) {
-        console.error("Debug fetch error:", debugError)
+        console.error("Debug trace error:", debugError)
       }
 
       const response = await fetch(`/api/community/posts?${queryParams.toString()}`)
 
       if (!response.ok) {
-        const errorText = await response.text()
+        let errorText = "Unknown error"
+        try {
+          const errorData = await response.json()
+          errorText = errorData.error || "Unknown error"
+        } catch (e) {
+          errorText = await response.text()
+        }
+
         console.error(`Error response: ${response.status}`, errorText)
-        throw new Error(`Failed to fetch posts: ${response.status} ${response.statusText}`)
+        throw new Error(`Failed to fetch posts: ${errorText}`)
       }
 
       const data = await response.json()
@@ -164,10 +177,10 @@ export default function CommunityPage() {
       }
     } catch (error) {
       console.error("Error fetching posts:", error)
-      setError("Failed to load posts. Please try again.")
+      setError(`Failed to load posts: ${error instanceof Error ? error.message : String(error)}`)
       toast({
         title: "Error",
-        description: "Failed to load posts. Please try again.",
+        description: `Failed to load posts: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive",
       })
     } finally {
