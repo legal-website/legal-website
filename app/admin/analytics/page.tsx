@@ -19,9 +19,7 @@ import {
   DollarSign,
   ShoppingCart,
   Activity,
-  BarChart2,
   PieChart,
-  LineChart,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -245,6 +243,16 @@ export default function AnalyticsPage() {
   const [complianceCategoryData, setComplianceCategoryData] = useState<ComplianceCategoryData[]>([])
   const [loadingCompliance, setLoadingCompliance] = useState(true)
   const [complianceAlert, setComplianceAlert] = useState(false)
+
+  // Add these new state variables after the existing state declarations
+  const [revenueOverviewData, setRevenueOverviewData] = useState<
+    { month: string; revenue: number; monthlyRevenue: number; growth: number }[]
+  >([])
+  const [userGrowthOverviewData, setUserGrowthOverviewData] = useState<
+    { month: string; totalUsers: number; newUsers: number; growth: number }[]
+  >([])
+  const [loadingRevenueOverview, setLoadingRevenueOverview] = useState(true)
+  const [loadingUserGrowthOverview, setLoadingUserGrowthOverview] = useState(true)
 
   // Date range calculation based on selected time range
   const getDateRange = useCallback(() => {
@@ -1344,6 +1352,166 @@ export default function AnalyticsPage() {
     }
   }, [toast])
 
+  // First, let's add a new function to fetch billing invoices for the Overview tab
+  // Add this after the fetchTopRevenueSources function
+
+  const fetchBillingInvoicesForOverview = useCallback(async () => {
+    try {
+      // Fetch billing invoices
+      const billingInvoicesResponse = await fetch("/api/admin/billing/invoices")
+      if (!billingInvoicesResponse.ok) {
+        throw new Error("Failed to fetch billing invoices")
+      }
+      const billingInvoicesData = await billingInvoicesResponse.json()
+      const billingInvoices = billingInvoicesData.invoices || []
+
+      // Get current date info
+      const now = new Date()
+      const currentMonth = now.getMonth()
+      const currentYear = now.getFullYear()
+
+      // Prepare data for the last 12 months
+      const last12Months = Array.from({ length: 12 }, (_, i) => {
+        const date = new Date(currentYear, currentMonth - i, 1)
+        return {
+          month: format(date, "MMM yyyy"),
+          date: date,
+          revenue: 0,
+          monthlyRevenue: 0,
+          growth: 0,
+        }
+      }).reverse()
+
+      // Calculate revenue for each month
+      const previousMonthRevenue = 0
+
+      billingInvoices.forEach((invoice) => {
+        if (invoice.status !== "paid") return
+
+        const invoiceDate = new Date(invoice.createdAt)
+        const monthKey = format(invoiceDate, "MMM yyyy")
+
+        // Find the month in our data array
+        const monthData = last12Months.find((m) => m.month === monthKey)
+        if (monthData) {
+          monthData.revenue += invoice.amount
+        }
+      })
+
+      // Calculate cumulative revenue and growth
+      let cumulativeRevenue = 0
+      last12Months.forEach((month, index) => {
+        // Calculate cumulative revenue
+        cumulativeRevenue += month.revenue
+        month.monthlyRevenue = month.revenue
+        month.revenue = cumulativeRevenue
+
+        // Calculate growth (compared to previous month)
+        if (index > 0) {
+          const previousMonth = last12Months[index - 1]
+          month.growth =
+            previousMonth.monthlyRevenue === 0
+              ? month.monthlyRevenue > 0
+                ? 100
+                : 0
+              : ((month.monthlyRevenue - previousMonth.monthlyRevenue) / previousMonth.monthlyRevenue) * 100
+        }
+      })
+
+      setRevenueOverviewData(last12Months)
+    } catch (error) {
+      console.error("Error fetching billing invoices for overview:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load billing invoice data for overview",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingRevenueOverview(false)
+    }
+  }, [toast])
+
+  // Add a function to fetch all users for the overview tab
+  const fetchAllUsersForOverview = useCallback(async () => {
+    try {
+      setLoadingUserGrowthOverview(true)
+      const response = await fetch("/api/admin/users/all")
+
+      if (!response.ok) {
+        // Fallback to regular users endpoint if the /all endpoint doesn't exist
+        const fallbackResponse = await fetch("/api/admin/users")
+        if (!fallbackResponse.ok) {
+          throw new Error("Failed to fetch users")
+        }
+        return await fallbackResponse.json()
+      }
+
+      const data = await response.json()
+      const users = data.users || []
+
+      // Get current date info
+      const now = new Date()
+      const currentMonth = now.getMonth()
+      const currentYear = now.getFullYear()
+
+      // Prepare data for the last 12 months
+      const last12Months = Array.from({ length: 12 }, (_, i) => {
+        const date = new Date(currentYear, currentMonth - i, 1)
+        return {
+          month: format(date, "MMM yyyy"),
+          date: date,
+          totalUsers: 0,
+          newUsers: 0,
+          growth: 0,
+        }
+      }).reverse()
+
+      // Calculate users for each month
+      users.forEach((user) => {
+        const userCreatedDate = new Date(user.createdAt)
+
+        // Count total users up to each month
+        last12Months.forEach((month) => {
+          if (userCreatedDate <= month.date) {
+            month.totalUsers += 1
+          }
+
+          // Count new users in each month
+          const monthStart = new Date(month.date.getFullYear(), month.date.getMonth(), 1)
+          const monthEnd = new Date(month.date.getFullYear(), month.date.getMonth() + 1, 0)
+
+          if (userCreatedDate >= monthStart && userCreatedDate <= monthEnd) {
+            month.newUsers += 1
+          }
+        })
+      })
+
+      // Calculate growth
+      last12Months.forEach((month, index) => {
+        if (index > 0) {
+          const previousMonth = last12Months[index - 1]
+          month.growth =
+            previousMonth.newUsers === 0
+              ? month.newUsers > 0
+                ? 100
+                : 0
+              : ((month.newUsers - previousMonth.newUsers) / previousMonth.newUsers) * 100
+        }
+      })
+
+      setUserGrowthOverviewData(last12Months)
+    } catch (error) {
+      console.error("Error fetching users for overview:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load user data for overview",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingUserGrowthOverview(false)
+    }
+  }, [toast])
+
   // Add this new function after fetchTopRevenueSources
   const fetchComplianceData = useCallback(async () => {
     try {
@@ -1710,6 +1878,8 @@ export default function AnalyticsPage() {
     fetchRevenueAnalytics()
     fetchTopRevenueSources()
     fetchComplianceData() // Add this line
+    fetchBillingInvoicesForOverview()
+    fetchAllUsersForOverview()
   }, [
     fetchInvoices,
     fetchUsers,
@@ -1720,6 +1890,8 @@ export default function AnalyticsPage() {
     fetchRevenueAnalytics,
     fetchTopRevenueSources,
     fetchComplianceData, // Add this line
+    fetchBillingInvoicesForOverview,
+    fetchAllUsersForOverview,
     timeRange,
   ])
 
@@ -1734,6 +1906,8 @@ export default function AnalyticsPage() {
     fetchRevenueAnalytics()
     fetchTopRevenueSources()
     fetchComplianceData() // Add this line
+    fetchBillingInvoicesForOverview()
+    fetchAllUsersForOverview()
 
     toast({
       title: "Refreshed",
@@ -1794,6 +1968,13 @@ export default function AnalyticsPage() {
 
   // Now let's update the Documents tab content with real data
   // Replace the entire TabsContent for "documents" with this updated version:
+
+  // Add these to the useEffect dependency array:
+  // fetchBillingInvoicesForOverview,
+  // fetchAllUsersForOverview,
+
+  // Now, let's update the TabsContent for "overview" with our enhanced charts
+  // Replace the entire TabsContent for "overview" with this updated version:
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto">
@@ -1896,20 +2077,105 @@ export default function AnalyticsPage() {
               <div className="p-6 border-b">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-medium">Revenue Overview</h3>
-                  <select className="text-sm border rounded-md px-2 py-1">
-                    <option>Last 30 days</option>
-                    <option>Last quarter</option>
-                    <option>Last year</option>
+                  <select
+                    className="text-sm border rounded-md px-2 py-1"
+                    onChange={(e) => setTimeRange(e.target.value)}
+                    value={timeRange}
+                  >
+                    <option value="month">Last 30 days</option>
+                    <option value="quarter">Last quarter</option>
+                    <option value="year">Last year</option>
                   </select>
                 </div>
               </div>
               <div className="p-6">
                 <div className="h-80 w-full">
-                  {/* This would be a chart in a real implementation */}
-                  <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                    <LineChart className="h-16 w-16 text-gray-300" />
-                    <span className="ml-4 text-gray-400">Revenue Chart</span>
-                  </div>
+                  {loadingRevenueOverview ? (
+                    <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsLineChart
+                        data={revenueOverviewData}
+                        margin={{
+                          top: 20,
+                          right: 30,
+                          left: 20,
+                          bottom: 20,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                        <XAxis
+                          dataKey="month"
+                          tick={{ fontSize: 12 }}
+                          tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 12 }}
+                          tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          tickFormatter={(value) => `$${value.toLocaleString()}`}
+                        />
+                        <Tooltip
+                          formatter={(value, name) => {
+                            if (name === "Growth") {
+                              return [`${Number(value).toFixed(2)}%`, "Monthly Growth"]
+                            }
+                            return [`$${Number(value).toLocaleString()}`, name]
+                          }}
+                          contentStyle={{
+                            backgroundColor: "rgba(255, 255, 255, 0.95)",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                            border: "none",
+                            padding: "10px 14px",
+                          }}
+                          labelStyle={{ fontWeight: "bold", marginBottom: "5px" }}
+                        />
+                        <Legend
+                          layout="horizontal"
+                          verticalAlign="top"
+                          align="right"
+                          wrapperStyle={{ paddingBottom: "10px" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="revenue"
+                          name="Overall Revenue"
+                          stroke="#22c55e"
+                          strokeWidth={3}
+                          dot={{ strokeWidth: 0, r: 3, fill: "#22c55e" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="monthlyRevenue"
+                          name="Monthly Revenue"
+                          stroke="#3b82f6"
+                          strokeWidth={3}
+                          dot={{ strokeWidth: 0, r: 3, fill: "#3b82f6" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="growth"
+                          name="Growth"
+                          stroke="#f59e0b"
+                          strokeWidth={3}
+                          dot={{ strokeWidth: 0, r: 3, fill: "#f59e0b" }}
+                          yAxisId={1}
+                        />
+                        <YAxis
+                          yAxisId={1}
+                          orientation="right"
+                          tick={{ fontSize: 12 }}
+                          tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          tickFormatter={(value) => `${value.toFixed(0)}%`}
+                        />
+                      </RechartsLineChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </div>
             </Card>
@@ -1918,20 +2184,104 @@ export default function AnalyticsPage() {
               <div className="p-6 border-b">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-medium">User Growth</h3>
-                  <select className="text-sm border rounded-md px-2 py-1">
-                    <option>Last 30 days</option>
-                    <option>Last quarter</option>
-                    <option>Last year</option>
+                  <select
+                    className="text-sm border rounded-md px-2 py-1"
+                    onChange={(e) => setTimeRange(e.target.value)}
+                    value={timeRange}
+                  >
+                    <option value="month">Last 30 days</option>
+                    <option value="quarter">Last quarter</option>
+                    <option value="year">Last year</option>
                   </select>
                 </div>
               </div>
               <div className="p-6">
                 <div className="h-80 w-full">
-                  {/* This would be a chart in a real implementation */}
-                  <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                    <BarChart2 className="h-16 w-16 text-gray-300" />
-                    <span className="ml-4 text-gray-400">User Growth Chart</span>
-                  </div>
+                  {loadingUserGrowthOverview ? (
+                    <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsLineChart
+                        data={userGrowthOverviewData}
+                        margin={{
+                          top: 20,
+                          right: 30,
+                          left: 20,
+                          bottom: 20,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                        <XAxis
+                          dataKey="month"
+                          tick={{ fontSize: 12 }}
+                          tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 12 }}
+                          tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                        />
+                        <Tooltip
+                          formatter={(value, name) => {
+                            if (name === "Growth") {
+                              return [`${Number(value).toFixed(2)}%`, "Monthly Growth"]
+                            }
+                            return [Number(value).toLocaleString(), name]
+                          }}
+                          contentStyle={{
+                            backgroundColor: "rgba(255, 255, 255, 0.95)",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                            border: "none",
+                            padding: "10px 14px",
+                          }}
+                          labelStyle={{ fontWeight: "bold", marginBottom: "5px" }}
+                        />
+                        <Legend
+                          layout="horizontal"
+                          verticalAlign="top"
+                          align="right"
+                          wrapperStyle={{ paddingBottom: "10px" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="totalUsers"
+                          name="Total Users"
+                          stroke="#22c55e"
+                          strokeWidth={3}
+                          dot={{ strokeWidth: 0, r: 3, fill: "#22c55e" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="newUsers"
+                          name="New Users"
+                          stroke="#3b82f6"
+                          strokeWidth={3}
+                          dot={{ strokeWidth: 0, r: 3, fill: "#3b82f6" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="growth"
+                          name="Growth"
+                          stroke="#f59e0b"
+                          strokeWidth={3}
+                          dot={{ strokeWidth: 0, r: 3, fill: "#f59e0b" }}
+                          yAxisId={1}
+                        />
+                        <YAxis
+                          yAxisId={1}
+                          orientation="right"
+                          tick={{ fontSize: 12 }}
+                          tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          tickFormatter={(value) => `${value.toFixed(0)}%`}
+                        />
+                      </RechartsLineChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </div>
             </Card>
@@ -1945,28 +2295,29 @@ export default function AnalyticsPage() {
               </div>
               <div className="p-6">
                 <div className="space-y-4">
-                  <ProductPerformanceItem name="LLC Formation Package" revenue="$42,580" sales={215} growth="+12.5%" />
-                  <ProductPerformanceItem
-                    name="Registered Agent Service"
-                    revenue="$28,350"
-                    sales={189}
-                    growth="+8.3%"
-                  />
-                  <ProductPerformanceItem name="Annual Report Filing" revenue="$18,720" sales={156} growth="+15.2%" />
-                  <ProductPerformanceItem
-                    name="Business License Package"
-                    revenue="$15,840"
-                    sales={132}
-                    growth="-2.1%"
-                    trend="down"
-                  />
-                  <ProductPerformanceItem
-                    name="Tax Preparation Service"
-                    revenue="$12,450"
-                    sales={83}
-                    growth="+5.7%"
-                    border={false}
-                  />
+                  {loadingRevenueSources ? (
+                    Array(5)
+                      .fill(0)
+                      .map((_, index) => (
+                        <div key={index} className="h-12 bg-gray-100 dark:bg-gray-800 rounded animate-pulse"></div>
+                      ))
+                  ) : topRevenueSources.length === 0 ? (
+                    <div className="text-center py-10">
+                      <p className="text-lg text-gray-500">No revenue data available</p>
+                    </div>
+                  ) : (
+                    topRevenueSources.map((source, index) => (
+                      <ProductPerformanceItem
+                        key={index}
+                        name={source.name}
+                        revenue={formatCurrency(source.revenue)}
+                        sales={source.customers}
+                        growth={`${source.growth > 0 ? "+" : ""}${source.growth.toFixed(1)}%`}
+                        trend={source.growth >= 0 ? "up" : "down"}
+                        border={index < topRevenueSources.length - 1}
+                      />
+                    ))
+                  )}
                 </div>
               </div>
             </Card>
@@ -2190,6 +2541,7 @@ export default function AnalyticsPage() {
                             borderRadius: "8px",
                             boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
                             border: "none",
+                            padding: "10px 14px",
                           }}
                           labelStyle={{ fontWeight: "bold" }}
                         />
