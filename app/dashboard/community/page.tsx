@@ -131,27 +131,11 @@ export default function CommunityPage() {
       queryParams.set("sort", activeTab)
       queryParams.set("page", currentPage.toString())
       queryParams.set("limit", "10")
-      // Always set status to published for client-side
-      queryParams.set("status", "published")
 
       console.log(`Fetching posts with params: ${queryParams.toString()}`)
 
-      // First try the debug trace endpoint to diagnose issues
-      try {
-        console.log("Running debug trace...")
-        const debugResponse = await fetch(`/api/community/debug-trace?status=published`)
-        const debugData = await debugResponse.json()
-        console.log("Debug trace response:", debugData)
-
-        if (!debugData.success) {
-          console.error("Debug trace failed:", debugData.error)
-          console.log("Debug logs:", debugData.logs)
-        }
-      } catch (debugError) {
-        console.error("Debug trace error:", debugError)
-      }
-
-      const response = await fetch(`/api/community/posts?${queryParams.toString()}`)
+      // Use the simplified published-posts endpoint instead
+      const response = await fetch(`/api/community/published-posts?${queryParams.toString()}`)
 
       if (!response.ok) {
         let errorText = "Unknown error"

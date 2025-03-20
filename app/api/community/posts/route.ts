@@ -25,7 +25,13 @@ export async function GET(request: Request) {
   try {
     console.log("Posts API: Starting request")
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get("status") || "published"
+    let status = searchParams.get("status") || "published"
+
+    // Map status if needed for backward compatibility
+    if (STATUS_MAPPING[status]) {
+      status = STATUS_MAPPING[status]
+    }
+
     const tag = searchParams.get("tag")
     const search = searchParams.get("search")
     const page = Number.parseInt(searchParams.get("page") || "1")
@@ -38,11 +44,12 @@ export async function GET(request: Request) {
     // For admins, allow filtering by status
     const session = await getServerSession(authOptions)
     const isAdmin = session?.user && (session.user as any).role === "ADMIN"
+    const userId = session?.user ? (session.user as any).id : null
 
     console.log("Posts API: User session", {
       isAuthenticated: !!session?.user,
       isAdmin,
-      userId: session?.user ? (session.user as any).id : null,
+      userId,
     })
 
     // Build a simpler query first to test
@@ -67,40 +74,44 @@ export async function GET(request: Request) {
       )
     }
 
-    // Build the where clause
-    let whereClause = ""
+    // Build the where conditions as an array of strings
+    const whereConditions = []
+
+    // Status condition - for non-admins, only show published posts by default
     if (!isAdmin) {
-      whereClause = `WHERE p.status = '${status}'`
+      whereConditions.push(`p.status = '${status}'`)
     } else if (status !== "all") {
-      whereClause = `WHERE p.status = '${status}'`
+      whereConditions.push(`p.status = '${status}'`)
     }
 
     // Add tag filter if provided
     if (tag && tag !== "all_tags" && tag !== "") {
-      const tagFilter = `p.id IN (
+      whereConditions.push(`p.id IN (
       SELECT pt.postId 
       FROM PostTag pt 
       JOIN Tag t ON pt.tagId = t.id 
       WHERE t.name = '${tag}'
-    )`
-
-      whereClause = whereClause ? `${whereClause} AND ${tagFilter}` : `WHERE ${tagFilter}`
+    )`)
     }
 
     // Add search filter if provided
     if (search) {
-      const searchFilter = `(p.title LIKE '%${search}%' OR p.content LIKE '%${search}%')`
-      whereClause = whereClause ? `${whereClause} AND ${searchFilter}` : `WHERE ${searchFilter}`
+      whereConditions.push(`(p.title LIKE '%${search}%' OR p.content LIKE '%${search}%')`)
     }
 
     // For client, also allow seeing their own posts regardless of status
-    if (!isAdmin && session?.user) {
-      const userId = (session.user as any).id
-      if (whereClause) {
-        whereClause = `(${whereClause}) OR p.authorId = '${userId}'`
-      } else {
-        whereClause = `WHERE p.authorId = '${userId}'`
+    // We'll add this as a separate condition with OR
+    let whereClause = ""
+    if (whereConditions.length > 0) {
+      whereClause = `WHERE ${whereConditions.join(" AND ")}`
+
+      // Add the user's own posts condition with proper parentheses
+      if (!isAdmin && userId) {
+        whereClause = `WHERE (${whereConditions.join(" AND ")}) OR p.authorId = '${userId}'`
       }
+    } else if (!isAdmin && userId) {
+      // If no other conditions, just filter by user ID
+      whereClause = `WHERE p.authorId = '${userId}'`
     }
 
     console.log("Posts API: Final where clause", whereClause)
