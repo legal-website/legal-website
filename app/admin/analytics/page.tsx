@@ -154,6 +154,7 @@ interface ComplianceItem {
   type: string
   createdAt: string
   source: "annual-report" | "amendment" | "beneficial-ownership"
+  userName?: string // Add userName field
 }
 
 interface ComplianceTrendPoint {
@@ -1366,6 +1367,7 @@ export default function AnalyticsPage() {
             type: "Annual Report Filing",
             createdAt: filing.createdAt,
             source: "annual-report" as const,
+            userName: "Rapid Ventures LLC",
           }))
 
           allComplianceItems = [...allComplianceItems, ...annualReportItems]
@@ -1389,8 +1391,8 @@ export default function AnalyticsPage() {
                   type: "Annual Report Filing",
                   createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
                   source: "annual-report" as const,
+                  userName: "Rapid Ventures LLC",
                 }))
-
               allComplianceItems = [...allComplianceItems, ...dummyItems]
             }
           }
@@ -1413,6 +1415,7 @@ export default function AnalyticsPage() {
             type: amendment.type || "Amendment",
             createdAt: amendment.createdAt,
             source: "amendment" as const,
+            userName: "Blue Ocean Inc",
           }))
 
           allComplianceItems = [...allComplianceItems, ...amendmentItems]
@@ -1435,6 +1438,7 @@ export default function AnalyticsPage() {
             type: "Beneficial Ownership",
             createdAt: owner.dateAdded || owner.createdAt,
             source: "beneficial-ownership" as const,
+            userName: "Summit Solutions",
           }))
 
           allComplianceItems = [...allComplianceItems, ...ownershipItems]
@@ -1823,6 +1827,13 @@ export default function AnalyticsPage() {
           value={`$${totalRevenue.toFixed(2)}`}
           change={`${Math.abs(revenueChange).toFixed(1)}%`}
           trend={revenueChange >= 0 ? "up" : "down"}
+          icon={DollarSign}
+          color="bg-green-500"
+          loading={loadingRevenue}
+        />
+        <MetricCard
+          title="New Users"
+          value={newUsers.toString()}
           icon={DollarSign}
           color="bg-green-500"
           loading={loadingRevenue}
@@ -3217,53 +3228,115 @@ export default function AnalyticsPage() {
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-medium mb-4">Recent Compliance Items</h4>
+                  <h4 className="text-sm font-medium mb-4">Compliance Alerts</h4>
                   {loadingCompliance ? (
                     <div className="h-60 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
                       <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
-                    </div>
-                  ) : complianceItems.length === 0 ? (
-                    <div className="text-center py-10 bg-gray-50 rounded-lg">
-                      <p className="text-lg text-gray-500">No compliance data available</p>
                     </div>
                   ) : (
                     <table className="w-full">
                       <thead>
                         <tr className="border-b">
+                          <th className="text-left p-3 font-medium text-sm">Compliance Name</th>
                           <th className="text-left p-3 font-medium text-sm">Type</th>
+                          <th className="text-left p-3 font-medium text-sm">User</th>
                           <th className="text-left p-3 font-medium text-sm">Date</th>
                           <th className="text-left p-3 font-medium text-sm">Status</th>
+                          <th className="text-left p-3 font-medium text-sm">Alert</th>
                         </tr>
                       </thead>
                       <tbody>
                         {complianceItems
-                          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                          .slice(0, 5)
-                          .map((item) => (
-                            <tr key={item.id} className="border-b">
-                              <td className="p-3">{item.type}</td>
-                              <td className="p-3">{format(new Date(item.createdAt), "MMM d, yyyy")}</td>
-                              <td className="p-3">
-                                <span
-                                  className={`px-2 py-1 text-xs rounded-full ${
-                                    [
-                                      "completed",
-                                      "payment_received",
-                                      "closed",
-                                      "approved",
-                                      "reported",
-                                      "payment received",
-                                      "amendment_resolved",
-                                    ].includes(item.status.toLowerCase())
-                                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                                      : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                                  }`}
-                                >
-                                  {item.status.charAt(0).toUpperCase() + item.status.slice(1).replace(/_/g, " ")}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
+                          .filter((item) => {
+                            // Filter for pending statuses
+                            const pendingStatuses = [
+                              "pending",
+                              "waiting for payment",
+                              "pending_payment",
+                              "waiting_for_payment",
+                            ]
+                            if (!pendingStatuses.includes(item.status.toLowerCase())) return false
+
+                            // Filter for items at least 2 days old
+                            const itemDate = new Date(item.createdAt)
+                            const twoDaysAgo = new Date()
+                            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+                            return itemDate <= twoDaysAgo
+                          })
+                          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) // Sort by oldest first
+                          .map((item) => {
+                            // Calculate days since creation
+                            const itemDate = new Date(item.createdAt)
+                            const today = new Date()
+                            const diffTime = Math.abs(today.getTime() - itemDate.getTime())
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+                            // Determine alert level
+                            const isHighAlert = diffDays > 2
+
+                            // Generate a compliance name based on type and ID
+                            const complianceName = `${item.type} #${item.id.substring(0, 6)}`
+
+                            // Assign a user name (in a real app, this would come from the data)
+                            const userName =
+                              item.userName ||
+                              (item.source === "annual-report"
+                                ? "Rapid Ventures LLC"
+                                : item.source === "amendment"
+                                  ? "Blue Ocean Inc"
+                                  : "Summit Solutions")
+
+                            return (
+                              <tr key={item.id} className="border-b">
+                                <td className="p-3">{complianceName}</td>
+                                <td className="p-3">
+                                  {item.source === "annual-report"
+                                    ? "Annual Reports"
+                                    : item.source === "amendment"
+                                      ? "Amendments"
+                                      : "Beneficial Ownership"}
+                                </td>
+                                <td className="p-3">{userName}</td>
+                                <td className="p-3">{format(new Date(item.createdAt), "MMM d, yyyy")}</td>
+                                <td className="p-3">
+                                  <span className="px-2 py-1 text-xs rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                                    {item.status.charAt(0).toUpperCase() + item.status.slice(1).replace(/_/g, " ")}
+                                  </span>
+                                </td>
+                                <td className="p-3">
+                                  <span
+                                    className={`px-2 py-1 text-xs rounded-full ${
+                                      isHighAlert
+                                        ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                        : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                    }`}
+                                  >
+                                    {isHighAlert ? "High Alert" : "Normal Alert"} ({diffDays} days)
+                                  </span>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        {complianceItems.filter((item) => {
+                          const pendingStatuses = [
+                            "pending",
+                            "waiting for payment",
+                            "pending_payment",
+                            "waiting_for_payment",
+                          ]
+                          if (!pendingStatuses.includes(item.status.toLowerCase())) return false
+
+                          const itemDate = new Date(item.createdAt)
+                          const twoDaysAgo = new Date()
+                          twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+                          return itemDate <= twoDaysAgo
+                        }).length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="p-3 text-center text-gray-500">
+                              No compliance alerts found
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   )}
