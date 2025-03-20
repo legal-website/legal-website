@@ -785,10 +785,56 @@ export default function AnalyticsPage() {
       // 1. Filter paid invoices
       const paidInvoices = invoices.filter((invoice) => invoice.status === "paid")
 
-      // Filter template invoices (those starting with "temp")
-      const templateInvoices = billingInvoices.filter(
-        (invoice) => invoice.status === "paid" && invoice.invoiceNumber.toLowerCase().startsWith("temp"),
-      )
+      // Filter template invoices using multiple detection methods
+      const templateInvoices = billingInvoices.filter((invoice) => {
+        // Check if invoice is paid
+        if (invoice.status !== "paid") return false
+
+        // Method 1: Check invoice number prefix
+        if (
+          invoice.invoiceNumber &&
+          (invoice.invoiceNumber.toLowerCase().startsWith("temp") ||
+            invoice.invoiceNumber.toLowerCase().startsWith("template"))
+        ) {
+          return true
+        }
+
+        // Method 2: Check if it's explicitly marked as a template invoice
+        if (invoice.isTemplateInvoice) {
+          return true
+        }
+
+        // Method 3: Check items for template indicators
+        if (invoice.items) {
+          let items = invoice.items
+
+          // Parse items if they're a string
+          if (typeof items === "string") {
+            try {
+              items = JSON.parse(items)
+            } catch (e) {
+              console.error("Error parsing invoice items:", e)
+            }
+          }
+
+          // Check if any item has template indicators
+          if (Array.isArray(items)) {
+            return items.some(
+              (item) => item.template || item.isTemplate || (item.name && item.name.toLowerCase().includes("template")),
+            )
+          } else if (items && typeof items === "object") {
+            return Object.values(items).some(
+              (item: any) =>
+                item.template || item.isTemplate || (item.name && item.name.toLowerCase().includes("template")),
+            )
+          }
+        }
+
+        return false
+      })
+
+      // Log the count of template invoices found for debugging
+      console.log(`Found ${templateInvoices.length} template invoices`)
 
       // Calculate total template revenue
       const templateRevenueTotal = templateInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
@@ -917,6 +963,13 @@ export default function AnalyticsPage() {
       })
 
       setRevenueByTemplateData(templateRevenueData)
+
+      // If no template revenue data was found, create a placeholder with the current month
+      if (templateRevenueData.length === 0 || templateRevenueData.every((item) => item.revenue === 0)) {
+        console.log("No template revenue data found, creating placeholder")
+        const currentMonth = format(new Date(), "MMM yyyy")
+        setRevenueByTemplateData([{ name: currentMonth, revenue: 0 }])
+      }
 
       // 7. Calculate revenue trend (monthly)
       // Get the last 12 months
