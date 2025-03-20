@@ -1836,8 +1836,7 @@ export default function AnalyticsPage() {
           value={newUsers.toString()}
           icon={DollarSign}
           color="bg-green-500"
-          loading={loadingRevenue}
-        />
+          loading={loadingRevenue} change={""} trend={"up"}        />
         <MetricCard
           title="New Users"
           value={newUsers.toString()}
