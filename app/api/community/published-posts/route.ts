@@ -11,22 +11,46 @@ export async function GET(request: Request) {
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Number.parseInt(searchParams.get("limit") || "10")
     const skip = (page - 1) * limit
+    const search = searchParams.get("search") || ""
+    const includeAllUserPosts = searchParams.get("includeAllUserPosts") === "true"
+
+    // Get session for checking likes and user posts
+    const session = await getServerSession(authOptions)
+    const userId = session?.user ? (session.user as any).id : null
+
+    // Build the query based on parameters
+    let whereClause = "WHERE p.status = 'published'"
+
+    // If search is provided, add it to the where clause
+    if (search && search.trim() !== "") {
+      whereClause += ` AND (p.title LIKE '%${search}%' OR p.content LIKE '%${search}%')`
+    }
+
+    // If includeAllUserPosts is true and user is logged in, modify the query to include all their posts
+    if (includeAllUserPosts && userId) {
+      whereClause = `WHERE (p.status = 'published' OR p.authorId = '${userId}')`
+
+      // Add search if provided
+      if (search && search.trim() !== "") {
+        whereClause += ` AND (p.title LIKE '%${search}%' OR p.content LIKE '%${search}%')`
+      }
+    }
 
     // Use a very simple query to avoid SQL syntax issues
     const postsQuery = `
-    SELECT 
-      p.id, p.title, p.content, p.status, p.authorId, p.createdAt, p.updatedAt,
-      u.id as userId, u.name as userName, u.image as userImage,
-      (SELECT COUNT(*) FROM \`Like\` l WHERE l.postId = p.id) as likeCount,
-      (SELECT COUNT(*) FROM Comment c WHERE c.postId = p.id) as commentCount
-    FROM Post p
-    LEFT JOIN User u ON p.authorId = u.id
-    WHERE p.status = 'published'
-    ORDER BY p.createdAt DESC
-    LIMIT ? OFFSET ?
-  `
+  SELECT 
+    p.id, p.title, p.content, p.status, p.authorId, p.createdAt, p.updatedAt,
+    u.id as userId, u.name as userName, u.image as userImage,
+    (SELECT COUNT(*) FROM \`Like\` l WHERE l.postId = p.id) as likeCount,
+    (SELECT COUNT(*) FROM Comment c WHERE c.postId = p.id) as commentCount
+  FROM Post p
+  LEFT JOIN User u ON p.authorId = u.id
+  ${whereClause}
+  ORDER BY p.createdAt DESC
+  LIMIT ? OFFSET ?
+`
 
-    console.log("Published Posts API: Executing query")
+    console.log("Published Posts API: Executing query:", postsQuery)
 
     let posts
     try {
@@ -46,18 +70,15 @@ export async function GET(request: Request) {
     // Get total count for pagination
     let total = 0
     try {
-      const totalResult = await db.$queryRawUnsafe(`
-      SELECT COUNT(*) as total FROM Post WHERE status = 'published'
-    `)
+      const totalQuery = `
+    SELECT COUNT(*) as total FROM Post p ${whereClause}
+  `
+      const totalResult = await db.$queryRawUnsafe(totalQuery)
       total = Number(totalResult[0].total) || 0
     } catch (countError) {
       console.error("Published Posts API: Count query failed", countError)
       total = posts.length
     }
-
-    // Get session for checking likes
-    const session = await getServerSession(authOptions)
-    const userId = session?.user ? (session.user as any).id : null
 
     // Format posts for response
     const formattedPosts = []
@@ -67,11 +88,11 @@ export async function GET(request: Request) {
       try {
         postTags = await db.$queryRawUnsafe(
           `
-        SELECT t.name
-        FROM PostTag pt
-        JOIN Tag t ON pt.tagId = t.id
-        WHERE pt.postId = ?
-      `,
+      SELECT t.name
+      FROM PostTag pt
+      JOIN Tag t ON pt.tagId = t.id
+      WHERE pt.postId = ?
+    `,
           post.id,
         )
       } catch (error) {
@@ -84,10 +105,10 @@ export async function GET(request: Request) {
         try {
           const likeCheck = await db.$queryRawUnsafe(
             `
-          SELECT COUNT(*) as liked
-          FROM \`Like\`
-          WHERE postId = ? AND authorId = ?
-        `,
+        SELECT COUNT(*) as liked
+        FROM \`Like\`
+        WHERE postId = ? AND authorId = ?
+      `,
             post.id,
             userId,
           )

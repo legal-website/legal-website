@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, useCallback } from "react"
 import { Label } from "@/components/ui/label"
 import Image from "next/image"
@@ -131,6 +133,7 @@ export default function CommunityPage() {
       queryParams.set("sort", activeTab)
       queryParams.set("page", currentPage.toString())
       queryParams.set("limit", "10")
+      queryParams.set("includeAllUserPosts", "true") // Add this parameter to include all user posts
 
       console.log(`Fetching posts with params: ${queryParams.toString()}`)
 
@@ -581,6 +584,13 @@ export default function CommunityPage() {
     }
   }
 
+  // Handle search submit
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setCurrentPage(1)
+    fetchPosts()
+  }
+
   return (
     <div className="p-8 mb-40">
       <h1 className="text-3xl font-bold mb-6">Community</h1>
@@ -614,18 +624,14 @@ export default function CommunityPage() {
                 <div className="flex-1">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search discussions..."
-                      className="pl-9"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          setCurrentPage(1)
-                          fetchPosts()
-                        }
-                      }}
-                    />
+                    <form onSubmit={handleSearchSubmit}>
+                      <Input
+                        placeholder="Search discussions..."
+                        className="pl-9"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </form>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -946,6 +952,13 @@ export default function CommunityPage() {
                                 : post.status === "pending"
                                   ? "outline"
                                   : "secondary"
+                            }
+                            className={
+                              post.status === "pending"
+                                ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                                : post.status === "draft"
+                                  ? "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                                  : ""
                             }
                           >
                             {formatStatus(post.status)}
