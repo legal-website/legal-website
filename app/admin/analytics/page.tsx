@@ -70,7 +70,7 @@ interface Document {
   invoiceNumber?: string
   name?: string
   category?: string
-  fileType?: string
+  fileType?: number
   fileSize?: number
   status?: string
   uploadDate?: string
@@ -1352,166 +1352,6 @@ export default function AnalyticsPage() {
     }
   }, [toast])
 
-  // First, let's add a new function to fetch billing invoices for the Overview tab
-  // Add this after the fetchTopRevenueSources function
-
-  const fetchBillingInvoicesForOverview = useCallback(async () => {
-    try {
-      // Fetch billing invoices
-      const billingInvoicesResponse = await fetch("/api/admin/billing/invoices")
-      if (!billingInvoicesResponse.ok) {
-        throw new Error("Failed to fetch billing invoices")
-      }
-      const billingInvoicesData = await billingInvoicesResponse.json()
-      const billingInvoices = billingInvoicesData.invoices || []
-
-      // Get current date info
-      const now = new Date()
-      const currentMonth = now.getMonth()
-      const currentYear = now.getFullYear()
-
-      // Prepare data for the last 12 months
-      const last12Months = Array.from({ length: 12 }, (_, i) => {
-        const date = new Date(currentYear, currentMonth - i, 1)
-        return {
-          month: format(date, "MMM yyyy"),
-          date: date,
-          revenue: 0,
-          monthlyRevenue: 0,
-          growth: 0,
-        }
-      }).reverse()
-
-      // Calculate revenue for each month
-      const previousMonthRevenue = 0
-
-      billingInvoices.forEach((invoice) => {
-        if (invoice.status !== "paid") return
-
-        const invoiceDate = new Date(invoice.createdAt)
-        const monthKey = format(invoiceDate, "MMM yyyy")
-
-        // Find the month in our data array
-        const monthData = last12Months.find((m) => m.month === monthKey)
-        if (monthData) {
-          monthData.revenue += invoice.amount
-        }
-      })
-
-      // Calculate cumulative revenue and growth
-      let cumulativeRevenue = 0
-      last12Months.forEach((month, index) => {
-        // Calculate cumulative revenue
-        cumulativeRevenue += month.revenue
-        month.monthlyRevenue = month.revenue
-        month.revenue = cumulativeRevenue
-
-        // Calculate growth (compared to previous month)
-        if (index > 0) {
-          const previousMonth = last12Months[index - 1]
-          month.growth =
-            previousMonth.monthlyRevenue === 0
-              ? month.monthlyRevenue > 0
-                ? 100
-                : 0
-              : ((month.monthlyRevenue - previousMonth.monthlyRevenue) / previousMonth.monthlyRevenue) * 100
-        }
-      })
-
-      setRevenueOverviewData(last12Months)
-    } catch (error) {
-      console.error("Error fetching billing invoices for overview:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load billing invoice data for overview",
-        variant: "destructive",
-      })
-    } finally {
-      setLoadingRevenueOverview(false)
-    }
-  }, [toast])
-
-  // Add a function to fetch all users for the overview tab
-  const fetchAllUsersForOverview = useCallback(async () => {
-    try {
-      setLoadingUserGrowthOverview(true)
-      const response = await fetch("/api/admin/users/all")
-
-      if (!response.ok) {
-        // Fallback to regular users endpoint if the /all endpoint doesn't exist
-        const fallbackResponse = await fetch("/api/admin/users")
-        if (!fallbackResponse.ok) {
-          throw new Error("Failed to fetch users")
-        }
-        return await fallbackResponse.json()
-      }
-
-      const data = await response.json()
-      const users = data.users || []
-
-      // Get current date info
-      const now = new Date()
-      const currentMonth = now.getMonth()
-      const currentYear = now.getFullYear()
-
-      // Prepare data for the last 12 months
-      const last12Months = Array.from({ length: 12 }, (_, i) => {
-        const date = new Date(currentYear, currentMonth - i, 1)
-        return {
-          month: format(date, "MMM yyyy"),
-          date: date,
-          totalUsers: 0,
-          newUsers: 0,
-          growth: 0,
-        }
-      }).reverse()
-
-      // Calculate users for each month
-      users.forEach((user) => {
-        const userCreatedDate = new Date(user.createdAt)
-
-        // Count total users up to each month
-        last12Months.forEach((month) => {
-          if (userCreatedDate <= month.date) {
-            month.totalUsers += 1
-          }
-
-          // Count new users in each month
-          const monthStart = new Date(month.date.getFullYear(), month.date.getMonth(), 1)
-          const monthEnd = new Date(month.date.getFullYear(), month.date.getMonth() + 1, 0)
-
-          if (userCreatedDate >= monthStart && userCreatedDate <= monthEnd) {
-            month.newUsers += 1
-          }
-        })
-      })
-
-      // Calculate growth
-      last12Months.forEach((month, index) => {
-        if (index > 0) {
-          const previousMonth = last12Months[index - 1]
-          month.growth =
-            previousMonth.newUsers === 0
-              ? month.newUsers > 0
-                ? 100
-                : 0
-              : ((month.newUsers - previousMonth.newUsers) / previousMonth.newUsers) * 100
-        }
-      })
-
-      setUserGrowthOverviewData(last12Months)
-    } catch (error) {
-      console.error("Error fetching users for overview:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load user data for overview",
-        variant: "destructive",
-      })
-    } finally {
-      setLoadingUserGrowthOverview(false)
-    }
-  }, [toast])
-
   // Add this new function after fetchTopRevenueSources
   const fetchComplianceData = useCallback(async () => {
     try {
@@ -1878,8 +1718,6 @@ export default function AnalyticsPage() {
     fetchRevenueAnalytics()
     fetchTopRevenueSources()
     fetchComplianceData() // Add this line
-    fetchBillingInvoicesForOverview()
-    fetchAllUsersForOverview()
   }, [
     fetchInvoices,
     fetchUsers,
@@ -1890,8 +1728,6 @@ export default function AnalyticsPage() {
     fetchRevenueAnalytics,
     fetchTopRevenueSources,
     fetchComplianceData, // Add this line
-    fetchBillingInvoicesForOverview,
-    fetchAllUsersForOverview,
     timeRange,
   ])
 
@@ -1906,8 +1742,6 @@ export default function AnalyticsPage() {
     fetchRevenueAnalytics()
     fetchTopRevenueSources()
     fetchComplianceData() // Add this line
-    fetchBillingInvoicesForOverview()
-    fetchAllUsersForOverview()
 
     toast({
       title: "Refreshed",
@@ -2090,14 +1924,14 @@ export default function AnalyticsPage() {
               </div>
               <div className="p-6">
                 <div className="h-80 w-full">
-                  {loadingRevenueOverview ? (
+                  {loadingRevenue ? (
                     <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
                       <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
                       <RechartsLineChart
-                        data={revenueOverviewData}
+                        data={revenueTrendData}
                         margin={{
                           top: 20,
                           right: 30,
@@ -2150,7 +1984,7 @@ export default function AnalyticsPage() {
                         />
                         <Line
                           type="monotone"
-                          dataKey="monthlyRevenue"
+                          dataKey="revenue"
                           name="Monthly Revenue"
                           stroke="#3b82f6"
                           strokeWidth={3}
@@ -2158,7 +1992,7 @@ export default function AnalyticsPage() {
                         />
                         <Line
                           type="monotone"
-                          dataKey="growth"
+                          dataKey="revenue"
                           name="Growth"
                           stroke="#f59e0b"
                           strokeWidth={3}
@@ -2197,14 +2031,14 @@ export default function AnalyticsPage() {
               </div>
               <div className="p-6">
                 <div className="h-80 w-full">
-                  {loadingUserGrowthOverview ? (
+                  {loadingUserAnalytics ? (
                     <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
                       <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
                       <RechartsLineChart
-                        data={userGrowthOverviewData}
+                        data={userGrowthData}
                         margin={{
                           top: 20,
                           right: 30,
@@ -2214,7 +2048,7 @@ export default function AnalyticsPage() {
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
                         <XAxis
-                          dataKey="month"
+                          dataKey="date"
                           tick={{ fontSize: 12 }}
                           tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
                           axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
@@ -2248,7 +2082,7 @@ export default function AnalyticsPage() {
                         />
                         <Line
                           type="monotone"
-                          dataKey="totalUsers"
+                          dataKey="users"
                           name="Total Users"
                           stroke="#22c55e"
                           strokeWidth={3}
@@ -2256,7 +2090,7 @@ export default function AnalyticsPage() {
                         />
                         <Line
                           type="monotone"
-                          dataKey="newUsers"
+                          dataKey="users"
                           name="New Users"
                           stroke="#3b82f6"
                           strokeWidth={3}
@@ -2264,7 +2098,7 @@ export default function AnalyticsPage() {
                         />
                         <Line
                           type="monotone"
-                          dataKey="growth"
+                          dataKey="users"
                           name="Growth"
                           stroke="#f59e0b"
                           strokeWidth={3}
