@@ -1,8 +1,8 @@
 "use client"
 
+import { useState, useEffect, useCallback } from "react"
 import { Label } from "@/components/ui/label"
 import Image from "next/image"
-import { useState, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,8 +41,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-
-// Add this at the top of the file, after the imports
 
 interface Author {
   id: string
@@ -105,13 +103,13 @@ export default function CommunityPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
-  // Inside the CommunityPage component, add this useEffect to log the fetch results
+  // Debug log fetch results
   useEffect(() => {
     const logFetchResults = async () => {
       try {
-        const response = await fetch("/api/community/posts?status=all")
+        const response = await fetch("/api/community/posts?status=approved")
         const data = await response.json()
-        console.log("Fetch posts response:", data)
+        console.log("Debug fetch posts response:", data)
       } catch (error) {
         console.error("Error logging fetch results:", error)
       }
@@ -132,6 +130,8 @@ export default function CommunityPage() {
       queryParams.set("sort", activeTab)
       queryParams.set("page", currentPage.toString())
       queryParams.set("limit", "10")
+      // Always set status to approved for client-side
+      queryParams.set("status", "approved")
 
       console.log(`Fetching posts with params: ${queryParams.toString()}`)
       const response = await fetch(`/api/community/posts?${queryParams.toString()}`)

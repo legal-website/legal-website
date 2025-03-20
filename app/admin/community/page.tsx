@@ -18,7 +18,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, MessageSquare, ThumbsUp, TagIcon, Search, RefreshCw } from "lucide-react"
+import { Trash2, MessageSquare, ThumbsUp, TagIcon, Search, RefreshCw, AlertTriangle } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
 
@@ -320,6 +320,74 @@ export default function AdminCommunityPage() {
     }
   }
 
+  // Handle fix data
+  const handleFixData = async (approveAll = false) => {
+    try {
+      const response = await fetch("/api/community/fix-data", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ approveAll }),
+      })
+
+      if (!response.ok) throw new Error("Failed to fix data")
+
+      const data = await response.json()
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: data.message || "Data fixed successfully",
+        })
+        fetchPosts()
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to fix data",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error fixing data:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fix data. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Debug posts
+  const handleDebugPosts = async () => {
+    try {
+      const response = await fetch("/api/community/debug-posts")
+      if (!response.ok) throw new Error("Failed to debug posts")
+
+      const data = await response.json()
+      console.log("Debug posts data:", data)
+
+      if (data.success) {
+        toast({
+          title: "Debug Info",
+          description: `Found ${data.rawPosts.length} posts in database. Check console for details.`,
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to debug posts",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error debugging posts:", error)
+      toast({
+        title: "Error",
+        description: "Failed to debug posts. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Load data on mount and when params change
   useEffect(() => {
     fetchPosts()
@@ -399,12 +467,26 @@ export default function AdminCommunityPage() {
 
   return (
     <div className="container mx-auto py-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <h1 className="text-3xl font-bold">Community Management</h1>
-        <Button onClick={handleApproveAllPending} className="flex items-center gap-2">
-          <RefreshCw className="h-4 w-4" />
-          Approve All Pending
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={handleDebugPosts} variant="outline" className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            Debug Posts
+          </Button>
+          <Button onClick={() => handleFixData(false)} variant="outline" className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Fix Data
+          </Button>
+          <Button onClick={() => handleFixData(true)} variant="outline" className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Fix & Approve All
+          </Button>
+          <Button onClick={handleApproveAllPending} className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Approve All Pending
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

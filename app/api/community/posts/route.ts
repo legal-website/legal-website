@@ -84,7 +84,7 @@ export async function GET(request: Request) {
       SELECT COUNT(*) as total FROM Post p
       ${whereClause}
     `)
-    const total = Number.parseInt(totalResult[0].total) || 0
+    const total = Number(totalResult[0].total) || 0
 
     // Get tags for each post
     const posts = []
@@ -111,7 +111,7 @@ export async function GET(request: Request) {
           rawPost.id,
           (session.user as any).id,
         )
-        isLiked = Number.parseInt(likeCheck[0].liked) > 0
+        isLiked = Number(likeCheck[0].liked) > 0
       }
 
       posts.push({
@@ -126,8 +126,8 @@ export async function GET(request: Request) {
         status: rawPost.status,
         date: new Date(rawPost.createdAt).toISOString(),
         tags: postTags.map((tag: any) => tag.name),
-        likes: Number.parseInt(rawPost.likeCount) || 0,
-        replies: Number.parseInt(rawPost.commentCount) || 0,
+        likes: Number(rawPost.likeCount) || 0,
+        replies: Number(rawPost.commentCount) || 0,
         isLiked,
       })
     }
