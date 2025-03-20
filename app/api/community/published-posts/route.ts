@@ -3,7 +3,7 @@ import { db } from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
-// Get only published posts (simplified version for dashboard)
+// Update the published-posts API to handle the different requirements
 export async function GET(request: Request) {
   try {
     console.log("Published Posts API: Starting request")
@@ -13,25 +13,24 @@ export async function GET(request: Request) {
     const skip = (page - 1) * limit
     const search = searchParams.get("search") || ""
     const includeAllUserPosts = searchParams.get("includeAllUserPosts") === "true"
+    const status = searchParams.get("status") || "published"
 
     // Get session for checking likes and user posts
     const session = await getServerSession(authOptions)
     const userId = session?.user ? (session.user as any).id : null
 
     // Build the query based on parameters
-    let whereClause = "WHERE p.status = 'published'"
-
-    // If search is provided, add it to the where clause
-    if (search && search.trim() !== "") {
-      whereClause += ` AND (p.title LIKE '%${search}%' OR p.content LIKE '%${search}%')`
-    }
+    let whereClause = ""
 
     // If includeAllUserPosts is true and user is logged in, modify the query to include all their posts
     if (includeAllUserPosts && userId) {
       // For the "My Posts" section, we want to show all of the user's posts regardless of status
-      whereClause = `WHERE (p.status = 'published' OR (p.authorId = '${userId}'))`
+      whereClause = `WHERE p.authorId = '${userId}'`
+    } else {
+      // For the Discussion Forum, only show published posts
+      whereClause = `WHERE p.status = '${status}'`
 
-      // Add search if provided
+      // Add search if provided (only for Discussion Forum)
       if (search && search.trim() !== "") {
         whereClause += ` AND (p.title LIKE '%${search}%' OR p.content LIKE '%${search}%')`
       }
@@ -39,16 +38,16 @@ export async function GET(request: Request) {
 
     // Use a very simple query to avoid SQL syntax issues
     const postsQuery = `
-  SELECT 
-    p.id, p.title, p.content, p.status, p.authorId, p.createdAt, p.updatedAt,
-    u.id as userId, u.name as userName, u.image as userImage,
-    (SELECT COUNT(*) FROM \`Like\` l WHERE l.postId = p.id) as likeCount,
-    (SELECT COUNT(*) FROM Comment c WHERE c.postId = p.id) as commentCount
-  FROM Post p
-  LEFT JOIN User u ON p.authorId = u.id
-  ${whereClause}
-  ORDER BY p.createdAt DESC
-  LIMIT ? OFFSET ?
+SELECT 
+  p.id, p.title, p.content, p.status, p.authorId, p.createdAt, p.updatedAt,
+  u.id as userId, u.name as userName, u.image as userImage,
+  (SELECT COUNT(*) FROM \`Like\` l WHERE l.postId = p.id) as likeCount,
+  (SELECT COUNT(*) FROM Comment c WHERE c.postId = p.id) as commentCount
+FROM Post p
+LEFT JOIN User u ON p.authorId = u.id
+${whereClause}
+ORDER BY p.createdAt DESC
+LIMIT ? OFFSET ?
 `
 
     console.log("Published Posts API: Executing query:", postsQuery)
@@ -72,8 +71,8 @@ export async function GET(request: Request) {
     let total = 0
     try {
       const totalQuery = `
-    SELECT COUNT(*) as total FROM Post p ${whereClause}
-  `
+  SELECT COUNT(*) as total FROM Post p ${whereClause}
+`
       const totalResult = await db.$queryRawUnsafe(totalQuery)
       total = Number(totalResult[0].total) || 0
     } catch (countError) {
@@ -89,11 +88,11 @@ export async function GET(request: Request) {
       try {
         postTags = await db.$queryRawUnsafe(
           `
-      SELECT t.name
-      FROM PostTag pt
-      JOIN Tag t ON pt.tagId = t.id
-      WHERE pt.postId = ?
-    `,
+    SELECT t.name
+    FROM PostTag pt
+    JOIN Tag t ON pt.tagId = t.id
+    WHERE pt.postId = ?
+  `,
           post.id,
         )
       } catch (error) {
@@ -106,10 +105,10 @@ export async function GET(request: Request) {
         try {
           const likeCheck = await db.$queryRawUnsafe(
             `
-        SELECT COUNT(*) as liked
-        FROM \`Like\`
-        WHERE postId = ? AND authorId = ?
-      `,
+      SELECT COUNT(*) as liked
+      FROM \`Like\`
+      WHERE postId = ? AND authorId = ?
+    `,
             post.id,
             userId,
           )

@@ -105,6 +105,7 @@ export default function CommunityPage() {
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [myPosts, setMyPosts] = useState<Post[]>([])
 
   // Debug log fetch results
   useEffect(() => {
@@ -121,7 +122,7 @@ export default function CommunityPage() {
     logFetchResults()
   }, [])
 
-  // Fetch posts
+  // Update the fetchPosts function to only fetch published posts
   const fetchPosts = useCallback(async () => {
     try {
       setIsLoading(true)
@@ -135,13 +136,14 @@ export default function CommunityPage() {
       queryParams.set("page", currentPage.toString())
       queryParams.set("limit", "10")
 
-      // Only include all user posts when explicitly fetching for the My Posts section
-      // Do NOT include this parameter for the main Discussion Forum
-      // queryParams.set("includeAllUserPosts", "true") // Remove this line
+      // Explicitly set status to published for Discussion Forum
+      queryParams.set("status", "published")
+
+      // Never include all user posts in the main Discussion Forum
+      // queryParams.set("includeAllUserPosts", "true") // This line is removed
 
       console.log(`Fetching posts with params: ${queryParams.toString()}`)
 
-      // Use the simplified published-posts endpoint instead
       const response = await fetch(`/api/community/published-posts?${queryParams.toString()}`)
 
       if (!response.ok) {
@@ -179,13 +181,14 @@ export default function CommunityPage() {
     }
   }, [searchQuery, selectedTag, activeTab, currentPage, toast])
 
-  // Add this new function to fetch user's own posts
+  // Update the fetchMyPosts function to fetch all user posts regardless of status
   const fetchMyPosts = useCallback(async () => {
     try {
       if (sessionStatus !== "authenticated") return
 
       const queryParams = new URLSearchParams()
-      if (searchQuery) queryParams.set("search", searchQuery)
+      // Don't apply search to My Posts section
+      // if (searchQuery) queryParams.set("search", searchQuery)
       queryParams.set("includeAllUserPosts", "true") // Include all user posts here
 
       const response = await fetch(`/api/community/published-posts?${queryParams.toString()}`)
@@ -199,16 +202,14 @@ export default function CommunityPage() {
       if (data.success) {
         // Filter to only show the user's own posts
         const userPosts = data.posts.filter((post: Post) => post.isOwnPost === true)
-        setPosts((prevPosts) => {
-          // Replace only the user's posts, keeping the main forum posts
-          const forumPosts = prevPosts.filter((post) => !post.isOwnPost)
-          return [...forumPosts, ...userPosts]
-        })
+
+        // Store user posts separately instead of merging with main posts
+        setMyPosts(userPosts)
       }
     } catch (error) {
       console.error("Error fetching your posts:", error)
     }
-  }, [searchQuery, sessionStatus])
+  }, [sessionStatus])
 
   // Fetch tags
   const fetchTags = useCallback(async () => {
@@ -973,79 +974,77 @@ export default function CommunityPage() {
             <h2 className="text-xl font-semibold">My Posts</h2>
           </div>
           <div className="divide-y">
-            {posts.filter((post: Post) => post.isOwnPost === true).length > 0 ? (
-              posts
-                .filter((post: Post) => post.isOwnPost === true)
-                .map((post: Post) => (
-                  <div key={post.id} className="p-6">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                          <h3
-                            className="font-medium text-lg mb-1 cursor-pointer hover:text-primary"
+            {myPosts.length > 0 ? (
+              myPosts.map((post: Post) => (
+                <div key={post.id} className="p-6">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <h3
+                          className="font-medium text-lg mb-1 cursor-pointer hover:text-primary"
+                          onClick={() => handleViewPost(post)}
+                        >
+                          {post.title}
+                        </h3>
+                        <Badge
+                          variant={
+                            post.status === "published"
+                              ? "default"
+                              : post.status === "pending"
+                                ? "outline"
+                                : "secondary"
+                          }
+                          className={
+                            post.status === "pending"
+                              ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                              : post.status === "draft"
+                                ? "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                                : ""
+                          }
+                        >
+                          {formatStatus(post.status)}
+                        </Badge>
+                      </div>
+                      <p className="text-gray-600 mb-3">{post.content}</p>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {post.tags.map((tag) => (
+                          <Badge
+                            key={tag}
+                            variant="outline"
+                            className="cursor-pointer hover:bg-secondary"
+                            onClick={() => {
+                              setSelectedTag(tag)
+                              setCurrentPage(1)
+                              setTimeout(() => fetchPosts(), 0)
+                            }}
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <button
+                            className={`flex items-center gap-1 text-sm ${post.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
+                            onClick={() => handleLikePost(post.id)}
+                          >
+                            <ThumbsUp className="h-4 w-4" />
+                            <span>{post.likes}</span>
+                          </button>
+                          <button
+                            className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
                             onClick={() => handleViewPost(post)}
                           >
-                            {post.title}
-                          </h3>
-                          <Badge
-                            variant={
-                              post.status === "published"
-                                ? "default"
-                                : post.status === "pending"
-                                  ? "outline"
-                                  : "secondary"
-                            }
-                            className={
-                              post.status === "pending"
-                                ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-                                : post.status === "draft"
-                                  ? "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                                  : ""
-                            }
-                          >
-                            {formatStatus(post.status)}
-                          </Badge>
+                            <MessageSquare className="h-4 w-4" />
+                            <span>{post.replies}</span>
+                          </button>
                         </div>
-                        <p className="text-gray-600 mb-3">{post.content}</p>
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {post.tags.map((tag) => (
-                            <Badge
-                              key={tag}
-                              variant="outline"
-                              className="cursor-pointer hover:bg-secondary"
-                              onClick={() => {
-                                setSelectedTag(tag)
-                                setCurrentPage(1)
-                                setTimeout(() => fetchPosts(), 0)
-                              }}
-                            >
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <button
-                              className={`flex items-center gap-1 text-sm ${post.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
-                              onClick={() => handleLikePost(post.id)}
-                            >
-                              <ThumbsUp className="h-4 w-4" />
-                              <span>{post.likes}</span>
-                            </button>
-                            <button
-                              className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
-                              onClick={() => handleViewPost(post)}
-                            >
-                              <MessageSquare className="h-4 w-4" />
-                              <span>{post.replies}</span>
-                            </button>
-                          </div>
-                          <div className="text-sm text-gray-500">{formatDate(post.date)}</div>
-                        </div>
+                        <div className="text-sm text-gray-500">{formatDate(post.date)}</div>
                       </div>
                     </div>
                   </div>
-                ))
+                </div>
+              ))
             ) : (
               <div className="p-6 text-center">
                 <p className="text-gray-500">You haven't created any posts yet.</p>
