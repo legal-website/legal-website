@@ -5,6 +5,13 @@ import { authOptions } from "@/lib/auth"
 import { Role } from "@/lib/role"
 import { v4 as uuidv4 } from "uuid"
 
+// Define valid status values
+const VALID_STATUSES = {
+  PENDING: "pending",
+  PUBLISHED: "published",
+  DRAFT: "draft",
+}
+
 // Update a post
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -15,7 +22,22 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     const postId = params.id
     const body = await request.json()
-    const { title, content, status, tags } = body
+    let { title, content, status, tags } = body
+
+    // Map "approved" to "published" and "rejected" to "draft" for backward compatibility
+    if (status === "approved") status = VALID_STATUSES.PUBLISHED
+    if (status === "rejected") status = VALID_STATUSES.DRAFT
+
+    // Ensure status is one of the valid values
+    if (status && !Object.values(VALID_STATUSES).includes(status)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Invalid status. Must be one of: ${Object.values(VALID_STATUSES).join(", ")}`,
+        },
+        { status: 400 },
+      )
+    }
 
     // Get the existing post
     const existingPostResult = await db.$queryRawUnsafe(

@@ -172,6 +172,14 @@ export default function AdminCommunityPage() {
     router.push(`/admin/community?status=${selectedStatus}&tag=${selectedTag}&search=${searchTerm}&page=${page}`)
   }
 
+  // Define valid status values
+  const VALID_STATUSES = {
+    PENDING: "pending",
+    PUBLISHED: "published",
+    DRAFT: "draft",
+    ALL: "all",
+  }
+
   // Handle post approval
   const handleApprovePost = async (postId: string) => {
     try {
@@ -180,7 +188,7 @@ export default function AdminCommunityPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status: "approved" }),
+        body: JSON.stringify({ status: VALID_STATUSES.PUBLISHED }),
       })
 
       if (!response.ok) throw new Error("Failed to approve post")
@@ -189,21 +197,21 @@ export default function AdminCommunityPage() {
       if (data.success) {
         toast({
           title: "Success",
-          description: "Post approved successfully",
+          description: "Post published successfully",
         })
         fetchPosts()
       } else {
         toast({
           title: "Error",
-          description: data.error || "Failed to approve post",
+          description: data.error || "Failed to publish post",
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("Error approving post:", error)
+      console.error("Error publishing post:", error)
       toast({
         title: "Error",
-        description: "Failed to approve post. Please try again.",
+        description: "Failed to publish post. Please try again.",
         variant: "destructive",
       })
     }
@@ -217,7 +225,7 @@ export default function AdminCommunityPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status: "rejected" }),
+        body: JSON.stringify({ status: VALID_STATUSES.DRAFT }),
       })
 
       if (!response.ok) throw new Error("Failed to reject post")
@@ -226,21 +234,21 @@ export default function AdminCommunityPage() {
       if (data.success) {
         toast({
           title: "Success",
-          description: "Post rejected successfully",
+          description: "Post moved to draft successfully",
         })
         fetchPosts()
       } else {
         toast({
           title: "Error",
-          description: data.error || "Failed to reject post",
+          description: data.error || "Failed to move post to draft",
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("Error rejecting post:", error)
+      console.error("Error moving post to draft:", error)
       toast({
         title: "Error",
-        description: "Failed to reject post. Please try again.",
+        description: "Failed to move post to draft. Please try again.",
         variant: "destructive",
       })
     }
@@ -283,38 +291,38 @@ export default function AdminCommunityPage() {
 
   // Handle approve all pending posts
   const handleApproveAllPending = async () => {
-    if (!confirm("Are you sure you want to approve all pending posts?")) return
+    if (!confirm("Are you sure you want to publish all pending posts?")) return
 
     try {
-      const response = await fetch("/api/community/fix-posts", {
+      const response = await fetch("/api/community/fix-data", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ action: "approve-all-pending" }),
+        body: JSON.stringify({ approveAll: true }),
       })
 
-      if (!response.ok) throw new Error("Failed to approve all pending posts")
+      if (!response.ok) throw new Error("Failed to publish all pending posts")
 
       const data = await response.json()
       if (data.success) {
         toast({
           title: "Success",
-          description: data.message || "All pending posts approved successfully",
+          description: data.message || "All pending posts published successfully",
         })
         fetchPosts()
       } else {
         toast({
           title: "Error",
-          description: data.error || "Failed to approve all pending posts",
+          description: data.error || "Failed to publish all pending posts",
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("Error approving all pending posts:", error)
+      console.error("Error publishing all pending posts:", error)
       toast({
         title: "Error",
-        description: "Failed to approve all pending posts. Please try again.",
+        description: "Failed to publish all pending posts. Please try again.",
         variant: "destructive",
       })
     }
@@ -383,6 +391,86 @@ export default function AdminCommunityPage() {
       toast({
         title: "Error",
         description: "Failed to debug posts. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleCheckStatus = async () => {
+    try {
+      const response = await fetch("/api/community/status-check")
+      if (!response.ok) throw new Error("Failed to check status")
+
+      const data = await response.json()
+      if (data.success) {
+        console.log("Status check results:", data)
+
+        const statusInfo = Object.entries(data.statusCounts)
+          .map(([status, count]) => `${status}: ${count}`)
+          .join(", ")
+
+        toast({
+          title: "Status Check",
+          description: `Found ${data.totalPosts} posts. Status counts: ${statusInfo}`,
+        })
+
+        if (data.invalidStatuses.length > 0) {
+          toast({
+            title: "Invalid Statuses Found",
+            description: `Found invalid statuses: ${data.invalidStatuses.join(", ")}. Click "Fix Status Values" to correct.`,
+            variant: "destructive",
+          })
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to check status",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error checking status:", error)
+      toast({
+        title: "Error",
+        description: "Failed to check status. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleFixStatus = async () => {
+    try {
+      const response = await fetch("/api/community/status-check", {
+        method: "POST",
+      })
+      if (!response.ok) throw new Error("Failed to fix status values")
+
+      const data = await response.json()
+      if (data.success) {
+        console.log("Status fix results:", data)
+
+        const statusInfo = Object.entries(data.statusCounts)
+          .map(([status, count]) => `${status}: ${count}`)
+          .join(", ")
+
+        toast({
+          title: "Status Fixed",
+          description: `Fixed post statuses. New counts: ${statusInfo}`,
+        })
+
+        fetchPosts()
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to fix status values",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error fixing status:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fix status values. Please try again.",
         variant: "destructive",
       })
     }
@@ -486,6 +574,14 @@ export default function AdminCommunityPage() {
             <RefreshCw className="h-4 w-4" />
             Approve All Pending
           </Button>
+          <Button onClick={handleCheckStatus} variant="outline" className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            Check Status Values
+          </Button>
+          <Button onClick={handleFixStatus} variant="outline" className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Fix Status Values
+          </Button>
         </div>
       </div>
 
@@ -528,10 +624,10 @@ export default function AdminCommunityPage() {
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value={VALID_STATUSES.ALL}>All</SelectItem>
+                    <SelectItem value={VALID_STATUSES.PENDING}>Pending</SelectItem>
+                    <SelectItem value={VALID_STATUSES.PUBLISHED}>Published</SelectItem>
+                    <SelectItem value={VALID_STATUSES.DRAFT}>Draft</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -647,24 +743,24 @@ export default function AdminCommunityPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {post.status === "pending" && (
+                          {post.status === VALID_STATUSES.PENDING && (
                             <>
                               <Button size="sm" onClick={() => handleApprovePost(post.id)}>
-                                Approve
+                                Publish
                               </Button>
                               <Button size="sm" variant="outline" onClick={() => handleRejectPost(post.id)}>
-                                Reject
+                                Move to Draft
                               </Button>
                             </>
                           )}
-                          {post.status === "rejected" && (
+                          {post.status === VALID_STATUSES.DRAFT && (
                             <Button size="sm" onClick={() => handleApprovePost(post.id)}>
-                              Approve
+                              Publish
                             </Button>
                           )}
-                          {post.status === "approved" && (
+                          {post.status === VALID_STATUSES.PUBLISHED && (
                             <Button size="sm" variant="outline" onClick={() => handleRejectPost(post.id)}>
-                              Reject
+                              Move to Draft
                             </Button>
                           )}
                           <Button size="sm" variant="destructive" onClick={() => handleDeletePost(post.id)}>

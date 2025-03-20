@@ -4,11 +4,22 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { v4 as uuidv4 } from "uuid"
 
+// Define valid status values
+const VALID_STATUSES = {
+  PENDING: "pending",
+  PUBLISHED: "published",
+  DRAFT: "draft",
+}
+
 // Get all posts (with filters)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get("status") || "approved"
+    // Map "approved" to "published" for backward compatibility
+    let status = searchParams.get("status") || VALID_STATUSES.PUBLISHED
+    if (status === "approved") status = VALID_STATUSES.PUBLISHED
+    if (status === "rejected") status = VALID_STATUSES.DRAFT
+
     const tag = searchParams.get("tag")
     const search = searchParams.get("search")
     const sort = searchParams.get("sort") || "latest"
@@ -16,7 +27,7 @@ export async function GET(request: Request) {
     const limit = Number.parseInt(searchParams.get("limit") || "10")
     const skip = (page - 1) * limit
 
-    // For clients, only show approved posts
+    // For clients, only show published posts
     // For admins, allow filtering by status
     const session = await getServerSession(authOptions)
     const isAdmin = session?.user && (session.user as any).role === "ADMIN"
@@ -30,7 +41,7 @@ export async function GET(request: Request) {
     let whereClause = ""
 
     if (!isAdmin) {
-      whereClause = "WHERE p.status = 'approved'"
+      whereClause = `WHERE p.status = '${VALID_STATUSES.PUBLISHED}'`
     } else if (status !== "all") {
       whereClause = `WHERE p.status = '${status}'`
     }
@@ -52,6 +63,16 @@ export async function GET(request: Request) {
       const searchFilter = `(p.title LIKE '%${search}%' OR p.content LIKE '%${search}%')`
 
       whereClause = whereClause ? `${whereClause} AND ${searchFilter}` : `WHERE ${searchFilter}`
+    }
+
+    // For client, also allow seeing their own posts regardless of status
+    if (!isAdmin && session?.user) {
+      const userId = (session.user as any).id
+      if (whereClause) {
+        whereClause = `(${whereClause}) OR p.authorId = '${userId}'`
+      } else {
+        whereClause = `WHERE p.authorId = '${userId}'`
+      }
     }
 
     // Debug log
@@ -114,6 +135,9 @@ export async function GET(request: Request) {
         isLiked = Number(likeCheck[0].liked) > 0
       }
 
+      // Check if this is the user's own post
+      const isOwnPost = session?.user && rawPost.authorId === (session.user as any).id
+
       posts.push({
         id: rawPost.id,
         title: rawPost.title,
@@ -129,6 +153,7 @@ export async function GET(request: Request) {
         likes: Number(rawPost.likeCount) || 0,
         replies: Number(rawPost.commentCount) || 0,
         isLiked,
+        isOwnPost,
       })
     }
 
@@ -165,7 +190,8 @@ export async function POST(request: Request) {
 
     // Determine post status based on user role
     const isAdmin = (session.user as any).role === "ADMIN"
-    const status = isAdmin ? "approved" : "pending"
+    // If admin, publish directly, otherwise set to pending
+    const status = isAdmin ? VALID_STATUSES.PUBLISHED : VALID_STATUSES.PENDING
     const now = new Date().toISOString()
     const postId = uuidv4()
 

@@ -3,6 +3,13 @@ import { db } from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
+// Define valid status values
+const VALID_STATUSES = {
+  PENDING: "pending",
+  PUBLISHED: "published",
+  DRAFT: "draft",
+}
+
 export async function POST(request: Request) {
   try {
     // Check if user is admin
@@ -16,8 +23,21 @@ export async function POST(request: Request) {
     // Fix any null or empty status values
     await db.$executeRawUnsafe(`
       UPDATE Post
-      SET status = 'pending'
+      SET status = '${VALID_STATUSES.PENDING}'
       WHERE status IS NULL OR status = ''
+    `)
+
+    // Fix any incorrect status values (approved -> published, rejected -> draft)
+    await db.$executeRawUnsafe(`
+      UPDATE Post
+      SET status = '${VALID_STATUSES.PUBLISHED}'
+      WHERE status = 'approved'
+    `)
+
+    await db.$executeRawUnsafe(`
+      UPDATE Post
+      SET status = '${VALID_STATUSES.DRAFT}'
+      WHERE status = 'rejected'
     `)
 
     // Fix any null dates
@@ -33,20 +53,20 @@ export async function POST(request: Request) {
       WHERE updatedAt IS NULL
     `)
 
-    // Approve all pending posts (optional)
+    // Publish all pending posts (optional)
     const body = await request.json()
     if (body.approveAll) {
       await db.$executeRawUnsafe(`
         UPDATE Post
-        SET status = 'approved'
-        WHERE status = 'pending'
+        SET status = '${VALID_STATUSES.PUBLISHED}'
+        WHERE status = '${VALID_STATUSES.PENDING}'
       `)
     }
 
     return NextResponse.json({
       success: true,
       message: "Database data fixed successfully",
-      approvedAll: !!body.approveAll,
+      publishedAll: !!body.approveAll,
     })
   } catch (error) {
     console.error("Error fixing data:", error)

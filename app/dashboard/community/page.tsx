@@ -59,6 +59,7 @@ interface Post {
   replies: number
   isLiked: boolean
   status?: string
+  isOwnPost?: boolean
 }
 
 interface Comment {
@@ -482,6 +483,15 @@ export default function CommunityPage() {
 
   // Handle view post
   const handleViewPost = async (post: Post) => {
+    if (!post || !post.id) {
+      toast({
+        title: "Error",
+        description: "Invalid post data",
+        variant: "destructive",
+      })
+      return
+    }
+
     setSelectedPost(post)
     setShowPostDialog(true)
     await fetchComments(post.id)
@@ -546,6 +556,20 @@ export default function CommunityPage() {
   // Handle page change
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage)
+  }
+
+  // Add this function to format the status for display
+  const formatStatus = (status: string | undefined) => {
+    switch (status) {
+      case "published":
+        return "Published"
+      case "pending":
+        return "Pending Review"
+      case "draft":
+        return "Draft"
+      default:
+        return status || "Unknown"
+    }
   }
 
   return (
@@ -885,6 +909,90 @@ export default function CommunityPage() {
           </Card>
         </div>
       </div>
+
+      {sessionStatus === "authenticated" && (
+        <Card className="mt-6">
+          <div className="p-6 border-b">
+            <h2 className="text-xl font-semibold">My Posts</h2>
+          </div>
+          <div className="divide-y">
+            {posts.filter((post) => post.isOwnPost === true).length > 0 ? (
+              posts
+                .filter((post) => post.isOwnPost === true)
+                .map((post) => (
+                  <div key={post.id} className="p-6">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <h3
+                            className="font-medium text-lg mb-1 cursor-pointer hover:text-primary"
+                            onClick={() => handleViewPost(post)}
+                          >
+                            {post.title}
+                          </h3>
+                          <Badge
+                            variant={
+                              post.status === "published"
+                                ? "default"
+                                : post.status === "pending"
+                                  ? "outline"
+                                  : "secondary"
+                            }
+                          >
+                            {formatStatus(post.status)}
+                          </Badge>
+                        </div>
+                        <p className="text-gray-600 mb-3">{post.content}</p>
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {post.tags.map((tag) => (
+                            <Badge
+                              key={tag}
+                              variant="outline"
+                              className="cursor-pointer hover:bg-secondary"
+                              onClick={() => {
+                                setSelectedTag(tag)
+                                setCurrentPage(1)
+                                setTimeout(() => fetchPosts(), 0)
+                              }}
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <button
+                              className={`flex items-center gap-1 text-sm ${post.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
+                              onClick={() => handleLikePost(post.id)}
+                            >
+                              <ThumbsUp className="h-4 w-4" />
+                              <span>{post.likes}</span>
+                            </button>
+                            <button
+                              className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
+                              onClick={() => handleViewPost(post)}
+                            >
+                              <MessageSquare className="h-4 w-4" />
+                              <span>{post.replies}</span>
+                            </button>
+                          </div>
+                          <div className="text-sm text-gray-500">{formatDate(post.date)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+            ) : (
+              <div className="p-6 text-center">
+                <p className="text-gray-500">You haven't created any posts yet.</p>
+                <Button variant="outline" className="mt-2" onClick={() => setShowNewPostDialog(true)}>
+                  Create Your First Post
+                </Button>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* New Post Dialog */}
       <Dialog open={showNewPostDialog} onOpenChange={setShowNewPostDialog}>
