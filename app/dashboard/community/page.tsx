@@ -42,6 +42,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+// Add this at the top of the file, after the imports
+
 interface Author {
   id: string
   name: string
@@ -101,6 +103,21 @@ export default function CommunityPage() {
   const [shareUrl, setShareUrl] = useState("")
   const [error, setError] = useState<string | null>(null)
 
+  // Inside the CommunityPage component, add this useEffect to log the fetch results
+  useEffect(() => {
+    const logFetchResults = async () => {
+      try {
+        const response = await fetch("/api/community/posts?status=all")
+        const data = await response.json()
+        console.log("Fetch posts response:", data)
+      } catch (error) {
+        console.error("Error logging fetch results:", error)
+      }
+    }
+
+    logFetchResults()
+  }, [])
+
   // Fetch posts
   const fetchPosts = useCallback(async () => {
     try {
@@ -112,13 +129,15 @@ export default function CommunityPage() {
       if (selectedTag) queryParams.set("tag", selectedTag)
       queryParams.set("sort", activeTab)
 
+      console.log(`Fetching posts with params: ${queryParams.toString()}`)
       const response = await fetch(`/api/community/posts?${queryParams.toString()}`)
 
       if (!response.ok) {
-        throw new Error("Failed to fetch posts")
+        throw new Error(`Failed to fetch posts: ${response.status} ${response.statusText}`)
       }
 
       const data = await response.json()
+      console.log("Fetch posts response:", data)
 
       if (data.success) {
         setPosts(data.posts)

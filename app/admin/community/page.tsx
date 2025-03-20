@@ -1,36 +1,25 @@
 "use client"
 
-import { Label } from "@/components/ui/label"
-import Image from "next/image"
 import { useState, useEffect, useCallback } from "react"
-import { Card } from "@/components/ui/card"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import { useToast } from "@/components/ui/use-toast"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  MessageCircle,
-  Search,
-  ThumbsUp,
-  MessageSquare,
-  Clock,
-  Tag,
-  Filter,
-  PlusCircle,
-  Share2,
-  Facebook,
-  Twitter,
-  Linkedin,
-  Send,
-  Loader2,
-  RefreshCw,
-  AlertCircle,
-} from "lucide-react"
-import { useSession } from "next-auth/react"
-import { useToast } from "@/components/ui/use-toast"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { formatDistanceToNow } from "date-fns"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +30,49 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import { format, formatDistanceToNow } from "date-fns"
+import Image from "next/image"
+import {
+  Search,
+  Filter,
+  MoreHorizontal,
+  CheckCircle,
+  XCircle,
+  MessageCircle,
+  ThumbsUp,
+  Eye,
+  Edit,
+  Trash2,
+  RefreshCw,
+  Loader2,
+  AlertCircle,
+  Send,
+  Clock,
+  User,
+  FileText,
+  MessageSquare,
+} from "lucide-react"
+
+// Import Role from our own file instead of @prisma/client
+import { Role } from "@/lib/role"
 
 interface Author {
   id: string
@@ -58,7 +90,7 @@ interface Post {
   likes: number
   replies: number
   isLiked: boolean
-  status?: string
+  status: string
 }
 
 interface Comment {
@@ -76,33 +108,96 @@ interface TagWithCount {
   count: number
 }
 
-export default function CommunityPage() {
+interface UserData {
+  id: string
+  name: string
+  email: string
+  role: Role
+  profileImage?: string
+}
+
+export default function AdminCommunityPage() {
   const { data: session, status: sessionStatus } = useSession()
+  const router = useRouter()
   const { toast } = useToast()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedTag, setSelectedTag] = useState<string | null>(null)
-  const [newPostTitle, setNewPostTitle] = useState("")
-  const [newPostContent, setNewPostContent] = useState("")
-  const [newPostTags, setNewPostTags] = useState("")
+
+  const [activeTab, setActiveTab] = useState("pending")
   const [posts, setPosts] = useState<Post[]>([])
   const [allTags, setAllTags] = useState<TagWithCount[]>([])
-  const [activeTab, setActiveTab] = useState("latest")
+  const [users, setUsers] = useState<UserData[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showNewPostDialog, setShowNewPostDialog] = useState(false)
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [postComments, setPostComments] = useState<Comment[]>([])
   const [showPostDialog, setShowPostDialog] = useState(false)
-  const [newComment, setNewComment] = useState("")
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
   const [isLoadingComments, setIsLoadingComments] = useState(false)
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
-  const [showShareDialog, setShowShareDialog] = useState(false)
-  const [shareUrl, setShareUrl] = useState("")
-  const [error, setError] = useState<string | null>(null)
+  const [newComment, setNewComment] = useState("")
+  const [editPostData, setEditPostData] = useState({
+    title: "",
+    content: "",
+    tags: "",
+    status: "",
+  })
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalPosts, setTotalPosts] = useState(0)
+  const [postsPerPage] = useState(10)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [communityStats, setCommunityStats] = useState({
+    totalPosts: 0,
+    totalComments: 0,
+    totalLikes: 0,
+    pendingPosts: 0,
+    activeTags: 0,
+    mostActiveUsers: [] as { id: string; name: string; postCount: number }[],
+  })
+
+  // Check if user is authenticated and is an admin
+  useEffect(() => {
+    if (sessionStatus === "loading") return
+
+    if (!session) {
+      router.push("/login?callbackUrl=/admin/community")
+      return
+    }
+
+    // Only ADMIN users can access this page
+    if ((session.user as any).role !== Role.ADMIN) {
+      router.push("/dashboard")
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to access this page.",
+        variant: "destructive",
+      })
+    }
+  }, [session, sessionStatus, router, toast])
+
+  // Add this at the top of the file, after the imports
+  useEffect(() => {
+    const logFetchResults = async () => {
+      try {
+        const response = await fetch("/api/community/posts?status=all")
+        const data = await response.json()
+        console.log("Admin fetch posts response:", data)
+      } catch (error) {
+        console.error("Error logging fetch results:", error)
+      }
+    }
+
+    if (sessionStatus === "authenticated" && (session?.user as any)?.role === Role.ADMIN) {
+      logFetchResults()
+    }
+  }, [sessionStatus, session])
 
   // Fetch posts
   const fetchPosts = useCallback(async () => {
+    if (sessionStatus !== "authenticated" || (session?.user as any)?.role !== Role.ADMIN) return
+
     try {
       setIsLoading(true)
       setError(null)
@@ -110,18 +205,24 @@ export default function CommunityPage() {
       const queryParams = new URLSearchParams()
       if (searchQuery) queryParams.set("search", searchQuery)
       if (selectedTag) queryParams.set("tag", selectedTag)
-      queryParams.set("sort", activeTab)
+      queryParams.set("status", activeTab === "all" ? "all" : activeTab)
+      queryParams.set("page", currentPage.toString())
+      queryParams.set("limit", postsPerPage.toString())
 
+      console.log(`Admin fetching posts with params: ${queryParams.toString()}`)
       const response = await fetch(`/api/community/posts?${queryParams.toString()}`)
 
       if (!response.ok) {
-        throw new Error("Failed to fetch posts")
+        throw new Error(`Failed to fetch posts: ${response.status} ${response.statusText}`)
       }
 
       const data = await response.json()
+      console.log("Admin fetch posts response:", data)
 
       if (data.success) {
         setPosts(data.posts)
+        setTotalPages(data.pagination.totalPages)
+        setTotalPosts(data.pagination.total)
       } else {
         throw new Error(data.error || "Failed to fetch posts")
       }
@@ -136,10 +237,12 @@ export default function CommunityPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [searchQuery, selectedTag, activeTab, toast])
+  }, [searchQuery, selectedTag, activeTab, currentPage, postsPerPage, sessionStatus, session, toast])
 
   // Fetch tags
   const fetchTags = useCallback(async () => {
+    if (sessionStatus !== "authenticated" || (session?.user as any)?.role !== Role.ADMIN) return
+
     try {
       const response = await fetch("/api/community/tags")
 
@@ -155,11 +258,66 @@ export default function CommunityPage() {
     } catch (error) {
       console.error("Error fetching tags:", error)
     }
-  }, [])
+  }, [sessionStatus, session])
+
+  // Fetch users
+  const fetchUsers = useCallback(async () => {
+    if (sessionStatus !== "authenticated" || (session?.user as any)?.role !== Role.ADMIN) return
+
+    try {
+      const response = await fetch("/api/admin/users")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch users")
+      }
+
+      const data = await response.json()
+
+      if (data.users) {
+        setUsers(
+          data.users.map((user: any) => ({
+            id: user.id,
+            name: user.name || "Unknown",
+            email: user.email,
+            role: user.role,
+            profileImage: user.profileImage || user.image,
+          })),
+        )
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error)
+    }
+  }, [sessionStatus, session])
+
+  // Fetch community stats
+  const fetchCommunityStats = useCallback(async () => {
+    if (sessionStatus !== "authenticated" || (session?.user as any)?.role !== Role.ADMIN) return
+
+    try {
+      // This would be a real API endpoint in a production app
+      // For now, we'll simulate some stats
+      setCommunityStats({
+        totalPosts: 125,
+        totalComments: 843,
+        totalLikes: 1256,
+        pendingPosts: posts.filter((p) => p.status === "pending").length,
+        activeTags: allTags.length,
+        mostActiveUsers: users.slice(0, 5).map((user) => ({
+          id: user.id,
+          name: user.name,
+          postCount: Math.floor(Math.random() * 20) + 1,
+        })),
+      })
+    } catch (error) {
+      console.error("Error fetching community stats:", error)
+    }
+  }, [sessionStatus, session, posts, allTags, users])
 
   // Fetch post comments
   const fetchComments = useCallback(
     async (postId: string) => {
+      if (sessionStatus !== "authenticated" || (session?.user as any)?.role !== Role.ADMIN) return
+
       try {
         setIsLoadingComments(true)
 
@@ -187,190 +345,48 @@ export default function CommunityPage() {
         setIsLoadingComments(false)
       }
     },
-    [toast],
+    [sessionStatus, session, toast],
   )
 
   // Initial data fetch
   useEffect(() => {
-    fetchPosts()
-    fetchTags()
-  }, [fetchPosts, fetchTags])
-
-  // Handle like post
-  const handleLikePost = async (postId: string) => {
-    if (sessionStatus !== "authenticated") {
-      setShowLoginPrompt(true)
-      return
+    if (sessionStatus === "authenticated" && (session?.user as any)?.role === Role.ADMIN) {
+      fetchPosts()
+      fetchTags()
+      fetchUsers()
     }
+  }, [fetchPosts, fetchTags, fetchUsers, sessionStatus, session])
 
-    try {
-      const response = await fetch("/api/community/likes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ postId }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to like post")
-      }
-
-      const data = await response.json()
-
-      // Update posts state
-      setPosts((prevPosts) =>
-        prevPosts.map((post) => {
-          if (post.id === postId) {
-            return {
-              ...post,
-              likes: data.liked ? post.likes + 1 : post.likes - 1,
-              isLiked: data.liked,
-            }
-          }
-          return post
-        }),
-      )
-
-      // If the post is currently selected, update it too
-      if (selectedPost?.id === postId) {
-        setSelectedPost((prev) => {
-          if (prev) {
-            return {
-              ...prev,
-              likes: data.liked ? prev.likes + 1 : prev.likes - 1,
-              isLiked: data.liked,
-            }
-          }
-          return prev
-        })
-      }
-    } catch (error) {
-      console.error("Error liking post:", error)
-      toast({
-        title: "Error",
-        description: "Failed to like post. Please try again.",
-        variant: "destructive",
-      })
+  // Update community stats when data changes
+  useEffect(() => {
+    if (sessionStatus === "authenticated" && (session?.user as any)?.role === Role.ADMIN) {
+      fetchCommunityStats()
     }
+  }, [fetchCommunityStats, posts, allTags, users, sessionStatus, session])
+
+  // Handle view post
+  const handleViewPost = async (post: Post) => {
+    setSelectedPost(post)
+    setShowPostDialog(true)
+    await fetchComments(post.id)
   }
 
-  // Handle like comment
-  const handleLikeComment = async (commentId: string) => {
-    if (sessionStatus !== "authenticated") {
-      setShowLoginPrompt(true)
-      return
-    }
-
-    try {
-      const response = await fetch("/api/community/likes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ commentId }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to like comment")
-      }
-
-      const data = await response.json()
-
-      // Update comments state
-      setPostComments((prevComments) =>
-        prevComments.map((comment) => {
-          if (comment.id === commentId) {
-            return {
-              ...comment,
-              likes: data.liked ? comment.likes + 1 : comment.likes - 1,
-              isLiked: data.liked,
-            }
-          }
-          return comment
-        }),
-      )
-    } catch (error) {
-      console.error("Error liking comment:", error)
-      toast({
-        title: "Error",
-        description: "Failed to like comment. Please try again.",
-        variant: "destructive",
-      })
-    }
+  // Handle edit post
+  const handleEditPost = (post: Post) => {
+    setSelectedPost(post)
+    setEditPostData({
+      title: post.title,
+      content: post.content,
+      tags: post.tags.join(", "),
+      status: post.status,
+    })
+    setShowEditDialog(true)
   }
 
-  // Handle create post
-  const handleCreatePost = async () => {
-    if (sessionStatus !== "authenticated") {
-      setShowLoginPrompt(true)
-      return
-    }
-
-    if (!newPostTitle.trim() || !newPostContent.trim()) {
-      toast({
-        title: "Error",
-        description: "Title and content are required.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      setIsSubmitting(true)
-
-      // Process tags
-      const tags = newPostTags
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter((tag) => tag.length > 0)
-
-      const response = await fetch("/api/community/posts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: newPostTitle,
-          content: newPostContent,
-          tags,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to create post")
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "Your post has been submitted successfully.",
-        })
-
-        // Reset form
-        setNewPostTitle("")
-        setNewPostContent("")
-        setNewPostTags("")
-        setShowNewPostDialog(false)
-
-        // Refresh posts
-        fetchPosts()
-        fetchTags()
-      } else {
-        throw new Error(data.error || "Failed to create post")
-      }
-    } catch (error) {
-      console.error("Error creating post:", error)
-      toast({
-        title: "Error",
-        description: "Failed to create post. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
+  // Handle delete post
+  const handleDeletePost = (post: Post) => {
+    setSelectedPost(post)
+    setShowDeleteDialog(true)
   }
 
   // Handle submit comment
@@ -378,7 +394,6 @@ export default function CommunityPage() {
     if (!selectedPost) return
 
     if (sessionStatus !== "authenticated") {
-      setShowLoginPrompt(true)
       return
     }
 
@@ -456,18 +471,194 @@ export default function CommunityPage() {
     }
   }
 
-  // Handle view post
-  const handleViewPost = async (post: Post) => {
-    setSelectedPost(post)
-    setShowPostDialog(true)
-    await fetchComments(post.id)
+  // Handle update post status
+  const handleUpdatePostStatus = async (postId: string, newStatus: string) => {
+    try {
+      setIsProcessing(true)
+
+      const response = await fetch(`/api/community/posts/${postId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: newStatus,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update post status")
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Update posts state
+        setPosts((prevPosts) =>
+          prevPosts.map((post) => {
+            if (post.id === postId) {
+              return {
+                ...post,
+                status: newStatus,
+              }
+            }
+            return post
+          }),
+        )
+
+        // If the post is currently selected, update it too
+        if (selectedPost?.id === postId) {
+          setSelectedPost((prev) => {
+            if (prev) {
+              return {
+                ...prev,
+                status: newStatus,
+              }
+            }
+            return prev
+          })
+        }
+
+        toast({
+          title: "Success",
+          description: `Post has been ${newStatus === "approved" ? "approved" : "rejected"}.`,
+        })
+      } else {
+        throw new Error(data.error || "Failed to update post status")
+      }
+    } catch (error) {
+      console.error("Error updating post status:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update post status. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
-  // Handle share post
-  const handleSharePost = (post: Post) => {
-    const url = `${window.location.origin}/community/post/${post.id}`
-    setShareUrl(url)
-    setShowShareDialog(true)
+  // Handle save edited post
+  const handleSaveEditedPost = async () => {
+    if (!selectedPost) return
+
+    try {
+      setIsProcessing(true)
+
+      // Process tags
+      const tags = editPostData.tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0)
+
+      const response = await fetch(`/api/community/posts/${selectedPost.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: editPostData.title,
+          content: editPostData.content,
+          status: editPostData.status,
+          tags,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update post")
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Update posts state
+        setPosts((prevPosts) =>
+          prevPosts.map((post) => {
+            if (post.id === selectedPost.id) {
+              return {
+                ...post,
+                title: editPostData.title,
+                content: editPostData.content,
+                status: editPostData.status,
+                tags,
+              }
+            }
+            return post
+          }),
+        )
+
+        // If the post is currently selected, update it too
+        if (selectedPost) {
+          setSelectedPost({
+            ...selectedPost,
+            title: editPostData.title,
+            content: editPostData.content,
+            status: editPostData.status,
+            tags,
+          })
+        }
+
+        setShowEditDialog(false)
+        toast({
+          title: "Success",
+          description: "Post has been updated successfully.",
+        })
+      } else {
+        throw new Error(data.error || "Failed to update post")
+      }
+    } catch (error) {
+      console.error("Error updating post:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update post. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // Handle confirm delete post
+  const handleConfirmDeletePost = async () => {
+    if (!selectedPost) return
+
+    try {
+      setIsProcessing(true)
+
+      const response = await fetch(`/api/community/posts/${selectedPost.id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete post")
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Remove post from state
+        setPosts((prevPosts) => prevPosts.filter((post) => post.id !== selectedPost.id))
+
+        setShowDeleteDialog(false)
+        setShowPostDialog(false)
+
+        toast({
+          title: "Success",
+          description: "Post has been deleted successfully.",
+        })
+      } else {
+        throw new Error(data.error || "Failed to delete post")
+      }
+    } catch (error) {
+      console.error("Error deleting post:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete post. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   // Format date
@@ -480,80 +671,119 @@ export default function CommunityPage() {
     }
   }
 
-  // Share on social media
-  const shareOnSocialMedia = (platform: string) => {
-    let shareLink = ""
-    const text = "Check out this interesting discussion!"
-
-    switch (platform) {
-      case "facebook":
-        shareLink = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`
-        break
-      case "twitter":
-        shareLink = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`
-        break
-      case "linkedin":
-        shareLink = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`
-        break
-      case "whatsapp":
-        shareLink = `https://wa.me/?text=${encodeURIComponent(text + " " + shareUrl)}`
-        break
-      default:
-        break
+  // Format full date
+  const formatFullDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString)
+      return format(date, "PPP p")
+    } catch (error) {
+      return dateString
     }
-
-    if (shareLink) {
-      window.open(shareLink, "_blank")
-    }
-
-    setShowShareDialog(false)
   }
 
-  // Copy link to clipboard
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(shareUrl)
-    toast({
-      title: "Link Copied",
-      description: "The link has been copied to your clipboard.",
-    })
-    setShowShareDialog(false)
+  // Get status badge
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "approved":
+        return <Badge className="bg-green-100 text-green-800">Approved</Badge>
+      case "pending":
+        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+      case "rejected":
+        return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
+      default:
+        return <Badge className="bg-gray-100 text-gray-800">{status}</Badge>
+    }
+  }
+
+  // If user is not an admin, don't render the page
+  if (sessionStatus === "authenticated" && (session?.user as any)?.role !== Role.ADMIN) {
+    return null
   }
 
   return (
-    <div className="p-8 mb-40">
-      <h1 className="text-3xl font-bold mb-6">Community</h1>
+    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Community Management</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage community posts, comments, and moderation</p>
+        </div>
+      </div>
 
-      <div className="grid md:grid-cols-3 gap-8">
-        <div className="md:col-span-2">
-          <Card className="mb-6">
-            <div className="p-6 border-b">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <h2 className="text-xl font-semibold flex items-center">
-                  <MessageCircle className="h-5 w-5 mr-2" />
-                  Discussion Forum
-                </h2>
-                <Button
-                  onClick={() => {
-                    if (sessionStatus === "authenticated") {
-                      setShowNewPostDialog(true)
-                    } else {
-                      setShowLoginPrompt(true)
-                    }
-                  }}
-                >
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  New Post
-                </Button>
+      {/* Dashboard Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Posts</p>
+                <p className="text-3xl font-bold">{communityStats.totalPosts}</p>
+              </div>
+              <div className="p-2 bg-primary/10 rounded-full">
+                <FileText className="h-6 w-6 text-primary" />
               </div>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="p-6 border-b">
-              <div className="flex flex-col sm:flex-row gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Comments</p>
+                <p className="text-3xl font-bold">{communityStats.totalComments}</p>
+              </div>
+              <div className="p-2 bg-blue-100 rounded-full">
+                <MessageCircle className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Likes</p>
+                <p className="text-3xl font-bold">{communityStats.totalLikes}</p>
+              </div>
+              <div className="p-2 bg-red-100 rounded-full">
+                <ThumbsUp className="h-6 w-6 text-red-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Pending Posts</p>
+                <p className="text-3xl font-bold">{communityStats.pendingPosts}</p>
+              </div>
+              <div className="p-2 bg-yellow-100 rounded-full">
+                <Clock className="h-6 w-6 text-yellow-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Main Content */}
+        <div className="lg:col-span-3">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Community Posts</CardTitle>
+              <CardDescription>Manage and moderate community discussions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Filters and Search */}
+              <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="flex-1">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
-                      placeholder="Search discussions..."
+                      placeholder="Search posts..."
                       className="pl-9"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
@@ -566,29 +796,33 @@ export default function CommunityPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <select
-                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  <Select
                     value={selectedTag || ""}
-                    onChange={(e) => {
-                      setSelectedTag(e.target.value || null)
-                      // Trigger fetch when tag changes
+                    onValueChange={(value) => {
+                      setSelectedTag(value || null)
+                      setCurrentPage(1)
                       setTimeout(() => fetchPosts(), 0)
                     }}
                   >
-                    <option value="">All Tags</option>
-                    {allTags.map((tag) => (
-                      <option key={tag.id} value={tag.name}>
-                        {tag.name} ({tag.count})
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by tag" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tags</SelectItem>
+                      {allTags.map((tag) => (
+                        <SelectItem key={tag.id} value={tag.name}>
+                          {tag.name} ({tag.count})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={() => {
                       setSearchQuery("")
                       setSelectedTag(null)
-                      setActiveTab("latest")
+                      setCurrentPage(1)
                       setTimeout(() => fetchPosts(), 0)
                     }}
                     title="Clear filters"
@@ -597,299 +831,342 @@ export default function CommunityPage() {
                   </Button>
                 </div>
               </div>
-            </div>
 
-            <Tabs
-              value={activeTab}
-              onValueChange={(value) => {
-                setActiveTab(value)
-                // Trigger fetch when tab changes
-                setTimeout(() => fetchPosts(), 0)
-              }}
-            >
-              <div className="px-6 pt-4">
+              {/* Tabs */}
+              <Tabs
+                value={activeTab}
+                onValueChange={(value) => {
+                  setActiveTab(value)
+                  setCurrentPage(1)
+                  setTimeout(() => fetchPosts(), 0)
+                }}
+                className="mb-6"
+              >
                 <TabsList>
-                  <TabsTrigger value="latest">Latest</TabsTrigger>
-                  <TabsTrigger value="popular">Popular</TabsTrigger>
-                  <TabsTrigger value="unanswered">Unanswered</TabsTrigger>
+                  <TabsTrigger value="pending">Pending</TabsTrigger>
+                  <TabsTrigger value="approved">Approved</TabsTrigger>
+                  <TabsTrigger value="rejected">Rejected</TabsTrigger>
+                  <TabsTrigger value="all">All Posts</TabsTrigger>
                 </TabsList>
-              </div>
+              </Tabs>
 
-              <TabsContent value={activeTab} className="p-0 m-0">
-                <div className="divide-y">
-                  {isLoading ? (
-                    <div className="p-12 text-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-                      <p className="text-muted-foreground">Loading discussions...</p>
-                    </div>
-                  ) : error ? (
-                    <div className="p-12 text-center">
-                      <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Error loading discussions</h3>
-                      <p className="text-muted-foreground mb-4">{error}</p>
-                      <Button onClick={fetchPosts} variant="outline">
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Try Again
-                      </Button>
-                    </div>
-                  ) : posts.length > 0 ? (
-                    posts.map((post) => (
-                      <div key={post.id} className="p-6">
-                        <div className="flex items-start gap-3">
-                          <Image
-                            src={post.author.avatar || "/placeholder.svg"}
-                            alt={post.author.name}
-                            width={40}
-                            height={40}
-                            className="rounded-full"
-                          />
-                          <div className="flex-1">
-                            <h3
-                              className="font-medium text-lg mb-1 cursor-pointer hover:text-primary"
-                              onClick={() => handleViewPost(post)}
-                            >
-                              {post.title}
-                            </h3>
-                            <p className="text-gray-600 mb-3">{post.content}</p>
-                            <div className="flex flex-wrap gap-2 mb-3">
-                              {post.tags.map((tag) => (
-                                <Badge
-                                  key={tag}
-                                  variant="outline"
-                                  className="cursor-pointer hover:bg-secondary"
-                                  onClick={() => {
-                                    setSelectedTag(tag)
-                                    setTimeout(() => fetchPosts(), 0)
-                                  }}
-                                >
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <button
-                                  className={`flex items-center gap-1 text-sm ${post.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
-                                  onClick={() => handleLikePost(post.id)}
-                                >
-                                  <ThumbsUp className="h-4 w-4" />
-                                  <span>{post.likes}</span>
-                                </button>
-                                <button
-                                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
-                                  onClick={() => handleViewPost(post)}
-                                >
-                                  <MessageSquare className="h-4 w-4" />
-                                  <span>{post.replies}</span>
-                                </button>
-                                <button
-                                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
-                                  onClick={() => handleSharePost(post)}
-                                >
-                                  <Share2 className="h-4 w-4" />
-                                  <span>Share</span>
-                                </button>
+              {/* Posts Table */}
+              {isLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : error ? (
+                <div className="text-center py-12">
+                  <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Error loading posts</h3>
+                  <p className="text-muted-foreground mb-4">{error}</p>
+                  <Button onClick={fetchPosts} variant="outline">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Try Again
+                  </Button>
+                </div>
+              ) : posts.length === 0 ? (
+                <div className="text-center py-12">
+                  <MessageCircle className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No posts found</h3>
+                  <p className="text-muted-foreground">
+                    {activeTab === "pending"
+                      ? "There are no pending posts to review."
+                      : "No posts match your current filters."}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Author</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Engagement</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {posts.map((post) => (
+                          <TableRow key={post.id}>
+                            <TableCell className="font-medium">
+                              <div className="cursor-pointer hover:text-primary" onClick={() => handleViewPost(post)}>
+                                {post.title.length > 50 ? `${post.title.substring(0, 50)}...` : post.title}
                               </div>
-                              <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {post.tags.slice(0, 3).map((tag) => (
+                                  <Badge key={tag} variant="outline" className="text-xs">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                {post.tags.length > 3 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{post.tags.length - 3} more
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                                  {post.author.avatar ? (
+                                    <Image
+                                      src={post.author.avatar || "/placeholder.svg"}
+                                      alt={post.author.name}
+                                      width={32}
+                                      height={32}
+                                      className="object-cover"
+                                    />
+                                  ) : (
+                                    <User className="h-4 w-4 text-gray-500" />
+                                  )}
+                                </div>
                                 <span>{post.author.name}</span>
-                                <span>•</span>
-                                <span>{formatDate(post.date)}</span>
                               </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-12 text-center">
-                      <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                      <h3 className="text-lg font-medium text-gray-900">No discussions found</h3>
-                      <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
+                            </TableCell>
+                            <TableCell>{getStatusBadge(post.status)}</TableCell>
+                            <TableCell>
+                              <div className="text-sm text-muted-foreground" title={formatFullDate(post.date)}>
+                                {formatDate(post.date)}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1" title="Likes">
+                                  <ThumbsUp className="h-4 w-4 text-muted-foreground" />
+                                  <span>{post.likes}</span>
+                                </div>
+                                <div className="flex items-center gap-1" title="Comments">
+                                  <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                                  <span>{post.replies}</span>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button variant="ghost" size="icon" onClick={() => handleViewPost(post)} title="View">
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+
+                                {post.status === "pending" && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleUpdatePostStatus(post.id, "approved")}
+                                      title="Approve"
+                                      className="text-green-600"
+                                      disabled={isProcessing}
+                                    >
+                                      <CheckCircle className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleUpdatePostStatus(post.id, "rejected")}
+                                      title="Reject"
+                                      className="text-red-600"
+                                      disabled={isProcessing}
+                                    >
+                                      <XCircle className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => handleViewPost(post)}>
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      View Details
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleEditPost(post)}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit Post
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => handleDeletePost(post)} className="text-red-600">
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete Post
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="mt-6">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                if (currentPage > 1) {
+                                  setCurrentPage(currentPage - 1)
+                                }
+                              }}
+                              className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            />
+                          </PaginationItem>
+
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                            // Show first page, last page, and pages around current page
+                            if (
+                              page === 1 ||
+                              page === totalPages ||
+                              (page >= currentPage - 1 && page <= currentPage + 1)
+                            ) {
+                              return (
+                                <PaginationItem key={page}>
+                                  <PaginationLink
+                                    href="#"
+                                    isActive={page === currentPage}
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      setCurrentPage(page)
+                                    }}
+                                  >
+                                    {page}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              )
+                            }
+
+                            // Show ellipsis for gaps
+                            if (
+                              (page === 2 && currentPage > 3) ||
+                              (page === totalPages - 1 && currentPage < totalPages - 2)
+                            ) {
+                              return (
+                                <PaginationItem key={page}>
+                                  <PaginationEllipsis />
+                                </PaginationItem>
+                              )
+                            }
+
+                            return null
+                          })}
+
+                          <PaginationItem>
+                            <PaginationNext
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                if (currentPage < totalPages) {
+                                  setCurrentPage(currentPage + 1)
+                                }
+                              }}
+                              className={
+                                currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"
+                              }
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
                     </div>
                   )}
-                </div>
-              </TabsContent>
-            </Tabs>
+                </>
+              )}
+            </CardContent>
           </Card>
         </div>
 
-        <div>
-          <Card className="mb-6">
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">Community Guidelines</h3>
-            </div>
-            <div className="p-6">
-              <ul className="space-y-3 text-sm">
-                <li className="flex items-start gap-2">
-                  <div className="rounded-full bg-green-100 p-1 mt-0.5">
-                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
+        {/* Sidebar */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Community Stats</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Active Tags</span>
+                  <span className="font-medium">{communityStats.activeTags}</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Most Active Users</div>
+                  <div className="space-y-2">
+                    {communityStats.mostActiveUsers.map((user) => (
+                      <div key={user.id} className="flex justify-between items-center">
+                        <span className="text-sm">{user.name}</span>
+                        <Badge variant="outline">{user.postCount} posts</Badge>
+                      </div>
+                    ))}
                   </div>
-                  <span>Be respectful and courteous to other community members</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="rounded-full bg-green-100 p-1 mt-0.5">
-                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <span>Stay on topic and keep discussions relevant to business</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="rounded-full bg-green-100 p-1 mt-0.5">
-                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <span>No promotional content or spam</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="rounded-full bg-green-100 p-1 mt-0.5">
-                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <span>Protect your privacy - don&apos;t share sensitive information</span>
-                </li>
-              </ul>
-            </div>
-          </Card>
-
-          <Card className="mb-6">
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">Popular Tags</h3>
-            </div>
-            <div className="p-6">
-              <div className="flex flex-wrap gap-2">
-                {allTags.slice(0, 10).map((tag) => (
-                  <button
-                    key={tag.id}
-                    className={`text-sm px-3 py-1.5 rounded-full ${selectedTag === tag.name ? "bg-[#22c984] text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-                    onClick={() => {
-                      setSelectedTag(selectedTag === tag.name ? null : tag.name)
-                      setTimeout(() => fetchPosts(), 0)
-                    }}
-                  >
-                    <Tag className="h-3.5 w-3.5 inline mr-1" />
-                    {tag.name} ({tag.count})
-                  </button>
-                ))}
+                </div>
               </div>
-            </div>
+            </CardContent>
           </Card>
 
           <Card>
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">Recent Activity</h3>
-            </div>
-            <div className="p-6">
-              {isLoading ? (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {posts.slice(0, 3).map((post) => (
-                    <div key={post.id} className="flex items-start gap-3">
-                      <div className="p-2 bg-gray-100 rounded-full">
-                        <Clock className="h-4 w-4 text-gray-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm">
-                          <span className="font-medium">{post.author.name}</span> posted{" "}
-                          <span className="text-primary cursor-pointer" onClick={() => handleViewPost(post)}>
-                            {post.title}
-                          </span>
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">{formatDate(post.date)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <CardHeader className="pb-3">
+              <CardTitle>Popular Tags</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {allTags.slice(0, 10).map((tag) => (
+                  <Badge
+                    key={tag.id}
+                    variant={selectedTag === tag.name ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => {
+                      setSelectedTag(selectedTag === tag.name ? null : tag.name)
+                      setCurrentPage(1)
+                      setTimeout(() => fetchPosts(), 0)
+                    }}
+                  >
+                    {tag.name} ({tag.count})
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Moderation Tips</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-start gap-2">
+                  <div className="rounded-full bg-green-100 p-1 mt-0.5">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                  </div>
+                  <span>Approve posts that are relevant and follow community guidelines</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <div className="rounded-full bg-red-100 p-1 mt-0.5">
+                    <XCircle className="h-3 w-3 text-red-600" />
+                  </div>
+                  <span>Reject spam, offensive content, or irrelevant posts</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <div className="rounded-full bg-blue-100 p-1 mt-0.5">
+                    <MessageCircle className="h-3 w-3 text-blue-600" />
+                  </div>
+                  <span>Engage with users by commenting on their posts</span>
+                </li>
+              </ul>
+            </CardContent>
           </Card>
         </div>
       </div>
-
-      {/* New Post Dialog */}
-      <Dialog open={showNewPostDialog} onOpenChange={setShowNewPostDialog}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Create New Post</DialogTitle>
-          </DialogHeader>
-          <div className="mt-4 space-y-4">
-            <div>
-              <Label htmlFor="post-title">Title</Label>
-              <Input
-                id="post-title"
-                placeholder="Enter a descriptive title"
-                value={newPostTitle}
-                onChange={(e) => setNewPostTitle(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="post-content">Content</Label>
-              <Textarea
-                id="post-content"
-                placeholder="What would you like to discuss?"
-                rows={5}
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="post-tags">Tags (separated by commas)</Label>
-              <Input
-                id="post-tags"
-                placeholder="e.g. Business, Tax, Legal"
-                value={newPostTags}
-                onChange={(e) => setNewPostTags(e.target.value)}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowNewPostDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreatePost} disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Posting...
-                  </>
-                ) : (
-                  "Post to Community"
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Login Prompt Dialog */}
-      <AlertDialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Login Required</AlertDialogTitle>
-            <AlertDialogDescription>
-              You need to be logged in to perform this action. Would you like to log in now?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction asChild>
-              <Button
-                onClick={() => {
-                  window.location.href = "/login?callbackUrl=/dashboard/community"
-                }}
-              >
-                Log In
-              </Button>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Post Detail Dialog */}
       <Dialog open={showPostDialog} onOpenChange={setShowPostDialog}>
@@ -897,23 +1174,15 @@ export default function CommunityPage() {
           {selectedPost && (
             <>
               <DialogHeader>
-                <DialogTitle>{selectedPost.title}</DialogTitle>
+                <DialogTitle className="flex items-center justify-between">
+                  <span>{selectedPost.title}</span>
+                  {getStatusBadge(selectedPost.status)}
+                </DialogTitle>
+                <DialogDescription>
+                  Posted by {selectedPost.author.name} • {formatFullDate(selectedPost.date)}
+                </DialogDescription>
               </DialogHeader>
               <div className="mt-4">
-                <div className="flex items-start gap-3 mb-6">
-                  <Image
-                    src={selectedPost.author.avatar || "/placeholder.svg"}
-                    alt={selectedPost.author.name}
-                    width={40}
-                    height={40}
-                    className="rounded-full"
-                  />
-                  <div>
-                    <p className="font-medium">{selectedPost.author.name}</p>
-                    <p className="text-sm text-gray-500">{formatDate(selectedPost.date)}</p>
-                  </div>
-                </div>
-
                 <div className="mb-6">
                   <p className="text-gray-700 whitespace-pre-line">{selectedPost.content}</p>
                 </div>
@@ -927,60 +1196,98 @@ export default function CommunityPage() {
                 </div>
 
                 <div className="flex items-center gap-4 mb-8 border-t border-b py-3">
-                  <button
-                    className={`flex items-center gap-1 text-sm ${selectedPost.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
-                    onClick={() => handleLikePost(selectedPost.id)}
-                  >
+                  <div className="flex items-center gap-1 text-sm text-gray-500">
                     <ThumbsUp className="h-4 w-4" />
                     <span>{selectedPost.likes} Likes</span>
-                  </button>
-                  <button
-                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
-                    onClick={() => handleSharePost(selectedPost)}
-                  >
-                    <Share2 className="h-4 w-4" />
-                    <span>Share</span>
-                  </button>
+                  </div>
+                  <div className="flex items-center gap-1 text-sm text-gray-500">
+                    <MessageCircle className="h-4 w-4" />
+                    <span>{selectedPost.replies} Comments</span>
+                  </div>
                 </div>
+
+                {selectedPost.status === "pending" && (
+                  <div className="flex items-center gap-3 mb-6">
+                    <Button
+                      onClick={() => handleUpdatePostStatus(selectedPost.id, "approved")}
+                      className="bg-green-600 hover:bg-green-700"
+                      disabled={isProcessing}
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Approve Post
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleUpdatePostStatus(selectedPost.id, "rejected")}
+                      variant="outline"
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                      disabled={isProcessing}
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Reject Post
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
 
                 <div className="mb-6">
                   <h3 className="text-lg font-medium mb-4">Comments ({selectedPost.replies})</h3>
 
-                  {sessionStatus === "authenticated" && (
-                    <div className="flex gap-3 mb-6">
-                      <Image
-                        src={session?.user?.image || "/placeholder.svg"}
-                        alt={session?.user?.name || "You"}
-                        width={40}
-                        height={40}
-                        className="rounded-full"
-                      />
-                      <div className="flex-1">
-                        <Textarea
-                          placeholder="Add a comment..."
-                          value={newComment}
-                          onChange={(e) => setNewComment(e.target.value)}
-                          rows={2}
-                          className="mb-2"
+                  <div className="flex gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                      {session?.user?.image ? (
+                        <Image
+                          src={session.user.image || "/placeholder.svg"}
+                          alt={session.user.name || "Admin"}
+                          width={40}
+                          height={40}
+                          className="object-cover"
                         />
-                        <div className="flex justify-end">
-                          <Button onClick={handleSubmitComment} disabled={isSubmittingComment} size="sm">
-                            {isSubmittingComment ? (
-                              <>
-                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                Posting...
-                              </>
-                            ) : (
-                              <>
-                                <Send className="mr-2 h-3 w-3" />
-                                Post Comment
-                              </>
-                            )}
-                          </Button>
-                        </div>
+                      ) : (
+                        <User className="h-5 w-5 text-gray-500" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <Textarea
+                        placeholder="Add a comment as admin..."
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        rows={2}
+                        className="mb-2"
+                      />
+                      <div className="flex justify-end">
+                        <Button onClick={handleSubmitComment} disabled={isSubmittingComment} size="sm">
+                          {isSubmittingComment ? (
+                            <>
+                              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                              Posting...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="mr-2 h-3 w-3" />
+                              Post Comment
+                            </>
+                          )}
+                        </Button>
                       </div>
                     </div>
-                  )}
+                  </div>
 
                   {isLoadingComments ? (
                     <div className="flex justify-center py-8">
@@ -990,26 +1297,29 @@ export default function CommunityPage() {
                     <div className="space-y-6">
                       {postComments.map((comment) => (
                         <div key={comment.id} className="flex gap-3">
-                          <Image
-                            src={comment.author.avatar || "/placeholder.svg"}
-                            alt={comment.author.name}
-                            width={32}
-                            height={32}
-                            className="rounded-full"
-                          />
+                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                            {comment.author.avatar ? (
+                              <Image
+                                src={comment.author.avatar || "/placeholder.svg"}
+                                alt={comment.author.name}
+                                width={32}
+                                height={32}
+                                className="object-cover"
+                              />
+                            ) : (
+                              <User className="h-4 w-4 text-gray-500" />
+                            )}
+                          </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <p className="font-medium">{comment.author.name}</p>
                               <span className="text-xs text-gray-500">{formatDate(comment.date)}</span>
                             </div>
                             <p className="text-gray-700 mb-2">{comment.content}</p>
-                            <button
-                              className={`flex items-center gap-1 text-xs ${comment.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
-                              onClick={() => handleLikeComment(comment.id)}
-                            >
+                            <div className="flex items-center gap-1 text-xs text-gray-500">
                               <ThumbsUp className="h-3 w-3" />
                               <span>{comment.likes} Likes</span>
-                            </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1017,95 +1327,141 @@ export default function CommunityPage() {
                   ) : (
                     <div className="text-center py-8 text-gray-500">
                       <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                      <p>No comments yet. Be the first to comment!</p>
+                      <p>No comments yet.</p>
                     </div>
                   )}
                 </div>
               </div>
+              <DialogFooter>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setShowPostDialog(false)}>
+                    Close
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowPostDialog(false)
+                      handleEditPost(selectedPost)
+                    }}
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Post
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={() => {
+                      setShowPostDialog(false)
+                      handleDeletePost(selectedPost)
+                    }}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Post
+                  </Button>
+                </div>
+              </DialogFooter>
             </>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Share Dialog */}
-      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent className="sm:max-w-[400px]">
+      {/* Edit Post Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Share Post</DialogTitle>
+            <DialogTitle>Edit Post</DialogTitle>
+            <DialogDescription>Make changes to the post content and settings</DialogDescription>
           </DialogHeader>
-          <div className="mt-4 space-y-4">
-            <div className="flex justify-center gap-4">
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-full h-12 w-12"
-                onClick={() => shareOnSocialMedia("facebook")}
-              >
-                <Facebook className="h-5 w-5 text-blue-600" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-full h-12 w-12"
-                onClick={() => shareOnSocialMedia("twitter")}
-              >
-                <Twitter className="h-5 w-5 text-sky-500" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-full h-12 w-12"
-                onClick={() => shareOnSocialMedia("linkedin")}
-              >
-                <Linkedin className="h-5 w-5 text-blue-700" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-full h-12 w-12"
-                onClick={() => shareOnSocialMedia("whatsapp")}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-green-500"
-                >
-                  <path d="M17.498 14.382c-.301-.15-1.767-.867-2.04-.966-.273-.101-.473-.15-.673.15-.2.3-.767.966-.94 1.164-.173.199-.347.223-.647.075-.3-.15-1.269-.467-2.416-1.483-.893-.795-1.484-1.77-1.66-2.07-.174-.3-.019-.462.13-.61.136-.137.301-.354.451-.531.15-.178.2-.301.3-.502.099-.2.05-.374-.025-.524-.075-.15-.672-1.62-.922-2.206-.24-.584-.487-.51-.672-.51-.172-.007-.371-.01-.571-.01-.2 0-.523.074-.797.372-.273.297-1.045 1.02-1.045 2.475 0 1.455 1.064 2.862 1.213 3.063.15.2 2.105 3.21 5.1 4.495.713.308 1.27.492 1.705.626.714.227 1.365.195 1.88.118.574-.078 1.767-.72 2.016-1.413.255-.694.255-1.29.18-1.414-.074-.124-.272-.198-.57-.347z" />
-                  <path d="M13.507 8.4a1 1 0 0 0-1.414 0l-2.293 2.293a1 1 0 0 0 0 1.414l2.293 2.293a1 1 0 0 0 1.414 0l2.293-2.293a1 1 0 0 0 0-1.414L13.507 8.4z" />
-                  <path d="M12 2C6.486 2 2 6.486 2 12c0 1.572.37 3.07 1.023 4.389L2 22l5.611-1.023A9.959 9.959 0 0 0 12 22c5.514 0 10-4.486 10-10S17.514 2 12 2z" />
-                </svg>
-              </Button>
+          <div className="grid gap-4 py-4">
+            <div>
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={editPostData.title}
+                onChange={(e) => setEditPostData({ ...editPostData, title: e.target.value })}
+              />
             </div>
-
-            <div className="flex items-center gap-2">
-              <Input value={shareUrl} readOnly />
-              <Button variant="outline" size="icon" onClick={copyToClipboard}>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </svg>
-              </Button>
+            <div>
+              <Label htmlFor="edit-content">Content</Label>
+              <Textarea
+                id="edit-content"
+                value={editPostData.content}
+                onChange={(e) => setEditPostData({ ...editPostData, content: e.target.value })}
+                rows={5}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-tags">Tags (separated by commas)</Label>
+              <Input
+                id="edit-tags"
+                value={editPostData.tags}
+                onChange={(e) => setEditPostData({ ...editPostData, tags: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-status">Status</Label>
+              <Select
+                value={editPostData.status}
+                onValueChange={(value) => setEditPostData({ ...editPostData, status: value })}
+              >
+                <SelectTrigger id="edit-status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEditedPost} disabled={isProcessing}>
+              {isProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Post Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Post</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this post? This action cannot be undone and will remove all associated
+              comments and likes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeletePost}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Post"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { db } from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { Role } from "@/lib/role"
+import { v4 as uuidv4 } from "uuid"
 
 // Get all posts (with filters)
 export async function GET(request: Request) {
@@ -63,75 +64,83 @@ export async function GET(request: Request) {
         orderBy = { createdAt: "desc" }
     }
 
-    // Get posts with author, tags, like count, and comment count
-    const posts = await db.post.findMany({
-      where,
-      orderBy,
-      skip,
-      take: limit,
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
-        },
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-        _count: {
-          select: {
-            likes: true,
-            comments: true,
-          },
-        },
-      },
-    })
+    // Debug log
+    console.log("Fetching posts with where:", JSON.stringify(where))
+    console.log("Fetching posts with orderBy:", JSON.stringify(orderBy))
+
+    // Get raw posts from database
+    const rawPosts = await db.$queryRawUnsafe(`
+      SELECT 
+        p.id, p.title, p.content, p.status, p.authorId, p."createdAt", p."updatedAt",
+        u.id as "userId", u.name as "userName", u.image as "userImage",
+        COUNT(DISTINCT l.id) as "likeCount",
+        COUNT(DISTINCT c.id) as "commentCount"
+      FROM "Post" p
+      LEFT JOIN "User" u ON p."authorId" = u.id
+      LEFT JOIN "Like" l ON l."postId" = p.id
+      LEFT JOIN "Comment" c ON c."postId" = p.id
+      ${where.status ? `WHERE p.status = '${where.status}'` : ""}
+      GROUP BY p.id, u.id
+      ORDER BY p."createdAt" DESC
+      LIMIT ${limit} OFFSET ${skip}
+    `)
 
     // Get total count for pagination
-    const total = await db.post.count({ where })
+    const totalResult = await db.$queryRawUnsafe(`
+      SELECT COUNT(*) as total FROM "Post" p
+      ${where.status ? `WHERE p.status = '${where.status}'` : ""}
+    `)
+    const total = Number.parseInt(totalResult[0].total) || 0
 
-    // If user is logged in, check which posts they've liked
-    let likedPostIds: string[] = []
-    if (session?.user) {
-      const likes = await db.like.findMany({
-        where: {
-          authorId: (session.user as any).id,
-          postId: {
-            in: posts.map((post) => post.id),
-          },
+    // Get tags for each post
+    const posts = []
+    for (const rawPost of rawPosts) {
+      const postTags = await db.$queryRawUnsafe(
+        `
+        SELECT t.name
+        FROM "PostTag" pt
+        JOIN "Tag" t ON pt."tagId" = t.id
+        WHERE pt."postId" = $1
+      `,
+        rawPost.id,
+      )
+
+      // If user is logged in, check if they've liked this post
+      let isLiked = false
+      if (session?.user) {
+        const likeCheck = await db.$queryRawUnsafe(
+          `
+          SELECT COUNT(*) as liked
+          FROM "Like"
+          WHERE "postId" = $1 AND "authorId" = $2
+        `,
+          rawPost.id,
+          (session.user as any).id,
+        )
+        isLiked = Number.parseInt(likeCheck[0].liked) > 0
+      }
+
+      posts.push({
+        id: rawPost.id,
+        title: rawPost.title,
+        content: rawPost.content,
+        author: {
+          id: rawPost.userId || "",
+          name: rawPost.userName || "Unknown",
+          avatar: rawPost.userImage || `/placeholder.svg?height=40&width=40`,
         },
-        select: {
-          postId: true,
-        },
+        status: rawPost.status,
+        date: new Date(rawPost.createdAt).toISOString(),
+        tags: postTags.map((tag: any) => tag.name),
+        likes: Number.parseInt(rawPost.likeCount) || 0,
+        replies: Number.parseInt(rawPost.commentCount) || 0,
+        isLiked,
       })
-      likedPostIds = likes.map((like) => like.postId).filter(Boolean) as string[]
     }
-
-    // Format posts for response
-    const formattedPosts = posts.map((post) => ({
-      id: post.id,
-      title: post.title,
-      content: post.content,
-      author: {
-        id: post.author?.id || "",
-        name: post.author?.name || "Unknown",
-        avatar: post.author?.image || `/placeholder.svg?height=40&width=40`,
-      },
-      status: post.status,
-      date: post.createdAt.toISOString(),
-      tags: post.tags?.map((pt) => pt.tag?.name || "") || [],
-      likes: post._count?.likes || 0,
-      replies: post._count?.comments || 0,
-      isLiked: likedPostIds.includes(post.id),
-    }))
 
     return NextResponse.json({
       success: true,
-      posts: formattedPosts,
+      posts,
       pagination: {
         total,
         page,
@@ -163,49 +172,73 @@ export async function POST(request: Request) {
     // Determine post status based on user role
     const isAdmin = (session.user as any).role === Role.ADMIN
     const status = isAdmin ? "approved" : "pending"
+    const now = new Date().toISOString()
+    const postId = uuidv4()
 
-    // Create the post
-    const post = await db.post.create({
-      data: {
-        title,
-        content,
-        status,
-        authorId: (session.user as any).id,
-      },
-    })
+    // Create the post using raw SQL
+    await db.$executeRawUnsafe(
+      `
+      INSERT INTO "Post" (id, title, content, "authorId", status, "createdAt", "updatedAt")
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `,
+      postId,
+      title,
+      content,
+      (session.user as any).id,
+      status,
+      now,
+      now,
+    )
 
     // Process tags if provided
     if (tags && Array.isArray(tags) && tags.length > 0) {
       for (const tagName of tags) {
         // Find or create the tag
-        let tag = await db.tag.findUnique({
-          where: { name: tagName },
-        })
+        const tag = await db.$queryRawUnsafe(
+          `
+          SELECT * FROM "Tag" WHERE name = $1
+        `,
+          tagName,
+        )
 
-        if (!tag) {
-          tag = await db.tag.create({
-            data: { name: tagName },
-          })
+        let tagId
+        if (tag.length === 0) {
+          // Create new tag
+          tagId = uuidv4()
+          await db.$executeRawUnsafe(
+            `
+            INSERT INTO "Tag" (id, name)
+            VALUES ($1, $2)
+          `,
+            tagId,
+            tagName,
+          )
+        } else {
+          tagId = tag[0].id
         }
 
         // Create the post-tag relationship
-        await db.postTag.create({
-          data: {
-            postId: post.id,
-            tagId: tag.id,
-          },
-        })
+        const postTagId = uuidv4()
+        await db.$executeRawUnsafe(
+          `
+          INSERT INTO "PostTag" (id, "postId", "tagId")
+          VALUES ($1, $2, $3)
+        `,
+          postTagId,
+          postId,
+          tagId,
+        )
       }
     }
 
     return NextResponse.json({
       success: true,
       post: {
-        id: post.id,
-        title: post.title,
-        content: post.content,
-        status: post.status,
-        createdAt: post.createdAt,
+        id: postId,
+        title,
+        content,
+        status,
+        createdAt: now,
       },
     })
   } catch (error) {
