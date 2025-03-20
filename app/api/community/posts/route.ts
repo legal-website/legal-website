@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { Role } from "@/lib/role"
 import { v4 as uuidv4 } from "uuid"
 
 // Get all posts (with filters)
@@ -17,78 +16,73 @@ export async function GET(request: Request) {
     const limit = Number.parseInt(searchParams.get("limit") || "10")
     const skip = (page - 1) * limit
 
-    // Build the where clause
-    const where: any = {}
-
     // For clients, only show approved posts
     // For admins, allow filtering by status
     const session = await getServerSession(authOptions)
-    const isAdmin = session?.user && (session.user as any).role === Role.ADMIN
+    const isAdmin = session?.user && (session.user as any).role === "ADMIN"
+
+    // Debug log
+    console.log("Session:", session?.user)
+    console.log("Is admin:", isAdmin)
+    console.log("Status filter:", status)
+
+    // Build the where clause
+    let whereClause = ""
 
     if (!isAdmin) {
-      where.status = "approved"
+      whereClause = "WHERE p.status = 'approved'"
     } else if (status !== "all") {
-      where.status = status
+      whereClause = `WHERE p.status = '${status}'`
     }
 
-    // Search in title or content
+    // Add tag filter if provided
+    if (tag && tag !== "all_tags") {
+      const tagFilter = `p.id IN (
+        SELECT pt.postId 
+        FROM PostTag pt 
+        JOIN Tag t ON pt.tagId = t.id 
+        WHERE t.name = '${tag}'
+      )`
+
+      whereClause = whereClause ? `${whereClause} AND ${tagFilter}` : `WHERE ${tagFilter}`
+    }
+
+    // Add search filter if provided
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { content: { contains: search, mode: "insensitive" } },
-      ]
-    }
+      const searchFilter = `(p.title LIKE '%${search}%' OR p.content LIKE '%${search}%')`
 
-    // Filter by tag
-    if (tag) {
-      where.tags = {
-        some: {
-          tag: {
-            name: tag,
-          },
-        },
-      }
-    }
-
-    // Determine sort order
-    let orderBy: any = {}
-    switch (sort) {
-      case "popular":
-        orderBy = { likes: { _count: "desc" } }
-        break
-      case "oldest":
-        orderBy = { createdAt: "asc" }
-        break
-      case "latest":
-      default:
-        orderBy = { createdAt: "desc" }
+      whereClause = whereClause ? `${whereClause} AND ${searchFilter}` : `WHERE ${searchFilter}`
     }
 
     // Debug log
-    console.log("Fetching posts with where:", JSON.stringify(where))
-    console.log("Fetching posts with orderBy:", JSON.stringify(orderBy))
+    console.log("Fetching posts with where:", whereClause)
+    console.log("Fetching posts with sort:", sort)
 
     // Get raw posts from database
-    const rawPosts = await db.$queryRawUnsafe(`
+    const rawPostsQuery = `
       SELECT 
-        p.id, p.title, p.content, p.status, p.authorId, p."createdAt", p."updatedAt",
-        u.id as "userId", u.name as "userName", u.image as "userImage",
-        COUNT(DISTINCT l.id) as "likeCount",
-        COUNT(DISTINCT c.id) as "commentCount"
-      FROM "Post" p
-      LEFT JOIN "User" u ON p."authorId" = u.id
-      LEFT JOIN "Like" l ON l."postId" = p.id
-      LEFT JOIN "Comment" c ON c."postId" = p.id
-      ${where.status ? `WHERE p.status = '${where.status}'` : ""}
+        p.id, p.title, p.content, p.status, p.authorId, p.createdAt, p.updatedAt,
+        u.id as userId, u.name as userName, u.image as userImage,
+        COUNT(DISTINCT l.id) as likeCount,
+        COUNT(DISTINCT c.id) as commentCount
+      FROM Post p
+      LEFT JOIN User u ON p.authorId = u.id
+      LEFT JOIN \`Like\` l ON l.postId = p.id
+      LEFT JOIN Comment c ON c.postId = p.id
+      ${whereClause}
       GROUP BY p.id, u.id
-      ORDER BY p."createdAt" DESC
+      ORDER BY p.createdAt DESC
       LIMIT ${limit} OFFSET ${skip}
-    `)
+    `
+
+    console.log("Raw posts query:", rawPostsQuery)
+    const rawPosts = await db.$queryRawUnsafe(rawPostsQuery)
+    console.log("Raw posts result:", rawPosts)
 
     // Get total count for pagination
     const totalResult = await db.$queryRawUnsafe(`
-      SELECT COUNT(*) as total FROM "Post" p
-      ${where.status ? `WHERE p.status = '${where.status}'` : ""}
+      SELECT COUNT(*) as total FROM Post p
+      ${whereClause}
     `)
     const total = Number.parseInt(totalResult[0].total) || 0
 
@@ -98,9 +92,9 @@ export async function GET(request: Request) {
       const postTags = await db.$queryRawUnsafe(
         `
         SELECT t.name
-        FROM "PostTag" pt
-        JOIN "Tag" t ON pt."tagId" = t.id
-        WHERE pt."postId" = $1
+        FROM PostTag pt
+        JOIN Tag t ON pt.tagId = t.id
+        WHERE pt.postId = ?
       `,
         rawPost.id,
       )
@@ -111,8 +105,8 @@ export async function GET(request: Request) {
         const likeCheck = await db.$queryRawUnsafe(
           `
           SELECT COUNT(*) as liked
-          FROM "Like"
-          WHERE "postId" = $1 AND "authorId" = $2
+          FROM \`Like\`
+          WHERE postId = ? AND authorId = ?
         `,
           rawPost.id,
           (session.user as any).id,
@@ -150,7 +144,7 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error("Error fetching posts:", error)
-    return NextResponse.json({ success: false, error: "Failed to fetch posts" }, { status: 500 })
+    return NextResponse.json({ success: false, error: String(error) }, { status: 500 })
   }
 }
 
@@ -170,7 +164,7 @@ export async function POST(request: Request) {
     }
 
     // Determine post status based on user role
-    const isAdmin = (session.user as any).role === Role.ADMIN
+    const isAdmin = (session.user as any).role === "ADMIN"
     const status = isAdmin ? "approved" : "pending"
     const now = new Date().toISOString()
     const postId = uuidv4()
@@ -178,8 +172,8 @@ export async function POST(request: Request) {
     // Create the post using raw SQL
     await db.$executeRawUnsafe(
       `
-      INSERT INTO "Post" (id, title, content, "authorId", status, "createdAt", "updatedAt")
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO Post (id, title, content, authorId, status, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `,
       postId,
       title,
@@ -196,19 +190,19 @@ export async function POST(request: Request) {
         // Find or create the tag
         const tag = await db.$queryRawUnsafe(
           `
-          SELECT * FROM "Tag" WHERE name = $1
+          SELECT * FROM Tag WHERE name = ?
         `,
           tagName,
         )
 
         let tagId
-        if (tag.length === 0) {
+        if (!tag || tag.length === 0) {
           // Create new tag
           tagId = uuidv4()
           await db.$executeRawUnsafe(
             `
-            INSERT INTO "Tag" (id, name)
-            VALUES ($1, $2)
+            INSERT INTO Tag (id, name)
+            VALUES (?, ?)
           `,
             tagId,
             tagName,
@@ -221,8 +215,8 @@ export async function POST(request: Request) {
         const postTagId = uuidv4()
         await db.$executeRawUnsafe(
           `
-          INSERT INTO "PostTag" (id, "postId", "tagId")
-          VALUES ($1, $2, $3)
+          INSERT INTO PostTag (id, postId, tagId)
+          VALUES (?, ?, ?)
         `,
           postTagId,
           postId,
@@ -243,7 +237,7 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("Error creating post:", error)
-    return NextResponse.json({ success: false, error: "Failed to create post" }, { status: 500 })
+    return NextResponse.json({ success: false, error: String(error) }, { status: 500 })
   }
 }
 

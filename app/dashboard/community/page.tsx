@@ -102,6 +102,8 @@ export default function CommunityPage() {
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [shareUrl, setShareUrl] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
 
   // Inside the CommunityPage component, add this useEffect to log the fetch results
   useEffect(() => {
@@ -128,6 +130,8 @@ export default function CommunityPage() {
       if (searchQuery) queryParams.set("search", searchQuery)
       if (selectedTag) queryParams.set("tag", selectedTag)
       queryParams.set("sort", activeTab)
+      queryParams.set("page", currentPage.toString())
+      queryParams.set("limit", "10")
 
       console.log(`Fetching posts with params: ${queryParams.toString()}`)
       const response = await fetch(`/api/community/posts?${queryParams.toString()}`)
@@ -140,7 +144,8 @@ export default function CommunityPage() {
       console.log("Fetch posts response:", data)
 
       if (data.success) {
-        setPosts(data.posts)
+        setPosts(data.posts || [])
+        setTotalPages(data.pagination?.totalPages || 1)
       } else {
         throw new Error(data.error || "Failed to fetch posts")
       }
@@ -155,7 +160,7 @@ export default function CommunityPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [searchQuery, selectedTag, activeTab, toast])
+  }, [searchQuery, selectedTag, activeTab, currentPage, toast])
 
   // Fetch tags
   const fetchTags = useCallback(async () => {
@@ -169,7 +174,7 @@ export default function CommunityPage() {
       const data = await response.json()
 
       if (data.success) {
-        setAllTags(data.tags)
+        setAllTags(data.tags || [])
       }
     } catch (error) {
       console.error("Error fetching tags:", error)
@@ -191,7 +196,7 @@ export default function CommunityPage() {
         const data = await response.json()
 
         if (data.success) {
-          setPostComments(data.comments)
+          setPostComments(data.comments || [])
         } else {
           throw new Error(data.error || "Failed to fetch comments")
         }
@@ -538,6 +543,11 @@ export default function CommunityPage() {
     setShowShareDialog(false)
   }
 
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage)
+  }
+
   return (
     <div className="p-8 mb-40">
       <h1 className="text-3xl font-bold mb-6">Community</h1>
@@ -578,6 +588,7 @@ export default function CommunityPage() {
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
+                          setCurrentPage(1)
                           fetchPosts()
                         }
                       }}
@@ -590,6 +601,7 @@ export default function CommunityPage() {
                     value={selectedTag || ""}
                     onChange={(e) => {
                       setSelectedTag(e.target.value || null)
+                      setCurrentPage(1)
                       // Trigger fetch when tag changes
                       setTimeout(() => fetchPosts(), 0)
                     }}
@@ -608,6 +620,7 @@ export default function CommunityPage() {
                       setSearchQuery("")
                       setSelectedTag(null)
                       setActiveTab("latest")
+                      setCurrentPage(1)
                       setTimeout(() => fetchPosts(), 0)
                     }}
                     title="Clear filters"
@@ -622,6 +635,7 @@ export default function CommunityPage() {
               value={activeTab}
               onValueChange={(value) => {
                 setActiveTab(value)
+                setCurrentPage(1)
                 // Trigger fetch when tab changes
                 setTimeout(() => fetchPosts(), 0)
               }}
@@ -652,73 +666,112 @@ export default function CommunityPage() {
                       </Button>
                     </div>
                   ) : posts.length > 0 ? (
-                    posts.map((post) => (
-                      <div key={post.id} className="p-6">
-                        <div className="flex items-start gap-3">
-                          <Image
-                            src={post.author.avatar || "/placeholder.svg"}
-                            alt={post.author.name}
-                            width={40}
-                            height={40}
-                            className="rounded-full"
-                          />
-                          <div className="flex-1">
-                            <h3
-                              className="font-medium text-lg mb-1 cursor-pointer hover:text-primary"
-                              onClick={() => handleViewPost(post)}
-                            >
-                              {post.title}
-                            </h3>
-                            <p className="text-gray-600 mb-3">{post.content}</p>
-                            <div className="flex flex-wrap gap-2 mb-3">
-                              {post.tags.map((tag) => (
-                                <Badge
-                                  key={tag}
-                                  variant="outline"
-                                  className="cursor-pointer hover:bg-secondary"
-                                  onClick={() => {
-                                    setSelectedTag(tag)
-                                    setTimeout(() => fetchPosts(), 0)
-                                  }}
-                                >
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <button
-                                  className={`flex items-center gap-1 text-sm ${post.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
-                                  onClick={() => handleLikePost(post.id)}
-                                >
-                                  <ThumbsUp className="h-4 w-4" />
-                                  <span>{post.likes}</span>
-                                </button>
-                                <button
-                                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
-                                  onClick={() => handleViewPost(post)}
-                                >
-                                  <MessageSquare className="h-4 w-4" />
-                                  <span>{post.replies}</span>
-                                </button>
-                                <button
-                                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
-                                  onClick={() => handleSharePost(post)}
-                                >
-                                  <Share2 className="h-4 w-4" />
-                                  <span>Share</span>
-                                </button>
+                    <>
+                      {posts.map((post) => (
+                        <div key={post.id} className="p-6">
+                          <div className="flex items-start gap-3">
+                            <Image
+                              src={post.author.avatar || "/placeholder.svg?height=40&width=40"}
+                              alt={post.author.name}
+                              width={40}
+                              height={40}
+                              className="rounded-full"
+                            />
+                            <div className="flex-1">
+                              <h3
+                                className="font-medium text-lg mb-1 cursor-pointer hover:text-primary"
+                                onClick={() => handleViewPost(post)}
+                              >
+                                {post.title}
+                              </h3>
+                              <p className="text-gray-600 mb-3">{post.content}</p>
+                              <div className="flex flex-wrap gap-2 mb-3">
+                                {post.tags.map((tag) => (
+                                  <Badge
+                                    key={tag}
+                                    variant="outline"
+                                    className="cursor-pointer hover:bg-secondary"
+                                    onClick={() => {
+                                      setSelectedTag(tag)
+                                      setCurrentPage(1)
+                                      setTimeout(() => fetchPosts(), 0)
+                                    }}
+                                  >
+                                    {tag}
+                                  </Badge>
+                                ))}
                               </div>
-                              <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <span>{post.author.name}</span>
-                                <span>•</span>
-                                <span>{formatDate(post.date)}</span>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                  <button
+                                    className={`flex items-center gap-1 text-sm ${post.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
+                                    onClick={() => handleLikePost(post.id)}
+                                  >
+                                    <ThumbsUp className="h-4 w-4" />
+                                    <span>{post.likes}</span>
+                                  </button>
+                                  <button
+                                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
+                                    onClick={() => handleViewPost(post)}
+                                  >
+                                    <MessageSquare className="h-4 w-4" />
+                                    <span>{post.replies}</span>
+                                  </button>
+                                  <button
+                                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
+                                    onClick={() => handleSharePost(post)}
+                                  >
+                                    <Share2 className="h-4 w-4" />
+                                    <span>Share</span>
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-500">
+                                  <span>{post.author.name}</span>
+                                  <span>•</span>
+                                  <span>{formatDate(post.date)}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      ))}
+
+                      {/* Pagination */}
+                      {totalPages > 1 && (
+                        <div className="flex justify-center p-4">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handlePageChange(currentPage - 1)}
+                              disabled={currentPage === 1}
+                            >
+                              Previous
+                            </Button>
+
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                              <Button
+                                key={page}
+                                variant={currentPage === page ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handlePageChange(page)}
+                              >
+                                {page}
+                              </Button>
+                            ))}
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handlePageChange(currentPage + 1)}
+                              disabled={currentPage === totalPages}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <div className="p-12 text-center">
                       <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -787,6 +840,7 @@ export default function CommunityPage() {
                     className={`text-sm px-3 py-1.5 rounded-full ${selectedTag === tag.name ? "bg-[#22c984] text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                     onClick={() => {
                       setSelectedTag(selectedTag === tag.name ? null : tag.name)
+                      setCurrentPage(1)
                       setTimeout(() => fetchPosts(), 0)
                     }}
                   >
