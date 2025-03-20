@@ -717,40 +717,22 @@ export default function AnalyticsPage() {
       return true
     }
 
-    if (invoice.items) {
-      // Parse items if they're a string
-      let items = invoice.items
-      if (typeof items === "string") {
-        try {
-          items = JSON.parse(items)
-
-          // Check if the parsed items indicate a template invoice
-          if (items.isTemplateInvoice) {
-            return true
-          }
-        } catch (e) {
-          console.error("Error parsing invoice items:", e)
-        }
-      }
-
-      // Check if any item has a template property
-      if (Array.isArray(items)) {
-        return items.some((item) => item.template || item.isTemplate)
-      } else if (items && typeof items === "object") {
-        // Check if it's an object with template indicators
-        return Object.values(items).some(
-          (item: any) =>
-            item.template ||
-            item.isTemplate ||
-            (item.tier &&
-              typeof item.tier === "string" &&
-              !["STARTER", "STANDARD", "PREMIUM"].includes(item.tier.toUpperCase())),
-        )
-      }
+    // Check items if they're an array
+    if (Array.isArray(invoice.items)) {
+      return invoice.items.some(
+        (item) =>
+          item.type === "template" ||
+          (item.tier && typeof item.tier === "string" && item.tier.toLowerCase().includes("template")),
+      )
     }
 
-    // Check invoice number pattern for templates
-    return !invoice.invoiceNumber.startsWith("INV") && !invoice.invoiceNumber.startsWith("AMD")
+    // Check if items is a string that contains template indicators
+    if (typeof invoice.items === "string") {
+      const lowerItems = invoice.items.toLowerCase()
+      return lowerItems.includes("template") || lowerItems.includes("istemplateinvoice")
+    }
+
+    return false
   }
 
   // Fetch revenue analytics data
@@ -782,63 +764,125 @@ export default function AnalyticsPage() {
       const billingInvoicesData = await billingInvoicesResponse.json().catch(() => ({ invoices: [] }))
       const billingInvoices: Invoice[] = billingInvoicesData.invoices || []
 
+      // Log some sample billing invoices for debugging
+      if (billingInvoices.length > 0) {
+        console.log("Sample billing invoice:", {
+          id: billingInvoices[0].id,
+          invoiceNumber: billingInvoices[0].invoiceNumber,
+          status: billingInvoices[0].status,
+          amount: billingInvoices[0].amount,
+          items:
+            typeof billingInvoices[0].items === "string"
+              ? billingInvoices[0].items.substring(0, 100) + "..."
+              : billingInvoices[0].items,
+        })
+      }
+
+      // Filter template invoices using the same logic as in the invoices page
+      const templateInvoices: Invoice[] = []
+
+      // Directly fetch template invoices from the template tab
+      try {
+        const templateTabResponse = await fetch("/api/admin/template-invoices")
+        if (templateTabResponse.ok) {
+          const templateTabData = await templateTabResponse.json()
+          const templateTabInvoices = templateTabData.invoices || []
+          console.log(`Found ${templateTabInvoices.length} invoices from template tab`)
+
+          // If we have template invoices from this endpoint, use them
+          if (templateTabInvoices.length > 0) {
+            const paidTemplateTabInvoices = templateTabInvoices.filter((inv) => inv.status === "paid")
+            const templateTabRevenue = paidTemplateTabInvoices.reduce((sum, inv) => sum + inv.amount, 0)
+            console.log(`Template tab revenue: ${templateTabRevenue}`)
+
+            // Use these invoices if we found paid ones
+            if (paidTemplateTabInvoices.length > 0) {
+              templateInvoices.push(...paidTemplateTabInvoices)
+            }
+          }
+        } else {
+          console.log("Template tab endpoint not available")
+        }
+      } catch (error) {
+        console.log("Error fetching from template tab:", error)
+      }
+
       // 1. Filter paid invoices
       const paidInvoices = invoices.filter((invoice) => invoice.status === "paid")
 
-      // Filter template invoices using multiple detection methods
-      const templateInvoices = billingInvoices.filter((invoice) => {
-        // Check if invoice is paid
+      // Filter template invoices using the same logic as in the invoices page
+      billingInvoices.filter((invoice) => {
         if (invoice.status !== "paid") return false
 
-        // Method 1: Check invoice number prefix
-        if (
-          invoice.invoiceNumber &&
-          (invoice.invoiceNumber.toLowerCase().startsWith("temp") ||
-            invoice.invoiceNumber.toLowerCase().startsWith("template"))
-        ) {
-          return true
-        }
-
-        // Method 2: Check if it's explicitly marked as a template invoice
-        if (invoice.isTemplateInvoice) {
-          return true
-        }
-
-        // Method 3: Check items for template indicators
-        if (invoice.items) {
-          let items = invoice.items
-
-          // Parse items if they're a string
-          if (typeof items === "string") {
-            try {
-              items = JSON.parse(items)
-            } catch (e) {
-              console.error("Error parsing invoice items:", e)
-            }
-          }
-
-          // Check if any item has template indicators
-          if (Array.isArray(items)) {
-            return items.some(
-              (item) => item.template || item.isTemplate || (item.name && item.name.toLowerCase().includes("template")),
-            )
-          } else if (items && typeof items === "object") {
-            return Object.values(items).some(
-              (item: any) =>
-                item.template || item.isTemplate || (item.name && item.name.toLowerCase().includes("template")),
-            )
-          }
-        }
-
-        return false
+        return isTemplateInvoice(invoice)
       })
 
       // Log the count of template invoices found for debugging
       console.log(`Found ${templateInvoices.length} template invoices`)
 
+      // If no template invoices found, log the first few invoices for debugging
+      if (templateInvoices.length === 0 && billingInvoices.length > 0) {
+        console.log(
+          "No template invoices found. Sample invoice data:",
+          billingInvoices.slice(0, 3).map((inv) => ({
+            id: inv.id,
+            invoiceNumber: inv.invoiceNumber,
+            status: inv.status,
+            items: typeof inv.items === "string" ? "string (length: " + inv.items.length + ")" : "object",
+          })),
+        )
+      }
+
+      // Process template invoices to ensure items are properly parsed
+      const processedTemplateInvoices = templateInvoices.map((invoice) => {
+        let parsedItems = invoice.items
+
+        // Parse items if they're a string
+        if (typeof invoice.items === "string") {
+          try {
+            parsedItems = JSON.parse(invoice.items)
+          } catch (e) {
+            console.error(`Error parsing items for invoice ${invoice.id}:`, e)
+          }
+        }
+
+        return {
+          ...invoice,
+          items: parsedItems,
+        }
+      })
+
       // Calculate total template revenue
-      const templateRevenueTotal = templateInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+      const templateRevenueTotal = processedTemplateInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
       setTotalTemplateRevenue(templateRevenueTotal)
+      console.log(`Template revenue total: ${templateRevenueTotal}`)
+
+      // If no template revenue found, try a fallback approach
+      if (templateRevenueTotal === 0) {
+        console.log("No template revenue found, trying fallback approach")
+
+        // Try to identify template invoices from all invoices
+        const allInvoices = [...invoices, ...billingInvoices]
+        const allTemplateInvoices = allInvoices.filter(
+          (invoice) =>
+            invoice.status === "paid" &&
+            ((invoice.invoiceNumber &&
+              !invoice.invoiceNumber.startsWith("INV") &&
+              !invoice.invoiceNumber.startsWith("AMD")) ||
+              (typeof invoice.items === "string" && invoice.items.toLowerCase().includes("template"))),
+        )
+
+        console.log(`Found ${allTemplateInvoices.length} template invoices using fallback method`)
+
+        if (allTemplateInvoices.length > 0) {
+          const fallbackTemplateRevenue = allTemplateInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+          setTotalTemplateRevenue(fallbackTemplateRevenue)
+          console.log(`Fallback template revenue: ${fallbackTemplateRevenue}`)
+
+          // Update template invoices for the chart
+          templateInvoices.push(...allTemplateInvoices)
+        }
+      }
 
       // 2. Calculate total revenue
       const totalRevenue = paidInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
