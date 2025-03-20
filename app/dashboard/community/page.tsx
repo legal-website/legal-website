@@ -127,13 +127,17 @@ export default function CommunityPage() {
       setIsLoading(true)
       setError(null)
 
+      // Build query params
       const queryParams = new URLSearchParams()
       if (searchQuery) queryParams.set("search", searchQuery)
       if (selectedTag) queryParams.set("tag", selectedTag)
       queryParams.set("sort", activeTab)
       queryParams.set("page", currentPage.toString())
       queryParams.set("limit", "10")
-      queryParams.set("includeAllUserPosts", "true") // Add this parameter to include all user posts
+
+      // Only include all user posts when explicitly fetching for the My Posts section
+      // Do NOT include this parameter for the main Discussion Forum
+      // queryParams.set("includeAllUserPosts", "true") // Remove this line
 
       console.log(`Fetching posts with params: ${queryParams.toString()}`)
 
@@ -174,6 +178,37 @@ export default function CommunityPage() {
       setIsLoading(false)
     }
   }, [searchQuery, selectedTag, activeTab, currentPage, toast])
+
+  // Add this new function to fetch user's own posts
+  const fetchMyPosts = useCallback(async () => {
+    try {
+      if (sessionStatus !== "authenticated") return
+
+      const queryParams = new URLSearchParams()
+      if (searchQuery) queryParams.set("search", searchQuery)
+      queryParams.set("includeAllUserPosts", "true") // Include all user posts here
+
+      const response = await fetch(`/api/community/published-posts?${queryParams.toString()}`)
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch your posts")
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Filter to only show the user's own posts
+        const userPosts = data.posts.filter((post: Post) => post.isOwnPost === true)
+        setPosts((prevPosts) => {
+          // Replace only the user's posts, keeping the main forum posts
+          const forumPosts = prevPosts.filter((post) => !post.isOwnPost)
+          return [...forumPosts, ...userPosts]
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching your posts:", error)
+    }
+  }, [searchQuery, sessionStatus])
 
   // Fetch tags
   const fetchTags = useCallback(async () => {
@@ -232,6 +267,13 @@ export default function CommunityPage() {
     fetchPosts()
     fetchTags()
   }, [fetchPosts, fetchTags])
+
+  // Call this function when the component mounts and when relevant state changes
+  useEffect(() => {
+    if (sessionStatus === "authenticated") {
+      fetchMyPosts()
+    }
+  }, [fetchMyPosts, sessionStatus])
 
   // Handle like post
   const handleLikePost = async (postId: string) => {
@@ -931,10 +973,10 @@ export default function CommunityPage() {
             <h2 className="text-xl font-semibold">My Posts</h2>
           </div>
           <div className="divide-y">
-            {posts.filter((post) => post.isOwnPost === true).length > 0 ? (
+            {posts.filter((post: Post) => post.isOwnPost === true).length > 0 ? (
               posts
-                .filter((post) => post.isOwnPost === true)
-                .map((post) => (
+                .filter((post: Post) => post.isOwnPost === true)
+                .map((post: Post) => (
                   <div key={post.id} className="p-6">
                     <div className="flex items-start gap-3">
                       <div className="flex-1">

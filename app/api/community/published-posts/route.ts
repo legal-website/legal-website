@@ -28,7 +28,8 @@ export async function GET(request: Request) {
 
     // If includeAllUserPosts is true and user is logged in, modify the query to include all their posts
     if (includeAllUserPosts && userId) {
-      whereClause = `WHERE (p.status = 'published' OR p.authorId = '${userId}')`
+      // For the "My Posts" section, we want to show all of the user's posts regardless of status
+      whereClause = `WHERE (p.status = 'published' OR (p.authorId = '${userId}'))`
 
       // Add search if provided
       if (search && search.trim() !== "") {
