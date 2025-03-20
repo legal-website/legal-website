@@ -7,15 +7,29 @@ import { v4 as uuidv4 } from "uuid"
 // Define valid status values based on what's actually in the database
 const VALID_STATUSES = {
   PENDING: "pending",
-  PUBLISHED: "published",
-  DRAFT: "draft",
+  PUBLISHED: "published", // In database
+  DRAFT: "draft", // In database
+  // For backward compatibility with Prisma schema
+  APPROVED: "approved", // In Prisma schema
+  REJECTED: "rejected", // In Prisma schema
+}
+
+// Status mapping for compatibility
+const STATUS_MAPPING = {
+  [VALID_STATUSES.APPROVED]: VALID_STATUSES.PUBLISHED,
+  [VALID_STATUSES.REJECTED]: VALID_STATUSES.DRAFT,
 }
 
 // Get all posts (with filters)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get("status") || VALID_STATUSES.PUBLISHED
+    let status = searchParams.get("status") || VALID_STATUSES.PUBLISHED
+
+    // Map status if needed for backward compatibility
+    if (STATUS_MAPPING[status]) {
+      status = STATUS_MAPPING[status]
+    }
 
     const tag = searchParams.get("tag")
     const search = searchParams.get("search")

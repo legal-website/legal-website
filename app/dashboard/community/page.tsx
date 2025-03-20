@@ -135,6 +135,16 @@ export default function CommunityPage() {
       queryParams.set("status", "published")
 
       console.log(`Fetching posts with params: ${queryParams.toString()}`)
+
+      // First try the debug endpoint to see if we can fetch posts with this status
+      try {
+        const debugResponse = await fetch(`/api/community/debug-fetch?status=published`)
+        const debugData = await debugResponse.json()
+        console.log("Debug fetch response:", debugData)
+      } catch (debugError) {
+        console.error("Debug fetch error:", debugError)
+      }
+
       const response = await fetch(`/api/community/posts?${queryParams.toString()}`)
 
       if (!response.ok) {

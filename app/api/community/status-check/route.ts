@@ -6,8 +6,17 @@ import { authOptions } from "@/lib/auth"
 // Define valid status values based on what's actually in the database
 const VALID_STATUSES = {
   PENDING: "pending",
-  PUBLISHED: "published",
-  DRAFT: "draft",
+  PUBLISHED: "published", // In database
+  DRAFT: "draft", // In database
+  // For backward compatibility with Prisma schema
+  APPROVED: "approved", // In Prisma schema
+  REJECTED: "rejected", // In Prisma schema
+}
+
+// Status mapping for compatibility
+const STATUS_MAPPING = {
+  [VALID_STATUSES.APPROVED]: VALID_STATUSES.PUBLISHED,
+  [VALID_STATUSES.REJECTED]: VALID_STATUSES.DRAFT,
 }
 
 export async function GET() {
@@ -33,7 +42,8 @@ export async function GET() {
     })
 
     // Check for invalid statuses
-    const validStatusValues = Object.values(VALID_STATUSES)
+    const validStatusValues = [VALID_STATUSES.PENDING, VALID_STATUSES.PUBLISHED, VALID_STATUSES.DRAFT]
+
     const invalidStatuses = Object.keys(statusCounts).filter(
       (status) => !validStatusValues.includes(status) && status !== "null",
     )
@@ -72,14 +82,14 @@ export async function POST() {
     await db.$executeRawUnsafe(`
     UPDATE Post
     SET status = '${VALID_STATUSES.PUBLISHED}'
-    WHERE status = 'approved'
+    WHERE status = '${VALID_STATUSES.APPROVED}'
   `)
 
     // Fix "rejected" status (if any exists from previous code)
     await db.$executeRawUnsafe(`
     UPDATE Post
     SET status = '${VALID_STATUSES.DRAFT}'
-    WHERE status = 'rejected'
+    WHERE status = '${VALID_STATUSES.REJECTED}'
   `)
 
     // Get updated status counts

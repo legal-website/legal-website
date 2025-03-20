@@ -1,18 +1,11 @@
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { Role } from "@/lib/role"
+import { Role } from "@/lib/enums"
 import { v4 as uuidv4 } from "uuid"
 
-// Define valid status values
-const VALID_STATUSES = {
-  PENDING: "pending",
-  PUBLISHED: "published",
-  DRAFT: "draft",
-}
-
-// Update a post
+// Update the PATCH function to handle both sets of status values
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
@@ -24,9 +17,19 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const body = await request.json()
     let { title, content, status, tags } = body
 
-    // Map "approved" to "published" and "rejected" to "draft" for backward compatibility
-    if (status === "approved") status = VALID_STATUSES.PUBLISHED
-    if (status === "rejected") status = VALID_STATUSES.DRAFT
+    // Define valid status values based on what's actually in the database
+    const VALID_STATUSES = {
+      PENDING: "pending",
+      PUBLISHED: "published", // In database
+      DRAFT: "draft", // In database
+      // For backward compatibility with Prisma schema
+      APPROVED: "approved", // In Prisma schema
+      REJECTED: "rejected", // In Prisma schema
+    }
+
+    // Map status if needed for backward compatibility
+    if (status === VALID_STATUSES.APPROVED) status = VALID_STATUSES.PUBLISHED
+    if (status === VALID_STATUSES.REJECTED) status = VALID_STATUSES.DRAFT
 
     // Ensure status is one of the valid values
     if (status && !Object.values(VALID_STATUSES).includes(status)) {
@@ -42,8 +45,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // Get the existing post
     const existingPostResult = await db.$queryRawUnsafe(
       `
-      SELECT * FROM Post WHERE id = ?
-    `,
+    SELECT * FROM Post WHERE id = ?
+  `,
       postId,
     )
 
@@ -68,14 +71,14 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // Update the post
     await db.$executeRawUnsafe(
       `
-      UPDATE Post
-      SET 
-        title = ?,
-        content = ?,
-        status = ?,
-        updatedAt = ?
-      WHERE id = ?
-    `,
+    UPDATE Post
+    SET 
+      title = ?,
+      content = ?,
+      status = ?,
+      updatedAt = ?
+    WHERE id = ?
+  `,
       title || existingPost.title,
       content || existingPost.content,
       updatedStatus,
@@ -88,8 +91,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       // Remove existing tags
       await db.$executeRawUnsafe(
         `
-        DELETE FROM PostTag WHERE postId = ?
-      `,
+      DELETE FROM PostTag WHERE postId = ?
+    `,
         postId,
       )
 
@@ -98,8 +101,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         // Find or create the tag
         const tagResult = await db.$queryRawUnsafe(
           `
-          SELECT * FROM Tag WHERE name = ?
-        `,
+        SELECT * FROM Tag WHERE name = ?
+      `,
           tagName,
         )
 
@@ -109,9 +112,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
           tagId = uuidv4()
           await db.$executeRawUnsafe(
             `
-            INSERT INTO Tag (id, name)
-            VALUES (?, ?)
-          `,
+          INSERT INTO Tag (id, name)
+          VALUES (?, ?)
+        `,
             tagId,
             tagName,
           )
@@ -123,9 +126,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         const postTagId = uuidv4()
         await db.$executeRawUnsafe(
           `
-          INSERT INTO PostTag (id, postId, tagId)
-          VALUES (?, ?, ?)
-        `,
+        INSERT INTO PostTag (id, postId, tagId)
+        VALUES (?, ?, ?)
+      `,
           postTagId,
           postId,
           tagId,
@@ -146,56 +149,6 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     })
   } catch (error) {
     console.error("Error updating post:", error)
-    return NextResponse.json({ success: false, error: String(error) }, { status: 500 })
-  }
-}
-
-// Delete a post
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
-    }
-
-    const postId = params.id
-
-    // Get the existing post
-    const existingPostResult = await db.$queryRawUnsafe(
-      `
-      SELECT * FROM Post WHERE id = ?
-    `,
-      postId,
-    )
-
-    if (!existingPostResult || existingPostResult.length === 0) {
-      return NextResponse.json({ success: false, error: "Post not found" }, { status: 404 })
-    }
-
-    const existingPost = existingPostResult[0]
-
-    // Check if user is authorized to delete this post
-    const isAdmin = (session.user as any).role === Role.ADMIN
-    const isAuthor = existingPost.authorId === (session.user as any).id
-
-    if (!isAdmin && !isAuthor) {
-      return NextResponse.json({ success: false, error: "Unauthorized to delete this post" }, { status: 403 })
-    }
-
-    // Delete the post (cascade will handle related records)
-    await db.$executeRawUnsafe(
-      `
-      DELETE FROM Post WHERE id = ?
-    `,
-      postId,
-    )
-
-    return NextResponse.json({
-      success: true,
-      message: "Post deleted successfully",
-    })
-  } catch (error) {
-    console.error("Error deleting post:", error)
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 })
   }
 }
