@@ -3,7 +3,7 @@ import { db } from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
-// Define valid status values
+// Define valid status values based on what's actually in the database
 const VALID_STATUSES = {
   PENDING: "pending",
   PUBLISHED: "published",
@@ -22,8 +22,8 @@ export async function GET() {
 
     // Get all unique status values
     const statusesResult = await db.$queryRawUnsafe(`
-      SELECT DISTINCT status FROM Post
-    `)
+    SELECT DISTINCT status FROM Post
+  `)
 
     const statuses = statusesResult.map((row: any) => row.status)
 
@@ -33,8 +33,8 @@ export async function GET() {
       const statusKey = status || "null"
       const countResult = await db.$queryRawUnsafe(
         `
-        SELECT COUNT(*) as count FROM Post WHERE status = ?
-      `,
+      SELECT COUNT(*) as count FROM Post WHERE status = ?
+    `,
         status,
       )
       counts[statusKey] = Number(countResult[0].count)
@@ -88,10 +88,10 @@ export async function POST(request: Request) {
     // Update posts with the specified status
     const result = await db.$executeRawUnsafe(
       `
-      UPDATE Post
-      SET status = ?
-      WHERE status = ?
-    `,
+    UPDATE Post
+    SET status = ?
+    WHERE status = ?
+  `,
       to,
       from,
     )

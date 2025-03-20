@@ -131,7 +131,7 @@ export default function CommunityPage() {
       queryParams.set("sort", activeTab)
       queryParams.set("page", currentPage.toString())
       queryParams.set("limit", "10")
-      // Always set status to published (not approved) for client-side
+      // Always set status to published for client-side
       queryParams.set("status", "published")
 
       console.log(`Fetching posts with params: ${queryParams.toString()}`)

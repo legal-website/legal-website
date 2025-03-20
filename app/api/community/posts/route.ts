@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { v4 as uuidv4 } from "uuid"
 
-// Define valid status values
+// Define valid status values based on what's actually in the database
 const VALID_STATUSES = {
   PENDING: "pending",
   PUBLISHED: "published",
@@ -15,10 +15,7 @@ const VALID_STATUSES = {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    // Map "approved" to "published" for backward compatibility
-    let status = searchParams.get("status") || VALID_STATUSES.PUBLISHED
-    if (status === "approved") status = VALID_STATUSES.PUBLISHED
-    if (status === "rejected") status = VALID_STATUSES.DRAFT
+    const status = searchParams.get("status") || VALID_STATUSES.PUBLISHED
 
     const tag = searchParams.get("tag")
     const search = searchParams.get("search")
@@ -49,11 +46,11 @@ export async function GET(request: Request) {
     // Add tag filter if provided
     if (tag && tag !== "all_tags" && tag !== "") {
       const tagFilter = `p.id IN (
-        SELECT pt.postId 
-        FROM PostTag pt 
-        JOIN Tag t ON pt.tagId = t.id 
-        WHERE t.name = '${tag}'
-      )`
+      SELECT pt.postId 
+      FROM PostTag pt 
+      JOIN Tag t ON pt.tagId = t.id 
+      WHERE t.name = '${tag}'
+    )`
 
       whereClause = whereClause ? `${whereClause} AND ${tagFilter}` : `WHERE ${tagFilter}`
     }
@@ -81,20 +78,20 @@ export async function GET(request: Request) {
 
     // Get raw posts from database
     const rawPostsQuery = `
-      SELECT 
-        p.id, p.title, p.content, p.status, p.authorId, p.createdAt, p.updatedAt,
-        u.id as userId, u.name as userName, u.image as userImage,
-        COUNT(DISTINCT l.id) as likeCount,
-        COUNT(DISTINCT c.id) as commentCount
-      FROM Post p
-      LEFT JOIN User u ON p.authorId = u.id
-      LEFT JOIN \`Like\` l ON l.postId = p.id
-      LEFT JOIN Comment c ON c.postId = p.id
-      ${whereClause}
-      GROUP BY p.id, u.id
-      ORDER BY p.createdAt DESC
-      LIMIT ${limit} OFFSET ${skip}
-    `
+    SELECT 
+      p.id, p.title, p.content, p.status, p.authorId, p.createdAt, p.updatedAt,
+      u.id as userId, u.name as userName, u.image as userImage,
+      COUNT(DISTINCT l.id) as likeCount,
+      COUNT(DISTINCT c.id) as commentCount
+    FROM Post p
+    LEFT JOIN User u ON p.authorId = u.id
+    LEFT JOIN \`Like\` l ON l.postId = p.id
+    LEFT JOIN Comment c ON c.postId = p.id
+    ${whereClause}
+    GROUP BY p.id, u.id
+    ORDER BY p.createdAt DESC
+    LIMIT ${limit} OFFSET ${skip}
+  `
 
     console.log("Raw posts query:", rawPostsQuery)
     const rawPosts = await db.$queryRawUnsafe(rawPostsQuery)
@@ -102,9 +99,9 @@ export async function GET(request: Request) {
 
     // Get total count for pagination
     const totalResult = await db.$queryRawUnsafe(`
-      SELECT COUNT(*) as total FROM Post p
-      ${whereClause}
-    `)
+    SELECT COUNT(*) as total FROM Post p
+    ${whereClause}
+  `)
     const total = Number(totalResult[0].total) || 0
 
     // Get tags for each post
@@ -112,11 +109,11 @@ export async function GET(request: Request) {
     for (const rawPost of rawPosts) {
       const postTags = await db.$queryRawUnsafe(
         `
-        SELECT t.name
-        FROM PostTag pt
-        JOIN Tag t ON pt.tagId = t.id
-        WHERE pt.postId = ?
-      `,
+      SELECT t.name
+      FROM PostTag pt
+      JOIN Tag t ON pt.tagId = t.id
+      WHERE pt.postId = ?
+    `,
         rawPost.id,
       )
 
@@ -125,10 +122,10 @@ export async function GET(request: Request) {
       if (session?.user) {
         const likeCheck = await db.$queryRawUnsafe(
           `
-          SELECT COUNT(*) as liked
-          FROM \`Like\`
-          WHERE postId = ? AND authorId = ?
-        `,
+        SELECT COUNT(*) as liked
+        FROM \`Like\`
+        WHERE postId = ? AND authorId = ?
+      `,
           rawPost.id,
           (session.user as any).id,
         )

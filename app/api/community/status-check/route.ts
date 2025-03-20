@@ -3,7 +3,7 @@ import { db } from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
-// Define valid status values
+// Define valid status values based on what's actually in the database
 const VALID_STATUSES = {
   PENDING: "pending",
   PUBLISHED: "published",
@@ -22,8 +22,8 @@ export async function GET() {
 
     // Get all posts with their status
     const posts = await db.$queryRawUnsafe(`
-      SELECT id, title, status FROM Post
-    `)
+    SELECT id, title, status FROM Post
+  `)
 
     // Count posts by status
     const statusCounts: Record<string, number> = {}
@@ -63,31 +63,31 @@ export async function POST() {
 
     // Fix null or empty statuses
     await db.$executeRawUnsafe(`
-      UPDATE Post
-      SET status = '${VALID_STATUSES.PENDING}'
-      WHERE status IS NULL OR status = ''
-    `)
+    UPDATE Post
+    SET status = '${VALID_STATUSES.PENDING}'
+    WHERE status IS NULL OR status = ''
+  `)
 
-    // Fix "approved" status
+    // Fix "approved" status (if any exists from previous code)
     await db.$executeRawUnsafe(`
-      UPDATE Post
-      SET status = '${VALID_STATUSES.PUBLISHED}'
-      WHERE status = 'approved'
-    `)
+    UPDATE Post
+    SET status = '${VALID_STATUSES.PUBLISHED}'
+    WHERE status = 'approved'
+  `)
 
-    // Fix "rejected" status
+    // Fix "rejected" status (if any exists from previous code)
     await db.$executeRawUnsafe(`
-      UPDATE Post
-      SET status = '${VALID_STATUSES.DRAFT}'
-      WHERE status = 'rejected'
-    `)
+    UPDATE Post
+    SET status = '${VALID_STATUSES.DRAFT}'
+    WHERE status = 'rejected'
+  `)
 
     // Get updated status counts
     const statusCounts = await db.$queryRawUnsafe(`
-      SELECT status, COUNT(*) as count
-      FROM Post
-      GROUP BY status
-    `)
+    SELECT status, COUNT(*) as count
+    FROM Post
+    GROUP BY status
+  `)
 
     const formattedStatusCounts: Record<string, number> = {}
     for (const row of statusCounts as any[]) {
