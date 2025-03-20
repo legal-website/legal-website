@@ -108,7 +108,7 @@ export default function CommunityPage() {
   useEffect(() => {
     const logFetchResults = async () => {
       try {
-        const response = await fetch("/api/community/posts?status=approved")
+        const response = await fetch("/api/community/posts?status=published")
         const data = await response.json()
         console.log("Debug fetch posts response:", data)
       } catch (error) {
@@ -131,13 +131,15 @@ export default function CommunityPage() {
       queryParams.set("sort", activeTab)
       queryParams.set("page", currentPage.toString())
       queryParams.set("limit", "10")
-      // Always set status to approved for client-side
-      queryParams.set("status", "approved")
+      // Always set status to published (not approved) for client-side
+      queryParams.set("status", "published")
 
       console.log(`Fetching posts with params: ${queryParams.toString()}`)
       const response = await fetch(`/api/community/posts?${queryParams.toString()}`)
 
       if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Error response: ${response.status}`, errorText)
         throw new Error(`Failed to fetch posts: ${response.status} ${response.statusText}`)
       }
 
