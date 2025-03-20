@@ -791,8 +791,8 @@ export default function AnalyticsPage() {
 
           // If we have template invoices from this endpoint, use them
           if (templateTabInvoices.length > 0) {
-            const paidTemplateTabInvoices = templateTabInvoices.filter((inv) => inv.status === "paid")
-            const templateTabRevenue = paidTemplateTabInvoices.reduce((sum, inv) => sum + inv.amount, 0)
+            const paidTemplateTabInvoices = templateTabInvoices.filter((inv: { status: string }) => inv.status === "paid")
+            const templateTabRevenue = paidTemplateTabInvoices.reduce((sum: any, inv: { amount: any }) => sum + inv.amount, 0)
             console.log(`Template tab revenue: ${templateTabRevenue}`)
 
             // Use these invoices if we found paid ones
