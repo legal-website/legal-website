@@ -1355,7 +1355,7 @@ export default function AnalyticsPage() {
 
       // 1. Fetch Annual Reports data
       try {
-        const annualReportsResponse = await fetch("/api/admin/annual-reports/filings")
+        const annualReportsResponse = await fetch("/api/admin/compliance/annual-reports")
         if (annualReportsResponse.ok) {
           const annualReportsData = await annualReportsResponse.json()
           const filings = annualReportsData.filings || []
@@ -1367,7 +1367,7 @@ export default function AnalyticsPage() {
             type: "Annual Report Filing",
             createdAt: filing.createdAt,
             source: "annual-report" as const,
-            userName: "Rapid Ventures LLC",
+            userName: filing.companyName || "Rapid Ventures LLC",
           }))
 
           allComplianceItems = [...allComplianceItems, ...annualReportItems]
@@ -1426,7 +1426,7 @@ export default function AnalyticsPage() {
 
       // 3. Fetch Beneficial Ownership data
       try {
-        const ownershipResponse = await fetch("/api/beneficial-ownership")
+        const ownershipResponse = await fetch("/api/admin/compliance/beneficial-ownership")
         if (ownershipResponse.ok) {
           const ownershipData = await ownershipResponse.json()
           const owners = ownershipData.owners || []
@@ -1438,10 +1438,29 @@ export default function AnalyticsPage() {
             type: "Beneficial Ownership",
             createdAt: owner.dateAdded || owner.createdAt,
             source: "beneficial-ownership" as const,
-            userName: "Summit Solutions",
+            userName: owner.companyName || "Summit Solutions",
           }))
 
           allComplianceItems = [...allComplianceItems, ...ownershipItems]
+        } else {
+          // Try the original endpoint as fallback
+          const originalResponse = await fetch("/api/beneficial-ownership")
+          if (originalResponse.ok) {
+            const originalData = await originalResponse.json()
+            const owners = originalData.owners || []
+
+            // Map beneficial owners to ComplianceItem format
+            const ownershipItems = owners.map((owner: any) => ({
+              id: owner.id,
+              status: owner.status,
+              type: "Beneficial Ownership",
+              createdAt: owner.dateAdded || owner.createdAt,
+              source: "beneficial-ownership" as const,
+              userName: owner.companyName || "Summit Solutions",
+            }))
+
+            allComplianceItems = [...allComplianceItems, ...ownershipItems]
+          }
         }
       } catch (error) {
         console.error("Error fetching beneficial ownership:", error)
@@ -1831,12 +1850,6 @@ export default function AnalyticsPage() {
           color="bg-green-500"
           loading={loadingRevenue}
         />
-        <MetricCard
-          title="New Users"
-          value={newUsers.toString()}
-          icon={DollarSign}
-          color="bg-green-500"
-          loading={loadingRevenue} change={""} trend={"up"}        />
         <MetricCard
           title="New Users"
           value={newUsers.toString()}
