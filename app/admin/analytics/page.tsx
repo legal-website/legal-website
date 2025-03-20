@@ -157,6 +157,7 @@ export default function AnalyticsPage() {
   const [revenueByTemplateData, setRevenueByTemplateData] = useState<TemplateRevenueDataPoint[]>([])
   const [revenueTrendData, setRevenueTrendData] = useState<RevenueByMonthDataPoint[]>([])
   const [loadingRevenueAnalytics, setLoadingRevenueAnalytics] = useState(true)
+  const [totalTemplateRevenue, setTotalTemplateRevenue] = useState(0)
 
   // Date range calculation based on selected time range
   const getDateRange = useCallback(() => {
@@ -773,17 +774,25 @@ export default function AnalyticsPage() {
       const amendmentsData = await amendmentsResponse.json().catch(() => ({ amendments: [] }))
       const amendments: Amendment[] = amendmentsData.amendments || []
 
-      // Fetch template invoices from the template tab
-      const templateInvoicesResponse = await fetch("/api/admin/billing/invoices?tab=template")
-      if (!templateInvoicesResponse.ok) {
-        console.warn("Failed to fetch template invoices, using empty array")
+      // Fetch all billing invoices to get template invoices
+      const billingInvoicesResponse = await fetch("/api/admin/billing/invoices")
+      if (!billingInvoicesResponse.ok) {
+        console.warn("Failed to fetch billing invoices, using empty array")
       }
-      const templateInvoicesData = await templateInvoicesResponse.json().catch(() => ({ invoices: [] }))
-      const templateInvoices: Invoice[] = templateInvoicesData.invoices || []
+      const billingInvoicesData = await billingInvoicesResponse.json().catch(() => ({ invoices: [] }))
+      const billingInvoices: Invoice[] = billingInvoicesData.invoices || []
 
       // 1. Filter paid invoices
       const paidInvoices = invoices.filter((invoice) => invoice.status === "paid")
-      const paidTemplateInvoices = templateInvoices.filter((invoice) => invoice.status === "paid")
+
+      // Filter template invoices (those starting with "temp")
+      const templateInvoices = billingInvoices.filter(
+        (invoice) => invoice.status === "paid" && invoice.invoiceNumber.toLowerCase().startsWith("temp"),
+      )
+
+      // Calculate total template revenue
+      const templateRevenueTotal = templateInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+      setTotalTemplateRevenue(templateRevenueTotal)
 
       // 2. Calculate total revenue
       const totalRevenue = paidInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
@@ -856,14 +865,10 @@ export default function AnalyticsPage() {
       const approvedAmendments = amendments.filter((amendment) => amendment.status === "approved")
       const amendmentRevenue = approvedAmendments.reduce((sum, amendment) => sum + (amendment.paymentAmount || 0), 0)
 
-      // Calculate total template revenue from template tab
-      const totalTemplateRevenue = paidTemplateInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
-
       // Set revenue by product data - EXCLUDING Annual Reports
       const revenueByProduct: RevenueDataPoint[] = [
         { name: "Packages", value: packageRevenue },
         { name: "Amendments", value: amendmentRevenue },
-        { name: "Templates", value: totalTemplateRevenue },
       ]
 
       // Filter out zero values
@@ -888,7 +893,7 @@ export default function AnalyticsPage() {
       })
 
       // Add revenue to appropriate months
-      paidTemplateInvoices.forEach((invoice) => {
+      templateInvoices.forEach((invoice) => {
         const invoiceDate = new Date(invoice.createdAt)
         if (invoiceDate >= twelveMonthsAgoDate && invoiceDate <= now) {
           const monthKey = format(invoiceDate, "MMM yyyy")
@@ -1819,9 +1824,7 @@ export default function AnalyticsPage() {
                                         ? "#3b82f6"
                                         : entry.name === "Amendments"
                                           ? "#a855f7"
-                                          : entry.name === "Annual Reports"
-                                            ? "#22c55e"
-                                            : "#f59e0b"
+                                          : "#f59e0b"
                                     }
                                     strokeWidth={1}
                                   />
@@ -1851,11 +1854,7 @@ export default function AnalyticsPage() {
                                       ? "#3b82f6"
                                       : entry.name === "Amendments"
                                         ? "#a855f7"
-                                        : entry.name === "Annual Reports"
-                                          ? "#22c55e"
-                                          : entry.name === "Templates"
-                                            ? "#f59e0b"
-                                            : "#9333ea",
+                                        : "#f59e0b",
                                 }}
                               />
                               <span className="text-sm font-medium">
@@ -1871,8 +1870,7 @@ export default function AnalyticsPage() {
 
                 <div>
                   <h4 className="text-sm font-medium mb-4">
-                    Template Revenue by Month (Total:{" "}
-                    {formatCurrency(revenueByTemplateData.reduce((sum, item) => sum + item.revenue, 0))})
+                    Template Revenue by Month (Total: {formatCurrency(totalTemplateRevenue)})
                   </h4>
                   {loadingRevenueAnalytics ? (
                     <div className="h-96 w-full bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse flex items-center justify-center">
