@@ -2238,8 +2238,16 @@ export default function AnalyticsPage() {
                           <td className="p-3">{source.name}</td>
                           <td className="p-3">{formatCurrency(source.revenue)}</td>
                           <td className={`p-3 ${source.growth >= 0 ? "text-green-500" : "text-red-500"}`}>
-                            {source.growth >= 0 ? "+" : ""}
-                            {source.growth.toFixed(1)}%
+                            {source.growth >= 0 ? (
+                              <span className="flex items-center">
+                                <ArrowUpRight className="h-3 w-3 inline mr-1" />+{source.growth.toFixed(1)}%
+                              </span>
+                            ) : (
+                              <span className="flex items-center">
+                                <ArrowDownRight className="h-3 w-3 inline mr-1" />
+                                {source.growth.toFixed(1)}%
+                              </span>
+                            )}
                           </td>
                           <td className="p-3">{source.customers}</td>
                         </tr>
