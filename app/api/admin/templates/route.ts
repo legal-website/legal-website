@@ -84,13 +84,17 @@ export async function POST(req: NextRequest) {
     // Store metadata in name field (format: "name|price|tier|count|status")
     const metadataName = `${data.name}|${data.price || 0}|${data.pricingTier || "Free"}|0|active`
 
+    // Extract the secure_url if fileUrl is an object, otherwise use it directly
+    const fileUrlString =
+      typeof data.fileUrl === "object" && data.fileUrl.secure_url ? data.fileUrl.secure_url : data.fileUrl
+
     // Create the template as a document
     const template = await db.document.create({
       data: {
         name: metadataName,
         category: data.category,
         businessId: data.businessId,
-        fileUrl: data.fileUrl,
+        fileUrl: fileUrlString,
         type: "template",
       },
     })

@@ -2108,7 +2108,7 @@ export default function AllUsersPage() {
                   </div>
                   <div className="p-4">
                     {/* Find the section where we render the activity items in the user details dialog
-                    // Around line 2000-2030, update the activity rendering code to properly format dates
+                    // Around line 2000-2030, update the activity rendering code to add a null check
 
                     // Replace this part:
                     <div className="space-y-3">
@@ -2127,46 +2127,60 @@ export default function AllUsersPage() {
                           </div>
                           <div>
                             <p className="text-sm font-medium">{activity.action}</p>
-                            <p className="text-xs text-gray-500">{activity.date}</p>
-                            <p className="text-xs text-gray-500">{activity.details}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    // With this improved version that properly formats dates: */}
-                    <div className="space-y-3">
-                      {selectedUser.activity.slice(0, 4).map((activity, index) => (
-                        <div key={index} className="flex items-start">
-                          <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
-                            {activity.iconType === "post" ? (
-                              <FileText className="h-4 w-4 text-blue-500" />
-                            ) : activity.iconType === "comment" ? (
-                              <MessageSquare className="h-4 w-4 text-green-500" />
-                            ) : activity.iconType === "like" ? (
-                              <ThumbsUp className="h-4 w-4 text-red-500" />
-                            ) : (
-                              <Clock className="h-4 w-4 text-gray-500" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{activity.action}</p>
                             <p className="text-xs text-gray-500">
-                              {typeof activity.date === "string"
-                                ? new Date(activity.date).toLocaleString("en-US", {
-                                    year: "numeric",
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
+                              {typeof activity.date === 'string'
+                                ? new Date(activity.date).toLocaleString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
                                   })
-                                : "Unknown date"}
+                                : 'Unknown date'}
                             </p>
                             <p className="text-xs text-gray-500">{activity.details}</p>
                           </div>
                         </div>
                       ))}
                     </div>
+
+                    // With this improved version that includes a null check: */}
+                    {selectedUser.activity && selectedUser.activity.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedUser.activity.slice(0, 4).map((activity, index) => (
+                          <div key={index} className="flex items-start">
+                            <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
+                              {activity.iconType === "post" ? (
+                                <FileText className="h-4 w-4 text-blue-500" />
+                              ) : activity.iconType === "comment" ? (
+                                <MessageSquare className="h-4 w-4 text-green-500" />
+                              ) : activity.iconType === "like" ? (
+                                <ThumbsUp className="h-4 w-4 text-red-500" />
+                              ) : (
+                                <Clock className="h-4 w-4 text-gray-500" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{activity.action}</p>
+                              <p className="text-xs text-gray-500">
+                                {typeof activity.date === "string"
+                                  ? new Date(activity.date).toLocaleString("en-US", {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })
+                                  : "Unknown date"}
+                              </p>
+                              <p className="text-xs text-gray-500">{activity.details}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No activity found</p>
+                    )}
                     {/* End of activity rendering code */}
                   </div>
                 </Card>

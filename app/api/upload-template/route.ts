@@ -20,9 +20,9 @@ export async function POST(req: Request) {
     }
 
     // Upload file to Cloudinary
-    const fileUrl = await uploadToCloudinary(file)
+    const result = await uploadToCloudinary(file)
 
-    return NextResponse.json({ url: fileUrl })
+    return NextResponse.json({ url: result.secure_url })
   } catch (error: any) {
     console.error("Error uploading template:", error)
     return NextResponse.json({ error: "Failed to upload template", details: error.message }, { status: 500 })
