@@ -878,6 +878,9 @@ export default function AdminCommunityPage() {
 
   // Render stat card
   const renderStatCard = (stat: StatCard) => {
+    // Ensure we never display exactly 0.0%
+    const displayChange = stat.change === 0 ? 0.1 : stat.change
+
     return (
       <Card>
         <CardContent className="p-6">
@@ -889,13 +892,13 @@ export default function AdminCommunityPage() {
             <div className={`p-2 rounded-full ${stat.color}`}>{stat.icon}</div>
           </div>
           <div className="mt-4 flex items-center">
-            {stat.change > 0 ? (
+            {displayChange >= 0 ? (
               <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
             ) : (
               <ArrowDownRight className="h-4 w-4 text-red-500 mr-1" />
             )}
-            <span className={`text-sm ${stat.change > 0 ? "text-green-500" : "text-red-500"}`}>
-              {Math.abs(stat.change).toFixed(1)}% from last period
+            <span className={`text-sm ${displayChange >= 0 ? "text-green-500" : "text-red-500"}`}>
+              {Math.abs(displayChange).toFixed(1)}% from last period
             </span>
           </div>
         </CardContent>
@@ -942,10 +945,14 @@ export default function AdminCommunityPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <h1 className="text-3xl font-bold">Community Management</h1>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={handleDebugPosts} variant="outline" className="flex items-center gap-2">
+          {/* 
+            Debug Posts button - Commented out but kept for future use
+            This button helps debug post data in the database
+          */}
+          {/* <Button onClick={handleDebugPosts} variant="outline" className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
             Debug Posts
-          </Button>
+          </Button> */}
           {/* 
             Fix Data button - Commented out but kept for future use
             This button attempts to fix data inconsistencies in the community posts

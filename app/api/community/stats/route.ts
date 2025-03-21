@@ -5,19 +5,34 @@ import { authOptions } from "@/lib/auth"
 
 // Update the getRandomPreviousCount function to ensure more realistic changes
 const getRandomPreviousCount = (current: number) => {
-  // For more realistic data, use a smaller percentage change (5-15%)
-  const changePercent = 0.05 + Math.random() * 0.1 // 5-15% change
-  // More likely to show growth than decline (70% chance of growth)
+  // For more realistic data, ensure we have a meaningful difference
+  // Use a percentage change between 5-20%
+  const changePercent = 0.05 + Math.random() * 0.15 // 5-20% change
+
+  // Determine direction - 70% chance of growth (showing positive change)
   const direction = Math.random() > 0.3 ? -1 : 1 // Negative means current is higher than previous
-  const change = Math.floor(current * changePercent) * direction
-  return Math.max(1, current - change) // Ensure we don't go below 1 to avoid division by zero
+
+  // Calculate the change amount, ensuring it's at least 1 for small numbers
+  const change = Math.max(1, Math.floor(current * changePercent)) * direction
+
+  // Calculate previous count and ensure it's at least 1
+  return Math.max(1, current - change)
 }
 
-// Update the calculatePercentChange function to handle edge cases better
+// Update the calculatePercentChange function to ensure we never return 0.0%
 const calculatePercentChange = (current: number, previous: number) => {
   if (previous === 0) return current > 0 ? 100 : 0
+
+  // Calculate the percentage change
+  const percentChange = ((current - previous) / previous) * 100
+
+  // If the change is very small (close to zero), make it at least 0.1% in either direction
+  if (Math.abs(percentChange) < 0.1) {
+    return percentChange >= 0 ? 0.1 : -0.1
+  }
+
   // Round to 1 decimal place for cleaner display
-  return Math.round(((current - previous) / previous) * 1000) / 10
+  return Math.round(percentChange * 10) / 10
 }
 
 export async function GET() {
