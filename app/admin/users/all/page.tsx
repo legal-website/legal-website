@@ -76,11 +76,21 @@ interface UserDocument {
   date: string
 }
 
-// Define the UserActivity interface
+// Find the UserActivity interface and update it to include iconType
+// Change this:
 interface UserActivity {
   action: string
   date: string
   details: string
+}
+
+// To this:
+interface UserActivity {
+  action: string
+  date: string
+  details: string
+  iconType?: "post" | "comment" | "like" | string
+  type?: string
 }
 
 // Update the UserData interface to include passwordResetCount
@@ -607,72 +617,63 @@ export default function AllUsersPage() {
         // Continue with empty activity array
       }
 
-      // Fetch community activities for this user
-      let communityActivities = []
-      try {
-        // Fetch posts by this user
-        const postsResponse = await fetch(`/api/community/posts?authorId=${userId}`)
-        if (postsResponse.ok) {
-          const postsData = await postsResponse.json()
-          if (postsData.success && postsData.posts) {
-            communityActivities = postsData.posts.map((post: any) => ({
-              type: "post",
-              action: `Created post "${post.title}"`,
-              date: new Date(post.createdAt).toLocaleString(),
-              details: `Post ID: ${post.id}`,
-              iconType: "post",
-            }))
-          }
+      // Find the section where we fetch community activities (around line 500-600)
+      // Replace the community activities mapping with this simplified version:
+
+      // Fetch posts by this user
+      let communityActivities: any[] = []
+      const postsResponse = await fetch(`/api/community/posts?authorId=${userId}`)
+      if (postsResponse.ok) {
+        const postsData = await postsResponse.json()
+        if (postsData.success && postsData.posts) {
+          communityActivities = postsData.posts.map((post: any) => ({
+            type: "post",
+            action: `Created post "${post.title}"`,
+            iconType: "post",
+          }))
         }
-
-        // Fetch comments by this user
-        const commentsResponse = await fetch(`/api/community/comments?authorId=${userId}`)
-        if (commentsResponse.ok) {
-          const commentsData = await commentsResponse.json()
-          if (commentsData.success && commentsData.comments) {
-            const commentActivities = commentsData.comments.map((comment: any) => ({
-              type: "comment",
-              action: `Commented on a post`,
-              date: new Date(comment.createdAt).toLocaleString(),
-              details: comment.content.length > 50 ? `${comment.content.substring(0, 50)}...` : comment.content,
-              iconType: "comment",
-            }))
-            communityActivities = [...communityActivities, ...commentActivities]
-          }
-        }
-
-        // Fetch likes by this user
-        const likesResponse = await fetch(`/api/community/likes?authorId=${userId}`)
-        if (likesResponse.ok) {
-          const likesData = await likesResponse.json()
-          if (likesData.success && likesData.likes) {
-            const likeActivities = likesData.likes.map((like: any) => ({
-              type: "like",
-              action: like.postId ? "Liked a post" : "Liked a comment",
-              date: new Date(like.createdAt).toLocaleString(),
-              details: `${like.postId ? "Post" : "Comment"} ID: ${like.postId || like.commentId}`,
-              iconType: "like",
-            }))
-            communityActivities = [...communityActivities, ...likeActivities]
-          }
-        }
-
-        // Sort all community activities by date (newest first)
-        communityActivities.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-        // Combine with existing activities
-        userActivity = [...userActivity, ...communityActivities]
-
-        // Sort all activities by date (newest first)
-        userActivity.sort((a: any, b: any) => {
-          const dateA = typeof a.date === "string" ? new Date(a.date) : a.date
-          const dateB = typeof b.date === "string" ? new Date(b.date) : b.date
-          return dateB.getTime() - dateA.getTime()
-        })
-      } catch (communityError) {
-        console.error("Error fetching community activities:", communityError)
-        // Continue with existing activities
       }
+
+      // Fetch comments by this user
+      const commentsResponse = await fetch(`/api/community/comments?authorId=${userId}`)
+      if (commentsResponse.ok) {
+        const commentsData = await commentsResponse.json()
+        if (commentsData.success && commentsData.comments) {
+          const commentActivities = commentsData.comments.map((comment: any) => ({
+            type: "comment",
+            action: `Commented: "${comment.content.length > 40 ? comment.content.substring(0, 40) + "..." : comment.content}"`,
+            iconType: "comment",
+          }))
+          communityActivities = [...communityActivities, ...commentActivities]
+        }
+      }
+
+      // Fetch likes by this user
+      const likesResponse = await fetch(`/api/community/likes?authorId=${userId}`)
+      if (likesResponse.ok) {
+        const likesData = await likesResponse.json()
+        if (likesData.success && likesData.likes) {
+          const likeActivities = likesData.likes.map((like: any) => ({
+            type: "like",
+            action: like.postId ? "Liked a post" : "Liked a comment",
+            iconType: "like",
+          }))
+          communityActivities = [...communityActivities, ...likeActivities]
+        }
+      }
+
+      // Sort all community activities by date (newest first)
+      communityActivities.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+      // Combine with existing activities
+      userActivity = [...userActivity, ...communityActivities]
+
+      // Sort all activities by date (newest first)
+      userActivity.sort((a: any, b: any) => {
+        const dateA = typeof a.date === "string" ? new Date(a.date) : a.date
+        const dateB = typeof b.date === "string" ? new Date(b.date) : a.date
+        return dateB.getTime() - dateA.getTime()
+      })
 
       // Get online status
       let isOnline = false
@@ -2038,7 +2039,8 @@ export default function AllUsersPage() {
                     )}
                   </div>
                 </Card>
-
+                // Find the Activity section in the User Details Dialog and replace it with this updated version // Look
+                for the Card with "Recent Activity" heading (around line 1400-1430)
                 {/* Activity */}
                 <Card>
                   <div className="p-4 border-b">
@@ -2047,7 +2049,7 @@ export default function AllUsersPage() {
                   <div className="p-4">
                     {selectedUser.activity && selectedUser.activity.length > 0 ? (
                       <div className="space-y-3">
-                        {selectedUser.activity.slice(0, 4).map((activity, index) => (
+                        {selectedUser.activity.slice(0, 7).map((activity, index) => (
                           <div key={index} className="flex items-start">
                             <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
                               {activity.iconType === "post" ? (
@@ -2062,8 +2064,6 @@ export default function AllUsersPage() {
                             </div>
                             <div>
                               <p className="text-sm font-medium">{activity.action}</p>
-                              <p className="text-xs text-gray-500">{activity.date}</p>
-                              <p className="text-xs text-gray-500">{activity.details}</p>
                             </div>
                           </div>
                         ))}
