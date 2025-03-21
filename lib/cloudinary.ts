@@ -191,4 +191,3 @@ export function extractCloudinaryDetails(url: string) {
 
 export default cloudinary
 
-
