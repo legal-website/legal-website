@@ -52,7 +52,7 @@ import {
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import Image from "next/image"
-import { Role } from "@prisma/client" // Add this import
+import { Role } from "@/lib/prisma-types" // Change this line to import from our types file
 import ErrorState from "./error-state"
 import { OnlineStatusTracker } from "@/components/online-status-tracker"
 import { Badge } from "@/components/ui/badge"
@@ -492,15 +492,18 @@ export default function AllUsersPage() {
         nextBillingDate: null,
       }
 
+      // Replace the invoice fetching code with this:
       // Fetch invoices for this user
       let userInvoices = []
       try {
         const invoicesResponse = await fetch(`/api/admin/invoices`)
         if (invoicesResponse.ok) {
           const invoicesData = await invoicesResponse.json()
-          // Filter invoices for this user
+          // Filter invoices for this user and only include non-template invoices (starting with INV-)
           userInvoices = invoicesData.invoices.filter(
-            (invoice: any) => invoice.userId === userId || invoice.customerEmail === data.user.email,
+            (invoice: any) =>
+              (invoice.userId === userId || invoice.customerEmail === data.user.email) &&
+              invoice.invoiceNumber.startsWith("INV-"),
           )
 
           // If we have invoices, use the most recent one for subscription data

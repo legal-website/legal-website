@@ -37,6 +37,23 @@ declare global {
   }
 }
 
+// Define Role enum to match Prisma schema
+export enum Role {
+  ADMIN = "ADMIN",
+  SUPPORT = "SUPPORT",
+  CLIENT = "CLIENT",
+}
+
+// Define VerificationToken model
+export interface VerificationTokenModel {
+  id: string
+  token: string
+  identifier: string
+  expires: Date
+  userId: string
+  user?: UserModel
+}
+
 // Define User model for relationships
 export interface UserModel {
   id: string
@@ -203,6 +220,12 @@ export interface AmendmentUpdateArgs {
   include?: AmendmentInclude
 }
 
+// Define VerificationToken delegate
+export interface VerificationTokenDelegate {
+  findFirst: (args: { where: any; orderBy?: any }) => Promise<VerificationTokenModel | null>
+  count: (args: { where: any }) => Promise<number>
+}
+
 // Define Amendment model operations with proper typing
 export interface AmendmentDelegate {
   findMany: (args?: AmendmentFindManyArgs) => Promise<AmendmentModel[]>
@@ -287,6 +310,7 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   annualReportDeadline: AnnualReportDeadlineDelegate
   annualReportFiling: AnnualReportFilingDelegate
   filingRequirement: FilingRequirementDelegate
+  verificationToken: VerificationTokenDelegate
   // Add community models
   post: PostDelegate
   comment: CommentDelegate
