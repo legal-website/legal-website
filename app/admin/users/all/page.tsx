@@ -76,11 +76,21 @@ interface UserDocument {
   date: string
 }
 
-// Define the UserActivity interface
+// Find the UserActivity interface and update it to include iconType
+// Change this:
 interface UserActivity {
   action: string
   date: string
   details: string
+}
+
+// To this:
+interface UserActivity {
+  action: string
+  date: string
+  details: string
+  iconType?: "post" | "comment" | "like" | string
+  type?: string
 }
 
 // Update the UserData interface to include passwordResetCount
