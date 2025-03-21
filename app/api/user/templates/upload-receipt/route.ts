@@ -28,7 +28,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Upload file to Cloudinary
-    const receiptUrl = await uploadToCloudinary(file)
+    const uploadResult = await uploadToCloudinary(file)
+
+    // Extract the URL from the Cloudinary response
+    let receiptUrl = ""
+    if (typeof uploadResult === "string") {
+      receiptUrl = uploadResult
+    } else if (uploadResult && typeof uploadResult === "object" && "secure_url" in uploadResult) {
+      receiptUrl = uploadResult.secure_url as string
+    } else {
+      console.error("Invalid Cloudinary response:", uploadResult)
+      return NextResponse.json({ error: "Failed to process uploaded file" }, { status: 500 })
+    }
 
     if (!receiptUrl) {
       return NextResponse.json({ error: "Failed to upload file" }, { status: 500 })
@@ -56,6 +67,7 @@ export async function POST(req: NextRequest) {
     }
 
     console.log("Storing template items:", JSON.stringify(templateItems, null, 2))
+    console.log("Receipt URL:", receiptUrl)
 
     // Update the invoice with the receipt URL and template information
     const updatedInvoice = await prisma.invoice.update({

@@ -49,7 +49,12 @@ export async function uploadToCloudinary(
           reject(new Error("Failed to upload file to cloud storage"))
         } else {
           console.log("Cloudinary upload successful, URL:", result?.secure_url)
-          resolve(result)
+          // Return just the URL string if returnUrl is true
+          if (options.returnUrl === true) {
+            resolve(result?.secure_url || "")
+          } else {
+            resolve(result)
+          }
         }
       })
     })
@@ -66,8 +71,13 @@ export async function uploadToCloudinary(
  * @returns The URL of the uploaded file
  */
 export async function uploadFileToCloudinary(file: File, options: Record<string, any> = {}): Promise<string> {
-  const result = await uploadToCloudinary(file, options)
-  return result?.secure_url || ""
+  const result = await uploadToCloudinary(file, { ...options, returnUrl: true })
+  if (typeof result === "string") {
+    return result
+  } else if (result && typeof result === "object" && "secure_url" in result) {
+    return result.secure_url as string
+  }
+  return ""
 }
 
 /**
@@ -190,4 +200,3 @@ export function extractCloudinaryDetails(url: string) {
 }
 
 export default cloudinary
-
