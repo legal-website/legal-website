@@ -2,86 +2,92 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useState, useEffect, useCallback, useRef } from "react"
+import { Label } from "@/components/ui/label"
+import Image from "next/image"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import { Badge } from "@/components/ui/badge"
-import {
-  Trash2,
-  MessageSquare,
-  ThumbsUp,
-  TagIcon,
-  Search,
-  RefreshCw,
-  AlertTriangle,
-  ArrowUpRight,
-  ArrowDownRight,
-  FileText,
-  Clock,
-  CheckCircle,
-  XCircle,
-  PenTool,
-  Heart,
   MessageCircle,
-  Activity,
+  Search,
+  ThumbsUp,
+  MessageSquare,
+  Clock,
+  Tag,
+  Filter,
+  PlusCircle,
+  Share2,
+  Facebook,
+  Twitter,
+  Linkedin,
+  Send,
+  Loader2,
+  RefreshCw,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Heart,
 } from "lucide-react"
-import { toast } from "@/components/ui/use-toast"
-import { cn } from "@/lib/utils"
+import { useSession } from "next-auth/react"
+import { useToast } from "@/components/ui/use-toast"
+import { Badge } from "@/components/ui/badge"
 import { formatDistanceToNow } from "date-fns"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+
+interface Author {
+  id: string
+  name: string
+  avatar: string
+}
 
 interface Post {
   id: string
   title: string
   content: string
-  author: {
-    id: string
-    name: string
-    avatar: string
-  }
-  status: string
+  author: Author
   date: string
   tags: string[]
   likes: number
   replies: number
+  isLiked: boolean
+  status?: string
+  isOwnPost?: boolean
 }
 
-interface CommunityTag {
+interface Comment {
+  id: string
+  content: string
+  author: Author
+  date: string
+  likes: number
+  isLiked: boolean
+}
+
+interface TagWithCount {
   id: string
   name: string
   count: number
 }
 
-interface UserType {
+interface Activity {
   id: string
-  name: string
-  email: string
-  role: string
-}
-
-interface StatCard {
-  title: string
-  value: number
-  change: number
-  icon: React.ReactNode
-  color: string
-}
-
-interface ActivityType {
-  id: string
-  type: "post" | "comment" | "like"
+  type: string
   user: {
+    id: string
     name: string
     avatar: string
   }
@@ -90,671 +96,550 @@ interface ActivityType {
   date: string
 }
 
-export default function AdminCommunityPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-
-  // Get query params with null checks
-  const currentTag = searchParams?.get("tag") || ""
-  const currentStatus = searchParams?.get("status") || "pending"
-  const currentPage = Number.parseInt(searchParams?.get("page") || "1")
-  const currentSearch = searchParams?.get("search") || ""
-
-  // State
+export default function CommunityPage() {
+  const { data: session, status: sessionStatus } = useSession()
+  const { toast } = useToast()
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedTag, setSelectedTag] = useState<string | null>(null)
+  const [newPostTitle, setNewPostTitle] = useState("")
+  const [newPostContent, setNewPostContent] = useState("")
+  const [newPostTags, setNewPostTags] = useState("")
   const [posts, setPosts] = useState<Post[]>([])
-  const [tags, setTags] = useState<CommunityTag[]>([])
-  const [users, setUsers] = useState<UserType[]>([])
-  const [loading, setLoading] = useState(true)
-  const [pagination, setPagination] = useState({
-    total: 0,
-    page: currentPage,
-    limit: 15, // Changed to 15 as requested
-    totalPages: 0,
-  })
-  const [searchTerm, setSearchTerm] = useState(currentSearch)
-  const [selectedStatus, setSelectedStatus] = useState(currentStatus)
-  const [selectedTag, setSelectedTag] = useState(currentTag)
-  const [stats, setStats] = useState<{
-    published: StatCard
-    pending: StatCard
-    draft: StatCard
-    likes: StatCard
-    comments: StatCard
-  }>({
-    published: {
-      title: "Published Posts",
-      value: 0,
-      change: 0,
-      icon: <CheckCircle className="h-5 w-5" />,
-      color: "bg-green-500",
-    },
-    pending: {
-      title: "Pending Posts",
-      value: 0,
-      change: 0,
-      icon: <Clock className="h-5 w-5" />,
-      color: "bg-yellow-500",
-    },
-    draft: {
-      title: "Draft Posts",
-      value: 0,
-      change: 0,
-      icon: <PenTool className="h-5 w-5" />,
-      color: "bg-gray-500",
-    },
-    likes: {
-      title: "Total Likes",
-      value: 0,
-      change: 0,
-      icon: <Heart className="h-5 w-5" />,
-      color: "bg-red-500",
-    },
-    comments: {
-      title: "Total Comments",
-      value: 0,
-      change: 0,
-      icon: <MessageCircle className="h-5 w-5" />,
-      color: "bg-blue-500",
-    },
-  })
-  const [recentActivities, setRecentActivities] = useState<ActivityType[]>([])
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
-  const [selectedClient, setSelectedClient] = useState<string>("")
-  const [clients, setClients] = useState<{ id: string; name: string; email: string }[]>([])
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "most_likes" | "most_comments">("newest")
-  const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false)
+  const [allTags, setAllTags] = useState<TagWithCount[]>([])
+  const [activeTab, setActiveTab] = useState("latest")
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showNewPostDialog, setShowNewPostDialog] = useState(false)
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null)
+  const [postComments, setPostComments] = useState<Comment[]>([])
+  const [showPostDialog, setShowPostDialog] = useState(false)
+  const [newComment, setNewComment] = useState("")
+  const [isLoadingComments, setIsLoadingComments] = useState(false)
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false)
+  const [showShareDialog, setShowShareDialog] = useState(false)
+  const [shareUrl, setShareUrl] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [myPosts, setMyPosts] = useState<Post[]>([])
+  const [isMyPostsOpen, setIsMyPostsOpen] = useState(false)
+  const [recentActivities, setRecentActivities] = useState<Activity[]>([])
+  const [isLoadingActivities, setIsLoadingActivities] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
+  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Fetch posts
-  const fetchPosts = async (searchQuery = searchTerm) => {
+  // Debug log fetch results
+  useEffect(() => {
+    const logFetchResults = async () => {
+      try {
+        const response = await fetch("/api/community/posts?status=published")
+        const data = await response.json()
+        console.log("Debug fetch posts response:", data)
+      } catch (error) {
+        console.error("Error logging fetch results:", error)
+      }
+    }
+
+    logFetchResults()
+  }, [])
+
+  // Set up background refresh
+  useEffect(() => {
+    // Refresh data every 2 minutes
+    refreshTimerRef.current = setInterval(
+      () => {
+        refreshAllData(false)
+      },
+      2 * 60 * 1000,
+    )
+
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current)
+      }
+    }
+  }, [])
+
+  // Function to refresh all data
+  const refreshAllData = async (showToast = true) => {
+    window.location.reload()
+  }
+
+  // Update the fetchPosts function to only fetch published posts
+  const fetchPosts = useCallback(async () => {
     try {
-      setLoading(true)
+      setIsLoading(true)
+      setError(null)
 
       // Build query params
-      const params = new URLSearchParams()
-      if (selectedStatus) params.append("status", selectedStatus)
-      if (selectedTag) params.append("tag", selectedTag)
-      if (searchQuery) params.append("search", searchQuery)
-      if (selectedClient) params.append("client", selectedClient)
-      params.append("page", pagination.page.toString())
-      params.append("limit", pagination.limit.toString())
-      params.append("sort", sortOrder)
+      const queryParams = new URLSearchParams()
+      if (searchQuery) queryParams.set("search", searchQuery)
+      if (selectedTag) queryParams.set("tag", selectedTag)
+      queryParams.set("sort", activeTab)
+      queryParams.set("page", currentPage.toString())
+      queryParams.set("limit", "10")
 
-      console.log("Fetching posts with params:", params.toString())
+      // Explicitly set status to published for Discussion Forum
+      queryParams.set("status", "published")
 
-      const response = await fetch(`/api/community/posts?${params.toString()}`)
-      if (!response.ok) throw new Error("Failed to fetch posts")
+      // Never include all user posts in the main Discussion Forum
+      // queryParams.set("includeAllUserPosts", "true") // This line is removed
+
+      console.log(`Fetching posts with params: ${queryParams.toString()}`)
+
+      const response = await fetch(`/api/community/published-posts?${queryParams.toString()}`)
+
+      if (!response.ok) {
+        let errorText = "Unknown error"
+        try {
+          const errorData = await response.json()
+          errorText = errorData.error || "Unknown error"
+        } catch (e) {
+          errorText = await response.text()
+        }
+
+        console.error(`Error response: ${response.status}`, errorText)
+        throw new Error(`Failed to fetch posts: ${errorText}`)
+      }
 
       const data = await response.json()
-      console.log("Posts data:", data)
+      console.log("Fetch posts response:", data)
 
       if (data.success) {
-        setPosts(data.posts)
-        setPagination(data.pagination)
+        setPosts(data.posts || [])
+        setTotalPages(data.pagination?.totalPages || 1)
       } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to fetch posts",
-          variant: "destructive",
-        })
+        throw new Error(data.error || "Failed to fetch posts")
       }
     } catch (error) {
       console.error("Error fetching posts:", error)
+      setError(`Failed to load posts: ${error instanceof Error ? error.message : String(error)}`)
       toast({
         title: "Error",
-        description: "Failed to fetch posts. Please try again.",
+        description: `Failed to load posts: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive",
       })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
-  }
+  }, [searchQuery, selectedTag, activeTab, currentPage, toast])
 
-  // Fetch stats
-  const fetchStats = async () => {
+  // Update the fetchMyPosts function to fetch all user posts regardless of status
+  const fetchMyPosts = useCallback(async () => {
     try {
-      const response = await fetch("/api/community/stats")
+      if (sessionStatus !== "authenticated") return
+
+      const queryParams = new URLSearchParams()
+      // Don't apply search to My Posts section
+      // if (searchQuery) queryParams.set("search", searchQuery)
+      queryParams.set("includeAllUserPosts", "true") // Include all user posts here
+
+      const response = await fetch(`/api/community/published-posts?${queryParams.toString()}`)
 
       if (!response.ok) {
-        throw new Error("Failed to fetch stats")
+        throw new Error("Failed to fetch your posts")
       }
 
       const data = await response.json()
 
       if (data.success) {
-        setStats({
-          published: {
-            ...stats.published,
-            value: data.stats.published.current,
-            change: data.stats.published.percentChange,
-          },
-          pending: {
-            ...stats.pending,
-            value: data.stats.pending.current,
-            change: data.stats.pending.percentChange,
-          },
-          draft: {
-            ...stats.draft,
-            value: data.stats.draft.current,
-            change: data.stats.draft.percentChange,
-          },
-          likes: {
-            ...stats.likes,
-            value: data.stats.likes.current,
-            change: data.stats.likes.percentChange,
-          },
-          comments: {
-            ...stats.comments,
-            value: data.stats.comments.current,
-            change: data.stats.comments.percentChange,
-          },
-        })
-      } else {
-        throw new Error(data.error || "Failed to fetch stats")
+        // Filter to only show the user's own posts
+        const userPosts = data.posts.filter((post: Post) => post.isOwnPost === true)
+
+        // Store user posts separately instead of merging with main posts
+        setMyPosts(userPosts)
       }
     } catch (error) {
-      console.error("Error fetching stats:", error)
-      // Use mock data on error with realistic percentage changes
-      setStats({
-        published: {
-          ...stats.published,
-          value: Math.floor(Math.random() * 100) + 50,
-          change: Math.random() * 20 - 10, // Random between -10 and 10
-        },
-        pending: {
-          ...stats.pending,
-          value: Math.floor(Math.random() * 30) + 5,
-          change: Math.random() * 20 - 10,
-        },
-        draft: {
-          ...stats.draft,
-          value: Math.floor(Math.random() * 40) + 10,
-          change: Math.random() * 20 - 10,
-        },
-        likes: {
-          ...stats.likes,
-          value: Math.floor(Math.random() * 500) + 200,
-          change: Math.random() * 20 - 10,
-        },
-        comments: {
-          ...stats.comments,
-          value: Math.floor(Math.random() * 300) + 100,
-          change: Math.random() * 20 - 10,
-        },
-      })
+      console.error("Error fetching your posts:", error)
     }
-  }
+  }, [sessionStatus])
 
   // Fetch recent activities
-  const fetchRecentActivities = async () => {
+  const fetchRecentActivities = useCallback(async () => {
     try {
-      const response = await fetch("/api/community/activities")
+      setIsLoadingActivities(true)
+      const response = await fetch("/api/community/dashboard-activities")
 
       if (!response.ok) {
-        throw new Error("Failed to fetch activities")
+        throw new Error("Failed to fetch recent activities")
       }
 
       const data = await response.json()
 
       if (data.success) {
-        setRecentActivities(data.activities)
+        setRecentActivities(data.activities || [])
       } else {
-        throw new Error(data.error || "Failed to fetch activities")
+        throw new Error(data.error || "Failed to fetch recent activities")
       }
     } catch (error) {
       console.error("Error fetching recent activities:", error)
-      // Use mock data on error
-      const mockActivities: ActivityType[] = [
-        {
-          id: "1",
-          type: "post",
-          user: {
-            name: "John Doe",
-            avatar: "/placeholder.svg?height=40&width=40",
-          },
-          content: 'Created a new post "Understanding Legal Compliance"',
-          date: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
-        },
-        {
-          id: "2",
-          type: "comment",
-          user: {
-            name: "Jane Smith",
-            avatar: "/placeholder.svg?height=40&width=40",
-          },
-          content: 'Commented on "Tax Filing Deadlines"',
-          target: "Tax Filing Deadlines",
-          date: new Date(Date.now() - 1000 * 60 * 120).toISOString(), // 2 hours ago
-        },
-        {
-          id: "3",
-          type: "like",
-          user: {
-            name: "Robert Johnson",
-            avatar: "/placeholder.svg?height=40&width=40",
-          },
-          content: 'Liked "Business Registration Guide"',
-          target: "Business Registration Guide",
-          date: new Date(Date.now() - 1000 * 60 * 180).toISOString(), // 3 hours ago
-        },
-        {
-          id: "4",
-          type: "post",
-          user: {
-            name: "Emily Davis",
-            avatar: "/placeholder.svg?height=40&width=40",
-          },
-          content: 'Created a new post "Annual Report Submission Tips"',
-          date: new Date(Date.now() - 1000 * 60 * 240).toISOString(), // 4 hours ago
-        },
-        {
-          id: "5",
-          type: "comment",
-          user: {
-            name: "Michael Wilson",
-            avatar: "/placeholder.svg?height=40&width=40",
-          },
-          content: 'Commented on "LLC vs Corporation"',
-          target: "LLC vs Corporation",
-          date: new Date(Date.now() - 1000 * 60 * 300).toISOString(), // 5 hours ago
-        },
-      ]
-
-      setRecentActivities(mockActivities)
+    } finally {
+      setIsLoadingActivities(false)
     }
-  }
+  }, [])
 
   // Fetch tags
-  const fetchTags = async () => {
+  const fetchTags = useCallback(async () => {
     try {
       const response = await fetch("/api/community/tags")
-      if (!response.ok) throw new Error("Failed to fetch tags")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch tags")
+      }
 
       const data = await response.json()
+
       if (data.success) {
-        setTags(data.tags)
+        setAllTags(data.tags || [])
       }
     } catch (error) {
       console.error("Error fetching tags:", error)
     }
-  }
+  }, [])
 
-  // Fetch users
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch("/api/users")
-      if (!response.ok) throw new Error("Failed to fetch users")
+  // Fetch post comments
+  const fetchComments = useCallback(
+    async (postId: string) => {
+      try {
+        setIsLoadingComments(true)
 
-      const data = await response.json()
-      if (data.success) {
-        setUsers(data.users)
-      }
-    } catch (error) {
-      console.error("Error fetching users:", error)
-    }
-  }
+        const response = await fetch(`/api/community/posts/${postId}/comments`)
 
-  const fetchClients = async () => {
-    try {
-      const response = await fetch("/api/admin/users?role=CLIENT")
-      if (!response.ok) throw new Error("Failed to fetch clients")
+        if (!response.ok) {
+          throw new Error("Failed to fetch comments")
+        }
 
-      const data = await response.json()
-      if (data.users) {
-        const clientList = data.users.map((user: any) => ({
-          id: user.id,
-          name: user.name || "Unknown",
-          email: user.email,
-        }))
-        setClients(clientList)
-      }
-    } catch (error) {
-      console.error("Error fetching clients:", error)
-    }
-  }
+        const data = await response.json()
 
-  // Handle search with debounce for live search
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setSearchTerm(value)
-
-    // Clear any existing timeout
-    if (searchTimeout) {
-      clearTimeout(searchTimeout)
-    }
-
-    // Set a new timeout
-    const timeout = setTimeout(() => {
-      fetchPosts(value)
-    }, 500) // 500ms debounce
-
-    setSearchTimeout(timeout)
-  }
-
-  // Handle status change
-  const handleStatusChange = (value: string) => {
-    setSelectedStatus(value)
-    router.push(`/admin/community?status=${value}&tag=${selectedTag}&search=${searchTerm}&page=1`)
-  }
-
-  // Handle tag change
-  const handleTagChange = (value: string) => {
-    setSelectedTag(value)
-    router.push(`/admin/community?status=${selectedStatus}&tag=${value}&search=${searchTerm}&page=1`)
-  }
-
-  // Handle page change
-  const handlePageChange = (page: number) => {
-    router.push(`/admin/community?status=${selectedStatus}&tag=${selectedTag}&search=${searchTerm}&page=${page}`)
-  }
-
-  // Define valid status values
-  const VALID_STATUSES = {
-    PENDING: "pending",
-    PUBLISHED: "published",
-    DRAFT: "draft",
-    ALL: "all",
-  }
-
-  // Handle post approval
-  const handleApprovePost = async (postId: string) => {
-    try {
-      const response = await fetch(`/api/community/posts/${postId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: VALID_STATUSES.PUBLISHED }),
-      })
-
-      if (!response.ok) throw new Error("Failed to approve post")
-
-      const data = await response.json()
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "Post published successfully",
-        })
-        fetchPosts()
-        fetchStats() // Refresh stats after action
-      } else {
+        if (data.success) {
+          setPostComments(data.comments || [])
+        } else {
+          throw new Error(data.error || "Failed to fetch comments")
+        }
+      } catch (error) {
+        console.error("Error fetching comments:", error)
         toast({
           title: "Error",
-          description: data.error || "Failed to publish post",
+          description: "Failed to load comments. Please try again.",
           variant: "destructive",
         })
+      } finally {
+        setIsLoadingComments(false)
       }
-    } catch (error) {
-      console.error("Error publishing post:", error)
-      toast({
-        title: "Error",
-        description: "Failed to publish post. Please try again.",
-        variant: "destructive",
-      })
+    },
+    [toast],
+  )
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchPosts()
+    fetchTags()
+    fetchRecentActivities()
+  }, [fetchPosts, fetchTags, fetchRecentActivities])
+
+  // Call this function when the component mounts and when relevant state changes
+  useEffect(() => {
+    if (sessionStatus === "authenticated") {
+      fetchMyPosts()
     }
-  }
+  }, [fetchMyPosts, sessionStatus])
 
-  // Handle post rejection
-  const handleRejectPost = async (postId: string) => {
-    try {
-      const response = await fetch(`/api/community/posts/${postId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: VALID_STATUSES.DRAFT }),
-      })
-
-      if (!response.ok) throw new Error("Failed to reject post")
-
-      const data = await response.json()
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "Post moved to draft successfully",
-        })
-        fetchPosts()
-        fetchStats() // Refresh stats after action
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to move post to draft",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error moving post to draft:", error)
-      toast({
-        title: "Error",
-        description: "Failed to move post to draft. Please try again.",
-        variant: "destructive",
-      })
+  // Handle like post
+  const handleLikePost = async (postId: string) => {
+    if (sessionStatus !== "authenticated") {
+      setShowLoginPrompt(true)
+      return
     }
-  }
-
-  // Handle post deletion
-  const handleDeletePost = async (postId: string) => {
-    if (!confirm("Are you sure you want to delete this post?")) return
 
     try {
-      const response = await fetch(`/api/community/posts/${postId}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) throw new Error("Failed to delete post")
-
-      const data = await response.json()
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "Post deleted successfully",
-        })
-        fetchPosts()
-        fetchStats() // Refresh stats after action
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to delete post",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error deleting post:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete post. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Handle approve all pending posts
-  const handleApproveAllPending = async () => {
-    if (!confirm("Are you sure you want to publish all pending posts?")) return
-
-    try {
-      const response = await fetch("/api/community/fix-data", {
+      const response = await fetch("/api/community/likes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ approveAll: true }),
+        body: JSON.stringify({ postId }),
       })
 
-      if (!response.ok) throw new Error("Failed to publish all pending posts")
+      if (!response.ok) {
+        throw new Error("Failed to like post")
+      }
 
       const data = await response.json()
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: data.message || "All pending posts published successfully",
-        })
-        fetchPosts()
-        fetchStats() // Refresh stats after action
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to publish all pending posts",
-          variant: "destructive",
+
+      // Update posts state
+      setPosts((prevPosts) =>
+        prevPosts.map((post) => {
+          if (post.id === postId) {
+            return {
+              ...post,
+              likes: data.liked ? post.likes + 1 : post.likes - 1,
+              isLiked: data.liked,
+            }
+          }
+          return post
+        }),
+      )
+
+      // If the post is currently selected, update it too
+      if (selectedPost?.id === postId) {
+        setSelectedPost((prev) => {
+          if (prev) {
+            return {
+              ...prev,
+              likes: data.liked ? prev.likes + 1 : prev.likes - 1,
+              isLiked: data.liked,
+            }
+          }
+          return prev
         })
       }
+
+      // Refresh activities after liking
+      setTimeout(() => fetchRecentActivities(), 500)
     } catch (error) {
-      console.error("Error publishing all pending posts:", error)
+      console.error("Error liking post:", error)
       toast({
         title: "Error",
-        description: "Failed to publish all pending posts. Please try again.",
+        description: "Failed to like post. Please try again.",
         variant: "destructive",
       })
     }
   }
 
-  // Handle fix data
-  const handleFixData = async (approveAll = false) => {
+  // Handle like comment
+  const handleLikeComment = async (commentId: string) => {
+    if (sessionStatus !== "authenticated") {
+      setShowLoginPrompt(true)
+      return
+    }
+
     try {
-      const response = await fetch("/api/community/fix-data", {
+      const response = await fetch("/api/community/likes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ approveAll }),
+        body: JSON.stringify({ commentId }),
       })
 
-      if (!response.ok) throw new Error("Failed to fix data")
+      if (!response.ok) {
+        throw new Error("Failed to like comment")
+      }
 
       const data = await response.json()
+
+      // Update comments state
+      setPostComments((prevComments) =>
+        prevComments.map((comment) => {
+          if (comment.id === commentId) {
+            return {
+              ...comment,
+              likes: data.liked ? comment.likes + 1 : comment.likes - 1,
+              isLiked: data.liked,
+            }
+          }
+          return comment
+        }),
+      )
+
+      // Refresh activities after liking a comment
+      setTimeout(() => fetchRecentActivities(), 500)
+    } catch (error) {
+      console.error("Error liking comment:", error)
+      toast({
+        title: "Error",
+        description: "Failed to like comment. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Handle create post
+  const handleCreatePost = async () => {
+    if (sessionStatus !== "authenticated") {
+      setShowLoginPrompt(true)
+      return
+    }
+
+    if (!newPostTitle.trim() || !newPostContent.trim()) {
+      toast({
+        title: "Error",
+        description: "Title and content are required.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+
+      // Process tags
+      const tags = newPostTags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0)
+
+      const response = await fetch("/api/community/posts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: newPostTitle,
+          content: newPostContent,
+          tags,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to create post")
+      }
+
+      const data = await response.json()
+
       if (data.success) {
         toast({
           title: "Success",
-          description: data.message || "Data fixed successfully",
+          description: "Your post has been submitted successfully.",
         })
+
+        // Reset form
+        setNewPostTitle("")
+        setNewPostContent("")
+        setNewPostTags("")
+        setShowNewPostDialog(false)
+
+        // Refresh posts and activities
         fetchPosts()
-        fetchStats() // Refresh stats after action
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to fix data",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error fixing data:", error)
-      toast({
-        title: "Error",
-        description: "Failed to fix data. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Debug posts
-  const handleDebugPosts = async () => {
-    try {
-      const response = await fetch("/api/community/debug-posts")
-      if (!response.ok) throw new Error("Failed to debug posts")
-
-      const data = await response.json()
-      console.log("Debug posts data:", data)
-
-      if (data.success) {
-        toast({
-          title: "Debug Info",
-          description: `Found ${data.rawPosts.length} posts in database. Check console for details.`,
-        })
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to debug posts",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error debugging posts:", error)
-      toast({
-        title: "Error",
-        description: "Failed to debug posts. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleCheckStatus = async () => {
-    try {
-      const response = await fetch("/api/community/status-check")
-      if (!response.ok) throw new Error("Failed to check status")
-
-      const data = await response.json()
-      if (data.success) {
-        console.log("Status check results:", data)
-
-        const statusInfo = Object.entries(data.statusCounts)
-          .map(([status, count]) => `${status}: ${count}`)
-          .join(", ")
-
-        toast({
-          title: "Status Check",
-          description: `Found ${data.totalPosts} posts. Status counts: ${statusInfo}`,
-        })
-
-        if (data.invalidStatuses.length > 0) {
-          toast({
-            title: "Invalid Statuses Found",
-            description: `Found invalid statuses: ${data.invalidStatuses.join(", ")}. Click "Fix Status Values" to correct.`,
-            variant: "destructive",
-          })
+        fetchTags()
+        fetchRecentActivities()
+        if (sessionStatus === "authenticated") {
+          fetchMyPosts()
         }
       } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to check status",
-          variant: "destructive",
-        })
+        throw new Error(data.error || "Failed to create post")
       }
     } catch (error) {
-      console.error("Error checking status:", error)
+      console.error("Error creating post:", error)
       toast({
         title: "Error",
-        description: "Failed to check status. Please try again.",
+        description: "Failed to create post. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const handleFixStatus = async () => {
-    try {
-      const response = await fetch("/api/community/status-check", {
-        method: "POST",
-      })
-      if (!response.ok) throw new Error("Failed to fix status values")
+  // Handle submit comment
+  const handleSubmitComment = async () => {
+    if (!selectedPost) return
 
-      const data = await response.json()
-      if (data.success) {
-        console.log("Status fix results:", data)
+    if (sessionStatus !== "authenticated") {
+      setShowLoginPrompt(true)
+      return
+    }
 
-        const statusInfo = Object.entries(data.statusCounts)
-          .map(([status, count]) => `${status}: ${count}`)
-          .join(", ")
-
-        toast({
-          title: "Status Fixed",
-          description: `Fixed post statuses. New counts: ${statusInfo}`,
-        })
-
-        fetchPosts()
-        fetchStats() // Refresh stats after action
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to fix status values",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error fixing status:", error)
+    if (!newComment.trim()) {
       toast({
         title: "Error",
-        description: "Failed to fix status values. Please try again.",
+        description: "Comment cannot be empty.",
         variant: "destructive",
       })
+      return
     }
+
+    try {
+      setIsSubmittingComment(true)
+
+      const response = await fetch(`/api/community/posts/${selectedPost.id}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: newComment,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to submit comment")
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Add new comment to the list
+        setPostComments((prev) => [data.comment, ...prev])
+
+        // Update post reply count
+        setPosts((prevPosts) =>
+          prevPosts.map((post) => {
+            if (post.id === selectedPost.id) {
+              return {
+                ...post,
+                replies: post.replies + 1,
+              }
+            }
+            return post
+          }),
+        )
+
+        if (selectedPost) {
+          setSelectedPost({
+            ...selectedPost,
+            replies: selectedPost.replies + 1,
+          })
+        }
+
+        // Reset form
+        setNewComment("")
+
+        toast({
+          title: "Success",
+          description: "Your comment has been posted.",
+        })
+
+        // Refresh activities after commenting
+        setTimeout(() => fetchRecentActivities(), 500)
+      } else {
+        throw new Error(data.error || "Failed to submit comment")
+      }
+    } catch (error) {
+      console.error("Error submitting comment:", error)
+      toast({
+        title: "Error",
+        description: "Failed to submit comment. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmittingComment(false)
+    }
+  }
+
+  // Handle view post
+  const handleViewPost = async (post: Post) => {
+    if (!post || !post.id) {
+      toast({
+        title: "Error",
+        description: "Invalid post data",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSelectedPost(post)
+    setShowPostDialog(true)
+    await fetchComments(post.id)
+  }
+
+  // Handle share post
+  const handleSharePost = (post: Post) => {
+    const url = `${window.location.origin}/community/post/${post.id}`
+    setShareUrl(url)
+    setShowShareDialog(true)
   }
 
   // Format date
@@ -767,565 +652,820 @@ export default function AdminCommunityPage() {
     }
   }
 
-  const backgroundRefresh = async () => {
-    if (isBackgroundRefreshing) return
+  // Share on social media
+  const shareOnSocialMedia = (platform: string) => {
+    let shareLink = ""
+    const text = "Check out this interesting discussion!"
 
-    setIsBackgroundRefreshing(true)
-    try {
-      await Promise.all([fetchStats(), fetchRecentActivities(), fetchPosts()])
-    } catch (error) {
-      console.error("Background refresh error:", error)
-    } finally {
-      setIsBackgroundRefreshing(false)
+    switch (platform) {
+      case "facebook":
+        shareLink = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`
+        break
+      case "twitter":
+        shareLink = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`
+        break
+      case "linkedin":
+        shareLink = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`
+        break
+      case "whatsapp":
+        shareLink = `https://wa.me/?text=${encodeURIComponent(text + " " + shareUrl)}`
+        break
+      default:
+        break
     }
+
+    if (shareLink) {
+      window.open(shareLink, "_blank")
+    }
+
+    setShowShareDialog(false)
   }
 
-  // Load data on mount and when params change
-  useEffect(() => {
-    fetchPosts()
-    fetchTags()
-    fetchUsers()
-    fetchStats()
-    fetchRecentActivities()
-    fetchClients() // Add this to fetch clients
-
-    // Set up background refresh every 60 seconds
-    const refreshInterval = setInterval(() => {
-      backgroundRefresh()
-    }, 60000)
-
-    return () => clearInterval(refreshInterval)
-  }, [searchParams])
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeout) {
-        clearTimeout(searchTimeout)
-      }
-    }
-  }, [searchTimeout])
-
-  // Render pagination
-  const renderPagination = () => {
-    if (pagination.totalPages <= 1) return null
-
-    return (
-      <Pagination>
-        <PaginationContent>
-          <PaginationItem>
-            <PaginationPrevious
-              onClick={() => pagination.page > 1 && handlePageChange(pagination.page - 1)}
-              className={pagination.page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              href="#"
-            />
-          </PaginationItem>
-
-          {Array.from({ length: pagination.totalPages }).map((_, i) => {
-            const page = i + 1
-            // Show first page, last page, and pages around current page
-            if (
-              page === 1 ||
-              page === pagination.totalPages ||
-              (page >= pagination.page - 1 && page <= pagination.page + 1)
-            ) {
-              return (
-                <PaginationItem key={page}>
-                  <PaginationLink href="#" onClick={() => handlePageChange(page)} isActive={page === pagination.page}>
-                    {page}
-                  </PaginationLink>
-                </PaginationItem>
-              )
-            }
-
-            // Show ellipsis for gaps
-            if (page === 2 || page === pagination.totalPages - 1) {
-              return (
-                <PaginationItem key={page}>
-                  <PaginationEllipsis />
-                </PaginationItem>
-              )
-            }
-
-            return null
-          })}
-
-          <PaginationItem>
-            <PaginationNext
-              onClick={() => pagination.page < pagination.totalPages && handlePageChange(pagination.page + 1)}
-              className={pagination.page >= pagination.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              href="#"
-            />
-          </PaginationItem>
-        </PaginationContent>
-      </Pagination>
-    )
+  // Copy link to clipboard
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shareUrl)
+    toast({
+      title: "Link Copied",
+      description: "The link has been copied to your clipboard.",
+    })
+    setShowShareDialog(false)
   }
 
-  // Helper function to get badge variant based on status
-  const getStatusBadgeClass = (status: string) => {
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage)
+  }
+
+  // Add this function to format the status for display
+  const formatStatus = (status: string | undefined) => {
     switch (status) {
       case "published":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+        return "Published"
       case "pending":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+        return "Pending Review"
       case "draft":
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+        return "Draft"
       default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+        return status || "Unknown"
     }
   }
 
-  // Render stat card
-  const renderStatCard = (stat: StatCard) => {
-    // Ensure we never display exactly 0.0%
-    const displayChange = stat.change === 0 ? 0.1 : stat.change
-
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-              <h2 className="text-3xl font-bold">{stat.value.toLocaleString()}</h2>
-            </div>
-            <div className={`p-2 rounded-full ${stat.color}`}>{stat.icon}</div>
-          </div>
-          <div className="mt-4 flex items-center">
-            {displayChange >= 0 ? (
-              <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
-            ) : (
-              <ArrowDownRight className="h-4 w-4 text-red-500 mr-1" />
-            )}
-            <span className={`text-sm ${displayChange >= 0 ? "text-green-500" : "text-red-500"}`}>
-              {Math.abs(displayChange).toFixed(1)}% from last period
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-    )
+  // Handle search submit
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setCurrentPage(1)
+    fetchPosts()
   }
 
-  // Render activity icon
-  const renderActivityIcon = (type: "post" | "comment" | "like") => {
+  // Get activity icon based on type
+  const getActivityIcon = (type: string) => {
     switch (type) {
       case "post":
-        return <FileText className="h-4 w-4 text-blue-500" />
+        return <MessageCircle className="h-4 w-4 text-blue-500" />
       case "comment":
         return <MessageSquare className="h-4 w-4 text-green-500" />
       case "like":
-        return <ThumbsUp className="h-4 w-4 text-red-500" />
+        return <Heart className="h-4 w-4 text-red-500" />
       default:
-        return <Activity className="h-4 w-4 text-gray-500" />
+        return <Clock className="h-4 w-4 text-gray-500" />
     }
-  }
-
-  const handleClientChange = (value: string) => {
-    setSelectedClient(value)
-    // Update the search query to include the client's name or email
-    if (value && value !== "all_clients") {
-      const client = clients.find((c) => c.id === value)
-      if (client) {
-        setSearchTerm(client.name)
-        fetchPosts(client.name)
-      }
-    } else {
-      setSearchTerm("")
-      fetchPosts("")
-    }
-  }
-
-  const handleSortOrderChange = (value: string) => {
-    setSortOrder(value as "newest" | "oldest" | "most_likes" | "most_comments")
-    fetchPosts()
   }
 
   return (
-    <div className="container mx-auto py-6 px-4 md:px-6 mb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-        <h1 className="text-3xl font-bold">Community Management</h1>
-        <div className="flex flex-wrap gap-2">
-          {/* 
-            Debug Posts button - Commented out but kept for future use
-            This button helps debug post data in the database
-          */}
-          {/* <Button onClick={handleDebugPosts} variant="outline" className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            Debug Posts
-          </Button> */}
-          {/* 
-            Fix Data button - Commented out but kept for future use
-            This button attempts to fix data inconsistencies in the community posts
-          */}
-          {/* <Button onClick={() => handleFixData(false)} variant="outline" className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Fix Data
-          </Button> */}
-
-          {/* 
-            Fix & Approve All button - Commented out but kept for future use
-            This button fixes data inconsistencies and approves all pending posts
-          */}
-          {/* <Button onClick={() => handleFixData(true)} variant="outline" className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Fix & Approve All
-          </Button> */}
-
-          <Button onClick={handleApproveAllPending} className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Approve All Pending
-          </Button>
-
-          <Button onClick={handleCheckStatus} variant="outline" className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            Check Status Values
-          </Button>
-
-          {/* 
-            Fix Status Values button - Commented out but kept for future use
-            This button corrects invalid status values in the database
-          */}
-          {/* <Button onClick={handleFixStatus} variant="outline" className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Fix Status Values
-          </Button> */}
-
-          <Button
-            onClick={backgroundRefresh}
-            variant="outline"
-            className="flex items-center gap-2"
-            disabled={isBackgroundRefreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${isBackgroundRefreshing ? "animate-spin" : ""}`} />
-            {isBackgroundRefreshing ? "Refreshing..." : "Refresh"}
-          </Button>
-        </div>
+    <div className="p-8 mb-40">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">Community</h1>
+        <Button variant="ghost" size="icon" onClick={() => window.location.reload()} title="Refresh page">
+          <RefreshCw className="h-5 w-5" />
+        </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        {renderStatCard(stats.published)}
-        {renderStatCard(stats.pending)}
-        {renderStatCard(stats.draft)}
-        {renderStatCard(stats.likes)}
-        {renderStatCard(stats.comments)}
-      </div>
-
-      {/* Add the filters section after the stats cards */}
-      {/* Insert this after the stats cards section (around line 620) */}
-      <div className="flex flex-wrap gap-4 mb-6">
-        {/* Sort Order Filter */}
-        <div className="w-full md:w-auto">
-          <Select value={sortOrder} onValueChange={handleSortOrderChange}>
-            <SelectTrigger className="w-full md:w-[200px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">Newest First</SelectItem>
-              <SelectItem value="oldest">Oldest First</SelectItem>
-              <SelectItem value="most_likes">Most Likes</SelectItem>
-              <SelectItem value="most_comments">Most Comments</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Client Filter */}
-        <div className="w-full md:w-auto">
-          <Select value={selectedClient} onValueChange={handleClientChange}>
-            <SelectTrigger className="w-full md:w-[250px]">
-              <SelectValue placeholder="Filter by client" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all_clients">All Clients</SelectItem>
-              {clients.map((client) => (
-                <SelectItem key={client.id} value={client.id}>
-                  {client.name} ({client.email})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Background Refresh Indicator */}
-        {isBackgroundRefreshing && (
-          <div className="flex items-center text-sm text-muted-foreground">
-            <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
-            Refreshing data...
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Search */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Search</CardTitle>
-              <CardDescription>Search for posts by title or content</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center space-x-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input placeholder="Search..." value={searchTerm} onChange={handleSearchChange} className="pl-9" />
-                </div>
+      <div className="grid md:grid-cols-3 gap-8">
+        <div className="md:col-span-2">
+          <Card className="mb-6">
+            <div className="p-6 border-b">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <h2 className="text-xl font-semibold flex items-center">
+                  <MessageCircle className="h-5 w-5 mr-2" />
+                  Discussion Forum
+                </h2>
                 <Button
-                  variant="outline"
-                  size="icon"
                   onClick={() => {
-                    setSearchTerm("")
-                    fetchPosts("")
+                    if (sessionStatus === "authenticated") {
+                      setShowNewPostDialog(true)
+                    } else {
+                      setShowLoginPrompt(true)
+                    }
                   }}
-                  title="Clear search"
                 >
-                  <XCircle className="h-4 w-4" />
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  New Post
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Filters */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Filters</CardTitle>
-              <CardDescription>Filter posts by status and tags</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select value={selectedStatus} onValueChange={handleStatusChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={VALID_STATUSES.ALL}>All</SelectItem>
-                    <SelectItem value={VALID_STATUSES.PENDING}>Pending</SelectItem>
-                    <SelectItem value={VALID_STATUSES.PUBLISHED}>Published</SelectItem>
-                    <SelectItem value={VALID_STATUSES.DRAFT}>Draft</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Tag</label>
-                <Select value={selectedTag} onValueChange={handleTagChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select tag" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all_tags">All Tags</SelectItem>
-                    {tags.map((tag) => (
-                      <SelectItem key={tag.id} value={tag.name}>
-                        {tag.name} ({tag.count})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Client</label>
-                <Select value={selectedClient} onValueChange={handleClientChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all_clients">All Clients</SelectItem>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name} ({client.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Sort Order</label>
-                <Select value={sortOrder} onValueChange={handleSortOrderChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select sort order" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Newest</SelectItem>
-                    <SelectItem value="oldest">Oldest</SelectItem>
-                    <SelectItem value="most_likes">Most Likes</SelectItem>
-                    <SelectItem value="most_comments">Most Comments</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Popular Tags */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Popular Tags</CardTitle>
-              <CardDescription>Most used tags in the community</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {tags.slice(0, 10).map((tag) => (
-                  <Badge key={tag.id} variant="secondary" className="flex items-center gap-1">
-                    <TagIcon className="h-3 w-3" />
-                    {tag.name} ({tag.count})
-                  </Badge>
-                ))}
-                {tags.length === 0 && <p className="text-sm text-muted-foreground">No tags found</p>}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Recent Activities */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Recent Activities</CardTitle>
-              <CardDescription>Latest actions in the community</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3">
-                    <div className="p-2 bg-gray-100 rounded-full">{renderActivityIcon(activity.type)}</div>
-                    <div>
-                      <p className="text-sm">
-                        <span className="font-medium">{activity.user.name}</span> {activity.content}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">{formatDate(activity.date)}</p>
-                    </div>
+            <div className="p-6 border-b">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <form onSubmit={handleSearchSubmit}>
+                      <Input
+                        placeholder="Search discussions..."
+                        className="pl-9"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </form>
                   </div>
-                ))}
-                {recentActivities.length === 0 && <p className="text-sm text-muted-foreground">No recent activities</p>}
+                </div>
+                <div className="flex gap-2">
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={selectedTag || ""}
+                    onChange={(e) => {
+                      setSelectedTag(e.target.value || null)
+                      setCurrentPage(1)
+                      // Trigger fetch when tag changes
+                      setTimeout(() => fetchPosts(), 0)
+                    }}
+                  >
+                    <option value="">All Tags</option>
+                    {allTags.map((tag) => (
+                      <option key={tag.id} value={tag.name}>
+                        {tag.name} ({tag.count})
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      setSearchQuery("")
+                      setSelectedTag(null)
+                      setActiveTab("latest")
+                      setCurrentPage(1)
+                      setTimeout(() => fetchPosts(), 0)
+                    }}
+                    title="Clear filters"
+                  >
+                    <Filter className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            </CardContent>
+            </div>
+
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => {
+                setActiveTab(value)
+                setCurrentPage(1)
+                // Trigger fetch when tab changes
+                setTimeout(() => fetchPosts(), 0)
+              }}
+            >
+              <div className="px-6 pt-4">
+                <TabsList>
+                  <TabsTrigger value="latest">Latest</TabsTrigger>
+                  <TabsTrigger value="popular">Popular</TabsTrigger>
+                  <TabsTrigger value="unanswered">Unanswered</TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value={activeTab} className="p-0 m-0">
+                <div className="divide-y">
+                  {isLoading ? (
+                    <div className="p-12 text-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+                      <p className="text-muted-foreground">Loading discussions...</p>
+                    </div>
+                  ) : error ? (
+                    <div className="p-12 text-center">
+                      <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
+                      <h3 className="text-lg font-medium mb-2">Error loading discussions</h3>
+                      <p className="text-muted-foreground mb-4">{error}</p>
+                      <Button onClick={fetchPosts} variant="outline">
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Try Again
+                      </Button>
+                    </div>
+                  ) : posts.length > 0 ? (
+                    <>
+                      {posts.map((post) => (
+                        <div key={post.id} className="p-6">
+                          <div className="flex items-start gap-3">
+                            <Image
+                              src={post.author.avatar || "/placeholder.svg?height=40&width=40"}
+                              alt={post.author.name}
+                              width={40}
+                              height={40}
+                              className="rounded-full"
+                            />
+                            <div className="flex-1">
+                              <h3
+                                className="font-medium text-lg mb-1 cursor-pointer hover:text-primary"
+                                onClick={() => handleViewPost(post)}
+                              >
+                                {post.title}
+                              </h3>
+                              <p className="text-gray-600 mb-3">{post.content}</p>
+                              <div className="flex flex-wrap gap-2 mb-3">
+                                {post.tags.map((tag) => (
+                                  <Badge
+                                    key={tag}
+                                    variant="outline"
+                                    className="cursor-pointer hover:bg-secondary"
+                                    onClick={() => {
+                                      setSelectedTag(tag)
+                                      setCurrentPage(1)
+                                      setTimeout(() => fetchPosts(), 0)
+                                    }}
+                                  >
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                  <button
+                                    className={`flex items-center gap-1 text-sm ${post.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
+                                    onClick={() => handleLikePost(post.id)}
+                                  >
+                                    <ThumbsUp className="h-4 w-4" />
+                                    <span>{post.likes}</span>
+                                  </button>
+                                  <button
+                                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
+                                    onClick={() => handleViewPost(post)}
+                                  >
+                                    <MessageSquare className="h-4 w-4" />
+                                    <span>{post.replies}</span>
+                                  </button>
+                                  <button
+                                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
+                                    onClick={() => handleSharePost(post)}
+                                  >
+                                    <Share2 className="h-4 w-4" />
+                                    <span>Share</span>
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-500">
+                                  <span>{post.author.name}</span>
+                                  <span>•</span>
+                                  <span>{formatDate(post.date)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Pagination */}
+                      {totalPages > 1 && (
+                        <div className="flex justify-center p-4">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handlePageChange(currentPage - 1)}
+                              disabled={currentPage === 1}
+                            >
+                              Previous
+                            </Button>
+
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                              <Button
+                                key={page}
+                                variant={currentPage === page ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handlePageChange(page)}
+                              >
+                                {page}
+                              </Button>
+                            ))}
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handlePageChange(currentPage + 1)}
+                              disabled={currentPage === totalPages}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="p-12 text-center">
+                      <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <h3 className="text-lg font-medium text-gray-900">No discussions found</h3>
+                      <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
           </Card>
         </div>
 
-        {/* Main Content */}
-        <div className="lg:col-span-3">
+        <div>
+          <Card className="mb-6">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">Community Guidelines</h3>
+            </div>
+            <div className="p-6">
+              <ul className="space-y-3 text-sm">
+                <li className="flex items-start gap-2">
+                  <div className="rounded-full bg-green-100 p-1 mt-0.5">
+                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span>Be respectful and courteous to other community members</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <div className="rounded-full bg-green-100 p-1 mt-0.5">
+                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span>Stay on topic and keep discussions relevant to business</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <div className="rounded-full bg-green-100 p-1 mt-0.5">
+                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span>No promotional content or spam</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <div className="rounded-full bg-green-100 p-1 mt-0.5">
+                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span>Protect your privacy - don&apos;t share sensitive information</span>
+                </li>
+              </ul>
+            </div>
+          </Card>
+
+          <Card className="mb-6">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">Popular Tags</h3>
+            </div>
+            <div className="p-6">
+              <div className="flex flex-wrap gap-2">
+                {allTags.slice(0, 10).map((tag) => (
+                  <button
+                    key={tag.id}
+                    className={`text-sm px-3 py-1.5 rounded-full ${selectedTag === tag.name ? "bg-[#22c984] text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                    onClick={() => {
+                      setSelectedTag(selectedTag === tag.name ? null : tag.name)
+                      setCurrentPage(1)
+                      setTimeout(() => fetchPosts(), 0)
+                    }}
+                  >
+                    <Tag className="h-3.5 w-3.5 inline mr-1" />
+                    {tag.name} ({tag.count})
+                  </button>
+                ))}
+              </div>
+            </div>
+          </Card>
+
           <Card>
-            <CardHeader>
-              <CardTitle>
-                {selectedStatus === "all"
-                  ? "All Posts"
-                  : selectedStatus === "pending"
-                    ? "Pending Posts"
-                    : selectedStatus === "published"
-                      ? "Published Posts"
-                      : "Draft Posts"}
-              </CardTitle>
-              <CardDescription>
-                {pagination.total} posts found
-                {selectedTag && ` with tag "${selectedTag}"`}
-                {searchTerm && ` matching "${searchTerm}"`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">Recent Activity</h3>
+            </div>
+            <div className="p-6">
+              {isLoadingActivities ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : recentActivities.length > 0 ? (
                 <div className="space-y-4">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="border rounded-lg p-4 animate-pulse">
-                      <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
-                      <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-                      <div className="flex gap-2">
-                        <div className="h-6 bg-gray-200 rounded w-20"></div>
-                        <div className="h-6 bg-gray-200 rounded w-20"></div>
+                  {recentActivities.map((activity) => (
+                    <div key={activity.id} className="flex items-start gap-3">
+                      <div className="p-2 bg-gray-100 rounded-full">{getActivityIcon(activity.type)}</div>
+                      <div>
+                        <p className="text-sm">
+                          <span className="font-medium">{activity.user.name}</span> {activity.content}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">{formatDate(activity.date)}</p>
                       </div>
                     </div>
                   ))}
+                  <div className="text-xs text-gray-500 text-center pt-2">
+                    Last refreshed {formatDate(lastRefreshed.toISOString())}
+                  </div>
                 </div>
-              ) : posts.length > 0 ? (
-                <div className="space-y-4">
-                  {posts.map((post) => (
-                    <div key={post.id} className="border rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold text-lg">{post.title}</h3>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                            <span>By {post.author.name}</span>
-                            <span>•</span>
-                            <span>{formatDate(post.date)}</span>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-gray-500">No recent activity</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      {sessionStatus === "authenticated" && (
+        <Collapsible open={isMyPostsOpen} onOpenChange={setIsMyPostsOpen} className="mt-6">
+          <Card>
+            <CollapsibleTrigger asChild>
+              <div className="p-6 border-b cursor-pointer hover:bg-gray-50 transition-colors flex justify-between items-center">
+                <h2 className="text-xl font-semibold">My Posts</h2>
+                {isMyPostsOpen ? (
+                  <ChevronUp className="h-5 w-5 text-gray-500" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-500" />
+                )}
+              </div>
+            </CollapsibleTrigger>
+
+            <CollapsibleContent>
+              <div className="divide-y">
+                {myPosts.length > 0 ? (
+                  myPosts.map((post: Post) => (
+                    <div key={post.id} className="p-6">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <h3
+                              className="font-medium text-lg mb-1 cursor-pointer hover:text-primary"
+                              onClick={() => handleViewPost(post)}
+                            >
+                              {post.title}
+                            </h3>
+                            <Badge
+                              variant={
+                                post.status === "published"
+                                  ? "default"
+                                  : post.status === "pending"
+                                    ? "outline"
+                                    : "secondary"
+                              }
+                              className={
+                                post.status === "pending"
+                                  ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                                  : post.status === "draft"
+                                    ? "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                                    : ""
+                              }
+                            >
+                              {formatStatus(post.status)}
+                            </Badge>
+                          </div>
+                          <p className="text-gray-600 mb-3">{post.content}</p>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {post.tags.map((tag) => (
+                              <Badge
+                                key={tag}
+                                variant="outline"
+                                className="cursor-pointer hover:bg-secondary"
+                                onClick={() => {
+                                  setSelectedTag(tag)
+                                  setCurrentPage(1)
+                                  setTimeout(() => fetchPosts(), 0)
+                                }}
+                              >
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <button
+                                className={`flex items-center gap-1 text-sm ${post.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
+                                onClick={() => handleLikePost(post.id)}
+                              >
+                                <ThumbsUp className="h-4 w-4" />
+                                <span>{post.likes}</span>
+                              </button>
+                              <button
+                                className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
+                                onClick={() => handleViewPost(post)}
+                              >
+                                <MessageSquare className="h-4 w-4" />
+                                <span>{post.replies}</span>
+                              </button>
+                            </div>
+                            <div className="text-sm text-gray-500">{formatDate(post.date)}</div>
                           </div>
                         </div>
-                        <Badge className={cn(getStatusBadgeClass(post.status))}>{post.status}</Badge>
                       </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-6 text-center">
+                    <p className="text-gray-500">You haven't created any posts yet.</p>
+                    <Button variant="outline" className="mt-2" onClick={() => setShowNewPostDialog(true)}>
+                      Create Your First Post
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
 
-                      <p className="mt-2 text-sm line-clamp-2">{post.content}</p>
+      {/* New Post Dialog */}
+      <Dialog open={showNewPostDialog} onOpenChange={setShowNewPostDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Create New Post</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 space-y-4">
+            <div>
+              <Label htmlFor="post-title">Title</Label>
+              <Input
+                id="post-title"
+                placeholder="Enter a descriptive title"
+                value={newPostTitle}
+                onChange={(e) => setNewPostTitle(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="post-content">Content</Label>
+              <Textarea
+                id="post-content"
+                placeholder="What would you like to discuss?"
+                rows={5}
+                value={newPostContent}
+                onChange={(e) => setNewPostContent(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="post-tags">Tags (separated by commas)</Label>
+              <Input
+                id="post-tags"
+                placeholder="e.g. Business, Tax, Legal"
+                value={newPostTags}
+                onChange={(e) => setNewPostTags(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowNewPostDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreatePost} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Posting...
+                  </>
+                ) : (
+                  "Post to Community"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        {post.tags.map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
+      {/* Login Prompt Dialog */}
+      <AlertDialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Login Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              You need to be logged in to perform this action. Would you like to log in now?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                onClick={() => {
+                  window.location.href = "/login?callbackUrl=/dashboard/community"
+                }}
+              >
+                Log In
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-                      <div className="flex items-center justify-between mt-4">
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <ThumbsUp className="h-4 w-4" />
-                            {post.likes}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <MessageSquare className="h-4 w-4" />
-                            {post.replies}
-                          </div>
-                        </div>
+      {/* Post Detail Dialog */}
+      <Dialog open={showPostDialog} onOpenChange={setShowPostDialog}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          {selectedPost && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedPost.title}</DialogTitle>
+              </DialogHeader>
+              <div className="mt-4">
+                <div className="flex items-start gap-3 mb-6">
+                  <Image
+                    src={selectedPost.author.avatar || "/placeholder.svg"}
+                    alt={selectedPost.author.name}
+                    width={40}
+                    height={40}
+                    className="rounded-full"
+                  />
+                  <div>
+                    <p className="font-medium">{selectedPost.author.name}</p>
+                    <p className="text-sm text-gray-500">{formatDate(selectedPost.date)}</p>
+                  </div>
+                </div>
 
-                        <div className="flex items-center gap-2">
-                          {post.status === VALID_STATUSES.PENDING && (
-                            <>
-                              <Button size="sm" onClick={() => handleApprovePost(post.id)}>
-                                Publish
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => handleRejectPost(post.id)}>
-                                Move to Draft
-                              </Button>
-                            </>
-                          )}
-                          {post.status === VALID_STATUSES.DRAFT && (
-                            <Button size="sm" onClick={() => handleApprovePost(post.id)}>
-                              Publish
-                            </Button>
-                          )}
-                          {post.status === VALID_STATUSES.PUBLISHED && (
-                            <Button size="sm" variant="outline" onClick={() => handleRejectPost(post.id)}>
-                              Move to Draft
-                            </Button>
-                          )}
-                          <Button size="sm" variant="destructive" onClick={() => handleDeletePost(post.id)}>
-                            <Trash2 className="h-4 w-4" />
+                <div className="mb-6">
+                  <p className="text-gray-700 whitespace-pre-line">{selectedPost.content}</p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {selectedPost.tags.map((tag) => (
+                    <Badge key={tag} variant="outline">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-4 mb-8 border-t border-b py-3">
+                  <button
+                    className={`flex items-center gap-1 text-sm ${selectedPost.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
+                    onClick={() => handleLikePost(selectedPost.id)}
+                  >
+                    <ThumbsUp className="h-4 w-4" />
+                    <span>{selectedPost.likes} Likes</span>
+                  </button>
+                  <button
+                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
+                    onClick={() => handleSharePost(selectedPost)}
+                  >
+                    <Share2 className="h-4 w-4" />
+                    <span>Share</span>
+                  </button>
+                </div>
+
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium mb-4">Comments ({selectedPost.replies})</h3>
+
+                  {sessionStatus === "authenticated" && (
+                    <div className="flex gap-3 mb-6">
+                      <Image
+                        src={session?.user?.image || "/placeholder.svg"}
+                        alt={session?.user?.name || "You"}
+                        width={40}
+                        height={40}
+                        className="rounded-full"
+                      />
+                      <div className="flex-1">
+                        <Textarea
+                          placeholder="Add a comment..."
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          rows={2}
+                          className="mb-2"
+                        />
+                        <div className="flex justify-end">
+                          <Button onClick={handleSubmitComment} disabled={isSubmittingComment} size="sm">
+                            {isSubmittingComment ? (
+                              <>
+                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                Posting...
+                              </>
+                            ) : (
+                              <>
+                                <Send className="mr-2 h-3 w-3" />
+                                Post Comment
+                              </>
+                            )}
                           </Button>
                         </div>
                       </div>
                     </div>
-                  ))}
+                  )}
 
-                  {renderPagination()}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No posts found</p>
-                  {(selectedTag || searchTerm || selectedStatus !== "all") && (
-                    <Button
-                      variant="link"
-                      onClick={() => {
-                        router.push("/admin/community")
-                        setSelectedTag("")
-                        setSearchTerm("")
-                        setSelectedStatus("all")
-                      }}
-                    >
-                      Clear filters
-                    </Button>
+                  {isLoadingComments ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : postComments.length > 0 ? (
+                    <div className="space-y-6">
+                      {postComments.map((comment) => (
+                        <div key={comment.id} className="flex gap-3">
+                          <Image
+                            src={comment.author.avatar || "/placeholder.svg"}
+                            alt={comment.author.name}
+                            width={32}
+                            height={32}
+                            className="rounded-full"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-medium">{comment.author.name}</p>
+                              <span className="text-xs text-gray-500">{formatDate(comment.date)}</span>
+                            </div>
+                            <p className="text-gray-700 mb-2">{comment.content}</p>
+                            <button
+                              className={`flex items-center gap-1 text-xs ${comment.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
+                              onClick={() => handleLikeComment(comment.id)}
+                            >
+                              <ThumbsUp className="h-3 w-3" />
+                              <span>{comment.likes} Likes</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                      <p>No comments yet. Be the first to comment!</p>
+                    </div>
                   )}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Share Post</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 space-y-4">
+            <div className="flex justify-center gap-4">
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-full h-12 w-12"
+                onClick={() => shareOnSocialMedia("facebook")}
+              >
+                <Facebook className="h-5 w-5 text-blue-600" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-full h-12 w-12"
+                onClick={() => shareOnSocialMedia("twitter")}
+              >
+                <Twitter className="h-5 w-5 text-sky-500" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-full h-12 w-12"
+                onClick={() => shareOnSocialMedia("linkedin")}
+              >
+                <Linkedin className="h-5 w-5 text-blue-700" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-full h-12 w-12"
+                onClick={() => shareOnSocialMedia("whatsapp")}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-green-500"
+                >
+                  <path d="M17.498 14.382c-.301-.15-1.767-.867-2.04-.966-.273-.101-.473-.15-.673.15-.2.3-.767.966-.94 1.164-.173.199-.347.223-.647.075-.3-.15-1.269-.467-2.416-1.483-.893-.795-1.484-1.77-1.66-2.07-.174-.3-.019-.462.13-.61.136-.137.301-.354.451-.531.15-.178.2-.301.3-.502.099-.2.05-.374-.025-.524-.075-.15-.672-1.62-.922-2.206-.24-.584-.487-.51-.672-.51-.172-.007-.371-.01-.571-.01-.2 0-.523.074-.797.372-.273.297-1.045 1.02-1.045 2.475 0 1.455 1.064 2.862 1.213 3.063.15.2 2.105 3.21 5.1 4.495.713.308 1.27.492 1.705.626.714.227 1.365.195 1.88.118.574-.078 1.767-.72 2.016-1.413.255-.694.255-1.29.18-1.414-.074-.124-.272-.198-.57-.347z" />
+                  <path d="M13.507 8.4a1 1 0 0 0-1.414 0l-2.293 2.293a1 1 0 0 0 0 1.414l2.293 2.293a1 1 0 0 0 1.414 0l2.293-2.293a1 1 0 0 0 0-1.414L13.507 8.4z" />
+                  <path d="M12 2C6.486 2 2 6.486 2 12c0 1.572.37 3.07 1.023 4.389L2 22l5.611-1.023A9.959 9.959 0 0 0 12 22c5.514 0 10-4.486 10-10S17.514 2 12 2z" />
+                </svg>
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Input value={shareUrl} readOnly />
+              <Button variant="outline" size="icon" onClick={copyToClipboard}>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
