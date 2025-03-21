@@ -39,17 +39,49 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get URL parameters for pagination
+    // Get URL parameters for pagination and filtering
     const url = new URL(req.url)
     const page = Number.parseInt(url.searchParams.get("page") || "1")
     const limit = Number.parseInt(url.searchParams.get("limit") || "10")
+    const userId = url.searchParams.get("userId")
     const skip = (page - 1) * limit
 
-    // Get total count for pagination
-    const totalCount = await prisma.document.count()
+    // Build the where clause for filtering
+    const whereClause: any = {}
 
-    // Get documents with pagination
+    // If userId is provided, filter documents by the user's business
+    if (userId) {
+      // First get the user's business
+      const userWithBusiness = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { businessId: true },
+      })
+
+      // If user has a business, filter by businessId
+      if (userWithBusiness?.businessId) {
+        whereClause.businessId = userWithBusiness.businessId
+      } else {
+        // If user doesn't have a business, return empty results
+        return NextResponse.json({
+          documents: [],
+          pagination: {
+            total: 0,
+            page,
+            limit,
+            pages: 0,
+          },
+        })
+      }
+    }
+
+    // Get total count for pagination with the filter applied
+    const totalCount = await prisma.document.count({
+      where: whereClause,
+    })
+
+    // Get documents with pagination and filtering
     const documents = await prisma.document.findMany({
+      where: whereClause,
       orderBy: { updatedAt: "desc" },
       skip,
       take: limit,
@@ -85,7 +117,7 @@ export async function GET(req: NextRequest) {
         fileSize: fileSize,
         status: "Verified", // Default status for now
         uploadDate: doc.createdAt.toISOString(),
-        createdAt: doc.createdAt.toISOString(),
+        createdAt: doc.createdAt,
         updatedAt: doc.updatedAt.toISOString(),
         businessName: doc.business?.name || "Unknown Business",
         businessId: doc.businessId,

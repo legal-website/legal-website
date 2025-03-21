@@ -167,6 +167,10 @@ export default function AllUsersPage() {
     notes: "",
   })
 
+  // First, add a new state for user documents
+  // Add this near the other state declarations (around line 100-150)
+  const [userDocuments, setUserDocuments] = useState<any[]>([])
+
   // Sorting and filtering states
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "pending" | "approved" | "none">("none")
   const [dateFilter, setDateFilter] = useState<{
@@ -179,6 +183,9 @@ export default function AllUsersPage() {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+
+  // Add a state to track if documents are loading
+  const [loadingDocuments, setLoadingDocuments] = useState(false)
 
   // Modify the fetchUsers function to try the test endpoint if the main one fails
 
@@ -723,6 +730,23 @@ export default function AllUsersPage() {
         lastActiveTime = "Online now"
       }
 
+      // Fetch user documents
+      let userDocs = []
+      try {
+        setLoadingDocuments(true)
+        const docsResponse = await fetch(`/api/admin/documents/client?userId=${userId}&limit=5`)
+        if (docsResponse.ok) {
+          const docsData = await docsResponse.json()
+          userDocs = docsData.documents || []
+          setUserDocuments(userDocs)
+        }
+      } catch (docsError) {
+        console.error("Error fetching user documents:", docsError)
+        // Continue with empty documents array
+      } finally {
+        setLoadingDocuments(false)
+      }
+
       // Format the user data for display
       const userDetails: UserData = {
         id: data.user.id,
@@ -764,7 +788,7 @@ export default function AllUsersPage() {
             })
           : "Never",
         // Add placeholder data for documents and activity if not available
-        documents: data.user.business?.documents || [],
+        documents: userDocs,
         activity: userActivity.length > 0 ? userActivity : [],
         isOnline: isOnline,
         invoices: userInvoices || [],
@@ -2015,18 +2039,22 @@ export default function AllUsersPage() {
                 {/* Documents */}
                 <Card>
                   <div className="p-4 border-b">
-                    <h3 className="font-medium">Documents</h3>
+                    <h3 className="font-medium">Recent Documents</h3>
                   </div>
                   <div className="p-4">
-                    {selectedUser.documents && selectedUser.documents.length > 0 ? (
+                    {loadingDocuments ? (
+                      <div className="flex justify-center py-4">
+                        <div className="animate-spin h-6 w-6 border-2 border-[#22c984] border-t-transparent rounded-full"></div>
+                      </div>
+                    ) : userDocuments && userDocuments.length > 0 ? (
                       <div className="space-y-3">
-                        {selectedUser.documents.map((doc, index) => (
-                          <div key={index} className="flex items-center justify-between">
+                        {userDocuments.map((doc: any) => (
+                          <div key={doc.id} className="flex items-center justify-between">
                             <div className="flex items-center">
                               <FileText className="h-4 w-4 mr-2 text-gray-400" />
                               <div>
                                 <p className="text-sm font-medium">{doc.name}</p>
-                                <p className="text-xs text-gray-500">{doc.date}</p>
+                                <p className="text-xs text-gray-500">{new Date(doc.createdAt).toLocaleDateString()}</p>
                               </div>
                             </div>
                             <span
@@ -2038,13 +2066,13 @@ export default function AllUsersPage() {
                                     : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
                               }`}
                             >
-                              {doc.status}
+                              {doc.status || "Pending"}
                             </span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">No documents found</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No documents found for this user</p>
                     )}
                   </div>
                 </Card>
