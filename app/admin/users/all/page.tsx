@@ -624,9 +624,33 @@ export default function AllUsersPage() {
         // Continue with empty activity array
       }
 
+      // Now update the fetchUserDetails function to properly format community activity dates
+      // Find the section where we process community activities (around line 600-650)
+
+      // Replace this part:
       // Fetch community activities for this user
       let communityActivities = []
       try {
+        // Helper function to safely format dates
+        const formatActivityDate = (dateString: string) => {
+          try {
+            const date = new Date(dateString)
+            if (isNaN(date.getTime())) {
+              return new Date().toLocaleString() // Fallback to current date if invalid
+            }
+            return date.toLocaleString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          } catch (error) {
+            console.error("Error formatting date:", error)
+            return new Date().toLocaleString() // Fallback to current date
+          }
+        }
+
         // Fetch posts by this user
         const postsResponse = await fetch(`/api/community/posts?authorId=${userId}`)
         if (postsResponse.ok) {
@@ -635,7 +659,7 @@ export default function AllUsersPage() {
             communityActivities = postsData.posts.map((post: any) => ({
               type: "post",
               action: `Created post "${post.title}"`,
-              date: new Date(post.createdAt).toLocaleString(),
+              date: formatActivityDate(post.createdAt),
               details: `Post ID: ${post.id}`,
               iconType: "post",
             }))
@@ -650,7 +674,7 @@ export default function AllUsersPage() {
             const commentActivities = commentsData.comments.map((comment: any) => ({
               type: "comment",
               action: `Commented on a post`,
-              date: new Date(comment.createdAt).toLocaleString(),
+              date: formatActivityDate(comment.createdAt),
               details: comment.content.length > 50 ? `${comment.content.substring(0, 50)}...` : comment.content,
               iconType: "comment",
             }))
@@ -666,7 +690,7 @@ export default function AllUsersPage() {
             const likeActivities = likesData.likes.map((like: any) => ({
               type: "like",
               action: like.postId ? "Liked a post" : "Liked a comment",
-              date: new Date(like.createdAt).toLocaleString(),
+              date: formatActivityDate(like.createdAt),
               details: `${like.postId ? "Post" : "Comment"} ID: ${like.postId || like.commentId}`,
               iconType: "like",
             }))
@@ -2083,32 +2107,67 @@ export default function AllUsersPage() {
                     <h3 className="font-medium">Recent Activity</h3>
                   </div>
                   <div className="p-4">
-                    {selectedUser.activity && selectedUser.activity.length > 0 ? (
-                      <div className="space-y-3">
-                        {selectedUser.activity.slice(0, 4).map((activity, index) => (
-                          <div key={index} className="flex items-start">
-                            <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
-                              {activity.iconType === "post" ? (
-                                <FileText className="h-4 w-4 text-blue-500" />
-                              ) : activity.iconType === "comment" ? (
-                                <MessageSquare className="h-4 w-4 text-green-500" />
-                              ) : activity.iconType === "like" ? (
-                                <ThumbsUp className="h-4 w-4 text-red-500" />
-                              ) : (
-                                <Clock className="h-4 w-4 text-gray-500" />
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium">{activity.action}</p>
-                              <p className="text-xs text-gray-500">{activity.date}</p>
-                              <p className="text-xs text-gray-500">{activity.details}</p>
-                            </div>
+                    {/* Find the section where we render the activity items in the user details dialog
+                    // Around line 2000-2030, update the activity rendering code to properly format dates
+
+                    // Replace this part:
+                    <div className="space-y-3">
+                      {selectedUser.activity.slice(0, 4).map((activity, index) => (
+                        <div key={index} className="flex items-start">
+                          <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
+                            {activity.iconType === "post" ? (
+                              <FileText className="h-4 w-4 text-blue-500" />
+                            ) : activity.iconType === "comment" ? (
+                              <MessageSquare className="h-4 w-4 text-green-500" />
+                            ) : activity.iconType === "like" ? (
+                              <ThumbsUp className="h-4 w-4 text-red-500" />
+                            ) : (
+                              <Clock className="h-4 w-4 text-gray-500" />
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">No activity found</p>
-                    )}
+                          <div>
+                            <p className="text-sm font-medium">{activity.action}</p>
+                            <p className="text-xs text-gray-500">{activity.date}</p>
+                            <p className="text-xs text-gray-500">{activity.details}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    // With this improved version that properly formats dates: */}
+                    <div className="space-y-3">
+                      {selectedUser.activity.slice(0, 4).map((activity, index) => (
+                        <div key={index} className="flex items-start">
+                          <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
+                            {activity.iconType === "post" ? (
+                              <FileText className="h-4 w-4 text-blue-500" />
+                            ) : activity.iconType === "comment" ? (
+                              <MessageSquare className="h-4 w-4 text-green-500" />
+                            ) : activity.iconType === "like" ? (
+                              <ThumbsUp className="h-4 w-4 text-red-500" />
+                            ) : (
+                              <Clock className="h-4 w-4 text-gray-500" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{activity.action}</p>
+                            <p className="text-xs text-gray-500">
+                              {typeof activity.date === "string"
+                                ? new Date(activity.date).toLocaleString("en-US", {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "Unknown date"}
+                            </p>
+                            <p className="text-xs text-gray-500">{activity.details}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* End of activity rendering code */}
                   </div>
                 </Card>
               </div>
