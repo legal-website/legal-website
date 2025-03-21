@@ -206,63 +206,10 @@ export default function AdminCommunityPage() {
   // Fetch stats
   const fetchStats = async () => {
     try {
-      // This would be a real API call in a production environment
-      // For now, we'll simulate with random data
       const response = await fetch("/api/community/stats")
 
       if (!response.ok) {
-        // If the endpoint doesn't exist, use mock data
-        const mockStats = {
-          published: {
-            current: Math.floor(Math.random() * 100) + 50,
-            previous: Math.floor(Math.random() * 100) + 40,
-          },
-          pending: {
-            current: Math.floor(Math.random() * 30) + 5,
-            previous: Math.floor(Math.random() * 30) + 10,
-          },
-          draft: {
-            current: Math.floor(Math.random() * 40) + 10,
-            previous: Math.floor(Math.random() * 40) + 15,
-          },
-          likes: {
-            current: Math.floor(Math.random() * 500) + 200,
-            previous: Math.floor(Math.random() * 500) + 180,
-          },
-          comments: {
-            current: Math.floor(Math.random() * 300) + 100,
-            previous: Math.floor(Math.random() * 300) + 90,
-          },
-        }
-
-        setStats({
-          published: {
-            ...stats.published,
-            value: mockStats.published.current,
-            change: ((mockStats.published.current - mockStats.published.previous) / mockStats.published.previous) * 100,
-          },
-          pending: {
-            ...stats.pending,
-            value: mockStats.pending.current,
-            change: ((mockStats.pending.current - mockStats.pending.previous) / mockStats.pending.previous) * 100,
-          },
-          draft: {
-            ...stats.draft,
-            value: mockStats.draft.current,
-            change: ((mockStats.draft.current - mockStats.draft.previous) / mockStats.draft.previous) * 100,
-          },
-          likes: {
-            ...stats.likes,
-            value: mockStats.likes.current,
-            change: ((mockStats.likes.current - mockStats.likes.previous) / mockStats.likes.previous) * 100,
-          },
-          comments: {
-            ...stats.comments,
-            value: mockStats.comments.current,
-            change: ((mockStats.comments.current - mockStats.comments.previous) / mockStats.comments.previous) * 100,
-          },
-        })
-        return
+        throw new Error("Failed to fetch stats")
       }
 
       const data = await response.json()
@@ -295,6 +242,8 @@ export default function AdminCommunityPage() {
             change: data.stats.comments.percentChange,
           },
         })
+      } else {
+        throw new Error(data.error || "Failed to fetch stats")
       }
     } catch (error) {
       console.error("Error fetching stats:", error)
@@ -334,8 +283,22 @@ export default function AdminCommunityPage() {
   // Fetch recent activities
   const fetchRecentActivities = async () => {
     try {
-      // This would be a real API call in a production environment
-      // For now, we'll simulate with mock data
+      const response = await fetch("/api/community/activities")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch activities")
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        setRecentActivities(data.activities)
+      } else {
+        throw new Error(data.error || "Failed to fetch activities")
+      }
+    } catch (error) {
+      console.error("Error fetching recent activities:", error)
+      // Use mock data on error
       const mockActivities: ActivityType[] = [
         {
           id: "1",
@@ -393,8 +356,6 @@ export default function AdminCommunityPage() {
       ]
 
       setRecentActivities(mockActivities)
-    } catch (error) {
-      console.error("Error fetching recent activities:", error)
     }
   }
 
