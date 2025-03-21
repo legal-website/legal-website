@@ -11,19 +11,15 @@ interface Plan {
   billingCycle: string
   description: string
   features: string[]
-  isRecommended?: boolean
-  includesPackage?: string
-  hasAssistBadge?: boolean
+  isRecommended: boolean
+  includesPackage: string
+  hasAssistBadge: boolean
 }
 
 // GET handler to retrieve pricing data
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Add a unique identifier to the request to bypass any caching
-    const url = new URL(request.url)
-    const noCache = url.searchParams.get("noCache") || Date.now().toString()
-
-    console.log(`Fetching pricing data... (noCache: ${noCache})`)
+    console.log("Fetching pricing data...")
 
     // First, ensure the table exists
     let tableExists = true
@@ -43,7 +39,6 @@ export async function GET(request: Request) {
             \`value\` LONGTEXT NOT NULL,
             \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
             \`updatedAt\` DATETIME(3) NOT NULL,
-            \`version\` INT NOT NULL DEFAULT 1,
             PRIMARY KEY (\`id\`),
             UNIQUE INDEX \`PricingSettings_key_key\` (\`key\`)
           );
@@ -58,24 +53,13 @@ export async function GET(request: Request) {
     // Try to get pricing data from the database using raw query
     try {
       const result = await db.$queryRawUnsafe(`
-        SELECT value, version FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+        SELECT value FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
       `)
 
       if (result && Array.isArray(result) && result.length > 0) {
         const pricingData = JSON.parse(result[0].value)
-        const version = result[0].version || 1
-
-        console.log(`Pricing data fetched successfully from database (version: ${version})`)
-        console.log("Plans:", pricingData.plans?.map((p: Plan) => `${p.name}: $${p.price}`).join(", "))
-        console.log("State count:", Object.keys(pricingData.stateFilingFees || {}).length)
-
-        // Add version to the response for tracking
-        const responseData = {
-          ...pricingData,
-          _version: version,
-        }
-
-        return NextResponse.json(responseData, {
+        console.log("Pricing data fetched successfully from database")
+        return NextResponse.json(pricingData, {
           headers: {
             "Cache-Control": "no-store, max-age=0, must-revalidate",
             Pragma: "no-cache",
@@ -96,45 +80,25 @@ export async function GET(request: Request) {
       const now = new Date().toISOString().slice(0, 19).replace("T", " ")
       await db.$executeRawUnsafe(
         `
-        INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`, \`version\`)
-        VALUES ('pricing_data', ?, '${now}', '${now}', 1)
+        INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`)
+        VALUES ('pricing_data', ?, '${now}', '${now}')
       `,
         JSON.stringify(defaultData),
       )
 
       console.log("Default pricing data saved to database")
-
-      // Add version to the response
-      const responseData = {
-        ...defaultData,
-        _version: 1,
-      }
-
-      return NextResponse.json(responseData, {
-        headers: {
-          "Cache-Control": "no-store, max-age=0, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-      })
     } catch (createError) {
       console.error("Error creating pricing data in database:", createError)
       // Continue even if saving fails
-
-      // Add version to the response
-      const responseData = {
-        ...defaultData,
-        _version: 0, // Indicate this is not saved in DB
-      }
-
-      return NextResponse.json(responseData, {
-        headers: {
-          "Cache-Control": "no-store, max-age=0, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-      })
     }
+
+    return NextResponse.json(defaultData, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    })
   } catch (error) {
     console.error("Error retrieving pricing data:", error)
     return NextResponse.json(
@@ -154,26 +118,11 @@ export async function POST(request: Request) {
 
     // Parse the request body
     let data
-    let version = 0
     try {
       data = await request.json()
-      // Extract version if provided
-      if (data._version) {
-        version = data._version
-        delete data._version // Remove from data before saving
-      }
-
-      console.log(`Received data structure (version: ${version}):`, Object.keys(data))
+      console.log("Received data structure:", Object.keys(data))
       console.log("Number of plans:", data.plans?.length)
-      console.log("Plans:", data.plans?.map((p: Plan) => `${p.name}: $${p.price}`).join(", "))
       console.log("Number of states:", Object.keys(data.stateFilingFees || {}).length)
-
-      // Log features for each plan to debug
-      if (data.plans && Array.isArray(data.plans)) {
-        data.plans.forEach((plan: Plan) => {
-          console.log(`${plan.name} features (${plan.features?.length || 0}):`, plan.features?.join(", ") || "None")
-        })
-      }
     } catch (parseError) {
       console.error("Error parsing request JSON:", parseError)
       return NextResponse.json(
@@ -215,7 +164,6 @@ export async function POST(request: Request) {
             \`value\` LONGTEXT NOT NULL,
             \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
             \`updatedAt\` DATETIME(3) NOT NULL,
-            \`version\` INT NOT NULL DEFAULT 1,
             PRIMARY KEY (\`id\`),
             UNIQUE INDEX \`PricingSettings_key_key\` (\`key\`)
           );
@@ -236,9 +184,9 @@ export async function POST(request: Request) {
     // Save the pricing data to the database
     console.log("Saving pricing data to database...")
     try {
-      // Check if pricing data already exists and get current version
+      // Check if pricing data already exists
       const result = await db.$queryRawUnsafe(`
-        SELECT id, version FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+        SELECT id FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
       `)
 
       const now = new Date().toISOString().slice(0, 19).replace("T", " ")
@@ -248,87 +196,47 @@ export async function POST(request: Request) {
       console.log("Data to save - State count:", Object.keys(data.stateFilingFees).length)
 
       if (result && Array.isArray(result) && result.length > 0) {
-        // Get current version and increment
-        const currentVersion = result[0].version || 1
-        const newVersion = currentVersion + 1
-
-        console.log(`Updating pricing data from version ${currentVersion} to ${newVersion}`)
-
-        // Update existing pricing data with incremented version
+        // Update existing pricing data
         await db.$executeRawUnsafe(
           `
           UPDATE PricingSettings 
-          SET \`value\` = ?, \`updatedAt\` = '${now}', \`version\` = ${newVersion}
+          SET \`value\` = ?, \`updatedAt\` = '${now}'
           WHERE \`key\` = 'pricing_data'
         `,
           jsonData,
         )
-        console.log(`Updated existing pricing data with ID: ${result[0].id}, new version: ${newVersion}`)
+        console.log("Updated existing pricing data with ID:", result[0].id)
 
         // Verify the update
         const verifyResult = await db.$queryRawUnsafe(`
-          SELECT value, version FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+          SELECT value FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
         `)
 
         if (verifyResult && Array.isArray(verifyResult) && verifyResult.length > 0) {
           const savedData = JSON.parse(verifyResult[0].value)
-          const savedVersion = verifyResult[0].version
-
           console.log(
-            `Verified saved data (version: ${savedVersion}) - Plans:`,
+            "Verified saved data - Plans:",
             savedData.plans.map((p: Plan) => `${p.name}: $${p.price}`).join(", "),
           )
           console.log("Verified saved data - State count:", Object.keys(savedData.stateFilingFees).length)
-
-          // Return the new version with the response
-          return NextResponse.json(
-            {
-              success: true,
-              version: savedVersion,
-            },
-            {
-              headers: {
-                "Cache-Control": "no-store, max-age=0, must-revalidate",
-                Pragma: "no-cache",
-                Expires: "0",
-              },
-            },
-          )
         }
       } else {
         // Create new pricing data
         await db.$executeRawUnsafe(
           `
-          INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`, \`version\`)
-          VALUES ('pricing_data', ?, '${now}', '${now}', 1)
+          INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`)
+          VALUES ('pricing_data', ?, '${now}', '${now}')
         `,
           jsonData,
         )
-        console.log("Created new pricing data with version 1")
-
-        // Return the new version with the response
-        return NextResponse.json(
-          {
-            success: true,
-            version: 1,
-          },
-          {
-            headers: {
-              "Cache-Control": "no-store, max-age=0, must-revalidate",
-              Pragma: "no-cache",
-              Expires: "0",
-            },
-          },
-        )
+        console.log("Created new pricing data")
       }
 
-      // If we get here, something went wrong with verification
-      console.log("Warning: Could not verify saved data, but no error occurred")
+      console.log("Pricing data updated successfully in database")
+
+      // Add cache-busting headers to the response
       return NextResponse.json(
-        {
-          success: true,
-          warning: "Could not verify saved data",
-        },
+        { success: true },
         {
           headers: {
             "Cache-Control": "no-store, max-age=0, must-revalidate",
