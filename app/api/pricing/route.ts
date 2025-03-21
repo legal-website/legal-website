@@ -1,20 +1,6 @@
 import { NextResponse } from "next/server"
-import type { PricingData } from "@/context/pricing-context"
+import type { PricingData, PricingPlan } from "@/context/pricing-context"
 import { db } from "@/lib/db"
-
-// Define the Plan interface
-interface Plan {
-  id: number
-  name: string
-  price: number
-  displayPrice: string
-  billingCycle: string
-  description: string
-  features: string[]
-  isRecommended: boolean
-  includesPackage: string
-  hasAssistBadge: boolean
-}
 
 // GET handler to retrieve pricing data
 export async function GET() {
@@ -117,12 +103,17 @@ export async function POST(request: Request) {
     console.log("Received POST request to update pricing data")
 
     // Parse the request body
-    let data
+    let data: PricingData
     try {
       data = await request.json()
       console.log("Received data structure:", Object.keys(data))
       console.log("Number of plans:", data.plans?.length)
       console.log("Number of states:", Object.keys(data.stateFilingFees || {}).length)
+
+      // Log the plans for debugging
+      if (data.plans && Array.isArray(data.plans)) {
+        console.log("Plans to save:", data.plans.map((plan: PricingPlan) => `${plan.name}: $${plan.price}`).join(", "))
+      }
     } catch (parseError) {
       console.error("Error parsing request JSON:", parseError)
       return NextResponse.json(
@@ -145,6 +136,9 @@ export async function POST(request: Request) {
       console.error("Invalid data format: stateFilingFees object is required")
       return NextResponse.json({ error: "Invalid data format: stateFilingFees object is required" }, { status: 400 })
     }
+
+    // Create a deep copy of the data to prevent reference issues
+    const dataToSave = JSON.parse(JSON.stringify(data))
 
     // Ensure the table exists
     let tableExists = true
@@ -190,10 +184,13 @@ export async function POST(request: Request) {
       `)
 
       const now = new Date().toISOString().slice(0, 19).replace("T", " ")
-      const jsonData = JSON.stringify(data)
+      const jsonData = JSON.stringify(dataToSave)
 
-      console.log("Data to save - Plans:", data.plans.map((p: Plan) => `${p.name}: $${p.price}`).join(", "))
-      console.log("Data to save - State count:", Object.keys(data.stateFilingFees).length)
+      console.log(
+        "Data to save - Plans:",
+        dataToSave.plans.map((plan: PricingPlan) => `${plan.name}: $${plan.price}`).join(", "),
+      )
+      console.log("Data to save - State count:", Object.keys(dataToSave.stateFilingFees).length)
 
       if (result && Array.isArray(result) && result.length > 0) {
         // Update existing pricing data
@@ -216,7 +213,7 @@ export async function POST(request: Request) {
           const savedData = JSON.parse(verifyResult[0].value)
           console.log(
             "Verified saved data - Plans:",
-            savedData.plans.map((p: Plan) => `${p.name}: $${p.price}`).join(", "),
+            savedData.plans.map((plan: PricingPlan) => `${plan.name}: $${plan.price}`).join(", "),
           )
           console.log("Verified saved data - State count:", Object.keys(savedData.stateFilingFees).length)
         }

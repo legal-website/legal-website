@@ -9,12 +9,13 @@ export async function GET() {
     let tableExists = true
     try {
       await db.$queryRawUnsafe(`SELECT * FROM PricingSettings LIMIT 1`)
+      console.log("PricingSettings table exists")
     } catch (error) {
-      tableExists = false
       console.log("PricingSettings table does not exist, will create it")
+      tableExists = false
     }
 
-    // If table doesn't exist, create it with the version column
+    // If table doesn't exist, create it
     if (!tableExists) {
       try {
         await db.$executeRawUnsafe(`
@@ -24,22 +25,15 @@ export async function GET() {
             \`value\` LONGTEXT NOT NULL,
             \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
             \`updatedAt\` DATETIME(3) NOT NULL,
-            \`version\` INT NOT NULL DEFAULT 1,
             PRIMARY KEY (\`id\`),
             UNIQUE INDEX \`PricingSettings_key_key\` (\`key\`)
           );
         `)
-        console.log("PricingSettings table created successfully with version column")
-
-        return NextResponse.json({
-          success: true,
-          message: "PricingSettings table created successfully with version column",
-        })
+        console.log("PricingSettings table created successfully")
       } catch (createError) {
         console.error("Error creating PricingSettings table:", createError)
         return NextResponse.json(
           {
-            success: false,
             error: "Failed to create PricingSettings table",
             details: createError instanceof Error ? createError.message : String(createError),
           },
@@ -48,51 +42,19 @@ export async function GET() {
       }
     }
 
-    // If table exists, check if version column exists
-    let versionColumnExists = true
+    // Check if we need to add any missing columns
     try {
-      await db.$queryRawUnsafe(`SELECT version FROM PricingSettings LIMIT 1`)
+      // This is just a placeholder for future migrations if needed
+      console.log("Checking for any needed column migrations...")
     } catch (error) {
-      versionColumnExists = false
-      console.log("Version column does not exist, will add it")
+      console.error("Error during column migration:", error)
     }
 
-    // If version column doesn't exist, add it
-    if (!versionColumnExists) {
-      try {
-        await db.$executeRawUnsafe(`
-          ALTER TABLE PricingSettings 
-          ADD COLUMN \`version\` INT NOT NULL DEFAULT 1
-        `)
-        console.log("Version column added successfully to PricingSettings table")
-
-        return NextResponse.json({
-          success: true,
-          message: "Version column added successfully to PricingSettings table",
-        })
-      } catch (alterError) {
-        console.error("Error adding version column:", alterError)
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Failed to add version column",
-            details: alterError instanceof Error ? alterError.message : String(alterError),
-          },
-          { status: 500 },
-        )
-      }
-    }
-
-    // If we get here, the table and column already exist
-    return NextResponse.json({
-      success: true,
-      message: "PricingSettings table and version column already exist",
-    })
+    return NextResponse.json({ success: true, message: "Migration completed successfully" })
   } catch (error) {
-    console.error("Error in pricing migration:", error)
+    console.error("Error during migration:", error)
     return NextResponse.json(
       {
-        success: false,
         error: "Migration failed",
         details: error instanceof Error ? error.message : String(error),
       },

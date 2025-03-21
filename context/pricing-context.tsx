@@ -10,9 +10,9 @@ export interface PricingPlan {
   billingCycle: string
   description: string
   features: string[]
-  isRecommended?: boolean
-  includesPackage?: string
-  hasAssistBadge?: boolean
+  isRecommended: boolean
+  includesPackage: string
+  hasAssistBadge: boolean
 }
 
 export interface StateFilingFees {
@@ -113,6 +113,14 @@ export function PricingProvider({ children }: { children: ReactNode }) {
         _version: data._version || 0,
       }
 
+      // Make sure all plans have the required properties
+      completeData.plans = completeData.plans.map((plan) => ({
+        ...plan,
+        isRecommended: plan.isRecommended === undefined ? false : plan.isRecommended,
+        includesPackage: plan.includesPackage || "",
+        hasAssistBadge: plan.hasAssistBadge === undefined ? false : plan.hasAssistBadge,
+      }))
+
       setPricingData(completeData)
       setLastUpdated(new Date())
     } catch (error) {
@@ -138,6 +146,14 @@ export function PricingProvider({ children }: { children: ReactNode }) {
 
       // Create a deep copy to ensure we're not modifying the original object
       const dataToSend = JSON.parse(JSON.stringify(data))
+
+      // Make sure all plans have the required properties
+      dataToSend.plans = dataToSend.plans.map((plan: PricingPlan) => ({
+        ...plan,
+        isRecommended: plan.isRecommended === undefined ? false : plan.isRecommended,
+        includesPackage: plan.includesPackage || "",
+        hasAssistBadge: plan.hasAssistBadge === undefined ? false : plan.hasAssistBadge,
+      }))
 
       const response = await fetch("/api/pricing", {
         method: "POST",
