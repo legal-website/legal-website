@@ -22,7 +22,6 @@ import {
   Download,
   Edit,
   DollarSign,
-  Filter,
   Copy,
   Calendar,
   Trash2,
@@ -31,11 +30,15 @@ import {
   FileImage,
   FileIcon as FilePdf,
   FileIcon as FileDefault,
+  ArrowUpDown,
+  SortAsc,
+  SortDesc,
 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 // Define pricing tier types
 type PricingTier = "Free" | "Basic" | "Standard" | "Premium"
@@ -82,6 +85,9 @@ interface TemplateAccess {
   grantedAt: string
 }
 
+// Define sort options
+type SortOption = "newest" | "oldest" | "name-asc" | "name-desc" | "price-asc" | "price-desc" | "downloads"
+
 export default function TemplatesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [showNewTemplateDialog, setShowNewTemplateDialog] = useState(false)
@@ -101,6 +107,9 @@ export default function TemplatesPage() {
   const { toast } = useToast()
   const { data: session } = useSession()
   const router = useRouter()
+
+  // Add sort state with default to newest
+  const [sortBy, setSortBy] = useState<SortOption>("newest")
 
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 12
@@ -131,6 +140,11 @@ export default function TemplatesPage() {
       fetchTemplates()
     }
   }, [session])
+
+  // Reset to first page when sort changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [sortBy])
 
   const fetchTemplates = async () => {
     try {
@@ -865,11 +879,55 @@ export default function TemplatesPage() {
     return matchesSearch
   })
 
+  // Sort templates based on the selected sort option
+  const sortedTemplates = [...filteredTemplates].sort((a, b) => {
+    switch (sortBy) {
+      case "newest":
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      case "oldest":
+        return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+      case "name-asc":
+        return a.name.localeCompare(b.name)
+      case "name-desc":
+        return b.name.localeCompare(a.name)
+      case "price-asc":
+        return a.price - b.price
+      case "price-desc":
+        return b.price - a.price
+      case "downloads":
+        return b.usageCount - a.usageCount
+      default:
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    }
+  })
+
+  // Get sort option label
+  const getSortLabel = (option: SortOption): string => {
+    switch (option) {
+      case "newest":
+        return "Newest"
+      case "oldest":
+        return "Oldest"
+      case "name-asc":
+        return "Name (A-Z)"
+      case "name-desc":
+        return "Name (Z-A)"
+      case "price-asc":
+        return "Price (Low to High)"
+      case "price-desc":
+        return "Price (High to Low)"
+      case "downloads":
+        return "Most Downloaded"
+      default:
+        return "Newest"
+    }
+  }
+
   // Pagination logic
   const indexOfLastTemplate = currentPage * itemsPerPage
   const indexOfFirstTemplate = indexOfLastTemplate - itemsPerPage
-  const currentTemplates = filteredTemplates.slice(indexOfFirstTemplate, indexOfLastTemplate)
-  const totalPages = Math.ceil(filteredTemplates.length / itemsPerPage)
+  const currentTemplates = sortedTemplates.slice(indexOfFirstTemplate, indexOfLastTemplate)
+  const totalPages = Math.ceil(sortedTemplates.length / itemsPerPage)
 
   // Add a function to handle page changes:
   const handlePageChange = (pageNumber: number) => {
@@ -980,10 +1038,44 @@ export default function TemplatesPage() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage and create document templates for your clients</p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <Button variant="outline" size="sm" className="flex items-center">
-            <Filter className="mr-2 h-4 w-4" />
-            Filter
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center">
+                <ArrowUpDown className="mr-2 h-4 w-4" />
+                Sort: {getSortLabel(sortBy)}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setSortBy("newest")}>
+                <SortDesc className="mr-2 h-4 w-4" />
+                Newest
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("oldest")}>
+                <SortAsc className="mr-2 h-4 w-4" />
+                Oldest
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("name-asc")}>
+                <SortAsc className="mr-2 h-4 w-4" />
+                Name (A-Z)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("name-desc")}>
+                <SortDesc className="mr-2 h-4 w-4" />
+                Name (Z-A)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("price-asc")}>
+                <SortAsc className="mr-2 h-4 w-4" />
+                Price (Low to High)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("price-desc")}>
+                <SortDesc className="mr-2 h-4 w-4" />
+                Price (High to Low)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("downloads")}>
+                <Download className="mr-2 h-4 w-4" />
+                Most Downloaded
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             className="bg-purple-600 hover:bg-purple-700 flex items-center"
             onClick={() => setShowNewTemplateDialog(true)}
@@ -1020,7 +1112,7 @@ export default function TemplatesPage() {
 
       {/* Templates Grid - Fixed to show 3 per row on large screens */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTemplates.length > 0 ? (
+        {sortedTemplates.length > 0 ? (
           currentTemplates.map((template) => <TemplateCard key={template.id} template={template} />)
         ) : (
           <div className="col-span-3 text-center py-12">
@@ -1031,7 +1123,7 @@ export default function TemplatesPage() {
         )}
       </div>
 
-      {filteredTemplates.length > itemsPerPage && (
+      {sortedTemplates.length > itemsPerPage && (
         <div className="flex justify-center mt-8">
           <div className="flex space-x-2">
             <Button variant="outline" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
