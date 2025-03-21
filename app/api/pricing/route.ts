@@ -2,6 +2,20 @@ import { NextResponse } from "next/server"
 import type { PricingData } from "@/context/pricing-context"
 import { db } from "@/lib/db"
 
+// Define the Plan interface
+interface Plan {
+  id: number
+  name: string
+  price: number
+  displayPrice: string
+  billingCycle: string
+  description: string
+  features: string[]
+  isRecommended: boolean
+  includesPackage: string
+  hasAssistBadge: boolean
+}
+
 // GET handler to retrieve pricing data
 export async function GET() {
   try {
@@ -45,7 +59,13 @@ export async function GET() {
       if (result && Array.isArray(result) && result.length > 0) {
         const pricingData = JSON.parse(result[0].value)
         console.log("Pricing data fetched successfully from database")
-        return NextResponse.json(pricingData)
+        return NextResponse.json(pricingData, {
+          headers: {
+            "Cache-Control": "no-store, max-age=0, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        })
       }
     } catch (dbError) {
       console.error("Error fetching from database:", dbError)
@@ -72,7 +92,13 @@ export async function GET() {
       // Continue even if saving fails
     }
 
-    return NextResponse.json(defaultData)
+    return NextResponse.json(defaultData, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    })
   } catch (error) {
     console.error("Error retrieving pricing data:", error)
     return NextResponse.json(
@@ -94,7 +120,9 @@ export async function POST(request: Request) {
     let data
     try {
       data = await request.json()
-      console.log("Received data:", JSON.stringify(data, null, 2))
+      console.log("Received data structure:", Object.keys(data))
+      console.log("Number of plans:", data.plans?.length)
+      console.log("Number of states:", Object.keys(data.stateFilingFees || {}).length)
     } catch (parseError) {
       console.error("Error parsing request JSON:", parseError)
       return NextResponse.json(
@@ -164,7 +192,8 @@ export async function POST(request: Request) {
       const now = new Date().toISOString().slice(0, 19).replace("T", " ")
       const jsonData = JSON.stringify(data)
 
-      console.log("Data to save:", jsonData.substring(0, 200) + "...") // Log a preview of the data
+      console.log("Data to save - Plans:", data.plans.map((p: Plan) => `${p.name}: $${p.price}`).join(", "))
+      console.log("Data to save - State count:", Object.keys(data.stateFilingFees).length)
 
       if (result && Array.isArray(result) && result.length > 0) {
         // Update existing pricing data
@@ -185,7 +214,11 @@ export async function POST(request: Request) {
 
         if (verifyResult && Array.isArray(verifyResult) && verifyResult.length > 0) {
           const savedData = JSON.parse(verifyResult[0].value)
-          console.log("Verified saved data:", JSON.stringify(savedData.plans[0], null, 2))
+          console.log(
+            "Verified saved data - Plans:",
+            savedData.plans.map((p: Plan) => `${p.name}: $${p.price}`).join(", "),
+          )
+          console.log("Verified saved data - State count:", Object.keys(savedData.stateFilingFees).length)
         }
       } else {
         // Create new pricing data

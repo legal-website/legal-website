@@ -84,8 +84,21 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       }
 
       const data = await response.json()
-      console.log("Pricing data fetched successfully:", data)
-      setPricingData(data)
+      console.log("Pricing data fetched successfully:", {
+        planCount: data.plans?.length,
+        stateCount: Object.keys(data.stateFilingFees || {}).length,
+        plans: data.plans?.map((p: PricingPlan) => `${p.name}: $${p.price}`).join(", "),
+      })
+
+      // Ensure we have a complete data structure
+      const completeData: PricingData = {
+        plans: data.plans || [],
+        stateFilingFees: data.stateFilingFees || {},
+        stateDiscounts: data.stateDiscounts || {},
+        stateDescriptions: data.stateDescriptions || {},
+      }
+
+      setPricingData(completeData)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       console.error("Error fetching pricing data:", errorMessage)
@@ -100,7 +113,14 @@ export function PricingProvider({ children }: { children: ReactNode }) {
   const updatePricingData = async (data: PricingData): Promise<boolean> => {
     try {
       setError(null)
-      console.log("Updating pricing data...", data)
+      console.log("Updating pricing data...", {
+        planCount: data.plans?.length,
+        stateCount: Object.keys(data.stateFilingFees || {}).length,
+        plans: data.plans?.map((p) => `${p.name}: $${p.price}`).join(", "),
+      })
+
+      // Create a deep copy to ensure we're not modifying the original object
+      const dataToSend = JSON.parse(JSON.stringify(data))
 
       const response = await fetch("/api/pricing", {
         method: "POST",
@@ -110,7 +130,7 @@ export function PricingProvider({ children }: { children: ReactNode }) {
           Pragma: "no-cache",
           Expires: "0",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(dataToSend),
       })
 
       if (!response.ok) {
