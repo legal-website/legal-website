@@ -159,6 +159,10 @@ export default function AdminCommunityPage() {
   })
   const [recentActivities, setRecentActivities] = useState<ActivityType[]>([])
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [selectedClient, setSelectedClient] = useState<string>("")
+  const [clients, setClients] = useState<{ id: string; name: string; email: string }[]>([])
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "most_likes" | "most_comments">("newest")
+  const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false)
 
   // Fetch posts
   const fetchPosts = async (searchQuery = searchTerm) => {
@@ -170,8 +174,10 @@ export default function AdminCommunityPage() {
       if (selectedStatus) params.append("status", selectedStatus)
       if (selectedTag) params.append("tag", selectedTag)
       if (searchQuery) params.append("search", searchQuery)
+      if (selectedClient) params.append("client", selectedClient)
       params.append("page", pagination.page.toString())
       params.append("limit", pagination.limit.toString())
+      params.append("sort", sortOrder)
 
       console.log("Fetching posts with params:", params.toString())
 
@@ -247,34 +253,32 @@ export default function AdminCommunityPage() {
       }
     } catch (error) {
       console.error("Error fetching stats:", error)
-      // Use mock data on error
-      const mockChange = () => Math.random() * 20 - 10 // Random between -10 and 10
-
+      // Use mock data on error with realistic percentage changes
       setStats({
         published: {
           ...stats.published,
           value: Math.floor(Math.random() * 100) + 50,
-          change: mockChange(),
+          change: Math.random() * 20 - 10, // Random between -10 and 10
         },
         pending: {
           ...stats.pending,
           value: Math.floor(Math.random() * 30) + 5,
-          change: mockChange(),
+          change: Math.random() * 20 - 10,
         },
         draft: {
           ...stats.draft,
           value: Math.floor(Math.random() * 40) + 10,
-          change: mockChange(),
+          change: Math.random() * 20 - 10,
         },
         likes: {
           ...stats.likes,
           value: Math.floor(Math.random() * 500) + 200,
-          change: mockChange(),
+          change: Math.random() * 20 - 10,
         },
         comments: {
           ...stats.comments,
           value: Math.floor(Math.random() * 300) + 100,
-          change: mockChange(),
+          change: Math.random() * 20 - 10,
         },
       })
     }
@@ -386,6 +390,25 @@ export default function AdminCommunityPage() {
       }
     } catch (error) {
       console.error("Error fetching users:", error)
+    }
+  }
+
+  const fetchClients = async () => {
+    try {
+      const response = await fetch("/api/admin/users?role=CLIENT")
+      if (!response.ok) throw new Error("Failed to fetch clients")
+
+      const data = await response.json()
+      if (data.users) {
+        const clientList = data.users.map((user: any) => ({
+          id: user.id,
+          name: user.name || "Unknown",
+          email: user.email,
+        }))
+        setClients(clientList)
+      }
+    } catch (error) {
+      console.error("Error fetching clients:", error)
     }
   }
 
@@ -744,6 +767,19 @@ export default function AdminCommunityPage() {
     }
   }
 
+  const backgroundRefresh = async () => {
+    if (isBackgroundRefreshing) return
+
+    setIsBackgroundRefreshing(true)
+    try {
+      await Promise.all([fetchStats(), fetchRecentActivities(), fetchPosts()])
+    } catch (error) {
+      console.error("Background refresh error:", error)
+    } finally {
+      setIsBackgroundRefreshing(false)
+    }
+  }
+
   // Load data on mount and when params change
   useEffect(() => {
     fetchPosts()
@@ -751,6 +787,14 @@ export default function AdminCommunityPage() {
     fetchUsers()
     fetchStats()
     fetchRecentActivities()
+    fetchClients() // Add this to fetch clients
+
+    // Set up background refresh every 60 seconds
+    const refreshInterval = setInterval(() => {
+      backgroundRefresh()
+    }, 60000)
+
+    return () => clearInterval(refreshInterval)
   }, [searchParams])
 
   // Cleanup timeout on unmount
@@ -873,6 +917,26 @@ export default function AdminCommunityPage() {
     }
   }
 
+  const handleClientChange = (value: string) => {
+    setSelectedClient(value)
+    // Update the search query to include the client's name or email
+    if (value) {
+      const client = clients.find((c) => c.id === value)
+      if (client) {
+        setSearchTerm(client.name)
+        fetchPosts(client.name)
+      }
+    } else {
+      setSearchTerm("")
+      fetchPosts("")
+    }
+  }
+
+  const handleSortOrderChange = (value: string) => {
+    setSortOrder(value as "newest" | "oldest" | "most_likes" | "most_comments")
+    fetchPosts()
+  }
+
   return (
     <div className="container mx-auto py-6 px-4 md:px-6 mb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
@@ -882,25 +946,51 @@ export default function AdminCommunityPage() {
             <AlertTriangle className="h-4 w-4" />
             Debug Posts
           </Button>
-          <Button onClick={() => handleFixData(false)} variant="outline" className="flex items-center gap-2">
+          {/* 
+            Fix Data button - Commented out but kept for future use
+            This button attempts to fix data inconsistencies in the community posts
+          */}
+          {/* <Button onClick={() => handleFixData(false)} variant="outline" className="flex items-center gap-2">
             <RefreshCw className="h-4 w-4" />
             Fix Data
-          </Button>
-          <Button onClick={() => handleFixData(true)} variant="outline" className="flex items-center gap-2">
+          </Button> */}
+
+          {/* 
+            Fix & Approve All button - Commented out but kept for future use
+            This button fixes data inconsistencies and approves all pending posts
+          */}
+          {/* <Button onClick={() => handleFixData(true)} variant="outline" className="flex items-center gap-2">
             <RefreshCw className="h-4 w-4" />
             Fix & Approve All
-          </Button>
+          </Button> */}
+
           <Button onClick={handleApproveAllPending} className="flex items-center gap-2">
             <RefreshCw className="h-4 w-4" />
             Approve All Pending
           </Button>
+
           <Button onClick={handleCheckStatus} variant="outline" className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
             Check Status Values
           </Button>
-          <Button onClick={handleFixStatus} variant="outline" className="flex items-center gap-2">
+
+          {/* 
+            Fix Status Values button - Commented out but kept for future use
+            This button corrects invalid status values in the database
+          */}
+          {/* <Button onClick={handleFixStatus} variant="outline" className="flex items-center gap-2">
             <RefreshCw className="h-4 w-4" />
             Fix Status Values
+          </Button> */}
+
+          <Button
+            onClick={backgroundRefresh}
+            variant="outline"
+            className="flex items-center gap-2"
+            disabled={isBackgroundRefreshing}
+          >
+            <RefreshCw className={`h-4 w-4 ${isBackgroundRefreshing ? "animate-spin" : ""}`} />
+            {isBackgroundRefreshing ? "Refreshing..." : "Refresh"}
           </Button>
         </div>
       </div>
@@ -912,6 +1002,50 @@ export default function AdminCommunityPage() {
         {renderStatCard(stats.draft)}
         {renderStatCard(stats.likes)}
         {renderStatCard(stats.comments)}
+      </div>
+
+      {/* Add the filters section after the stats cards */}
+      {/* Insert this after the stats cards section (around line 620) */}
+      <div className="flex flex-wrap gap-4 mb-6">
+        {/* Sort Order Filter */}
+        <div className="w-full md:w-auto">
+          <Select value={sortOrder} onValueChange={handleSortOrderChange}>
+            <SelectTrigger className="w-full md:w-[200px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest First</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+              <SelectItem value="most_likes">Most Likes</SelectItem>
+              <SelectItem value="most_comments">Most Comments</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Client Filter */}
+        <div className="w-full md:w-auto">
+          <Select value={selectedClient} onValueChange={handleClientChange}>
+            <SelectTrigger className="w-full md:w-[250px]">
+              <SelectValue placeholder="Filter by client" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Clients</SelectItem>
+              {clients.map((client) => (
+                <SelectItem key={client.id} value={client.id}>
+                  {client.name} ({client.email})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Background Refresh Indicator */}
+        {isBackgroundRefreshing && (
+          <div className="flex items-center text-sm text-muted-foreground">
+            <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+            Refreshing data...
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -979,6 +1113,38 @@ export default function AdminCommunityPage() {
                         {tag.name} ({tag.count})
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Client</label>
+                <Select value={selectedClient} onValueChange={handleClientChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name} ({client.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Sort Order</label>
+                <Select value={sortOrder} onValueChange={handleSortOrderChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select sort order" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Newest</SelectItem>
+                    <SelectItem value="oldest">Oldest</SelectItem>
+                    <SelectItem value="most_likes">Most Likes</SelectItem>
+                    <SelectItem value="most_comments">Most Comments</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

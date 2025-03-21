@@ -3,6 +3,23 @@ import { db } from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
+// Update the getRandomPreviousCount function to ensure more realistic changes
+const getRandomPreviousCount = (current: number) => {
+  // For more realistic data, use a smaller percentage change (5-15%)
+  const changePercent = 0.05 + Math.random() * 0.1 // 5-15% change
+  // More likely to show growth than decline (70% chance of growth)
+  const direction = Math.random() > 0.3 ? -1 : 1 // Negative means current is higher than previous
+  const change = Math.floor(current * changePercent) * direction
+  return Math.max(1, current - change) // Ensure we don't go below 1 to avoid division by zero
+}
+
+// Update the calculatePercentChange function to handle edge cases better
+const calculatePercentChange = (current: number, previous: number) => {
+  if (previous === 0) return current > 0 ? 100 : 0
+  // Round to 1 decimal place for cleaner display
+  return Math.round(((current - previous) / previous) * 1000) / 10
+}
+
 export async function GET() {
   try {
     // Check if user is admin
@@ -37,12 +54,6 @@ export async function GET() {
     // Get previous period counts (for demonstration, we'll use a simple approach)
     // In a real app, you might want to compare with last week/month
     // Here we'll just subtract a random percentage to simulate previous period
-    const getRandomPreviousCount = (current: number) => {
-      const changePercent = Math.random() * 0.3 // Random change up to 30%
-      const direction = Math.random() > 0.5 ? 1 : -1 // Random direction (increase or decrease)
-      const change = Math.floor(current * changePercent) * direction
-      return Math.max(0, current - change) // Ensure we don't go below 0
-    }
 
     const current = {
       published: Number(publishedCount[0]?.count || 0),
@@ -61,10 +72,6 @@ export async function GET() {
     }
 
     // Calculate percent changes
-    const calculatePercentChange = (current: number, previous: number) => {
-      if (previous === 0) return current > 0 ? 100 : 0
-      return ((current - previous) / previous) * 100
-    }
 
     return NextResponse.json({
       success: true,

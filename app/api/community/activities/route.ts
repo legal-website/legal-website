@@ -64,7 +64,10 @@ export async function GET() {
       LIMIT 5
     `)
 
-    // Format activities
+    // Update the activities API to ensure we only return the 10 most recent activities
+    // Modify the formatActivities function to properly sort and limit activities
+
+    // Update the formatActivities function to ensure proper sorting and limiting
     const formatActivities = () => {
       const activities = [
         ...recentPosts.map((post: any) => ({
@@ -104,7 +107,7 @@ export async function GET() {
         })),
       ]
 
-      // Sort by date (newest first)
+      // Sort by date (newest first) and limit to 10 items
       return activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10)
     }
 
