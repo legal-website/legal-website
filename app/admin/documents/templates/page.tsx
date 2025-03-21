@@ -1059,13 +1059,13 @@ export default function TemplatesPage() {
 
       {/* New Template Dialog */}
       <Dialog open={showNewTemplateDialog} onOpenChange={setShowNewTemplateDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Template</DialogTitle>
             <DialogDescription>Add a new document template to the system</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 px-1 sm:px-2">
             <div className="grid grid-cols-1 items-center gap-2">
               <label htmlFor="name" className="text-sm font-medium">
                 Template Name*
@@ -1164,7 +1164,7 @@ export default function TemplatesPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 mt-2">
             <Button variant="outline" onClick={() => setShowNewTemplateDialog(false)} disabled={isSubmitting}>
               Cancel
             </Button>
@@ -1181,13 +1181,13 @@ export default function TemplatesPage() {
 
       {/* Edit Template Dialog */}
       <Dialog open={showEditTemplateDialog} onOpenChange={setShowEditTemplateDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Template</DialogTitle>
             <DialogDescription>Update template information</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 px-1 sm:px-2">
             <div className="grid grid-cols-1 items-center gap-2">
               <label htmlFor="edit-name" className="text-sm font-medium">
                 Template Name*
@@ -1289,7 +1289,7 @@ export default function TemplatesPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 mt-2">
             <Button variant="outline" onClick={() => setShowEditTemplateDialog(false)} disabled={isSubmitting}>
               Cancel
             </Button>
@@ -1302,7 +1302,7 @@ export default function TemplatesPage() {
 
       {/* Unlock Template Dialog */}
       <Dialog open={showUnlockTemplateDialog} onOpenChange={setShowUnlockTemplateDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Unlock Template for User</DialogTitle>
             <DialogDescription>
@@ -1310,7 +1310,7 @@ export default function TemplatesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 px-1 sm:px-2">
             {selectedTemplate && (
               <div className="p-4 border rounded-lg mb-4">
                 <div className="flex items-start gap-3">
@@ -1354,7 +1354,7 @@ export default function TemplatesPage() {
               )}
 
               {!loadingUsers && users.length > 0 && (
-                <div className="max-h-60 overflow-y-auto border rounded-md mt-2">
+                <div className="max-h-[30vh] overflow-y-auto border rounded-md mt-2">
                   {users.map((user) => (
                     <div
                       key={user.id}
@@ -1403,7 +1403,7 @@ export default function TemplatesPage() {
                   <span className="ml-2 text-sm text-gray-500">Loading access list...</span>
                 </div>
               ) : templateUsersAccess.length > 0 ? (
-                <div className="max-h-40 overflow-y-auto border rounded-md">
+                <div className="max-h-[30vh] overflow-y-auto border rounded-md">
                   {templateUsersAccess.map((access) => (
                     <div key={access.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
                       <div className="flex items-center gap-2">
@@ -1440,7 +1440,7 @@ export default function TemplatesPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 mt-2">
             <Button variant="outline" onClick={() => setShowUnlockTemplateDialog(false)} disabled={isSubmitting}>
               Cancel
             </Button>
