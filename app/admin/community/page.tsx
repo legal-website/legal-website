@@ -920,7 +920,7 @@ export default function AdminCommunityPage() {
   const handleClientChange = (value: string) => {
     setSelectedClient(value)
     // Update the search query to include the client's name or email
-    if (value) {
+    if (value && value !== "all_clients") {
       const client = clients.find((c) => c.id === value)
       if (client) {
         setSearchTerm(client.name)
@@ -1029,7 +1029,7 @@ export default function AdminCommunityPage() {
               <SelectValue placeholder="Filter by client" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Clients</SelectItem>
+              <SelectItem value="all_clients">All Clients</SelectItem>
               {clients.map((client) => (
                 <SelectItem key={client.id} value={client.id}>
                   {client.name} ({client.email})
@@ -1124,7 +1124,7 @@ export default function AdminCommunityPage() {
                     <SelectValue placeholder="Select client" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Clients</SelectItem>
+                    <SelectItem value="all_clients">All Clients</SelectItem>
                     {clients.map((client) => (
                       <SelectItem key={client.id} value={client.id}>
                         {client.name} ({client.email})
