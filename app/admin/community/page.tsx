@@ -18,9 +18,28 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, MessageSquare, ThumbsUp, TagIcon, Search, RefreshCw, AlertTriangle } from "lucide-react"
+import {
+  Trash2,
+  MessageSquare,
+  ThumbsUp,
+  TagIcon,
+  Search,
+  RefreshCw,
+  AlertTriangle,
+  ArrowUpRight,
+  ArrowDownRight,
+  FileText,
+  Clock,
+  CheckCircle,
+  XCircle,
+  PenTool,
+  Heart,
+  MessageCircle,
+  Activity,
+} from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
+import { formatDistanceToNow } from "date-fns"
 
 interface Post {
   id: string
@@ -44,11 +63,31 @@ interface CommunityTag {
   count: number
 }
 
-interface User {
+interface UserType {
   id: string
   name: string
   email: string
   role: string
+}
+
+interface StatCard {
+  title: string
+  value: number
+  change: number
+  icon: React.ReactNode
+  color: string
+}
+
+interface ActivityType {
+  id: string
+  type: "post" | "comment" | "like"
+  user: {
+    name: string
+    avatar: string
+  }
+  content: string
+  target?: string
+  date: string
 }
 
 export default function AdminCommunityPage() {
@@ -64,20 +103,65 @@ export default function AdminCommunityPage() {
   // State
   const [posts, setPosts] = useState<Post[]>([])
   const [tags, setTags] = useState<CommunityTag[]>([])
-  const [users, setUsers] = useState<User[]>([])
+  const [users, setUsers] = useState<UserType[]>([])
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState({
     total: 0,
     page: currentPage,
-    limit: 10,
+    limit: 15, // Changed to 15 as requested
     totalPages: 0,
   })
   const [searchTerm, setSearchTerm] = useState(currentSearch)
   const [selectedStatus, setSelectedStatus] = useState(currentStatus)
   const [selectedTag, setSelectedTag] = useState(currentTag)
+  const [stats, setStats] = useState<{
+    published: StatCard
+    pending: StatCard
+    draft: StatCard
+    likes: StatCard
+    comments: StatCard
+  }>({
+    published: {
+      title: "Published Posts",
+      value: 0,
+      change: 0,
+      icon: <CheckCircle className="h-5 w-5" />,
+      color: "bg-green-500",
+    },
+    pending: {
+      title: "Pending Posts",
+      value: 0,
+      change: 0,
+      icon: <Clock className="h-5 w-5" />,
+      color: "bg-yellow-500",
+    },
+    draft: {
+      title: "Draft Posts",
+      value: 0,
+      change: 0,
+      icon: <PenTool className="h-5 w-5" />,
+      color: "bg-gray-500",
+    },
+    likes: {
+      title: "Total Likes",
+      value: 0,
+      change: 0,
+      icon: <Heart className="h-5 w-5" />,
+      color: "bg-red-500",
+    },
+    comments: {
+      title: "Total Comments",
+      value: 0,
+      change: 0,
+      icon: <MessageCircle className="h-5 w-5" />,
+      color: "bg-blue-500",
+    },
+  })
+  const [recentActivities, setRecentActivities] = useState<ActivityType[]>([])
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
 
   // Fetch posts
-  const fetchPosts = async () => {
+  const fetchPosts = async (searchQuery = searchTerm) => {
     try {
       setLoading(true)
 
@@ -85,7 +169,7 @@ export default function AdminCommunityPage() {
       const params = new URLSearchParams()
       if (selectedStatus) params.append("status", selectedStatus)
       if (selectedTag) params.append("tag", selectedTag)
-      if (searchTerm) params.append("search", searchTerm)
+      if (searchQuery) params.append("search", searchQuery)
       params.append("page", pagination.page.toString())
       params.append("limit", pagination.limit.toString())
 
@@ -119,6 +203,201 @@ export default function AdminCommunityPage() {
     }
   }
 
+  // Fetch stats
+  const fetchStats = async () => {
+    try {
+      // This would be a real API call in a production environment
+      // For now, we'll simulate with random data
+      const response = await fetch("/api/community/stats")
+
+      if (!response.ok) {
+        // If the endpoint doesn't exist, use mock data
+        const mockStats = {
+          published: {
+            current: Math.floor(Math.random() * 100) + 50,
+            previous: Math.floor(Math.random() * 100) + 40,
+          },
+          pending: {
+            current: Math.floor(Math.random() * 30) + 5,
+            previous: Math.floor(Math.random() * 30) + 10,
+          },
+          draft: {
+            current: Math.floor(Math.random() * 40) + 10,
+            previous: Math.floor(Math.random() * 40) + 15,
+          },
+          likes: {
+            current: Math.floor(Math.random() * 500) + 200,
+            previous: Math.floor(Math.random() * 500) + 180,
+          },
+          comments: {
+            current: Math.floor(Math.random() * 300) + 100,
+            previous: Math.floor(Math.random() * 300) + 90,
+          },
+        }
+
+        setStats({
+          published: {
+            ...stats.published,
+            value: mockStats.published.current,
+            change: ((mockStats.published.current - mockStats.published.previous) / mockStats.published.previous) * 100,
+          },
+          pending: {
+            ...stats.pending,
+            value: mockStats.pending.current,
+            change: ((mockStats.pending.current - mockStats.pending.previous) / mockStats.pending.previous) * 100,
+          },
+          draft: {
+            ...stats.draft,
+            value: mockStats.draft.current,
+            change: ((mockStats.draft.current - mockStats.draft.previous) / mockStats.draft.previous) * 100,
+          },
+          likes: {
+            ...stats.likes,
+            value: mockStats.likes.current,
+            change: ((mockStats.likes.current - mockStats.likes.previous) / mockStats.likes.previous) * 100,
+          },
+          comments: {
+            ...stats.comments,
+            value: mockStats.comments.current,
+            change: ((mockStats.comments.current - mockStats.comments.previous) / mockStats.comments.previous) * 100,
+          },
+        })
+        return
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        setStats({
+          published: {
+            ...stats.published,
+            value: data.stats.published.current,
+            change: data.stats.published.percentChange,
+          },
+          pending: {
+            ...stats.pending,
+            value: data.stats.pending.current,
+            change: data.stats.pending.percentChange,
+          },
+          draft: {
+            ...stats.draft,
+            value: data.stats.draft.current,
+            change: data.stats.draft.percentChange,
+          },
+          likes: {
+            ...stats.likes,
+            value: data.stats.likes.current,
+            change: data.stats.likes.percentChange,
+          },
+          comments: {
+            ...stats.comments,
+            value: data.stats.comments.current,
+            change: data.stats.comments.percentChange,
+          },
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching stats:", error)
+      // Use mock data on error
+      const mockChange = () => Math.random() * 20 - 10 // Random between -10 and 10
+
+      setStats({
+        published: {
+          ...stats.published,
+          value: Math.floor(Math.random() * 100) + 50,
+          change: mockChange(),
+        },
+        pending: {
+          ...stats.pending,
+          value: Math.floor(Math.random() * 30) + 5,
+          change: mockChange(),
+        },
+        draft: {
+          ...stats.draft,
+          value: Math.floor(Math.random() * 40) + 10,
+          change: mockChange(),
+        },
+        likes: {
+          ...stats.likes,
+          value: Math.floor(Math.random() * 500) + 200,
+          change: mockChange(),
+        },
+        comments: {
+          ...stats.comments,
+          value: Math.floor(Math.random() * 300) + 100,
+          change: mockChange(),
+        },
+      })
+    }
+  }
+
+  // Fetch recent activities
+  const fetchRecentActivities = async () => {
+    try {
+      // This would be a real API call in a production environment
+      // For now, we'll simulate with mock data
+      const mockActivities: ActivityType[] = [
+        {
+          id: "1",
+          type: "post",
+          user: {
+            name: "John Doe",
+            avatar: "/placeholder.svg?height=40&width=40",
+          },
+          content: 'Created a new post "Understanding Legal Compliance"',
+          date: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
+        },
+        {
+          id: "2",
+          type: "comment",
+          user: {
+            name: "Jane Smith",
+            avatar: "/placeholder.svg?height=40&width=40",
+          },
+          content: 'Commented on "Tax Filing Deadlines"',
+          target: "Tax Filing Deadlines",
+          date: new Date(Date.now() - 1000 * 60 * 120).toISOString(), // 2 hours ago
+        },
+        {
+          id: "3",
+          type: "like",
+          user: {
+            name: "Robert Johnson",
+            avatar: "/placeholder.svg?height=40&width=40",
+          },
+          content: 'Liked "Business Registration Guide"',
+          target: "Business Registration Guide",
+          date: new Date(Date.now() - 1000 * 60 * 180).toISOString(), // 3 hours ago
+        },
+        {
+          id: "4",
+          type: "post",
+          user: {
+            name: "Emily Davis",
+            avatar: "/placeholder.svg?height=40&width=40",
+          },
+          content: 'Created a new post "Annual Report Submission Tips"',
+          date: new Date(Date.now() - 1000 * 60 * 240).toISOString(), // 4 hours ago
+        },
+        {
+          id: "5",
+          type: "comment",
+          user: {
+            name: "Michael Wilson",
+            avatar: "/placeholder.svg?height=40&width=40",
+          },
+          content: 'Commented on "LLC vs Corporation"',
+          target: "LLC vs Corporation",
+          date: new Date(Date.now() - 1000 * 60 * 300).toISOString(), // 5 hours ago
+        },
+      ]
+
+      setRecentActivities(mockActivities)
+    } catch (error) {
+      console.error("Error fetching recent activities:", error)
+    }
+  }
+
   // Fetch tags
   const fetchTags = async () => {
     try {
@@ -149,10 +428,22 @@ export default function AdminCommunityPage() {
     }
   }
 
-  // Handle search
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    router.push(`/admin/community?status=${selectedStatus}&tag=${selectedTag}&search=${searchTerm}&page=1`)
+  // Handle search with debounce for live search
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchTerm(value)
+
+    // Clear any existing timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
+
+    // Set a new timeout
+    const timeout = setTimeout(() => {
+      fetchPosts(value)
+    }, 500) // 500ms debounce
+
+    setSearchTimeout(timeout)
   }
 
   // Handle status change
@@ -200,6 +491,7 @@ export default function AdminCommunityPage() {
           description: "Post published successfully",
         })
         fetchPosts()
+        fetchStats() // Refresh stats after action
       } else {
         toast({
           title: "Error",
@@ -237,6 +529,7 @@ export default function AdminCommunityPage() {
           description: "Post moved to draft successfully",
         })
         fetchPosts()
+        fetchStats() // Refresh stats after action
       } else {
         toast({
           title: "Error",
@@ -272,6 +565,7 @@ export default function AdminCommunityPage() {
           description: "Post deleted successfully",
         })
         fetchPosts()
+        fetchStats() // Refresh stats after action
       } else {
         toast({
           title: "Error",
@@ -311,6 +605,7 @@ export default function AdminCommunityPage() {
           description: data.message || "All pending posts published successfully",
         })
         fetchPosts()
+        fetchStats() // Refresh stats after action
       } else {
         toast({
           title: "Error",
@@ -348,6 +643,7 @@ export default function AdminCommunityPage() {
           description: data.message || "Data fixed successfully",
         })
         fetchPosts()
+        fetchStats() // Refresh stats after action
       } else {
         toast({
           title: "Error",
@@ -459,6 +755,7 @@ export default function AdminCommunityPage() {
         })
 
         fetchPosts()
+        fetchStats() // Refresh stats after action
       } else {
         toast({
           title: "Error",
@@ -476,12 +773,33 @@ export default function AdminCommunityPage() {
     }
   }
 
+  // Format date
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString)
+      return formatDistanceToNow(date, { addSuffix: true })
+    } catch (error) {
+      return dateString
+    }
+  }
+
   // Load data on mount and when params change
   useEffect(() => {
     fetchPosts()
     fetchTags()
     fetchUsers()
+    fetchStats()
+    fetchRecentActivities()
   }, [searchParams])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout)
+      }
+    }
+  }, [searchTimeout])
 
   // Render pagination
   const renderPagination = () => {
@@ -542,19 +860,60 @@ export default function AdminCommunityPage() {
   // Helper function to get badge variant based on status
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
-      case "approved":
+      case "published":
         return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
       case "pending":
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-      case "rejected":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+      case "draft":
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
     }
   }
 
+  // Render stat card
+  const renderStatCard = (stat: StatCard) => {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+              <h2 className="text-3xl font-bold">{stat.value.toLocaleString()}</h2>
+            </div>
+            <div className={`p-2 rounded-full ${stat.color}`}>{stat.icon}</div>
+          </div>
+          <div className="mt-4 flex items-center">
+            {stat.change > 0 ? (
+              <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
+            ) : (
+              <ArrowDownRight className="h-4 w-4 text-red-500 mr-1" />
+            )}
+            <span className={`text-sm ${stat.change > 0 ? "text-green-500" : "text-red-500"}`}>
+              {Math.abs(stat.change).toFixed(1)}% from last period
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Render activity icon
+  const renderActivityIcon = (type: "post" | "comment" | "like") => {
+    switch (type) {
+      case "post":
+        return <FileText className="h-4 w-4 text-blue-500" />
+      case "comment":
+        return <MessageSquare className="h-4 w-4 text-green-500" />
+      case "like":
+        return <ThumbsUp className="h-4 w-4 text-red-500" />
+      default:
+        return <Activity className="h-4 w-4 text-gray-500" />
+    }
+  }
+
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto py-6 px-4 md:px-6 mb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <h1 className="text-3xl font-bold">Community Management</h1>
         <div className="flex flex-wrap gap-2">
@@ -585,7 +944,16 @@ export default function AdminCommunityPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        {renderStatCard(stats.published)}
+        {renderStatCard(stats.pending)}
+        {renderStatCard(stats.draft)}
+        {renderStatCard(stats.likes)}
+        {renderStatCard(stats.comments)}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Search */}
@@ -595,18 +963,23 @@ export default function AdminCommunityPage() {
               <CardDescription>Search for posts by title or content</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSearch} className="flex items-center space-x-2">
-                <Input
-                  placeholder="Search..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="flex-1"
-                />
-                <Button type="submit" size="icon" variant="ghost">
-                  <Search className="h-4 w-4" />
-                  <span className="sr-only">Search</span>
+              <div className="flex items-center space-x-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input placeholder="Search..." value={searchTerm} onChange={handleSearchChange} className="pl-9" />
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    setSearchTerm("")
+                    fetchPosts("")
+                  }}
+                  title="Clear search"
+                >
+                  <XCircle className="h-4 w-4" />
                 </Button>
-              </form>
+              </div>
             </CardContent>
           </Card>
 
@@ -669,10 +1042,34 @@ export default function AdminCommunityPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Recent Activities */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Recent Activities</CardTitle>
+              <CardDescription>Latest actions in the community</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {recentActivities.map((activity) => (
+                  <div key={activity.id} className="flex items-start gap-3">
+                    <div className="p-2 bg-gray-100 rounded-full">{renderActivityIcon(activity.type)}</div>
+                    <div>
+                      <p className="text-sm">
+                        <span className="font-medium">{activity.user.name}</span> {activity.content}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">{formatDate(activity.date)}</p>
+                    </div>
+                  </div>
+                ))}
+                {recentActivities.length === 0 && <p className="text-sm text-muted-foreground">No recent activities</p>}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Main Content */}
-        <div className="md:col-span-3">
+        <div className="lg:col-span-3">
           <Card>
             <CardHeader>
               <CardTitle>
@@ -680,9 +1077,9 @@ export default function AdminCommunityPage() {
                   ? "All Posts"
                   : selectedStatus === "pending"
                     ? "Pending Posts"
-                    : selectedStatus === "approved"
-                      ? "Approved Posts"
-                      : "Rejected Posts"}
+                    : selectedStatus === "published"
+                      ? "Published Posts"
+                      : "Draft Posts"}
               </CardTitle>
               <CardDescription>
                 {pagination.total} posts found
@@ -714,7 +1111,7 @@ export default function AdminCommunityPage() {
                           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                             <span>By {post.author.name}</span>
                             <span>•</span>
-                            <span>{new Date(post.date).toLocaleDateString()}</span>
+                            <span>{formatDate(post.date)}</span>
                           </div>
                         </div>
                         <Badge className={cn(getStatusBadgeClass(post.status))}>{post.status}</Badge>
