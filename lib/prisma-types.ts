@@ -325,7 +325,18 @@ export interface PostTagDelegate {
   deleteMany: (args: { where: any }) => Promise<{ count: number }>
 }
 
-// Update the ExtendedPrismaClient type to include the document delegate
+// Add this interface to your existing interfaces
+export interface UserDelegate {
+  findUnique: (args: { where: { id: string } }) => Promise<UserModel | null>
+  findFirst: (args: { where: any }) => Promise<UserModel | null>
+  findMany: (args?: any) => Promise<UserModel[]>
+  create: (args: { data: any; include?: any }) => Promise<UserModel>
+  update: (args: { where: { id: string }; data: any }) => Promise<UserModel>
+  delete: (args: { where: { id: string } }) => Promise<UserModel>
+  count: (args?: any) => Promise<number>
+}
+
+// Then update your ExtendedPrismaClient type to include the user property
 export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   amendment: AmendmentDelegate
   amendmentStatusHistory: AmendmentStatusHistoryDelegate
@@ -333,6 +344,8 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   annualReportFiling: AnnualReportFilingDelegate
   filingRequirement: FilingRequirementDelegate
   verificationToken: VerificationTokenDelegate
+  // Add user model
+  user: UserDelegate
   // Add document model
   document: DocumentDelegate
   // Add community models

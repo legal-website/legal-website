@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import type { Document } from "@/types/document"
+import type { Document as DocumentType } from "@/types/document"
 import { Fragment, useState, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -72,19 +72,20 @@ export default function ClientDocumentsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [selectedStatus, setSelectedStatus] = useState("all")
-  const [documents, setDocuments] = useState<Document[]>([])
+  const [documents, setDocuments] = useState<DocumentType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [showUploadDialog, setShowUploadDialog] = useState(false)
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
+  const [selectedDocument, setSelectedDocument] = useState<DocumentType | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [searchUserQuery, setSearchUserQuery] = useState("")
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false)
-  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null)
+  const [documentToDelete, setDocumentToDelete] = useState<DocumentType | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [downloading, setDownloading] = useState<string | null>(null)
 
   // Bulk selection states
   const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set())
@@ -114,7 +115,7 @@ export default function ClientDocumentsPage() {
   const categories = ["All", "Formation", "Tax", "Compliance", "Licenses", "Financial", "HR", "Other"]
 
   // Helper function to check if a document is a template
-  const isTemplate = (doc: Document): boolean => {
+  const isTemplate = (doc: DocumentType): boolean => {
     // Check various conditions that might indicate a template
     const typeCheck = doc.type?.toLowerCase().includes("template") || false
     const nameCheck = doc.name?.toLowerCase().includes("template") || false
@@ -137,7 +138,7 @@ export default function ClientDocumentsPage() {
   }
 
   // Get file extension from name or type
-  const getFileExtension = (doc: Document): string => {
+  const getFileExtension = (doc: DocumentType): string => {
     if (doc.fileType) {
       return doc.fileType.toLowerCase().replace("application/", "").replace("image/", "")
     }
@@ -171,7 +172,7 @@ export default function ClientDocumentsPage() {
 
       if (Array.isArray(data.documents)) {
         // Filter out templates
-        const nonTemplateDocuments = data.documents.filter((doc: Document) => !isTemplate(doc))
+        const nonTemplateDocuments = data.documents.filter((doc: DocumentType) => !isTemplate(doc))
         setDocuments(nonTemplateDocuments)
 
         // Set pagination data
@@ -327,7 +328,7 @@ export default function ClientDocumentsPage() {
   }
 
   // Confirm document deletion
-  const confirmDelete = (doc: Document) => {
+  const confirmDelete = (doc: DocumentType) => {
     setDocumentToDelete(doc)
     setShowDeleteConfirmDialog(true)
   }
@@ -449,12 +450,13 @@ export default function ClientDocumentsPage() {
   }
 
   // Handle document download
-  const handleDownload = async (document: Document) => {
+  const handleDownload = async (document: DocumentType) => {
     try {
+      setDownloading(document.id)
       console.log("Downloading document:", document.id)
 
       // Show loading toast
-      toast({
+      const loadingToast = toast({
         title: "Preparing download",
         description: "Please wait while we prepare your document...",
       })
@@ -474,13 +476,13 @@ export default function ClientDocumentsPage() {
       }
 
       // Create a temporary link and trigger download
-      const link = document.createElement("a")
+      const link = window.document.createElement("a")
       link.href = data.downloadUrl
       link.setAttribute("download", document.name || "document")
       link.setAttribute("target", "_blank")
-      document.body.appendChild(link)
+      window.document.body.appendChild(link)
       link.click()
-      document.body.removeChild(link)
+      window.document.body.removeChild(link)
 
       // Show success toast
       toast({
@@ -495,11 +497,13 @@ export default function ClientDocumentsPage() {
         description: error instanceof Error ? error.message : "Failed to download document",
         variant: "destructive",
       })
+    } finally {
+      setDownloading(null)
     }
   }
 
   // Filter documents based on search, category, and status
-  const filteredDocuments = documents.filter((doc: Document) => {
+  const filteredDocuments = documents.filter((doc: DocumentType) => {
     const matchesSearch =
       doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (doc.description || "").toLowerCase().includes(searchQuery.toLowerCase())
@@ -512,7 +516,7 @@ export default function ClientDocumentsPage() {
   // Load documents on component mount
   useEffect(() => {
     if (status === "authenticated") {
-      if ((session.user as any).role !== "ADMIN" && (session.user as any).role !== "SUPER_ADMIN") {
+      if ((session.user as any).role !== "ADMIN" && (session.user as any).role !== "SUPPORT") {
         router.push("/login?callbackUrl=/admin/documents/client")
         toast({
           title: "Access Denied",
@@ -655,7 +659,7 @@ export default function ClientDocumentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredDocuments.map((doc: Document) => (
+                {filteredDocuments.map((doc: DocumentType) => (
                   <tr key={doc.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
                     <td className="p-4">
                       <Checkbox
@@ -724,8 +728,17 @@ export default function ClientDocumentsPage() {
                     </td>
                     <td className="p-4">
                       <div className="flex space-x-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleDownload(doc)}>
-                          <Download className="h-4 w-4" />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownload(doc)}
+                          disabled={downloading === doc.id}
+                        >
+                          {downloading === doc.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
