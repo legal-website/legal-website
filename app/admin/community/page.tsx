@@ -31,15 +31,17 @@ import {
   FileText,
   Clock,
   CheckCircle,
-  XCircle,
   PenTool,
   Heart,
   MessageCircle,
   Activity,
+  Loader2,
 } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
 import { formatDistanceToNow } from "date-fns"
+import Image from "next/image"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface Post {
   id: string
@@ -55,6 +57,19 @@ interface Post {
   tags: string[]
   likes: number
   replies: number
+}
+
+interface Comment {
+  id: string
+  content: string
+  author: {
+    id: string
+    name: string
+    avatar: string
+  }
+  date: string
+  likes: number
+  isLiked?: boolean
 }
 
 interface CommunityTag {
@@ -163,6 +178,10 @@ export default function AdminCommunityPage() {
   const [clients, setClients] = useState<{ id: string; name: string; email: string }[]>([])
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "most_likes" | "most_comments">("newest")
   const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false)
+  const [selectedPostComments, setSelectedPostComments] = useState<Comment[]>([])
+  const [showCommentsDialog, setShowCommentsDialog] = useState(false)
+  const [isLoadingComments, setIsLoadingComments] = useState(false)
+  const [selectedPostForComments, setSelectedPostForComments] = useState<Post | null>(null)
 
   // Fetch posts
   const fetchPosts = async (searchQuery = searchTerm) => {
@@ -206,6 +225,35 @@ export default function AdminCommunityPage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchComments = async (postId: string) => {
+    try {
+      setIsLoadingComments(true)
+
+      const response = await fetch(`/api/community/posts/${postId}/comments`)
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch comments")
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        setSelectedPostComments(data.comments || [])
+      } else {
+        throw new Error(data.error || "Failed to fetch comments")
+      }
+    } catch (error) {
+      console.error("Error fetching comments:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load comments. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingComments(false)
     }
   }
 
@@ -562,6 +610,68 @@ export default function AdminCommunityPage() {
       toast({
         title: "Error",
         description: "Failed to delete post. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleViewComments = async (post: Post) => {
+    setSelectedPostForComments(post)
+    setShowCommentsDialog(true)
+    await fetchComments(post.id)
+  }
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm("Are you sure you want to delete this comment?")) return
+
+    try {
+      const response = await fetch(`/api/community/comments/${commentId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete comment")
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Remove the deleted comment from the list
+        setSelectedPostComments((prevComments) => prevComments.filter((comment) => comment.id !== commentId))
+
+        // Update the reply count for the post
+        if (selectedPostForComments) {
+          setSelectedPostForComments({
+            ...selectedPostForComments,
+            replies: selectedPostForComments.replies - 1,
+          })
+
+          // Also update in the main posts list
+          setPosts((prevPosts) =>
+            prevPosts.map((post) => {
+              if (post.id === selectedPostForComments.id) {
+                return {
+                  ...post,
+                  replies: post.replies - 1,
+                }
+              }
+              return post
+            }),
+          )
+        }
+
+        toast({
+          title: "Success",
+          description: "Comment deleted successfully",
+        })
+      } else {
+        throw new Error(data.error || "Failed to delete comment")
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete comment. Please try again.",
         variant: "destructive",
       })
     }
@@ -1013,26 +1123,11 @@ export default function AdminCommunityPage() {
 
       {/* Add the filters section after the stats cards */}
       {/* Insert this after the stats cards section (around line 620) */}
-      <div className="flex flex-wrap gap-4 mb-6">
-        {/* Sort Order Filter */}
-        <div className="w-full md:w-auto">
-          <Select value={sortOrder} onValueChange={handleSortOrderChange}>
-            <SelectTrigger className="w-full md:w-[200px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">Newest First</SelectItem>
-              <SelectItem value="oldest">Oldest First</SelectItem>
-              <SelectItem value="most_likes">Most Likes</SelectItem>
-              <SelectItem value="most_comments">Most Comments</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Client Filter */}
-        <div className="w-full md:w-auto">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
+        {/* Client Filter - Left */}
+        <div className="md:col-span-3">
           <Select value={selectedClient} onValueChange={handleClientChange}>
-            <SelectTrigger className="w-full md:w-[250px]">
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Filter by client" />
             </SelectTrigger>
             <SelectContent>
@@ -1046,45 +1141,49 @@ export default function AdminCommunityPage() {
           </Select>
         </div>
 
-        {/* Background Refresh Indicator */}
-        {isBackgroundRefreshing && (
-          <div className="flex items-center text-sm text-muted-foreground">
-            <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
-            Refreshing data...
+        {/* Search - Middle (Full Width) */}
+        <div className="md:col-span-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search discussions..."
+              className="pl-9"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value)
+                // Clear any existing timeout
+                if (searchTimeout) {
+                  clearTimeout(searchTimeout)
+                }
+                // Set a new timeout
+                const timeout = setTimeout(() => {
+                  fetchPosts(e.target.value)
+                }, 500) // 500ms debounce
+                setSearchTimeout(timeout)
+              }}
+            />
           </div>
-        )}
+        </div>
+
+        {/* Sort Order Filter - Right */}
+        <div className="md:col-span-3">
+          <Select value={sortOrder} onValueChange={handleSortOrderChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest First</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+              <SelectItem value="most_likes">Most Likes</SelectItem>
+              <SelectItem value="most_comments">Most Comments</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Search */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Search</CardTitle>
-              <CardDescription>Search for posts by title or content</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center space-x-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input placeholder="Search..." value={searchTerm} onChange={handleSearchChange} className="pl-9" />
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    setSearchTerm("")
-                    fetchPosts("")
-                  }}
-                  title="Clear search"
-                >
-                  <XCircle className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Filters */}
           <Card>
             <CardHeader className="pb-3">
@@ -1120,38 +1219,6 @@ export default function AdminCommunityPage() {
                         {tag.name} ({tag.count})
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Client</label>
-                <Select value={selectedClient} onValueChange={handleClientChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all_clients">All Clients</SelectItem>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name} ({client.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Sort Order</label>
-                <Select value={sortOrder} onValueChange={handleSortOrderChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select sort order" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Newest</SelectItem>
-                    <SelectItem value="oldest">Oldest</SelectItem>
-                    <SelectItem value="most_likes">Most Likes</SelectItem>
-                    <SelectItem value="most_comments">Most Comments</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1297,6 +1364,9 @@ export default function AdminCommunityPage() {
                           <Button size="sm" variant="destructive" onClick={() => handleDeletePost(post.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
+                          <Button size="sm" variant="secondary" onClick={() => handleViewComments(post)}>
+                            View Comments
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -1326,6 +1396,71 @@ export default function AdminCommunityPage() {
           </Card>
         </div>
       </div>
+      {/* Comments Dialog */}
+      <Dialog open={showCommentsDialog} onOpenChange={setShowCommentsDialog}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          {selectedPostForComments && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Comments for "{selectedPostForComments.title}"</DialogTitle>
+              </DialogHeader>
+
+              <div className="mt-4">
+                {isLoadingComments ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : selectedPostComments.length > 0 ? (
+                  <div className="space-y-6">
+                    {selectedPostComments.map((comment) => (
+                      <div key={comment.id} className="flex gap-3 border-b pb-4">
+                        <Image
+                          src={comment.author.avatar || "/placeholder.svg?height=40&width=40"}
+                          alt={comment.author.name}
+                          width={40}
+                          height={40}
+                          className="rounded-full"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{comment.author.name}</p>
+                              <span className="text-xs text-gray-500">{formatDate(comment.date)}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-500 hover:text-red-700"
+                                onClick={() => handleDeleteComment(comment.id)}
+                                title="Delete comment"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="text-gray-700 mb-2">{comment.content}</p>
+                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                            <div className="flex items-center gap-1">
+                              <ThumbsUp className="h-4 w-4" />
+                              <span>{comment.likes} Likes</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p>No comments yet for this post.</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
