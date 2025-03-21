@@ -97,13 +97,6 @@ export function PricingProvider({ children }: { children: ReactNode }) {
         plans: data.plans?.map((p: PricingPlan) => `${p.name}: $${p.price}`).join(", "),
       })
 
-      // Log features for each plan to debug
-      if (data.plans && Array.isArray(data.plans)) {
-        data.plans.forEach((plan: PricingPlan) => {
-          console.log(`${plan.name} features (${plan.features?.length || 0}):`, plan.features?.join(", ") || "None")
-        })
-      }
-
       // Ensure we have a complete data structure
       const completeData: PricingData = {
         plans: data.plans || [],
@@ -116,9 +109,9 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       // Make sure all plans have the required properties
       completeData.plans = completeData.plans.map((plan) => ({
         ...plan,
-        isRecommended: plan.isRecommended === undefined ? false : plan.isRecommended,
+        isRecommended: Boolean(plan.isRecommended),
         includesPackage: plan.includesPackage || "",
-        hasAssistBadge: plan.hasAssistBadge === undefined ? false : plan.hasAssistBadge,
+        hasAssistBadge: Boolean(plan.hasAssistBadge),
       }))
 
       setPricingData(completeData)
@@ -153,9 +146,9 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       // Make sure all plans have the required properties
       dataToSend.plans = dataToSend.plans.map((plan: PricingPlan) => ({
         ...plan,
-        isRecommended: plan.isRecommended === undefined ? false : plan.isRecommended,
+        isRecommended: Boolean(plan.isRecommended),
         includesPackage: plan.includesPackage || "",
-        hasAssistBadge: plan.hasAssistBadge === undefined ? false : plan.hasAssistBadge,
+        hasAssistBadge: Boolean(plan.hasAssistBadge),
       }))
 
       const response = await fetch("/api/pricing", {

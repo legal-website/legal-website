@@ -48,6 +48,16 @@ export async function GET() {
         // Add version from database to the data
         pricingData._version = result[0].version || 1
 
+        // Ensure all boolean properties are properly typed
+        if (pricingData.plans && Array.isArray(pricingData.plans)) {
+          pricingData.plans = pricingData.plans.map((plan: any) => ({
+            ...plan,
+            isRecommended: Boolean(plan.isRecommended),
+            includesPackage: plan.includesPackage || "",
+            hasAssistBadge: Boolean(plan.hasAssistBadge),
+          }))
+        }
+
         console.log("Pricing data fetched successfully from database (version:", pricingData._version, ")")
         return NextResponse.json(pricingData, {
           headers: {
@@ -144,6 +154,16 @@ export async function POST(request: Request) {
 
     // Create a deep copy of the data to prevent reference issues
     const dataToSave = JSON.parse(JSON.stringify(data))
+
+    // Ensure all boolean properties are properly typed
+    if (dataToSave.plans && Array.isArray(dataToSave.plans)) {
+      dataToSave.plans = dataToSave.plans.map((plan: any) => ({
+        ...plan,
+        isRecommended: Boolean(plan.isRecommended),
+        includesPackage: plan.includesPackage || "",
+        hasAssistBadge: Boolean(plan.hasAssistBadge),
+      }))
+    }
 
     // Ensure the table exists
     let tableExists = true
