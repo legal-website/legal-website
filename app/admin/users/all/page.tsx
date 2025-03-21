@@ -26,6 +26,8 @@ import {
   FilterX,
   Shield,
   RefreshCw,
+  MessageSquare,
+  ThumbsUp,
 } from "lucide-react"
 import {
   Dialog,
@@ -603,6 +605,73 @@ export default function AllUsersPage() {
       } catch (activityError) {
         console.error("Error fetching user activity:", activityError)
         // Continue with empty activity array
+      }
+
+      // Fetch community activities for this user
+      let communityActivities = []
+      try {
+        // Fetch posts by this user
+        const postsResponse = await fetch(`/api/community/posts?authorId=${userId}`)
+        if (postsResponse.ok) {
+          const postsData = await postsResponse.json()
+          if (postsData.success && postsData.posts) {
+            communityActivities = postsData.posts.map((post: any) => ({
+              type: "post",
+              action: `Created post "${post.title}"`,
+              date: new Date(post.createdAt).toLocaleString(),
+              details: `Post ID: ${post.id}`,
+              iconType: "post",
+            }))
+          }
+        }
+
+        // Fetch comments by this user
+        const commentsResponse = await fetch(`/api/community/comments?authorId=${userId}`)
+        if (commentsResponse.ok) {
+          const commentsData = await commentsResponse.json()
+          if (commentsData.success && commentsData.comments) {
+            const commentActivities = commentsData.comments.map((comment: any) => ({
+              type: "comment",
+              action: `Commented on a post`,
+              date: new Date(comment.createdAt).toLocaleString(),
+              details: comment.content.length > 50 ? `${comment.content.substring(0, 50)}...` : comment.content,
+              iconType: "comment",
+            }))
+            communityActivities = [...communityActivities, ...commentActivities]
+          }
+        }
+
+        // Fetch likes by this user
+        const likesResponse = await fetch(`/api/community/likes?authorId=${userId}`)
+        if (likesResponse.ok) {
+          const likesData = await likesResponse.json()
+          if (likesData.success && likesData.likes) {
+            const likeActivities = likesData.likes.map((like: any) => ({
+              type: "like",
+              action: like.postId ? "Liked a post" : "Liked a comment",
+              date: new Date(like.createdAt).toLocaleString(),
+              details: `${like.postId ? "Post" : "Comment"} ID: ${like.postId || like.commentId}`,
+              iconType: "like",
+            }))
+            communityActivities = [...communityActivities, ...likeActivities]
+          }
+        }
+
+        // Sort all community activities by date (newest first)
+        communityActivities.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+        // Combine with existing activities
+        userActivity = [...userActivity, ...communityActivities]
+
+        // Sort all activities by date (newest first)
+        userActivity.sort((a: any, b: any) => {
+          const dateA = typeof a.date === "string" ? new Date(a.date) : a.date
+          const dateB = typeof b.date === "string" ? new Date(b.date) : b.date
+          return dateB.getTime() - dateA.getTime()
+        })
+      } catch (communityError) {
+        console.error("Error fetching community activities:", communityError)
+        // Continue with existing activities
       }
 
       // Get online status
@@ -1978,10 +2047,18 @@ export default function AllUsersPage() {
                   <div className="p-4">
                     {selectedUser.activity && selectedUser.activity.length > 0 ? (
                       <div className="space-y-3">
-                        {selectedUser.activity.map((activity, index) => (
+                        {selectedUser.activity.slice(0, 4).map((activity, index) => (
                           <div key={index} className="flex items-start">
                             <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
-                              <Clock className="h-4 w-4 text-gray-500" />
+                              {activity.iconType === "post" ? (
+                                <FileText className="h-4 w-4 text-blue-500" />
+                              ) : activity.iconType === "comment" ? (
+                                <MessageSquare className="h-4 w-4 text-green-500" />
+                              ) : activity.iconType === "like" ? (
+                                <ThumbsUp className="h-4 w-4 text-red-500" />
+                              ) : (
+                                <Clock className="h-4 w-4 text-gray-500" />
+                              )}
                             </div>
                             <div>
                               <p className="text-sm font-medium">{activity.action}</p>
