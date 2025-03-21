@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Label } from "@/components/ui/label"
 import Image from "next/image"
 import { Card } from "@/components/ui/card"
@@ -28,6 +28,9 @@ import {
   Loader2,
   RefreshCw,
   AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Heart,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useToast } from "@/components/ui/use-toast"
@@ -43,6 +46,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface Author {
   id: string
@@ -79,6 +83,19 @@ interface TagWithCount {
   count: number
 }
 
+interface Activity {
+  id: string
+  type: string
+  user: {
+    id: string
+    name: string
+    avatar: string
+  }
+  content: string
+  target?: string
+  date: string
+}
+
 export default function CommunityPage() {
   const { data: session, status: sessionStatus } = useSession()
   const { toast } = useToast()
@@ -106,6 +123,12 @@ export default function CommunityPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [myPosts, setMyPosts] = useState<Post[]>([])
+  const [isMyPostsOpen, setIsMyPostsOpen] = useState(false)
+  const [recentActivities, setRecentActivities] = useState<Activity[]>([])
+  const [isLoadingActivities, setIsLoadingActivities] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
+  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Debug log fetch results
   useEffect(() => {
@@ -121,6 +144,28 @@ export default function CommunityPage() {
 
     logFetchResults()
   }, [])
+
+  // Set up background refresh
+  useEffect(() => {
+    // Refresh data every 2 minutes
+    refreshTimerRef.current = setInterval(
+      () => {
+        refreshAllData(false)
+      },
+      2 * 60 * 1000,
+    )
+
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current)
+      }
+    }
+  }, [])
+
+  // Function to refresh all data
+  const refreshAllData = async (showToast = true) => {
+    window.location.reload()
+  }
 
   // Update the fetchPosts function to only fetch published posts
   const fetchPosts = useCallback(async () => {
@@ -211,6 +256,30 @@ export default function CommunityPage() {
     }
   }, [sessionStatus])
 
+  // Fetch recent activities
+  const fetchRecentActivities = useCallback(async () => {
+    try {
+      setIsLoadingActivities(true)
+      const response = await fetch("/api/community/dashboard-activities")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch recent activities")
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        setRecentActivities(data.activities || [])
+      } else {
+        throw new Error(data.error || "Failed to fetch recent activities")
+      }
+    } catch (error) {
+      console.error("Error fetching recent activities:", error)
+    } finally {
+      setIsLoadingActivities(false)
+    }
+  }, [])
+
   // Fetch tags
   const fetchTags = useCallback(async () => {
     try {
@@ -267,7 +336,8 @@ export default function CommunityPage() {
   useEffect(() => {
     fetchPosts()
     fetchTags()
-  }, [fetchPosts, fetchTags])
+    fetchRecentActivities()
+  }, [fetchPosts, fetchTags, fetchRecentActivities])
 
   // Call this function when the component mounts and when relevant state changes
   useEffect(() => {
@@ -325,6 +395,9 @@ export default function CommunityPage() {
           return prev
         })
       }
+
+      // Refresh activities after liking
+      setTimeout(() => fetchRecentActivities(), 500)
     } catch (error) {
       console.error("Error liking post:", error)
       toast({
@@ -370,6 +443,9 @@ export default function CommunityPage() {
           return comment
         }),
       )
+
+      // Refresh activities after liking a comment
+      setTimeout(() => fetchRecentActivities(), 500)
     } catch (error) {
       console.error("Error liking comment:", error)
       toast({
@@ -435,9 +511,13 @@ export default function CommunityPage() {
         setNewPostTags("")
         setShowNewPostDialog(false)
 
-        // Refresh posts
+        // Refresh posts and activities
         fetchPosts()
         fetchTags()
+        fetchRecentActivities()
+        if (sessionStatus === "authenticated") {
+          fetchMyPosts()
+        }
       } else {
         throw new Error(data.error || "Failed to create post")
       }
@@ -521,6 +601,9 @@ export default function CommunityPage() {
           title: "Success",
           description: "Your comment has been posted.",
         })
+
+        // Refresh activities after commenting
+        setTimeout(() => fetchRecentActivities(), 500)
       } else {
         throw new Error(data.error || "Failed to submit comment")
       }
@@ -634,9 +717,28 @@ export default function CommunityPage() {
     fetchPosts()
   }
 
+  // Get activity icon based on type
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case "post":
+        return <MessageCircle className="h-4 w-4 text-blue-500" />
+      case "comment":
+        return <MessageSquare className="h-4 w-4 text-green-500" />
+      case "like":
+        return <Heart className="h-4 w-4 text-red-500" />
+      default:
+        return <Clock className="h-4 w-4 text-gray-500" />
+    }
+  }
+
   return (
     <div className="p-8 mb-40">
-      <h1 className="text-3xl font-bold mb-6">Community</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">Community</h1>
+        <Button variant="ghost" size="icon" onClick={() => window.location.reload()} title="Refresh page">
+          <RefreshCw className="h-5 w-5" />
+        </Button>
+      </div>
 
       <div className="grid md:grid-cols-3 gap-8">
         <div className="md:col-span-2">
@@ -939,28 +1041,30 @@ export default function CommunityPage() {
               <h3 className="text-lg font-semibold">Recent Activity</h3>
             </div>
             <div className="p-6">
-              {isLoading ? (
+              {isLoadingActivities ? (
                 <div className="flex justify-center py-4">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
-              ) : (
+              ) : recentActivities.length > 0 ? (
                 <div className="space-y-4">
-                  {posts.slice(0, 3).map((post) => (
-                    <div key={post.id} className="flex items-start gap-3">
-                      <div className="p-2 bg-gray-100 rounded-full">
-                        <Clock className="h-4 w-4 text-gray-600" />
-                      </div>
+                  {recentActivities.map((activity) => (
+                    <div key={activity.id} className="flex items-start gap-3">
+                      <div className="p-2 bg-gray-100 rounded-full">{getActivityIcon(activity.type)}</div>
                       <div>
                         <p className="text-sm">
-                          <span className="font-medium">{post.author.name}</span> posted{" "}
-                          <span className="text-primary cursor-pointer" onClick={() => handleViewPost(post)}>
-                            {post.title}
-                          </span>
+                          <span className="font-medium">{activity.user.name}</span> {activity.content}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">{formatDate(post.date)}</p>
+                        <p className="text-xs text-gray-500 mt-1">{formatDate(activity.date)}</p>
                       </div>
                     </div>
                   ))}
+                  <div className="text-xs text-gray-500 text-center pt-2">
+                    Last refreshed {formatDate(lastRefreshed.toISOString())}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-gray-500">No recent activity</p>
                 </div>
               )}
             </div>
@@ -969,92 +1073,104 @@ export default function CommunityPage() {
       </div>
 
       {sessionStatus === "authenticated" && (
-        <Card className="mt-6">
-          <div className="p-6 border-b">
-            <h2 className="text-xl font-semibold">My Posts</h2>
-          </div>
-          <div className="divide-y">
-            {myPosts.length > 0 ? (
-              myPosts.map((post: Post) => (
-                <div key={post.id} className="p-6">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start">
-                        <h3
-                          className="font-medium text-lg mb-1 cursor-pointer hover:text-primary"
-                          onClick={() => handleViewPost(post)}
-                        >
-                          {post.title}
-                        </h3>
-                        <Badge
-                          variant={
-                            post.status === "published"
-                              ? "default"
-                              : post.status === "pending"
-                                ? "outline"
-                                : "secondary"
-                          }
-                          className={
-                            post.status === "pending"
-                              ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-                              : post.status === "draft"
-                                ? "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                                : ""
-                          }
-                        >
-                          {formatStatus(post.status)}
-                        </Badge>
-                      </div>
-                      <p className="text-gray-600 mb-3">{post.content}</p>
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {post.tags.map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant="outline"
-                            className="cursor-pointer hover:bg-secondary"
-                            onClick={() => {
-                              setSelectedTag(tag)
-                              setCurrentPage(1)
-                              setTimeout(() => fetchPosts(), 0)
-                            }}
-                          >
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <button
-                            className={`flex items-center gap-1 text-sm ${post.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
-                            onClick={() => handleLikePost(post.id)}
-                          >
-                            <ThumbsUp className="h-4 w-4" />
-                            <span>{post.likes}</span>
-                          </button>
-                          <button
-                            className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
-                            onClick={() => handleViewPost(post)}
-                          >
-                            <MessageSquare className="h-4 w-4" />
-                            <span>{post.replies}</span>
-                          </button>
+        <Collapsible open={isMyPostsOpen} onOpenChange={setIsMyPostsOpen} className="mt-6">
+          <Card>
+            <CollapsibleTrigger asChild>
+              <div className="p-6 border-b cursor-pointer hover:bg-gray-50 transition-colors flex justify-between items-center">
+                <h2 className="text-xl font-semibold">My Posts</h2>
+                {isMyPostsOpen ? (
+                  <ChevronUp className="h-5 w-5 text-gray-500" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-500" />
+                )}
+              </div>
+            </CollapsibleTrigger>
+
+            <CollapsibleContent>
+              <div className="divide-y">
+                {myPosts.length > 0 ? (
+                  myPosts.map((post: Post) => (
+                    <div key={post.id} className="p-6">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <h3
+                              className="font-medium text-lg mb-1 cursor-pointer hover:text-primary"
+                              onClick={() => handleViewPost(post)}
+                            >
+                              {post.title}
+                            </h3>
+                            <Badge
+                              variant={
+                                post.status === "published"
+                                  ? "default"
+                                  : post.status === "pending"
+                                    ? "outline"
+                                    : "secondary"
+                              }
+                              className={
+                                post.status === "pending"
+                                  ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                                  : post.status === "draft"
+                                    ? "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                                    : ""
+                              }
+                            >
+                              {formatStatus(post.status)}
+                            </Badge>
+                          </div>
+                          <p className="text-gray-600 mb-3">{post.content}</p>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {post.tags.map((tag) => (
+                              <Badge
+                                key={tag}
+                                variant="outline"
+                                className="cursor-pointer hover:bg-secondary"
+                                onClick={() => {
+                                  setSelectedTag(tag)
+                                  setCurrentPage(1)
+                                  setTimeout(() => fetchPosts(), 0)
+                                }}
+                              >
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <button
+                                className={`flex items-center gap-1 text-sm ${post.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
+                                onClick={() => handleLikePost(post.id)}
+                              >
+                                <ThumbsUp className="h-4 w-4" />
+                                <span>{post.likes}</span>
+                              </button>
+                              <button
+                                className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
+                                onClick={() => handleViewPost(post)}
+                              >
+                                <MessageSquare className="h-4 w-4" />
+                                <span>{post.replies}</span>
+                              </button>
+                            </div>
+                            <div className="text-sm text-gray-500">{formatDate(post.date)}</div>
+                          </div>
                         </div>
-                        <div className="text-sm text-gray-500">{formatDate(post.date)}</div>
                       </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="p-6 text-center">
+                    <p className="text-gray-500">You haven't created any posts yet.</p>
+                    <Button variant="outline" className="mt-2" onClick={() => setShowNewPostDialog(true)}>
+                      Create Your First Post
+                    </Button>
                   </div>
-                </div>
-              ))
-            ) : (
-              <div className="p-6 text-center">
-                <p className="text-gray-500">You haven't created any posts yet.</p>
-                <Button variant="outline" className="mt-2" onClick={() => setShowNewPostDialog(true)}>
-                  Create Your First Post
-                </Button>
+                )}
               </div>
-            )}
-          </div>
-        </Card>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
       )}
 
       {/* New Post Dialog */}
