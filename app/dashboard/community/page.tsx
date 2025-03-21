@@ -164,7 +164,35 @@ export default function CommunityPage() {
 
   // Function to refresh all data
   const refreshAllData = async (showToast = true) => {
-    window.location.reload()
+    setIsRefreshing(true)
+    try {
+      await Promise.all([
+        fetchPosts(),
+        fetchTags(),
+        fetchRecentActivities(),
+        sessionStatus === "authenticated" ? fetchMyPosts() : Promise.resolve(),
+      ])
+
+      setLastRefreshed(new Date())
+
+      if (showToast) {
+        toast({
+          title: "Refreshed",
+          description: "Content has been refreshed successfully.",
+        })
+      }
+    } catch (error) {
+      console.error("Error refreshing data:", error)
+      if (showToast) {
+        toast({
+          title: "Error",
+          description: "Failed to refresh content. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } finally {
+      setIsRefreshing(false)
+    }
   }
 
   // Update the fetchPosts function to only fetch published posts
@@ -733,12 +761,7 @@ export default function CommunityPage() {
 
   return (
     <div className="p-8 mb-40">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Community</h1>
-        <Button variant="ghost" size="icon" onClick={() => window.location.reload()} title="Refresh page">
-          <RefreshCw className="h-5 w-5" />
-        </Button>
-      </div>
+      <h1 className="text-3xl font-bold mb-6">Community</h1>
 
       <div className="grid md:grid-cols-3 gap-8">
         <div className="md:col-span-2">
@@ -971,8 +994,17 @@ export default function CommunityPage() {
 
         <div>
           <Card className="mb-6">
-            <div className="p-6 border-b">
+            <div className="p-6 border-b flex justify-between items-center">
               <h3 className="text-lg font-semibold">Community Guidelines</h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => refreshAllData(true)}
+                disabled={isRefreshing}
+                title="Refresh data"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+              </Button>
             </div>
             <div className="p-6">
               <ul className="space-y-3 text-sm">
