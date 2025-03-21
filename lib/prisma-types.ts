@@ -336,6 +336,21 @@ export interface UserDelegate {
   count: (args?: any) => Promise<number>
 }
 
+// Add this interface to your existing interfaces
+export interface SystemSettingsModel {
+  id: number
+  key: string
+  value: string
+}
+
+export interface SystemSettingsDelegate {
+  findFirst: (args: { where: any }) => Promise<SystemSettingsModel | null>
+  findUnique: (args: { where: any }) => Promise<SystemSettingsModel | null>
+  create: (args: { data: any }) => Promise<SystemSettingsModel>
+  update: (args: { where: any; data: any }) => Promise<SystemSettingsModel>
+  upsert: (args: { where: any; update: any; create: any }) => Promise<SystemSettingsModel>
+}
+
 // Then update your ExtendedPrismaClient type to include the user property
 export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   amendment: AmendmentDelegate
@@ -354,6 +369,8 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   like: LikeDelegate
   tag: TagDelegate
   postTag: PostTagDelegate
+  // Add system settings model
+  systemSettings: SystemSettingsDelegate
   // Include raw query methods with proper typing
   $queryRaw: any // Using 'any' to avoid TypeScript errors
   $executeRaw: any // Using 'any' to avoid TypeScript errors

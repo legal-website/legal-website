@@ -1,46 +1,47 @@
 import { NextResponse } from "next/server"
 import type { PricingData } from "@/context/pricing-context"
-import { writeFile, readFile, mkdir } from "fs/promises"
-import path from "path"
-
-// Define the path for storing pricing data
-const DATA_DIR = path.join(process.cwd(), "data")
-const PRICING_FILE = path.join(DATA_DIR, "pricing.json")
+import { db } from "@/lib/db"
 
 // GET handler to retrieve pricing data
 export async function GET() {
   try {
     console.log("Fetching pricing data...")
 
-    // Try to read the pricing data from the file
+    // Try to get pricing data from the database using SystemSettings model
     try {
-      await mkdir(DATA_DIR, { recursive: true }) // Ensure the data directory exists
-      const fileData = await readFile(PRICING_FILE, "utf-8")
-      const pricingData = JSON.parse(fileData)
-      console.log("Pricing data fetched successfully from file")
-      return NextResponse.json(pricingData)
-    } catch (fileError) {
-      // If file doesn't exist or can't be read, return default data
-      if (fileError instanceof Error && "code" in fileError && fileError.code === "ENOENT") {
-        console.log("No pricing data file found, returning default data")
-        const defaultData = getDefaultPricingData()
+      const pricingSettings = await db.systemSettings.findFirst({
+        where: { key: "pricing_data" },
+      })
 
-        // Save default data to file for future use
-        try {
-          await writeFile(PRICING_FILE, JSON.stringify(defaultData, null, 2), "utf-8")
-          console.log("Default pricing data saved to file")
-        } catch (saveError) {
-          console.error("Error saving default pricing data to file:", saveError)
-          // Continue even if saving fails
-        }
-
-        return NextResponse.json(defaultData)
+      if (pricingSettings) {
+        console.log("Pricing data fetched successfully from database")
+        return NextResponse.json(JSON.parse(pricingSettings.value))
       }
-
-      // For other file errors, log and throw
-      console.error("Error reading pricing data file:", fileError)
-      throw fileError
+    } catch (dbError) {
+      console.error("Error fetching from database:", dbError)
+      // If database operation fails, return default data
+      const defaultData = getDefaultPricingData()
+      return NextResponse.json(defaultData)
     }
+
+    // If no pricing data found in database, create it with default data
+    console.log("No pricing data found in database, creating default data")
+    const defaultData = getDefaultPricingData()
+
+    try {
+      await db.systemSettings.create({
+        data: {
+          key: "pricing_data",
+          value: JSON.stringify(defaultData),
+        },
+      })
+      console.log("Default pricing data saved to database")
+    } catch (createError) {
+      console.error("Error creating pricing data in database:", createError)
+      // Continue even if saving fails
+    }
+
+    return NextResponse.json(defaultData)
   } catch (error) {
     console.error("Error retrieving pricing data:", error)
     return NextResponse.json(
@@ -85,19 +86,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid data format: stateFilingFees object is required" }, { status: 400 })
     }
 
-    // Save the pricing data to the file
-    console.log("Saving pricing data to file...")
+    // Save the pricing data to the database
+    console.log("Saving pricing data to database...")
     try {
-      await mkdir(DATA_DIR, { recursive: true }) // Ensure the data directory exists
-      await writeFile(PRICING_FILE, JSON.stringify(data, null, 2), "utf-8")
-      console.log("Pricing data updated successfully in file")
+      // Check if pricing data already exists
+      const existingSettings = await db.systemSettings.findFirst({
+        where: { key: "pricing_data" },
+      })
+
+      if (existingSettings) {
+        // Update existing pricing data
+        await db.systemSettings.update({
+          where: { id: existingSettings.id },
+          data: { value: JSON.stringify(data) },
+        })
+      } else {
+        // Create new pricing data
+        await db.systemSettings.create({
+          data: {
+            key: "pricing_data",
+            value: JSON.stringify(data),
+          },
+        })
+      }
+
+      console.log("Pricing data updated successfully in database")
       return NextResponse.json({ success: true })
-    } catch (fileError) {
-      console.error("File error when saving pricing data:", fileError)
+    } catch (dbError) {
+      console.error("Database error when saving pricing data:", dbError)
       return NextResponse.json(
         {
-          error: "File error when saving pricing data",
-          details: fileError instanceof Error ? fileError.message : String(fileError),
+          error: "Database error when saving pricing data",
+          details: dbError instanceof Error ? dbError.message : String(dbError),
         },
         { status: 500 },
       )
