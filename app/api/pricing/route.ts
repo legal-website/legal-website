@@ -7,34 +7,65 @@ export async function GET() {
   try {
     console.log("Fetching pricing data...")
 
-    // Try to get pricing data from the database using SystemSettings model
+    // First, ensure the table exists
+    let tableExists = true
     try {
-      const pricingSettings = await db.systemSettings.findFirst({
-        where: { key: "pricing_data" },
-      })
+      await db.$queryRawUnsafe(`SELECT * FROM PricingSettings LIMIT 1`)
+    } catch (error) {
+      tableExists = false
+    }
 
-      if (pricingSettings) {
+    // If table doesn't exist, create it
+    if (!tableExists) {
+      try {
+        await db.$executeRawUnsafe(`
+          CREATE TABLE \`PricingSettings\` (
+            \`id\` INT NOT NULL AUTO_INCREMENT,
+            \`key\` VARCHAR(255) NOT NULL,
+            \`value\` LONGTEXT NOT NULL,
+            \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+            \`updatedAt\` DATETIME(3) NOT NULL,
+            PRIMARY KEY (\`id\`),
+            UNIQUE INDEX \`PricingSettings_key_key\` (\`key\`)
+          );
+        `)
+        console.log("PricingSettings table created successfully")
+      } catch (createError) {
+        console.error("Error creating PricingSettings table:", createError)
+        // Continue with default data even if table creation fails
+      }
+    }
+
+    // Try to get pricing data from the database using raw query
+    try {
+      const result = await db.$queryRawUnsafe(`
+        SELECT value FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+      `)
+
+      if (result && Array.isArray(result) && result.length > 0) {
+        const pricingData = JSON.parse(result[0].value)
         console.log("Pricing data fetched successfully from database")
-        return NextResponse.json(JSON.parse(pricingSettings.value))
+        return NextResponse.json(pricingData)
       }
     } catch (dbError) {
       console.error("Error fetching from database:", dbError)
-      // If database operation fails, return default data
-      const defaultData = getDefaultPricingData()
-      return NextResponse.json(defaultData)
+      // Continue to create default data if database fails
     }
 
-    // If no pricing data found in database, create it with default data
+    // If no pricing data found or error occurred, create it with default data
     console.log("No pricing data found in database, creating default data")
     const defaultData = getDefaultPricingData()
 
     try {
-      await db.systemSettings.create({
-        data: {
-          key: "pricing_data",
-          value: JSON.stringify(defaultData),
-        },
-      })
+      const now = new Date().toISOString().slice(0, 19).replace("T", " ")
+      await db.$executeRawUnsafe(
+        `
+        INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`)
+        VALUES ('pricing_data', ?, '${now}', '${now}')
+      `,
+        JSON.stringify(defaultData),
+      )
+
       console.log("Default pricing data saved to database")
     } catch (createError) {
       console.error("Error creating pricing data in database:", createError)
@@ -86,28 +117,70 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid data format: stateFilingFees object is required" }, { status: 400 })
     }
 
+    // Ensure the table exists
+    let tableExists = true
+    try {
+      await db.$queryRawUnsafe(`SELECT * FROM PricingSettings LIMIT 1`)
+    } catch (error) {
+      tableExists = false
+    }
+
+    // If table doesn't exist, create it
+    if (!tableExists) {
+      try {
+        await db.$executeRawUnsafe(`
+          CREATE TABLE \`PricingSettings\` (
+            \`id\` INT NOT NULL AUTO_INCREMENT,
+            \`key\` VARCHAR(255) NOT NULL,
+            \`value\` LONGTEXT NOT NULL,
+            \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+            \`updatedAt\` DATETIME(3) NOT NULL,
+            PRIMARY KEY (\`id\`),
+            UNIQUE INDEX \`PricingSettings_key_key\` (\`key\`)
+          );
+        `)
+        console.log("PricingSettings table created successfully")
+      } catch (createError) {
+        console.error("Error creating PricingSettings table:", createError)
+        return NextResponse.json(
+          {
+            error: "Failed to create PricingSettings table",
+            details: createError instanceof Error ? createError.message : String(createError),
+          },
+          { status: 500 },
+        )
+      }
+    }
+
     // Save the pricing data to the database
     console.log("Saving pricing data to database...")
     try {
       // Check if pricing data already exists
-      const existingSettings = await db.systemSettings.findFirst({
-        where: { key: "pricing_data" },
-      })
+      const result = await db.$queryRawUnsafe(`
+        SELECT id FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+      `)
 
-      if (existingSettings) {
+      const now = new Date().toISOString().slice(0, 19).replace("T", " ")
+
+      if (result && Array.isArray(result) && result.length > 0) {
         // Update existing pricing data
-        await db.systemSettings.update({
-          where: { id: existingSettings.id },
-          data: { value: JSON.stringify(data) },
-        })
+        await db.$executeRawUnsafe(
+          `
+          UPDATE PricingSettings 
+          SET \`value\` = ?, \`updatedAt\` = '${now}'
+          WHERE \`key\` = 'pricing_data'
+        `,
+          JSON.stringify(data),
+        )
       } else {
         // Create new pricing data
-        await db.systemSettings.create({
-          data: {
-            key: "pricing_data",
-            value: JSON.stringify(data),
-          },
-        })
+        await db.$executeRawUnsafe(
+          `
+          INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`)
+          VALUES ('pricing_data', ?, '${now}', '${now}')
+        `,
+          JSON.stringify(data),
+        )
       }
 
       console.log("Pricing data updated successfully in database")

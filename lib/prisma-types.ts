@@ -351,6 +351,23 @@ export interface SystemSettingsDelegate {
   upsert: (args: { where: any; update: any; create: any }) => Promise<SystemSettingsModel>
 }
 
+// Add PricingSettings model and delegate
+export interface PricingSettingsModel {
+  id: number
+  key: string
+  value: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface PricingSettingsDelegate {
+  findFirst: (args: { where: any }) => Promise<PricingSettingsModel | null>
+  findUnique: (args: { where: any }) => Promise<PricingSettingsModel | null>
+  create: (args: { data: any }) => Promise<PricingSettingsModel>
+  update: (args: { where: any; data: any }) => Promise<PricingSettingsModel>
+  upsert: (args: { where: any; update: any; create: any }) => Promise<PricingSettingsModel>
+}
+
 // Then update your ExtendedPrismaClient type to include the user property
 export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   amendment: AmendmentDelegate
@@ -371,6 +388,8 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   postTag: PostTagDelegate
   // Add system settings model
   systemSettings: SystemSettingsDelegate
+  // Add pricing settings model
+  pricingSettings: PricingSettingsDelegate
   // Include raw query methods with proper typing
   $queryRaw: any // Using 'any' to avoid TypeScript errors
   $executeRaw: any // Using 'any' to avoid TypeScript errors

@@ -375,3 +375,10 @@ model AmendmentStatusHistory {
 
   @@index([amendmentId], map: "AmendmentStatusHistory_amendmentId_fkey")
 }
+model PricingSettings {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String   @db.LongText
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
