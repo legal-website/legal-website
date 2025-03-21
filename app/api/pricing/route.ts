@@ -39,24 +39,52 @@ export async function GET() {
 
     // Try to get pricing data from the database using raw query
     try {
-      const result = await db.$queryRawUnsafe(`
-        SELECT value, version FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
-      `)
+      // First check if version column exists
+      let hasVersionColumn = false
+      try {
+        const columnCheck = await db.$queryRawUnsafe(`
+          SELECT COLUMN_NAME 
+          FROM INFORMATION_SCHEMA.COLUMNS 
+          WHERE TABLE_NAME = 'PricingSettings' 
+          AND COLUMN_NAME = 'version'
+        `)
+        hasVersionColumn = Array.isArray(columnCheck) && columnCheck.length > 0
+      } catch (columnError) {
+        console.error("Error checking for version column:", columnError)
+        // Continue anyway, we'll handle missing column
+      }
+
+      // If version column doesn't exist, try to add it
+      if (!hasVersionColumn) {
+        try {
+          await db.$executeRawUnsafe(`
+            ALTER TABLE PricingSettings 
+            ADD COLUMN version INT DEFAULT 1
+          `)
+          console.log("Added version column to PricingSettings table")
+          hasVersionColumn = true
+        } catch (alterError) {
+          console.error("Error adding version column:", alterError)
+          // Continue anyway, we'll handle missing column
+        }
+      }
+
+      // Adjust query based on whether version column exists
+      let result
+      if (hasVersionColumn) {
+        result = await db.$queryRawUnsafe(`
+          SELECT value, version FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+        `)
+      } else {
+        result = await db.$queryRawUnsafe(`
+          SELECT value FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+        `)
+      }
 
       if (result && Array.isArray(result) && result.length > 0) {
         const pricingData = JSON.parse(result[0].value)
-        // Add version from database to the data
-        pricingData._version = result[0].version || 1
-
-        // Ensure all boolean properties are properly typed
-        if (pricingData.plans && Array.isArray(pricingData.plans)) {
-          pricingData.plans = pricingData.plans.map((plan: any) => ({
-            ...plan,
-            isRecommended: Boolean(plan.isRecommended),
-            includesPackage: plan.includesPackage || "",
-            hasAssistBadge: Boolean(plan.hasAssistBadge),
-          }))
-        }
+        // Add version from database to the data if it exists
+        pricingData._version = hasVersionColumn ? result[0].version || 1 : 1
 
         console.log("Pricing data fetched successfully from database (version:", pricingData._version, ")")
         return NextResponse.json(pricingData, {
@@ -155,16 +183,6 @@ export async function POST(request: Request) {
     // Create a deep copy of the data to prevent reference issues
     const dataToSave = JSON.parse(JSON.stringify(data))
 
-    // Ensure all boolean properties are properly typed
-    if (dataToSave.plans && Array.isArray(dataToSave.plans)) {
-      dataToSave.plans = dataToSave.plans.map((plan: any) => ({
-        ...plan,
-        isRecommended: Boolean(plan.isRecommended),
-        includesPackage: plan.includesPackage || "",
-        hasAssistBadge: Boolean(plan.hasAssistBadge),
-      }))
-    }
-
     // Ensure the table exists
     let tableExists = true
     try {
@@ -205,16 +223,55 @@ export async function POST(request: Request) {
     console.log("Saving pricing data to database...")
     try {
       // Check if pricing data already exists and get current version
-      const result = await db.$queryRawUnsafe(`
-        SELECT id, version FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
-      `)
+      let currentVersion = 1
+      let hasVersionColumn = false
+
+      try {
+        // Check if version column exists
+        const columnCheck = await db.$queryRawUnsafe(`
+          SELECT COLUMN_NAME 
+          FROM INFORMATION_SCHEMA.COLUMNS 
+          WHERE TABLE_NAME = 'PricingSettings' 
+          AND COLUMN_NAME = 'version'
+        `)
+        hasVersionColumn = Array.isArray(columnCheck) && columnCheck.length > 0
+      } catch (columnError) {
+        console.error("Error checking for version column:", columnError)
+        // Continue anyway, we'll handle missing column
+      }
+
+      // If version column doesn't exist, try to add it
+      if (!hasVersionColumn) {
+        try {
+          await db.$executeRawUnsafe(`
+            ALTER TABLE PricingSettings 
+            ADD COLUMN version INT DEFAULT 1
+          `)
+          console.log("Added version column to PricingSettings table")
+          hasVersionColumn = true
+        } catch (alterError) {
+          console.error("Error adding version column:", alterError)
+          // Continue anyway, we'll handle missing column
+        }
+      }
+
+      // Get existing record
+      let result
+      if (hasVersionColumn) {
+        result = await db.$queryRawUnsafe(`
+          SELECT id, version FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+        `)
+      } else {
+        result = await db.$queryRawUnsafe(`
+          SELECT id FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+        `)
+      }
 
       const now = new Date().toISOString().slice(0, 19).replace("T", " ")
 
       // Get the current version from the database or client
-      let currentVersion = 1
       if (result && Array.isArray(result) && result.length > 0) {
-        currentVersion = result[0].version || 1
+        currentVersion = hasVersionColumn && result[0].version ? result[0].version : 1
       }
 
       // Check if client sent a version and it matches
@@ -248,21 +305,39 @@ export async function POST(request: Request) {
 
       if (result && Array.isArray(result) && result.length > 0) {
         // Update existing pricing data with new version
-        await db.$executeRawUnsafe(
-          `
-          UPDATE PricingSettings 
-          SET \`value\` = ?, \`updatedAt\` = '${now}', \`version\` = ?
-          WHERE \`key\` = 'pricing_data'
-        `,
-          jsonData,
-          newVersion,
-        )
+        if (hasVersionColumn) {
+          await db.$executeRawUnsafe(
+            `
+            UPDATE PricingSettings 
+            SET \`value\` = ?, \`updatedAt\` = '${now}', \`version\` = ?
+            WHERE \`key\` = 'pricing_data'
+          `,
+            jsonData,
+            newVersion,
+          )
+        } else {
+          await db.$executeRawUnsafe(
+            `
+            UPDATE PricingSettings 
+            SET \`value\` = ?, \`updatedAt\` = '${now}'
+            WHERE \`key\` = 'pricing_data'
+          `,
+            jsonData,
+          )
+        }
         console.log("Updated existing pricing data with ID:", result[0].id, "to version", newVersion)
 
         // Verify the update
-        const verifyResult = await db.$queryRawUnsafe(`
-          SELECT value, version FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
-        `)
+        let verifyResult
+        if (hasVersionColumn) {
+          verifyResult = await db.$queryRawUnsafe(`
+            SELECT value, version FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+          `)
+        } else {
+          verifyResult = await db.$queryRawUnsafe(`
+            SELECT value FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+          `)
+        }
 
         if (verifyResult && Array.isArray(verifyResult) && verifyResult.length > 0) {
           const savedData = JSON.parse(verifyResult[0].value)
@@ -271,18 +346,30 @@ export async function POST(request: Request) {
             savedData.plans.map((plan: PricingPlan) => `${plan.name}: $${plan.price}`).join(", "),
           )
           console.log("Verified saved data - State count:", Object.keys(savedData.stateFilingFees).length)
-          console.log("Verified saved data - Version:", verifyResult[0].version)
+          if (hasVersionColumn) {
+            console.log("Verified saved data - Version:", verifyResult[0].version)
+          }
         }
       } else {
         // Create new pricing data with version 1
-        await db.$executeRawUnsafe(
-          `
-          INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`, \`version\`)
-          VALUES ('pricing_data', ?, '${now}', '${now}', ?)
-        `,
-          jsonData,
-          newVersion,
-        )
+        if (hasVersionColumn) {
+          await db.$executeRawUnsafe(
+            `
+            INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`, \`version\`)
+            VALUES ('pricing_data', ?, '${now}', '${now}', ?)
+          `,
+            jsonData,
+            newVersion,
+          )
+        } else {
+          await db.$executeRawUnsafe(
+            `
+            INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`)
+            VALUES ('pricing_data', ?, '${now}', '${now}')
+          `,
+            jsonData,
+          )
+        }
         console.log("Created new pricing data with version", newVersion)
       }
 
