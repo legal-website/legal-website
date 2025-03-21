@@ -135,6 +135,19 @@ export interface FilingRequirementModel {
   updatedAt: Date
 }
 
+// Add the Document model interface after the Filing Requirement model
+export interface DocumentModel {
+  id: string
+  name: string
+  category: string
+  createdAt: Date
+  updatedAt: Date
+  businessId: string
+  fileUrl: string
+  type: string
+  business?: any // You can define a BusinessModel if needed
+}
+
 // Community models
 export interface PostModel {
   id: string
@@ -263,6 +276,15 @@ export interface FilingRequirementDelegate {
   delete: (args: { where: { id: string } }) => Promise<FilingRequirementModel>
 }
 
+// Add the Document delegate interface after the Filing Requirement delegate
+export interface DocumentDelegate {
+  findMany: (args?: any) => Promise<DocumentModel[]>
+  findUnique: (args: { where: { id: string } }) => Promise<DocumentModel | null>
+  create: (args: { data: any }) => Promise<DocumentModel>
+  update: (args: { where: { id: string }; data: any }) => Promise<DocumentModel>
+  delete: (args: { where: { id: string } }) => Promise<DocumentModel>
+}
+
 // Community delegates
 export interface PostDelegate {
   findMany: (args?: any) => Promise<PostModel[]>
@@ -303,7 +325,7 @@ export interface PostTagDelegate {
   deleteMany: (args: { where: any }) => Promise<{ count: number }>
 }
 
-// Extended PrismaClient with all models - SINGLE DEFINITION
+// Update the ExtendedPrismaClient type to include the document delegate
 export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   amendment: AmendmentDelegate
   amendmentStatusHistory: AmendmentStatusHistoryDelegate
@@ -311,6 +333,8 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   annualReportFiling: AnnualReportFilingDelegate
   filingRequirement: FilingRequirementDelegate
   verificationToken: VerificationTokenDelegate
+  // Add document model
+  document: DocumentDelegate
   // Add community models
   post: PostDelegate
   comment: CommentDelegate

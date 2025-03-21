@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import type { DocumentModel } from "@/lib/prisma-types"
 
 // GET - Fetch all templates (admin)
 export async function GET(req: NextRequest) {
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
     })
 
     // Transform documents to template format
-    const templates = documents.map((doc) => {
+    const templates = documents.map((doc: DocumentModel) => {
       // Parse metadata from name if available
       let price = 0
       let pricingTier = "Free"
