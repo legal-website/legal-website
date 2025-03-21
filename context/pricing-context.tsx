@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
+// Update the PricingPlan interface to make all potentially undefined properties optional
 export interface PricingPlan {
   id: number
   name: string
@@ -10,9 +11,9 @@ export interface PricingPlan {
   billingCycle: string
   description: string
   features: string[]
-  isRecommended: boolean
-  includesPackage: string
-  hasAssistBadge: boolean
+  isRecommended?: boolean
+  includesPackage?: string
+  hasAssistBadge?: boolean
 }
 
 export interface StateFilingFees {
@@ -97,6 +98,13 @@ export function PricingProvider({ children }: { children: ReactNode }) {
         plans: data.plans?.map((p: PricingPlan) => `${p.name}: $${p.price}`).join(", "),
       })
 
+      // Log features for each plan to debug
+      if (data.plans && Array.isArray(data.plans)) {
+        data.plans.forEach((plan: PricingPlan) => {
+          console.log(`${plan.name} features (${plan.features?.length || 0}):`, plan.features?.join(", ") || "None")
+        })
+      }
+
       // Ensure we have a complete data structure
       const completeData: PricingData = {
         plans: data.plans || [],
@@ -109,9 +117,9 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       // Make sure all plans have the required properties
       completeData.plans = completeData.plans.map((plan) => ({
         ...plan,
-        isRecommended: Boolean(plan.isRecommended),
+        isRecommended: plan.isRecommended === undefined ? false : plan.isRecommended,
         includesPackage: plan.includesPackage || "",
-        hasAssistBadge: Boolean(plan.hasAssistBadge),
+        hasAssistBadge: plan.hasAssistBadge === undefined ? false : plan.hasAssistBadge,
       }))
 
       setPricingData(completeData)
@@ -146,9 +154,9 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       // Make sure all plans have the required properties
       dataToSend.plans = dataToSend.plans.map((plan: PricingPlan) => ({
         ...plan,
-        isRecommended: Boolean(plan.isRecommended),
+        isRecommended: plan.isRecommended === undefined ? false : plan.isRecommended,
         includesPackage: plan.includesPackage || "",
-        hasAssistBadge: Boolean(plan.hasAssistBadge),
+        hasAssistBadge: plan.hasAssistBadge === undefined ? false : plan.hasAssistBadge,
       }))
 
       const response = await fetch("/api/pricing", {
