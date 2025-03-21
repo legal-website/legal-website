@@ -94,6 +94,7 @@ export async function POST(request: Request) {
     let data
     try {
       data = await request.json()
+      console.log("Received data:", JSON.stringify(data, null, 2))
     } catch (parseError) {
       console.error("Error parsing request JSON:", parseError)
       return NextResponse.json(
@@ -161,6 +162,9 @@ export async function POST(request: Request) {
       `)
 
       const now = new Date().toISOString().slice(0, 19).replace("T", " ")
+      const jsonData = JSON.stringify(data)
+
+      console.log("Data to save:", jsonData.substring(0, 200) + "...") // Log a preview of the data
 
       if (result && Array.isArray(result) && result.length > 0) {
         // Update existing pricing data
@@ -170,8 +174,19 @@ export async function POST(request: Request) {
           SET \`value\` = ?, \`updatedAt\` = '${now}'
           WHERE \`key\` = 'pricing_data'
         `,
-          JSON.stringify(data),
+          jsonData,
         )
+        console.log("Updated existing pricing data with ID:", result[0].id)
+
+        // Verify the update
+        const verifyResult = await db.$queryRawUnsafe(`
+          SELECT value FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+        `)
+
+        if (verifyResult && Array.isArray(verifyResult) && verifyResult.length > 0) {
+          const savedData = JSON.parse(verifyResult[0].value)
+          console.log("Verified saved data:", JSON.stringify(savedData.plans[0], null, 2))
+        }
       } else {
         // Create new pricing data
         await db.$executeRawUnsafe(
@@ -179,12 +194,24 @@ export async function POST(request: Request) {
           INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`)
           VALUES ('pricing_data', ?, '${now}', '${now}')
         `,
-          JSON.stringify(data),
+          jsonData,
         )
+        console.log("Created new pricing data")
       }
 
       console.log("Pricing data updated successfully in database")
-      return NextResponse.json({ success: true })
+
+      // Add cache-busting headers to the response
+      return NextResponse.json(
+        { success: true },
+        {
+          headers: {
+            "Cache-Control": "no-store, max-age=0, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        },
+      )
     } catch (dbError) {
       console.error("Database error when saving pricing data:", dbError)
       return NextResponse.json(

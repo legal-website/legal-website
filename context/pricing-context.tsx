@@ -66,10 +66,13 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       setError(null)
 
       console.log("Fetching pricing data...")
-      const response = await fetch("/api/pricing", {
+      const timestamp = new Date().getTime() // Add timestamp to prevent caching
+      const response = await fetch(`/api/pricing?t=${timestamp}`, {
         method: "GET",
         headers: {
-          "Cache-Control": "no-cache",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
         },
       })
 
@@ -81,7 +84,7 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       }
 
       const data = await response.json()
-      console.log("Pricing data fetched successfully")
+      console.log("Pricing data fetched successfully:", data)
       setPricingData(data)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -103,6 +106,9 @@ export function PricingProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
         },
         body: JSON.stringify(data),
       })
@@ -126,7 +132,11 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       }
 
       console.log("Pricing data updated successfully")
-      setPricingData(data)
+      setPricingData(data) // Update local state immediately
+
+      // Refresh data from server to ensure we have the latest
+      await refreshPricingData()
+
       return true
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
