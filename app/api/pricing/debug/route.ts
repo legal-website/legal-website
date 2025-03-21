@@ -26,6 +26,16 @@ export async function GET() {
       return NextResponse.json({ tableExists: false })
     }
 
+    // Check if version column exists
+    let versionColumnExists = true
+    try {
+      await db.$queryRawUnsafe(`SELECT version FROM PricingSettings LIMIT 1`)
+      console.log("Version column exists")
+    } catch (error) {
+      console.log("Version column does not exist")
+      versionColumnExists = false
+    }
+
     // Get all pricing data
     const result = await db.$queryRawUnsafe(`
       SELECT * FROM PricingSettings
@@ -37,6 +47,7 @@ export async function GET() {
       key: string
       createdAt: Date
       updatedAt: Date
+      version?: number
       planCount?: number
       stateCount?: number
       plans?: string
@@ -54,6 +65,7 @@ export async function GET() {
               key: row.key,
               createdAt: row.createdAt,
               updatedAt: row.updatedAt,
+              version: row.version || parsed._version || "N/A",
               planCount: parsed.plans?.length || 0,
               stateCount: Object.keys(parsed.stateFilingFees || {}).length,
               plans: parsed.plans?.map((plan: PricingPlan) => `${plan.name}: $${plan.price}`).join(", "),
@@ -66,6 +78,7 @@ export async function GET() {
               key: row.key,
               createdAt: row.createdAt,
               updatedAt: row.updatedAt,
+              version: row.version || "N/A",
               valuePreview: `${row.value.substring(0, 100)}...`,
             })
           }
@@ -75,6 +88,7 @@ export async function GET() {
             key: row.key,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
+            version: row.version || "N/A",
             error: "Failed to parse JSON",
             valuePreview: `${row.value.substring(0, 100)}...`,
           })
@@ -84,6 +98,7 @@ export async function GET() {
 
     return NextResponse.json({
       tableExists: true,
+      versionColumnExists,
       rowCount: result.length,
       data: parsedData,
     })

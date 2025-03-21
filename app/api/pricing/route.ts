@@ -25,6 +25,7 @@ export async function GET() {
             \`value\` LONGTEXT NOT NULL,
             \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
             \`updatedAt\` DATETIME(3) NOT NULL,
+            \`version\` INT DEFAULT 1,
             PRIMARY KEY (\`id\`),
             UNIQUE INDEX \`PricingSettings_key_key\` (\`key\`)
           );
@@ -39,12 +40,15 @@ export async function GET() {
     // Try to get pricing data from the database using raw query
     try {
       const result = await db.$queryRawUnsafe(`
-        SELECT value FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+        SELECT value, version FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
       `)
 
       if (result && Array.isArray(result) && result.length > 0) {
         const pricingData = JSON.parse(result[0].value)
-        console.log("Pricing data fetched successfully from database")
+        // Add version from database to the data
+        pricingData._version = result[0].version || 1
+
+        console.log("Pricing data fetched successfully from database (version:", pricingData._version, ")")
         return NextResponse.json(pricingData, {
           headers: {
             "Cache-Control": "no-store, max-age=0, must-revalidate",
@@ -61,13 +65,14 @@ export async function GET() {
     // If no pricing data found or error occurred, create it with default data
     console.log("No pricing data found in database, creating default data")
     const defaultData = getDefaultPricingData()
+    defaultData._version = 1
 
     try {
       const now = new Date().toISOString().slice(0, 19).replace("T", " ")
       await db.$executeRawUnsafe(
         `
-        INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`)
-        VALUES ('pricing_data', ?, '${now}', '${now}')
+        INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`, \`version\`)
+        VALUES ('pricing_data', ?, '${now}', '${now}', 1)
       `,
         JSON.stringify(defaultData),
       )
@@ -158,6 +163,7 @@ export async function POST(request: Request) {
             \`value\` LONGTEXT NOT NULL,
             \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
             \`updatedAt\` DATETIME(3) NOT NULL,
+            \`version\` INT DEFAULT 1,
             PRIMARY KEY (\`id\`),
             UNIQUE INDEX \`PricingSettings_key_key\` (\`key\`)
           );
@@ -178,12 +184,39 @@ export async function POST(request: Request) {
     // Save the pricing data to the database
     console.log("Saving pricing data to database...")
     try {
-      // Check if pricing data already exists
+      // Check if pricing data already exists and get current version
       const result = await db.$queryRawUnsafe(`
-        SELECT id FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+        SELECT id, version FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
       `)
 
       const now = new Date().toISOString().slice(0, 19).replace("T", " ")
+
+      // Get the current version from the database or client
+      let currentVersion = 1
+      if (result && Array.isArray(result) && result.length > 0) {
+        currentVersion = result[0].version || 1
+      }
+
+      // Check if client sent a version and it matches
+      const clientVersion = data._version || 0
+      console.log(`Client version: ${clientVersion}, Server version: ${currentVersion}`)
+
+      // If client sent a version and it doesn't match, reject the update
+      if (clientVersion > 0 && clientVersion !== currentVersion) {
+        console.error(`Version mismatch: Client ${clientVersion}, Server ${currentVersion}`)
+        return NextResponse.json(
+          {
+            error: "Version mismatch. Please refresh and try again.",
+            currentVersion: currentVersion,
+          },
+          { status: 409 },
+        )
+      }
+
+      // Increment version for the update
+      const newVersion = currentVersion + 1
+      dataToSave._version = newVersion
+
       const jsonData = JSON.stringify(dataToSave)
 
       console.log(
@@ -191,22 +224,24 @@ export async function POST(request: Request) {
         dataToSave.plans.map((plan: PricingPlan) => `${plan.name}: $${plan.price}`).join(", "),
       )
       console.log("Data to save - State count:", Object.keys(dataToSave.stateFilingFees).length)
+      console.log(`Updating to version ${newVersion}`)
 
       if (result && Array.isArray(result) && result.length > 0) {
-        // Update existing pricing data
+        // Update existing pricing data with new version
         await db.$executeRawUnsafe(
           `
           UPDATE PricingSettings 
-          SET \`value\` = ?, \`updatedAt\` = '${now}'
+          SET \`value\` = ?, \`updatedAt\` = '${now}', \`version\` = ?
           WHERE \`key\` = 'pricing_data'
         `,
           jsonData,
+          newVersion,
         )
-        console.log("Updated existing pricing data with ID:", result[0].id)
+        console.log("Updated existing pricing data with ID:", result[0].id, "to version", newVersion)
 
         // Verify the update
         const verifyResult = await db.$queryRawUnsafe(`
-          SELECT value FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
+          SELECT value, version FROM PricingSettings WHERE \`key\` = 'pricing_data' LIMIT 1
         `)
 
         if (verifyResult && Array.isArray(verifyResult) && verifyResult.length > 0) {
@@ -216,24 +251,29 @@ export async function POST(request: Request) {
             savedData.plans.map((plan: PricingPlan) => `${plan.name}: $${plan.price}`).join(", "),
           )
           console.log("Verified saved data - State count:", Object.keys(savedData.stateFilingFees).length)
+          console.log("Verified saved data - Version:", verifyResult[0].version)
         }
       } else {
-        // Create new pricing data
+        // Create new pricing data with version 1
         await db.$executeRawUnsafe(
           `
-          INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`)
-          VALUES ('pricing_data', ?, '${now}', '${now}')
+          INSERT INTO PricingSettings (\`key\`, \`value\`, \`createdAt\`, \`updatedAt\`, \`version\`)
+          VALUES ('pricing_data', ?, '${now}', '${now}', ?)
         `,
           jsonData,
+          newVersion,
         )
-        console.log("Created new pricing data")
+        console.log("Created new pricing data with version", newVersion)
       }
 
       console.log("Pricing data updated successfully in database")
 
       // Add cache-busting headers to the response
       return NextResponse.json(
-        { success: true },
+        {
+          success: true,
+          version: newVersion,
+        },
         {
           headers: {
             "Cache-Control": "no-store, max-age=0, must-revalidate",

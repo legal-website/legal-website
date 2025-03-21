@@ -147,6 +147,9 @@ export function PricingProvider({ children }: { children: ReactNode }) {
       // Create a deep copy to ensure we're not modifying the original object
       const dataToSend = JSON.parse(JSON.stringify(data))
 
+      // Preserve the version from the current data
+      dataToSend._version = pricingData._version || 0
+
       // Make sure all plans have the required properties
       dataToSend.plans = dataToSend.plans.map((plan: PricingPlan) => ({
         ...plan,
@@ -165,6 +168,17 @@ export function PricingProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify(dataToSend),
       })
+
+      if (response.status === 409) {
+        // Version conflict - need to refresh and try again
+        const errorData = await response.json()
+        console.error("Version conflict:", errorData)
+        setError("Your data is out of date. The page will refresh with the latest data. Please try again.")
+
+        // Refresh data and return failure
+        await refreshPricingData()
+        return false
+      }
 
       if (!response.ok) {
         let errorMessage = `Server responded with ${response.status}`
