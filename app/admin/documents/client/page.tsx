@@ -453,6 +453,12 @@ export default function ClientDocumentsPage() {
     try {
       console.log("Downloading document:", document.id)
 
+      // Show loading toast
+      toast({
+        title: "Preparing download",
+        description: "Please wait while we prepare your document...",
+      })
+
       const response = await fetch(`/api/admin/documents/client/${document.id}/download`)
 
       if (!response.ok) {
@@ -463,19 +469,29 @@ export default function ClientDocumentsPage() {
       const data = await response.json()
       console.log("Download response:", data)
 
-      // Create a temporary link and trigger download
-      if (typeof window !== "undefined") {
-        const link = window.document.createElement("a")
-        link.href = data.downloadUrl
-        link.setAttribute("download", document.name)
-        window.document.body.appendChild(link)
-        link.click()
-        window.document.body.removeChild(link)
+      if (!data.downloadUrl) {
+        throw new Error("No download URL returned")
       }
+
+      // Create a temporary link and trigger download
+      const link = document.createElement("a")
+      link.href = data.downloadUrl
+      link.setAttribute("download", document.name || "document")
+      link.setAttribute("target", "_blank")
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      // Show success toast
+      toast({
+        title: "Download started",
+        description: `${document.name} is being downloaded`,
+        variant: "default",
+      })
     } catch (error) {
       console.error("Error downloading document:", error)
       toast({
-        title: "Error",
+        title: "Download failed",
         description: error instanceof Error ? error.message : "Failed to download document",
         variant: "destructive",
       })
