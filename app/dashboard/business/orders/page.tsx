@@ -218,22 +218,24 @@ export default function OrderHistoryPage() {
     }
   }
 
-  // Update the fetchFilings function to use the existing annual reports page
+  // Update the fetchFilings function to use the correct API endpoint
   const fetchFilings = async () => {
     try {
       setLoadingFilings(true)
       setFilingError(null)
 
-      // Fetch data directly from the annual reports page
-      const response = await fetch("/dashboard/compliance/annual-reports")
+      // Use the API endpoint that the annual-reports page likely uses
+      const response = await fetch("/api/compliance/annual-reports", {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      })
 
       if (!response.ok) {
         throw new Error(`Failed to fetch annual reports: ${response.status}`)
       }
 
-      // Since we're fetching an HTML page, we need to extract the data
-      // This is a simplified approach - in a real app, you might want to
-      // access the same data source that the page uses
       const data = await response.json()
 
       if (data.error) {
@@ -241,9 +243,9 @@ export default function OrderHistoryPage() {
       }
 
       // Filter for only filings with status "filed" or "completed"
-      const filedReports = data.reports.filter(
-        (report: any) => report.status === "filed" || report.status === "completed",
-      )
+      const filedReports = data.reports
+        ? data.reports.filter((report: any) => report.status === "filed" || report.status === "completed")
+        : []
 
       setFilings(filedReports)
     } catch (error: any) {
@@ -289,22 +291,24 @@ export default function OrderHistoryPage() {
     }
   }
 
-  // Update the fetchAmendments function to use the existing amendments page
+  // Update the fetchAmendments function to use the correct API endpoint
   const fetchAmendments = async () => {
     try {
       setLoadingAmendments(true)
       setAmendmentError(null)
 
-      // Fetch data directly from the amendments page
-      const response = await fetch("/dashboard/compliance/amendments")
+      // Use the API endpoint that the amendments page likely uses
+      const response = await fetch("/api/compliance/amendments", {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      })
 
       if (!response.ok) {
         throw new Error(`Failed to fetch amendments: ${response.status}`)
       }
 
-      // Since we're fetching an HTML page, we need to extract the data
-      // This is a simplified approach - in a real app, you might want to
-      // access the same data source that the page uses
       const data = await response.json()
 
       if (data.error) {
@@ -312,9 +316,11 @@ export default function OrderHistoryPage() {
       }
 
       // Filter for only approved amendments
-      const approvedAmendments = data.amendments.filter(
-        (amendment: any) => amendment.status === "approved" || amendment.status === "amendment_resolved",
-      )
+      const approvedAmendments = data.amendments
+        ? data.amendments.filter(
+            (amendment: any) => amendment.status === "approved" || amendment.status === "amendment_resolved",
+          )
+        : []
 
       setAmendments(approvedAmendments)
     } catch (error: any) {
