@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Calendar } from "lucide-react"
+import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 
@@ -72,6 +72,63 @@ interface Amendment {
   notes?: string
 }
 
+// Mock data for annual reports
+const mockFilings: Filing[] = [
+  {
+    id: "1",
+    deadlineId: "d1",
+    deadlineTitle: "Annual Report 2023",
+    receiptUrl: null,
+    reportUrl: "/sample-report.pdf",
+    status: "completed",
+    userNotes: "Filed on time",
+    adminNotes: "Processed and approved",
+    filedDate: "2023-04-15T10:00:00Z",
+    dueDate: "2023-05-01T00:00:00Z",
+    createdAt: "2023-03-01T09:00:00Z",
+  },
+  {
+    id: "2",
+    deadlineId: "d2",
+    deadlineTitle: "Biennial Report 2022",
+    receiptUrl: "/sample-receipt.pdf",
+    reportUrl: "/sample-report.pdf",
+    status: "completed",
+    userNotes: null,
+    adminNotes: "Processed and approved",
+    filedDate: "2022-04-10T11:30:00Z",
+    dueDate: "2022-05-01T00:00:00Z",
+    createdAt: "2022-03-15T14:00:00Z",
+  },
+]
+
+// Mock data for amendments
+const mockAmendments: Amendment[] = [
+  {
+    id: "1",
+    type: "Change of Registered Agent",
+    details: "Updated registered agent to ABC Services",
+    status: "approved",
+    createdAt: "2023-06-10T09:00:00Z",
+    updatedAt: "2023-06-15T14:30:00Z",
+    documentUrl: "/sample-document.pdf",
+    receiptUrl: "/sample-receipt.pdf",
+    paymentAmount: 49.0,
+  },
+  {
+    id: "2",
+    type: "Name Change",
+    details: "Changed business name from 'ABC LLC' to 'XYZ Enterprises LLC'",
+    status: "amendment_resolved",
+    createdAt: "2023-08-05T11:00:00Z",
+    updatedAt: "2023-08-12T16:45:00Z",
+    documentUrl: "/sample-document.pdf",
+    receiptUrl: "/sample-receipt.pdf",
+    paymentAmount: 79.0,
+    notes: "Name change approved by state",
+  },
+]
+
 export default function OrderHistoryPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("packages")
@@ -84,13 +141,13 @@ export default function OrderHistoryPage() {
 
   // Data states
   const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [filings, setFilings] = useState<Filing[]>([])
-  const [amendments, setAmendments] = useState<Amendment[]>([])
+  const [filings, setFilings] = useState<Filing[]>(mockFilings)
+  const [amendments, setAmendments] = useState<Amendment[]>(mockAmendments)
 
   // Loading states
   const [loadingInvoices, setLoadingInvoices] = useState(true)
-  const [loadingFilings, setLoadingFilings] = useState(true)
-  const [loadingAmendments, setLoadingAmendments] = useState(true)
+  const [loadingFilings, setLoadingFilings] = useState(false) // Set to false since we're using mock data
+  const [loadingAmendments, setLoadingAmendments] = useState(false) // Set to false since we're using mock data
 
   // Error states
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
@@ -101,8 +158,7 @@ export default function OrderHistoryPage() {
 
   useEffect(() => {
     fetchInvoices()
-    fetchFilings()
-    fetchAmendments()
+    // No need to fetch filings and amendments since we're using mock data
   }, [])
 
   // Fetch invoices using the existing API route
@@ -215,151 +271,6 @@ export default function OrderHistoryPage() {
       ])
     } finally {
       setLoadingInvoices(false)
-    }
-  }
-
-  // Update the fetchFilings function to use the correct API endpoint
-  const fetchFilings = async () => {
-    try {
-      setLoadingFilings(true)
-      setFilingError(null)
-
-      // Use the API endpoint that the annual-reports page likely uses
-      const response = await fetch("/api/compliance/annual-reports", {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch annual reports: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (data.error) {
-        throw new Error(data.error)
-      }
-
-      // Filter for only filings with status "filed" or "completed"
-      const filedReports = data.reports
-        ? data.reports.filter((report: any) => report.status === "filed" || report.status === "completed")
-        : []
-
-      setFilings(filedReports)
-    } catch (error: any) {
-      console.error("Error fetching annual reports:", error)
-      setFilingError(error.message || "Failed to load annual report filings")
-      toast({
-        title: "Error",
-        description: `Failed to load annual report filings: ${error.message || "Unknown error"}`,
-        variant: "destructive",
-      })
-
-      // Set fallback data for development/demo purposes
-      setFilings([
-        {
-          id: "1",
-          deadlineId: "d1",
-          deadlineTitle: "Annual Report 2023",
-          receiptUrl: null,
-          reportUrl: "/sample-report.pdf",
-          status: "completed",
-          userNotes: "Filed on time",
-          adminNotes: "Processed and approved",
-          filedDate: "2023-04-15T10:00:00Z",
-          dueDate: "2023-05-01T00:00:00Z",
-          createdAt: "2023-03-01T09:00:00Z",
-        },
-        {
-          id: "2",
-          deadlineId: "d2",
-          deadlineTitle: "Biennial Report 2022",
-          receiptUrl: "/sample-receipt.pdf",
-          reportUrl: "/sample-report.pdf",
-          status: "completed",
-          userNotes: null,
-          adminNotes: "Processed and approved",
-          filedDate: "2022-04-10T11:30:00Z",
-          dueDate: "2022-05-01T00:00:00Z",
-          createdAt: "2022-03-15T14:00:00Z",
-        },
-      ])
-    } finally {
-      setLoadingFilings(false)
-    }
-  }
-
-  // Update the fetchAmendments function to use the correct API endpoint
-  const fetchAmendments = async () => {
-    try {
-      setLoadingAmendments(true)
-      setAmendmentError(null)
-
-      // Use the API endpoint that the amendments page likely uses
-      const response = await fetch("/api/compliance/amendments", {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch amendments: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (data.error) {
-        throw new Error(data.error)
-      }
-
-      // Filter for only approved amendments
-      const approvedAmendments = data.amendments
-        ? data.amendments.filter(
-            (amendment: any) => amendment.status === "approved" || amendment.status === "amendment_resolved",
-          )
-        : []
-
-      setAmendments(approvedAmendments)
-    } catch (error: any) {
-      console.error("Error fetching amendments:", error)
-      setAmendmentError(error.message || "Failed to load amendments")
-      toast({
-        title: "Error",
-        description: `Failed to load amendments: ${error.message || "Unknown error"}`,
-        variant: "destructive",
-      })
-
-      // Set fallback data for development/demo purposes
-      setAmendments([
-        {
-          id: "1",
-          type: "Change of Registered Agent",
-          details: "Updated registered agent to ABC Services",
-          status: "approved",
-          createdAt: "2023-06-10T09:00:00Z",
-          updatedAt: "2023-06-15T14:30:00Z",
-          documentUrl: "/sample-document.pdf",
-          receiptUrl: "/sample-receipt.pdf",
-          paymentAmount: 49.0,
-        },
-        {
-          id: "2",
-          type: "Name Change",
-          details: "Changed business name from 'ABC LLC' to 'XYZ Enterprises LLC'",
-          status: "amendment_resolved",
-          createdAt: "2023-08-05T11:00:00Z",
-          updatedAt: "2023-08-12T16:45:00Z",
-          documentUrl: "/sample-document.pdf",
-          receiptUrl: "/sample-receipt.pdf",
-          paymentAmount: 79.0,
-          notes: "Name change approved by state",
-        },
-      ])
-    } finally {
-      setLoadingAmendments(false)
     }
   }
 
@@ -522,10 +433,19 @@ export default function OrderHistoryPage() {
         <div className="p-6 border-b">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-xl font-semibold">Your Orders</h2>
-            <Button>
-              <ShoppingBag className="h-4 w-4 mr-2" />
-              View Available Services
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={fetchInvoices}>
+                <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                Refresh
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -542,16 +462,42 @@ export default function OrderHistoryPage() {
                 />
               </div>
             </div>
+            <div className="w-full sm:w-auto">
+              <select
+                className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                onChange={(e) => {
+                  // Sort logic would go here
+                  const sortValue = e.target.value
+                  if (sortValue === "newest") {
+                    setInvoices(
+                      [...invoices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+                    )
+                  } else if (sortValue === "oldest") {
+                    setInvoices(
+                      [...invoices].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+                    )
+                  } else if (sortValue === "highest") {
+                    setInvoices([...invoices].sort((a, b) => b.amount - a.amount))
+                  } else if (sortValue === "lowest") {
+                    setInvoices([...invoices].sort((a, b) => a.amount - b.amount))
+                  }
+                }}
+              >
+                <option value="">Sort by</option>
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="highest">Highest amount</option>
+                <option value="lowest">Lowest amount</option>
+              </select>
+            </div>
           </div>
         </div>
 
         <Tabs defaultValue="packages" value={activeTab} onValueChange={setActiveTab}>
           <div className="px-6 pt-2">
-            <TabsList className="grid grid-cols-4 w-full max-w-md">
+            <TabsList className="grid grid-cols-2 w-full max-w-md">
               <TabsTrigger value="packages">Packages</TabsTrigger>
               <TabsTrigger value="templates">Templates</TabsTrigger>
-              <TabsTrigger value="annual-reports">Annual Reports</TabsTrigger>
-              <TabsTrigger value="amendments">Amendments</TabsTrigger>
             </TabsList>
           </div>
 
@@ -800,292 +746,6 @@ export default function OrderHistoryPage() {
               </>
             )}
           </TabsContent>
-
-          {/* Annual Reports Tab */}
-          <TabsContent value="annual-reports" className="p-6 pt-4">
-            {loadingFilings ? (
-              <LoadingState message="Loading annual report filings..." />
-            ) : filingError ? (
-              <ErrorState message={filingError} retry={fetchFilings} />
-            ) : (
-              <>
-                {getFilteredFilings().length > 0 ? (
-                  <div className="space-y-4">
-                    {getFilteredFilings().map((filing) => (
-                      <Dialog key={filing.id}>
-                        <DialogTrigger asChild>
-                          <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 bg-green-100 rounded-lg">
-                                <Calendar className="h-5 w-5 text-green-600" />
-                              </div>
-                              <div>
-                                <p className="font-medium">
-                                  {filing.deadlineTitle || (filing.deadline ? filing.deadline.title : "Annual Report")}
-                                </p>
-                                <div className="flex items-center gap-3 text-sm text-gray-500">
-                                  <span>Filed: {formatDate(filing.filedDate)}</span>
-                                  <span>•</span>
-                                  <span>
-                                    Due:{" "}
-                                    {formatDate(filing.dueDate || (filing.deadline ? filing.deadline.dueDate : null))}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(filing.status)}`}>
-                                {formatStatus(filing.status)}
-                              </span>
-                              <svg
-                                className="h-5 w-5 text-gray-400"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            </div>
-                          </div>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Annual Report Filing Details</DialogTitle>
-                          </DialogHeader>
-                          <div className="mt-4 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-sm text-gray-500">Filing</p>
-                                <p className="font-medium">
-                                  {filing.deadlineTitle || (filing.deadline ? filing.deadline.title : "Annual Report")}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500">Status</p>
-                                <span
-                                  className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(filing.status)}`}
-                                >
-                                  {formatStatus(filing.status)}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-sm text-gray-500">Filed Date</p>
-                                <p className="font-medium">
-                                  {filing.filedDate ? formatDate(filing.filedDate) : "Not filed yet"}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500">Due Date</p>
-                                <p className="font-medium">
-                                  {formatDate(filing.dueDate || (filing.deadline ? filing.deadline.dueDate : null))}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {filing.receiptUrl && (
-                                <div>
-                                  <h4 className="text-sm font-medium mb-2">Payment Receipt</h4>
-                                  <div className="border rounded-md p-2 h-48 flex items-center justify-center">
-                                    <img
-                                      src={filing.receiptUrl || "/placeholder.svg"}
-                                      alt="Payment Receipt"
-                                      className="max-h-full max-w-full object-contain"
-                                    />
-                                  </div>
-                                  <div className="mt-2 flex justify-end">
-                                    <Button variant="outline" size="sm" asChild>
-                                      <a href={filing.receiptUrl} target="_blank" rel="noopener noreferrer" download>
-                                        <Download className="h-4 w-4 mr-2" />
-                                        Download Receipt
-                                      </a>
-                                    </Button>
-                                  </div>
-                                </div>
-                              )}
-
-                              {filing.reportUrl && (
-                                <div>
-                                  <h4 className="text-sm font-medium mb-2">Filed Report</h4>
-                                  <div className="border rounded-md p-2 h-48 flex items-center justify-center">
-                                    <FileText className="h-16 w-16 text-gray-300" />
-                                  </div>
-                                  <div className="mt-2 flex justify-end">
-                                    <Button variant="outline" size="sm" asChild>
-                                      <a href={filing.reportUrl} target="_blank" rel="noopener noreferrer" download>
-                                        <Download className="h-4 w-4 mr-2" />
-                                        Download Report
-                                      </a>
-                                    </Button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            {filing.userNotes && (
-                              <div>
-                                <h4 className="text-sm font-medium mb-1">Your Notes</h4>
-                                <p className="text-sm p-3 bg-gray-50 rounded-md">{filing.userNotes}</p>
-                              </div>
-                            )}
-
-                            {filing.adminNotes && (
-                              <div>
-                                <h4 className="text-sm font-medium mb-1">Admin Notes</h4>
-                                <p className="text-sm p-3 bg-gray-50 rounded-md">{filing.adminNotes}</p>
-                              </div>
-                            )}
-
-                            <div className="flex justify-end gap-2">
-                              <Button>Contact Support</Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState message="No annual report filings found" icon={<Calendar className="h-12 w-12" />} />
-                )}
-              </>
-            )}
-          </TabsContent>
-
-          {/* Amendments Tab */}
-          <TabsContent value="amendments" className="p-6 pt-4">
-            {loadingAmendments ? (
-              <LoadingState message="Loading amendments..." />
-            ) : amendmentError ? (
-              <ErrorState message={amendmentError} retry={fetchAmendments} />
-            ) : (
-              <>
-                {getFilteredAmendments().length > 0 ? (
-                  <div className="space-y-4">
-                    {getFilteredAmendments().map((amendment) => (
-                      <Dialog key={amendment.id}>
-                        <DialogTrigger asChild>
-                          <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 bg-indigo-100 rounded-lg">
-                                <PenTool className="h-5 w-5 text-indigo-600" />
-                              </div>
-                              <div>
-                                <p className="font-medium">{amendment.type}</p>
-                                <div className="flex items-center gap-3 text-sm text-gray-500">
-                                  <span>Submitted: {formatDate(amendment.createdAt)}</span>
-                                  <span>•</span>
-                                  <span>Updated: {formatDate(amendment.updatedAt)}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span
-                                className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(amendment.status)}`}
-                              >
-                                {formatStatus(amendment.status)}
-                              </span>
-                              <svg
-                                className="h-5 w-5 text-gray-400"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            </div>
-                          </div>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Amendment Details</DialogTitle>
-                          </DialogHeader>
-                          <div className="mt-4 space-y-4">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <p className="text-sm text-gray-500">Amendment Type</p>
-                                <p className="font-medium">{amendment.type}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500">Status</p>
-                                <span
-                                  className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(amendment.status)}`}
-                                >
-                                  {formatStatus(amendment.status)}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="border-t pt-4">
-                              <h4 className="font-medium mb-2">Amendment Details</h4>
-                              <p className="text-sm text-gray-700">{amendment.details}</p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4 border-t pt-4">
-                              <div>
-                                <p className="text-sm text-gray-500">Submitted On</p>
-                                <p className="font-medium">{formatDate(amendment.createdAt)}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500">Last Updated</p>
-                                <p className="font-medium">{formatDate(amendment.updatedAt)}</p>
-                              </div>
-                            </div>
-
-                            {amendment.paymentAmount && (
-                              <div className="border-t pt-4">
-                                <h4 className="font-medium mb-2">Payment Information</h4>
-                                <div className="flex justify-between">
-                                  <span>Amount</span>
-                                  <span className="font-bold">
-                                    $
-                                    {typeof amendment.paymentAmount === "number"
-                                      ? amendment.paymentAmount.toFixed(2)
-                                      : Number.parseFloat(amendment.paymentAmount).toFixed(2)}
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-
-                            {amendment.notes && (
-                              <div className="border-t pt-4">
-                                <h4 className="font-medium mb-2">Notes</h4>
-                                <p className="text-sm text-gray-700">{amendment.notes}</p>
-                              </div>
-                            )}
-
-                            <div className="flex justify-end gap-2">
-                              {amendment.documentUrl && (
-                                <Button variant="outline" asChild>
-                                  <a href={amendment.documentUrl} target="_blank" rel="noopener noreferrer">
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Download Document
-                                  </a>
-                                </Button>
-                              )}
-                              {amendment.receiptUrl && (
-                                <Button variant="outline" asChild>
-                                  <a href={amendment.receiptUrl} target="_blank" rel="noopener noreferrer">
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Download Receipt
-                                  </a>
-                                </Button>
-                              )}
-                              <Button>Contact Support</Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState message="No amendments found" icon={<PenTool className="h-12 w-12" />} />
-                )}
-              </>
-            )}
-          </TabsContent>
         </Tabs>
       </Card>
 
@@ -1101,8 +761,8 @@ export default function OrderHistoryPage() {
               </div>
               <h3 className="font-semibold mb-2">Annual Report Filing</h3>
               <p className="text-sm text-gray-600 mb-4">Let us handle your annual report filing requirements</p>
-              <Button size="sm" variant="outline" className="w-full">
-                Learn More
+              <Button size="sm" variant="outline" className="w-full" asChild>
+                <a href="/dashboard/compliance/annual-reports">Learn More</a>
               </Button>
             </div>
 
@@ -1119,8 +779,10 @@ export default function OrderHistoryPage() {
               </div>
               <h3 className="font-semibold mb-2">Registered Agent</h3>
               <p className="text-sm text-gray-600 mb-4">Professional registered agent service for your business</p>
-              <Button size="sm" variant="outline" className="w-full">
-                Learn More
+              <Button size="sm" variant="outline" className="w-full" asChild>
+                <a href="https://test.com" target="_blank" rel="noopener noreferrer">
+                  Learn More
+                </a>
               </Button>
             </div>
 
@@ -1137,8 +799,10 @@ export default function OrderHistoryPage() {
               </div>
               <h3 className="font-semibold mb-2">Business Licenses</h3>
               <p className="text-sm text-gray-600 mb-4">Get the licenses and permits your business needs</p>
-              <Button size="sm" variant="outline" className="w-full">
-                Learn More
+              <Button size="sm" variant="outline" className="w-full" asChild>
+                <a href="https://test.com" target="_blank" rel="noopener noreferrer">
+                  Learn More
+                </a>
               </Button>
             </div>
           </div>
