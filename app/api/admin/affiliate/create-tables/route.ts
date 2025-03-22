@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
 
 export async function POST() {
   try {
+    // Check authentication
+    const session = await getServerSession(authOptions)
+    if (!session || (session.user as any).role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     // Create affiliate_links table if it doesn't exist
     await db.$executeRaw`
       CREATE TABLE IF NOT EXISTS "affiliate_links" (
@@ -12,9 +20,10 @@ export async function POST() {
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL,
         "active" BOOLEAN NOT NULL DEFAULT true,
-        "commission" DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        "commission" DECIMAL(10,2) NOT NULL DEFAULT 0.10,
 
-        CONSTRAINT "affiliate_links_pkey" PRIMARY KEY ("id")
+        CONSTRAINT "affiliate_links_pkey" PRIMARY KEY ("id"),
+        CONSTRAINT "affiliate_links_code_key" UNIQUE ("code")
       );
     `
 
@@ -42,6 +51,7 @@ export async function POST() {
         "status" TEXT NOT NULL DEFAULT 'pending',
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL,
+        "customerEmail" TEXT,
 
         CONSTRAINT "affiliate_conversions_pkey" PRIMARY KEY ("id")
       );
