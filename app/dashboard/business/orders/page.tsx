@@ -1,103 +1,389 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Calendar } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { format } from "date-fns"
 
-interface Order {
+// Invoice types
+interface InvoiceItem {
   id: string
-  orderNumber: string
-  date: string
-  amount: string
-  status: "Completed" | "Processing" | "Refunded"
-  items: string[]
+  tier: string
+  price: number
+  stateFee?: number
+  state?: string
+  discount?: number
+  templateId?: string
+  type?: string
+}
+
+interface Invoice {
+  id: string
+  invoiceNumber: string
+  customerName: string
+  customerEmail: string
+  amount: number
+  status: string
+  items: InvoiceItem[] | string
+  paymentReceipt?: string
+  paymentDate?: string
+  createdAt: string
+  updatedAt: string
+  isTemplateInvoice?: boolean
+}
+
+// Annual Report types
+interface Filing {
+  id: string
+  deadlineId: string
+  deadlineTitle?: string
+  receiptUrl: string | null
+  reportUrl: string | null
+  status: string
+  userNotes: string | null
+  adminNotes: string | null
+  filedDate: string | null
+  dueDate?: string
+  createdAt?: string
+  deadline?: {
+    title: string
+    dueDate: string
+  } | null
+}
+
+// Amendment types
+interface Amendment {
+  id: string
+  type: string
+  details: string
+  status: string
+  createdAt: string
+  updatedAt: string
+  documentUrl?: string
+  receiptUrl?: string
+  paymentAmount?: number | string
+  notes?: string
 }
 
 export default function OrderHistoryPage() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedStatus, setSelectedStatus] = useState("All")
+  const [activeTab, setActiveTab] = useState("packages")
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+  const [selectedFiling, setSelectedFiling] = useState<Filing | null>(null)
+  const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null)
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
+  const [showFilingDialog, setShowFilingDialog] = useState(false)
+  const [showAmendmentDialog, setShowAmendmentDialog] = useState(false)
 
-  const orders: Order[] = [
-    {
-      id: "1",
-      orderNumber: "ORD-2023-001",
-      date: "Jan 15, 2023",
-      amount: "$349.00",
-      status: "Completed",
-      items: ["LLC Formation Package", "EIN Filing", "Operating Agreement"],
-    },
-    {
-      id: "2",
-      orderNumber: "ORD-2023-045",
-      date: "Mar 22, 2023",
-      amount: "$99.00",
-      status: "Completed",
-      items: ["Annual Report Filing"],
-    },
-    {
-      id: "3",
-      orderNumber: "ORD-2023-078",
-      date: "Jun 10, 2023",
-      amount: "$49.00",
-      status: "Completed",
-      items: ["Business License Renewal"],
-    },
-    {
-      id: "4",
-      orderNumber: "ORD-2023-112",
-      date: "Sep 05, 2023",
-      amount: "$199.00",
-      status: "Completed",
-      items: ["Registered Agent Service (1 Year)"],
-    },
-    {
-      id: "5",
-      orderNumber: "ORD-2024-023",
-      date: "Feb 18, 2024",
-      amount: "$79.00",
-      status: "Processing",
-      items: ["Amendment Filing"],
-    },
-  ]
+  // Data states
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [filings, setFilings] = useState<Filing[]>([])
+  const [amendments, setAmendments] = useState<Amendment[]>([])
 
-  const statuses = ["All", "Completed", "Processing", "Refunded"]
+  // Loading states
+  const [loadingInvoices, setLoadingInvoices] = useState(true)
+  const [loadingFilings, setLoadingFilings] = useState(true)
+  const [loadingAmendments, setLoadingAmendments] = useState(true)
 
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.items.some((item) => item.toLowerCase().includes(searchTerm.toLowerCase()))
-    const matchesStatus = selectedStatus === "All" || order.status === selectedStatus
-    return matchesSearch && matchesStatus
-  })
+  // Error states
+  const [invoiceError, setInvoiceError] = useState<string | null>(null)
+  const [filingError, setFilingError] = useState<string | null>(null)
+  const [amendmentError, setAmendmentError] = useState<string | null>(null)
 
-  const getStatusColor = (status: Order["status"]) => {
-    switch (status) {
-      case "Completed":
+  const { toast } = useToast()
+
+  useEffect(() => {
+    fetchInvoices()
+    fetchFilings()
+    fetchAmendments()
+  }, [])
+
+  // Fetch invoices
+  const fetchInvoices = async () => {
+    try {
+      setLoadingInvoices(true)
+      setInvoiceError(null)
+
+      const response = await fetch("/api/admin/invoices", {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch invoices: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      // Process the invoices to ensure items are properly parsed
+      const processedInvoices = data.invoices.map((invoice: any) => {
+        // Parse items if they're stored as a JSON string
+        let parsedItems = invoice.items
+        try {
+          if (typeof invoice.items === "string") {
+            parsedItems = JSON.parse(invoice.items)
+          }
+        } catch (e) {
+          console.error(`Error parsing items for invoice ${invoice.id}:`, e)
+          parsedItems = []
+        }
+
+        return {
+          ...invoice,
+          items: parsedItems,
+          // Add a flag to identify template invoices
+          isTemplateInvoice:
+            typeof parsedItems === "object" &&
+            (parsedItems.isTemplateInvoice ||
+              (Array.isArray(parsedItems) &&
+                parsedItems.some(
+                  (item: any) =>
+                    item.type === "template" || (item.tier && item.tier.toLowerCase().includes("template")),
+                )) ||
+              (typeof invoice.items === "string" &&
+                (invoice.items.toLowerCase().includes("template") ||
+                  invoice.items.toLowerCase().includes("istemplateinvoice")))),
+        }
+      })
+
+      setInvoices(processedInvoices)
+    } catch (error: any) {
+      console.error("Error fetching invoices:", error)
+      setInvoiceError(error.message || "Failed to load invoices")
+      toast({
+        title: "Error",
+        description: `Failed to load invoices: ${error.message || "Unknown error"}`,
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingInvoices(false)
+    }
+  }
+
+  // Fetch annual report filings
+  const fetchFilings = async () => {
+    try {
+      setLoadingFilings(true)
+      setFilingError(null)
+
+      const response = await fetch("/api/annual-reports/filings")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch annual report filings")
+      }
+
+      const data = await response.json()
+
+      // Filter for completed or closed filings
+      const pastFilingsData = data.filings.filter(
+        (filing: Filing) => filing.status === "completed" || filing.status === "closed",
+      )
+
+      setFilings(pastFilingsData)
+    } catch (error: any) {
+      console.error("Error fetching annual report filings:", error)
+      setFilingError(error.message || "Failed to load annual report filings")
+      toast({
+        title: "Error",
+        description: `Failed to load annual report filings: ${error.message || "Unknown error"}`,
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingFilings(false)
+    }
+  }
+
+  // Fetch amendments
+  const fetchAmendments = async () => {
+    try {
+      setLoadingAmendments(true)
+      setAmendmentError(null)
+
+      const response = await fetch("/api/amendments")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch amendments")
+      }
+
+      const data = await response.json()
+
+      // Filter for approved amendments
+      const approvedAmendments = data.amendments.filter(
+        (amendment: Amendment) => amendment.status === "approved" || amendment.status === "amendment_resolved",
+      )
+
+      setAmendments(approvedAmendments)
+    } catch (error: any) {
+      console.error("Error fetching amendments:", error)
+      setAmendmentError(error.message || "Failed to load amendments")
+      toast({
+        title: "Error",
+        description: `Failed to load amendments: ${error.message || "Unknown error"}`,
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingAmendments(false)
+    }
+  }
+
+  // Filter invoices based on search term and type
+  const getFilteredInvoices = (type: "package" | "template") => {
+    return invoices.filter((invoice) => {
+      const matchesSearch =
+        invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (typeof invoice.items === "string" && invoice.items.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (Array.isArray(invoice.items) &&
+          invoice.items.some((item) => item.tier && item.tier.toLowerCase().includes(searchTerm.toLowerCase())))
+
+      // Check if it's a template invoice
+      const isTemplate =
+        invoice.isTemplateInvoice ||
+        invoice.invoiceNumber.toLowerCase().includes("temp") ||
+        (typeof invoice.items === "string" && invoice.items.toLowerCase().includes("template")) ||
+        (Array.isArray(invoice.items) &&
+          invoice.items.some((item) => item.tier && item.tier.toLowerCase().includes("template")))
+
+      // For packages, we want invoices that start with 'inv' and are not templates
+      if (type === "package") {
+        return matchesSearch && invoice.invoiceNumber.toLowerCase().startsWith("inv") && !isTemplate
+      }
+
+      // For templates, we want invoices that are templates
+      if (type === "template") {
+        return matchesSearch && isTemplate
+      }
+
+      return false
+    })
+  }
+
+  // Filter filings based on search term
+  const getFilteredFilings = () => {
+    return filings.filter((filing) => {
+      const deadlineTitle = filing.deadlineTitle || (filing.deadline ? filing.deadline.title : "")
+      return deadlineTitle.toLowerCase().includes(searchTerm.toLowerCase())
+    })
+  }
+
+  // Filter amendments based on search term
+  const getFilteredAmendments = () => {
+    return amendments.filter((amendment) => {
+      return (
+        amendment.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        amendment.details.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    })
+  }
+
+  // Format date
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return "N/A"
+    return format(new Date(dateString), "MMM d, yyyy")
+  }
+
+  // Get status badge color
+  const getStatusBadgeColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "paid":
+      case "completed":
+      case "approved":
+      case "amendment_resolved":
         return "bg-green-100 text-green-800"
-      case "Processing":
+      case "pending":
+      case "in_review":
+      case "amendment_in_progress":
         return "bg-blue-100 text-blue-800"
-      case "Refunded":
+      case "cancelled":
+      case "rejected":
         return "bg-red-100 text-red-800"
+      case "payment_received":
+        return "bg-purple-100 text-purple-800"
+      case "waiting_for_payment":
+        return "bg-yellow-100 text-yellow-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
   }
 
-  const getStatusIcon = (status: Order["status"]) => {
-    switch (status) {
-      case "Completed":
-        return <CheckCircle className="h-3.5 w-3.5 mr-1" />
-      case "Processing":
-        return <AlertCircle className="h-3.5 w-3.5 mr-1" />
-      case "Refunded":
-        return <AlertCircle className="h-3.5 w-3.5 mr-1" />
-      default:
-        return null
-    }
+  // Format status for display
+  const formatStatus = (status: string) => {
+    return status
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
   }
+
+  // View invoice details
+  const viewInvoiceDetails = (invoice: Invoice) => {
+    setSelectedInvoice(invoice)
+    setShowInvoiceDialog(true)
+  }
+
+  // View filing details
+  const viewFilingDetails = (filing: Filing) => {
+    setSelectedFiling(filing)
+    setShowFilingDialog(true)
+  }
+
+  // View amendment details
+  const viewAmendmentDetails = (amendment: Amendment) => {
+    setSelectedAmendment(amendment)
+    setShowAmendmentDialog(true)
+  }
+
+  // Get items from invoice
+  const getInvoiceItems = (invoice: Invoice) => {
+    if (Array.isArray(invoice.items)) {
+      return invoice.items.map((item) => item.tier).join(", ")
+    } else if (typeof invoice.items === "string") {
+      try {
+        const parsedItems = JSON.parse(invoice.items)
+        if (Array.isArray(parsedItems)) {
+          return parsedItems.map((item: any) => item.tier).join(", ")
+        }
+        return invoice.items
+      } catch {
+        return invoice.items
+      }
+    }
+    return "Unknown items"
+  }
+
+  // Loading component
+  const LoadingState = ({ message }: { message: string }) => (
+    <div className="flex justify-center items-center p-8">
+      <div className="flex flex-col items-center">
+        <div className="w-12 h-12 border-4 border-t-blue-500 border-blue-200 rounded-full animate-spin mb-4"></div>
+        <p className="text-gray-500">{message}</p>
+      </div>
+    </div>
+  )
+
+  // Error component
+  const ErrorState = ({ message, retry }: { message: string; retry: () => void }) => (
+    <div className="flex flex-col items-center justify-center p-8">
+      <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+      <p className="text-gray-700 mb-4">{message}</p>
+      <Button onClick={retry}>Try Again</Button>
+    </div>
+  )
+
+  // Empty state component
+  const EmptyState = ({ message, icon }: { message: string; icon: React.ReactNode }) => (
+    <div className="flex flex-col items-center justify-center p-8 text-center">
+      <div className="mb-4 text-gray-300">{icon}</div>
+      <p className="text-gray-500">{message}</p>
+    </div>
+  )
 
   return (
     <div className="p-8 mb-40">
@@ -127,122 +413,551 @@ export default function OrderHistoryPage() {
                 />
               </div>
             </div>
-            <select
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              {statuses.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
 
-        <div className="p-6">
-          {filteredOrders.length > 0 ? (
-            <div className="space-y-4">
-              {filteredOrders.map((order) => (
-                <Dialog key={order.id}>
-                  <DialogTrigger asChild>
-                    <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                          <ShoppingBag className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{order.orderNumber}</p>
-                          <div className="flex items-center gap-3 text-sm text-gray-500">
-                            <span>{order.date}</span>
-                            <span>•</span>
-                            <span>{order.amount}</span>
+        <Tabs defaultValue="packages" value={activeTab} onValueChange={setActiveTab}>
+          <div className="px-6 pt-2">
+            <TabsList className="grid grid-cols-4 w-full max-w-md">
+              <TabsTrigger value="packages">Packages</TabsTrigger>
+              <TabsTrigger value="templates">Templates</TabsTrigger>
+              <TabsTrigger value="annual-reports">Annual Reports</TabsTrigger>
+              <TabsTrigger value="amendments">Amendments</TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Packages Tab */}
+          <TabsContent value="packages" className="p-6 pt-4">
+            {loadingInvoices ? (
+              <LoadingState message="Loading package orders..." />
+            ) : invoiceError ? (
+              <ErrorState message={invoiceError} retry={fetchInvoices} />
+            ) : (
+              <>
+                {getFilteredInvoices("package").length > 0 ? (
+                  <div className="space-y-4">
+                    {getFilteredInvoices("package").map((invoice) => (
+                      <Dialog key={invoice.id}>
+                        <DialogTrigger asChild>
+                          <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-blue-100 rounded-lg">
+                                <ShoppingBag className="h-5 w-5 text-blue-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium">{invoice.invoiceNumber}</p>
+                                <div className="flex items-center gap-3 text-sm text-gray-500">
+                                  <span>{formatDate(invoice.createdAt)}</span>
+                                  <span>•</span>
+                                  <span>${invoice.amount.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}>
+                                {formatStatus(invoice.status)}
+                              </span>
+                              <svg
+                                className="h-5 w-5 text-gray-400"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`text-xs px-2 py-1 rounded-full flex items-center ${getStatusColor(order.status)}`}
-                        >
-                          {getStatusIcon(order.status)}
-                          {order.status}
-                        </span>
-                        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Order Details</DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="text-sm text-gray-500">Order Number</p>
-                          <p className="font-medium">{order.orderNumber}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Date</p>
-                          <p className="font-medium">{order.date}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Status</p>
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full flex items-center ${getStatusColor(order.status)}`}
-                          >
-                            {getStatusIcon(order.status)}
-                            {order.status}
-                          </span>
-                        </div>
-                      </div>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Order Details</DialogTitle>
+                          </DialogHeader>
+                          <div className="mt-4 space-y-4">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="text-sm text-gray-500">Order Number</p>
+                                <p className="font-medium">{invoice.invoiceNumber}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Date</p>
+                                <p className="font-medium">{formatDate(invoice.createdAt)}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Status</p>
+                                <span
+                                  className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}
+                                >
+                                  {formatStatus(invoice.status)}
+                                </span>
+                              </div>
+                            </div>
 
-                      <div className="border-t pt-4">
-                        <h4 className="font-medium mb-2">Order Items</h4>
-                        <ul className="space-y-2">
-                          {order.items.map((item, index) => (
-                            <li key={index} className="flex items-center gap-2">
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                            <div className="border-t pt-4">
+                              <h4 className="font-medium mb-2">Order Items</h4>
+                              <ul className="space-y-2">
+                                {Array.isArray(invoice.items) ? (
+                                  invoice.items.map((item, index) => (
+                                    <li key={index} className="flex items-center gap-2">
+                                      <CheckCircle className="h-4 w-4 text-green-500" />
+                                      <span>{item.tier}</span>
+                                      <span className="ml-auto">${Number(item.price).toFixed(2)}</span>
+                                    </li>
+                                  ))
+                                ) : (
+                                  <li className="flex items-center gap-2">
+                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                    <span>{getInvoiceItems(invoice)}</span>
+                                  </li>
+                                )}
+                              </ul>
+                            </div>
 
-                      <div className="border-t pt-4">
-                        <h4 className="font-medium mb-2">Payment Information</h4>
-                        <div className="flex justify-between">
-                          <span>Total</span>
-                          <span className="font-bold">{order.amount}</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-gray-500">
-                          <span>Payment Method</span>
-                          <span>Credit Card (ending in 4242)</span>
-                        </div>
-                      </div>
+                            <div className="border-t pt-4">
+                              <h4 className="font-medium mb-2">Payment Information</h4>
+                              <div className="flex justify-between">
+                                <span>Total</span>
+                                <span className="font-bold">${invoice.amount.toFixed(2)}</span>
+                              </div>
+                              {invoice.paymentDate && (
+                                <div className="flex justify-between text-sm text-gray-500">
+                                  <span>Payment Date</span>
+                                  <span>{formatDate(invoice.paymentDate)}</span>
+                                </div>
+                              )}
+                            </div>
 
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline">
-                          <Download className="h-4 w-4 mr-2" />
-                          Download Invoice
-                        </Button>
-                        <Button>Contact Support</Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <ShoppingBag className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <h3 className="text-lg font-medium text-gray-900">No orders found</h3>
-              <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
-            </div>
-          )}
-        </div>
+                            <div className="flex justify-end gap-2">
+                              {invoice.paymentReceipt && (
+                                <Button variant="outline" asChild>
+                                  <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
+                                    <Download className="h-4 w-4 mr-2" />
+                                    View Receipt
+                                  </a>
+                                </Button>
+                              )}
+                              <Button>Contact Support</Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState message="No package orders found" icon={<ShoppingBag className="h-12 w-12" />} />
+                )}
+              </>
+            )}
+          </TabsContent>
+
+          {/* Templates Tab */}
+          <TabsContent value="templates" className="p-6 pt-4">
+            {loadingInvoices ? (
+              <LoadingState message="Loading template orders..." />
+            ) : invoiceError ? (
+              <ErrorState message={invoiceError} retry={fetchInvoices} />
+            ) : (
+              <>
+                {getFilteredInvoices("template").length > 0 ? (
+                  <div className="space-y-4">
+                    {getFilteredInvoices("template").map((invoice) => (
+                      <Dialog key={invoice.id}>
+                        <DialogTrigger asChild>
+                          <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-purple-100 rounded-lg">
+                                <FileText className="h-5 w-5 text-purple-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium">{invoice.invoiceNumber}</p>
+                                <div className="flex items-center gap-3 text-sm text-gray-500">
+                                  <span>{formatDate(invoice.createdAt)}</span>
+                                  <span>•</span>
+                                  <span>${invoice.amount.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}>
+                                {formatStatus(invoice.status)}
+                              </span>
+                              <svg
+                                className="h-5 w-5 text-gray-400"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          </div>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Template Order Details</DialogTitle>
+                          </DialogHeader>
+                          <div className="mt-4 space-y-4">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="text-sm text-gray-500">Invoice Number</p>
+                                <p className="font-medium">{invoice.invoiceNumber}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Date</p>
+                                <p className="font-medium">{formatDate(invoice.createdAt)}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Status</p>
+                                <span
+                                  className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}
+                                >
+                                  {formatStatus(invoice.status)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="border-t pt-4">
+                              <h4 className="font-medium mb-2">Template Details</h4>
+                              <ul className="space-y-2">
+                                {Array.isArray(invoice.items) ? (
+                                  invoice.items.map((item, index) => (
+                                    <li key={index} className="flex items-center gap-2">
+                                      <FileText className="h-4 w-4 text-purple-500" />
+                                      <span>{item.tier}</span>
+                                      <span className="ml-auto">${Number(item.price).toFixed(2)}</span>
+                                    </li>
+                                  ))
+                                ) : (
+                                  <li className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-purple-500" />
+                                    <span>{getInvoiceItems(invoice)}</span>
+                                  </li>
+                                )}
+                              </ul>
+                            </div>
+
+                            <div className="border-t pt-4">
+                              <h4 className="font-medium mb-2">Payment Information</h4>
+                              <div className="flex justify-between">
+                                <span>Total</span>
+                                <span className="font-bold">${invoice.amount.toFixed(2)}</span>
+                              </div>
+                              {invoice.paymentDate && (
+                                <div className="flex justify-between text-sm text-gray-500">
+                                  <span>Payment Date</span>
+                                  <span>{formatDate(invoice.paymentDate)}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex justify-end gap-2">
+                              {invoice.paymentReceipt && (
+                                <Button variant="outline" asChild>
+                                  <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
+                                    <Download className="h-4 w-4 mr-2" />
+                                    View Receipt
+                                  </a>
+                                </Button>
+                              )}
+                              <Button>Contact Support</Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState message="No template orders found" icon={<FileText className="h-12 w-12" />} />
+                )}
+              </>
+            )}
+          </TabsContent>
+
+          {/* Annual Reports Tab */}
+          <TabsContent value="annual-reports" className="p-6 pt-4">
+            {loadingFilings ? (
+              <LoadingState message="Loading annual report filings..." />
+            ) : filingError ? (
+              <ErrorState message={filingError} retry={fetchFilings} />
+            ) : (
+              <>
+                {getFilteredFilings().length > 0 ? (
+                  <div className="space-y-4">
+                    {getFilteredFilings().map((filing) => (
+                      <Dialog key={filing.id}>
+                        <DialogTrigger asChild>
+                          <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-green-100 rounded-lg">
+                                <Calendar className="h-5 w-5 text-green-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium">
+                                  {filing.deadlineTitle || (filing.deadline ? filing.deadline.title : "Annual Report")}
+                                </p>
+                                <div className="flex items-center gap-3 text-sm text-gray-500">
+                                  <span>Filed: {formatDate(filing.filedDate)}</span>
+                                  <span>•</span>
+                                  <span>
+                                    Due:{" "}
+                                    {formatDate(filing.dueDate || (filing.deadline ? filing.deadline.dueDate : null))}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(filing.status)}`}>
+                                {formatStatus(filing.status)}
+                              </span>
+                              <svg
+                                className="h-5 w-5 text-gray-400"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          </div>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Annual Report Filing Details</DialogTitle>
+                          </DialogHeader>
+                          <div className="mt-4 space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm text-gray-500">Filing</p>
+                                <p className="font-medium">
+                                  {filing.deadlineTitle || (filing.deadline ? filing.deadline.title : "Annual Report")}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Status</p>
+                                <span
+                                  className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(filing.status)}`}
+                                >
+                                  {formatStatus(filing.status)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm text-gray-500">Filed Date</p>
+                                <p className="font-medium">
+                                  {filing.filedDate ? formatDate(filing.filedDate) : "Not filed yet"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Due Date</p>
+                                <p className="font-medium">
+                                  {formatDate(filing.dueDate || (filing.deadline ? filing.deadline.dueDate : null))}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {filing.receiptUrl && (
+                                <div>
+                                  <h4 className="text-sm font-medium mb-2">Payment Receipt</h4>
+                                  <div className="border rounded-md p-2 h-48 flex items-center justify-center">
+                                    <img
+                                      src={filing.receiptUrl || "/placeholder.svg"}
+                                      alt="Payment Receipt"
+                                      className="max-h-full max-w-full object-contain"
+                                    />
+                                  </div>
+                                  <div className="mt-2 flex justify-end">
+                                    <Button variant="outline" size="sm" asChild>
+                                      <a href={filing.receiptUrl} target="_blank" rel="noopener noreferrer" download>
+                                        <Download className="h-4 w-4 mr-2" />
+                                        Download Receipt
+                                      </a>
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {filing.reportUrl && (
+                                <div>
+                                  <h4 className="text-sm font-medium mb-2">Filed Report</h4>
+                                  <div className="border rounded-md p-2 h-48 flex items-center justify-center">
+                                    <FileText className="h-16 w-16 text-gray-300" />
+                                  </div>
+                                  <div className="mt-2 flex justify-end">
+                                    <Button variant="outline" size="sm" asChild>
+                                      <a href={filing.reportUrl} target="_blank" rel="noopener noreferrer" download>
+                                        <Download className="h-4 w-4 mr-2" />
+                                        Download Report
+                                      </a>
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {filing.userNotes && (
+                              <div>
+                                <h4 className="text-sm font-medium mb-1">Your Notes</h4>
+                                <p className="text-sm p-3 bg-gray-50 rounded-md">{filing.userNotes}</p>
+                              </div>
+                            )}
+
+                            {filing.adminNotes && (
+                              <div>
+                                <h4 className="text-sm font-medium mb-1">Admin Notes</h4>
+                                <p className="text-sm p-3 bg-gray-50 rounded-md">{filing.adminNotes}</p>
+                              </div>
+                            )}
+
+                            <div className="flex justify-end gap-2">
+                              <Button>Contact Support</Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState message="No annual report filings found" icon={<Calendar className="h-12 w-12" />} />
+                )}
+              </>
+            )}
+          </TabsContent>
+
+          {/* Amendments Tab */}
+          <TabsContent value="amendments" className="p-6 pt-4">
+            {loadingAmendments ? (
+              <LoadingState message="Loading amendments..." />
+            ) : amendmentError ? (
+              <ErrorState message={amendmentError} retry={fetchAmendments} />
+            ) : (
+              <>
+                {getFilteredAmendments().length > 0 ? (
+                  <div className="space-y-4">
+                    {getFilteredAmendments().map((amendment) => (
+                      <Dialog key={amendment.id}>
+                        <DialogTrigger asChild>
+                          <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-indigo-100 rounded-lg">
+                                <PenTool className="h-5 w-5 text-indigo-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium">{amendment.type}</p>
+                                <div className="flex items-center gap-3 text-sm text-gray-500">
+                                  <span>Submitted: {formatDate(amendment.createdAt)}</span>
+                                  <span>•</span>
+                                  <span>Updated: {formatDate(amendment.updatedAt)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span
+                                className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(amendment.status)}`}
+                              >
+                                {formatStatus(amendment.status)}
+                              </span>
+                              <svg
+                                className="h-5 w-5 text-gray-400"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          </div>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Amendment Details</DialogTitle>
+                          </DialogHeader>
+                          <div className="mt-4 space-y-4">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="text-sm text-gray-500">Amendment Type</p>
+                                <p className="font-medium">{amendment.type}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Status</p>
+                                <span
+                                  className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(amendment.status)}`}
+                                >
+                                  {formatStatus(amendment.status)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="border-t pt-4">
+                              <h4 className="font-medium mb-2">Amendment Details</h4>
+                              <p className="text-sm text-gray-700">{amendment.details}</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                              <div>
+                                <p className="text-sm text-gray-500">Submitted On</p>
+                                <p className="font-medium">{formatDate(amendment.createdAt)}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Last Updated</p>
+                                <p className="font-medium">{formatDate(amendment.updatedAt)}</p>
+                              </div>
+                            </div>
+
+                            {amendment.paymentAmount && (
+                              <div className="border-t pt-4">
+                                <h4 className="font-medium mb-2">Payment Information</h4>
+                                <div className="flex justify-between">
+                                  <span>Amount</span>
+                                  <span className="font-bold">
+                                    $
+                                    {typeof amendment.paymentAmount === "number"
+                                      ? amendment.paymentAmount.toFixed(2)
+                                      : Number.parseFloat(amendment.paymentAmount).toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {amendment.notes && (
+                              <div className="border-t pt-4">
+                                <h4 className="font-medium mb-2">Notes</h4>
+                                <p className="text-sm text-gray-700">{amendment.notes}</p>
+                              </div>
+                            )}
+
+                            <div className="flex justify-end gap-2">
+                              {amendment.documentUrl && (
+                                <Button variant="outline" asChild>
+                                  <a href={amendment.documentUrl} target="_blank" rel="noopener noreferrer">
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Document
+                                  </a>
+                                </Button>
+                              )}
+                              {amendment.receiptUrl && (
+                                <Button variant="outline" asChild>
+                                  <a href={amendment.receiptUrl} target="_blank" rel="noopener noreferrer">
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Receipt
+                                  </a>
+                                </Button>
+                              )}
+                              <Button>Contact Support</Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState message="No amendments found" icon={<PenTool className="h-12 w-12" />} />
+                )}
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
       </Card>
 
       <Card>
