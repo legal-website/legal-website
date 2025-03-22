@@ -1,95 +1,147 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { Role } from "@/lib/role"
-import { AffiliateConversionStatus, AffiliatePayoutStatus } from "@prisma/client"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
 
 export async function GET() {
   try {
+    // Check authentication
     const session = await getServerSession(authOptions)
-
-    if (!session?.user || session.user.role !== Role.ADMIN) {
+    if (!session || (session.user as any).role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get total affiliates
-    const totalAffiliates = await db.affiliateLink.count()
+    // Check if tables exist first
+    const tablesExist = await db.$queryRaw`
+      SELECT 
+        EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'affiliate_links') as links_exist,
+        EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'affiliate_conversions') as conversions_exist,
+        EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'affiliate_clicks') as clicks_exist
+    `
+
+    const { links_exist, conversions_exist, clicks_exist } = (tablesExist as any)[0]
+
+    // If tables don't exist, return empty stats
+    if (!links_exist || !conversions_exist || !clicks_exist) {
+      return NextResponse.json({
+        success: true,
+        stats: {
+          totalLinks: 0,
+          totalClicks: 0,
+          totalConversions: 0,
+          conversionRate: 0,
+          totalCommission: 0,
+          recentClicks: [],
+          recentConversions: [],
+          topAffiliates: [],
+        },
+        tablesExist: {
+          affiliate_links: links_exist === 1,
+          affiliate_conversions: conversions_exist === 1,
+          affiliate_clicks: clicks_exist === 1,
+        },
+      })
+    }
+
+    // Get total links
+    const totalLinksResult = await db.$queryRaw`
+      SELECT COUNT(*) as count FROM affiliate_links
+    `
+    const totalLinks = (totalLinksResult as any)[0].count
 
     // Get total clicks
-    const totalClicks = await db.affiliateClick.count()
+    const totalClicksResult = await db.$queryRaw`
+      SELECT COUNT(*) as count FROM affiliate_clicks
+    `
+    const totalClicks = (totalClicksResult as any)[0].count
 
     // Get total conversions
-    const totalConversions = await db.affiliateConversion.count()
+    const totalConversionsResult = await db.$queryRaw`
+      SELECT COUNT(*) as count FROM affiliate_conversions
+    `
+    const totalConversions = (totalConversionsResult as any)[0].count
 
-    // Get approved conversions
-    const approvedConversions = await db.affiliateConversion.count({
-      where: {
-        status: {
-          in: [AffiliateConversionStatus.APPROVED, AffiliateConversionStatus.PAID],
-        },
-      },
-    })
+    // Calculate conversion rate
+    const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0
 
-    // Calculate total commission
-    const conversions = await db.affiliateConversion.findMany({
-      where: {
-        status: {
-          in: [AffiliateConversionStatus.APPROVED, AffiliateConversionStatus.PAID],
-        },
-      },
-    })
+    // Get total commission
+    const totalCommissionResult = await db.$queryRaw`
+      SELECT SUM(commission) as total FROM affiliate_conversions
+    `
+    const totalCommission = (totalCommissionResult as any)[0].total || 0
 
-    const totalCommission = conversions.reduce((sum, c) => sum + Number(c.commission), 0)
+    // Get recent clicks (last 10)
+    const recentClicks = await db.$queryRaw`
+      SELECT 
+        ac.id, 
+        ac.createdAt, 
+        ac.ip, 
+        ac.userAgent,
+        al.code as affiliateCode,
+        u.email as affiliateEmail
+      FROM affiliate_clicks ac
+      JOIN affiliate_links al ON ac.linkId = al.id
+      JOIN users u ON al.userId = u.id
+      ORDER BY ac.createdAt DESC
+      LIMIT 10
+    `
 
-    // Get pending payouts
-    const pendingPayouts = await db.affiliatePayout.count({
-      where: { status: AffiliatePayoutStatus.PENDING },
-    })
+    // Get recent conversions (last 10)
+    const recentConversions = await db.$queryRaw`
+      SELECT 
+        ac.id, 
+        ac.createdAt, 
+        ac.amount,
+        ac.commission,
+        ac.status,
+        ac.customerEmail,
+        al.code as affiliateCode,
+        u.email as affiliateEmail
+      FROM affiliate_conversions ac
+      JOIN affiliate_links al ON ac.linkId = al.id
+      JOIN users u ON al.userId = u.id
+      ORDER BY ac.createdAt DESC
+      LIMIT 10
+    `
 
-    // Calculate pending payout amount
-    const payouts = await db.affiliatePayout.findMany({
-      where: { status: AffiliatePayoutStatus.PENDING },
-    })
-
-    const pendingPayoutAmount = payouts.reduce((sum, p) => sum + Number(p.amount), 0)
-
-    // Get conversion rate
-    const conversionRate = totalClicks > 0 ? (approvedConversions / totalClicks) * 100 : 0
-
-    // Get recent conversions
-    const recentConversions = await db.affiliateConversion.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      include: {
-        link: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-      },
-    })
+    // Get top affiliates by commission
+    const topAffiliates = await db.$queryRaw`
+      SELECT 
+        u.id as userId,
+        u.email as email,
+        COUNT(DISTINCT ac.id) as conversions,
+        SUM(ac.commission) as totalCommission
+      FROM users u
+      JOIN affiliate_links al ON u.id = al.userId
+      JOIN affiliate_conversions ac ON al.id = ac.linkId
+      GROUP BY u.id, u.email
+      ORDER BY totalCommission DESC
+      LIMIT 5
+    `
 
     return NextResponse.json({
-      totalAffiliates,
-      totalClicks,
-      totalConversions,
-      approvedConversions,
-      totalCommission,
-      pendingPayouts,
-      pendingPayoutAmount,
-      conversionRate,
-      recentConversions,
+      success: true,
+      stats: {
+        totalLinks,
+        totalClicks,
+        totalConversions,
+        conversionRate: Number.parseFloat(conversionRate.toFixed(2)),
+        totalCommission: Number.parseFloat(totalCommission.toString()),
+        recentClicks,
+        recentConversions,
+        topAffiliates,
+      },
     })
   } catch (error) {
-    console.error("Error fetching affiliate stats:", error)
-    return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 })
+    console.error("[AFFILIATE_STATS_ERROR]", error)
+    return NextResponse.json(
+      {
+        error: "Failed to fetch affiliate stats",
+        details: error,
+        message: "Please make sure all affiliate tables exist by visiting /api/admin/affiliate/fix-schema",
+      },
+      { status: 500 },
+    )
   }
 }
 

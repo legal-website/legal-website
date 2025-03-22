@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import { safeDbOperation, tableExists, columnExists } from "@/lib/db-utils"
 
 export async function POST() {
   try {
@@ -12,49 +13,48 @@ export async function POST() {
     }
 
     // Check if tables exist
-    const tablesExist = await db.$queryRaw`
-      SELECT 
-        EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'affiliate_links') as links_exist,
-        EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'affiliate_conversions') as conversions_exist,
-        EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'affiliate_clicks') as clicks_exist
-    `
+    const linksExist = await tableExists("affiliate_links")
+    const conversionsExist = await tableExists("affiliate_conversions")
+    const clicksExist = await tableExists("affiliate_clicks")
 
-    const { links_exist, conversions_exist, clicks_exist } = (tablesExist as any)[0]
+    const results = {
+      links: { exists: linksExist, modified: false },
+      conversions: { exists: conversionsExist, modified: false },
+      clicks: { exists: clicksExist, modified: false },
+    }
 
     // Add missing columns to affiliate_links if it exists
-    if (links_exist) {
+    if (linksExist) {
       // Check if active column exists
-      const activeExists = await db.$queryRaw`
-        SELECT EXISTS(
-          SELECT 1 FROM information_schema.columns 
-          WHERE table_schema = DATABASE() 
-          AND table_name = 'affiliate_links' 
-          AND column_name = 'active'
-        ) as exists;
-      `
+      const activeExists = await columnExists("affiliate_links", "active")
 
-      if (!(activeExists as any)[0].exists) {
-        await db.$executeRaw`
-          ALTER TABLE affiliate_links 
-          ADD COLUMN active BOOLEAN NOT NULL DEFAULT true;
-        `
+      if (!activeExists) {
+        const success = await safeDbOperation(async () => {
+          await db.$executeRaw`
+            ALTER TABLE affiliate_links 
+            ADD COLUMN active BOOLEAN NOT NULL DEFAULT true;
+          `
+        }, "Failed to add active column to affiliate_links")
+
+        if (success) {
+          results.links.modified = true
+        }
       }
 
       // Check if commission column exists
-      const commissionExists = await db.$queryRaw`
-        SELECT EXISTS(
-          SELECT 1 FROM information_schema.columns 
-          WHERE table_schema = DATABASE() 
-          AND table_name = 'affiliate_links' 
-          AND column_name = 'commission'
-        ) as exists;
-      `
+      const commissionExists = await columnExists("affiliate_links", "commission")
 
-      if (!(commissionExists as any)[0].exists) {
-        await db.$executeRaw`
-          ALTER TABLE affiliate_links 
-          ADD COLUMN commission DECIMAL(10,2) NOT NULL DEFAULT 0.10;
-        `
+      if (!commissionExists) {
+        const success = await safeDbOperation(async () => {
+          await db.$executeRaw`
+            ALTER TABLE affiliate_links 
+            ADD COLUMN commission DECIMAL(10,2) NOT NULL DEFAULT 0.10;
+          `
+        }, "Failed to add commission column to affiliate_links")
+
+        if (success) {
+          results.links.modified = true
+        }
       }
 
       // Add unique constraint to userId if not exists
@@ -92,50 +92,56 @@ export async function POST() {
 
             // Keep the first one, delete the rest
             for (let i = 1; i < (links as any).length; i++) {
-              await db.$executeRaw`
-                DELETE FROM affiliate_links
-                WHERE id = ${(links as any)[i].id};
-              `
+              await safeDbOperation(
+                async () => {
+                  await db.$executeRaw`
+                  DELETE FROM affiliate_links
+                  WHERE id = ${(links as any)[i].id};
+                `
+                },
+                `Failed to delete duplicate affiliate link ${(links as any)[i].id}`,
+              )
             }
           }
         }
 
         // Now add the unique constraint
-        await db.$executeRaw`
-          ALTER TABLE affiliate_links
-          ADD UNIQUE INDEX affiliate_links_userId_key (userId);
-        `
+        const success = await safeDbOperation(async () => {
+          await db.$executeRaw`
+            ALTER TABLE affiliate_links
+            ADD UNIQUE INDEX affiliate_links_userId_key (userId);
+          `
+        }, "Failed to add unique constraint to userId in affiliate_links")
+
+        if (success) {
+          results.links.modified = true
+        }
       }
     }
 
     // Add missing columns to affiliate_conversions if it exists
-    if (conversions_exist) {
+    if (conversionsExist) {
       // Check if customerEmail column exists
-      const customerEmailExists = await db.$queryRaw`
-        SELECT EXISTS(
-          SELECT 1 FROM information_schema.columns 
-          WHERE table_schema = DATABASE() 
-          AND table_name = 'affiliate_conversions' 
-          AND column_name = 'customerEmail'
-        ) as exists;
-      `
+      const customerEmailExists = await columnExists("affiliate_conversions", "customerEmail")
 
-      if (!(customerEmailExists as any)[0].exists) {
-        await db.$executeRaw`
-          ALTER TABLE affiliate_conversions 
-          ADD COLUMN customerEmail VARCHAR(255);
-        `
+      if (!customerEmailExists) {
+        const success = await safeDbOperation(async () => {
+          await db.$executeRaw`
+            ALTER TABLE affiliate_conversions 
+            ADD COLUMN customerEmail VARCHAR(255);
+          `
+        }, "Failed to add customerEmail column to affiliate_conversions")
+
+        if (success) {
+          results.conversions.modified = true
+        }
       }
     }
 
     return NextResponse.json({
       success: true,
-      message: "Schema fixed successfully",
-      tablesExist: {
-        affiliate_links: links_exist === 1,
-        affiliate_conversions: conversions_exist === 1,
-        affiliate_clicks: clicks_exist === 1,
-      },
+      message: "Schema check completed",
+      results,
     })
   } catch (error) {
     console.error("[FIX_SCHEMA_ERROR]", error)
