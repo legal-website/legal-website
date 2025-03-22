@@ -651,25 +651,6 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json()
         if (data.business) {
-          // Check if the LLC was completed more than 2 days ago
-          let llcStatusMessage = data.business.llcStatusMessage || "LLC formation initiated"
-
-          // If the LLC is completed and has a completedAt timestamp, check if 2 days have passed
-          if (
-            data.business.llcProgress === 100 &&
-            data.business.completedAt &&
-            data.business.llcStatusMessage === "Congratulations your LLC is formed"
-          ) {
-            const completedDate = new Date(data.business.completedAt)
-            const twoDaysAfterCompletion = new Date(completedDate)
-            twoDaysAfterCompletion.setDate(twoDaysAfterCompletion.getDate() + 2)
-
-            // If more than 2 days have passed, change the message
-            if (new Date() > twoDaysAfterCompletion) {
-              llcStatusMessage = "LLC formation complete"
-            }
-          }
-
           setBusinessData({
             name: data.business.name || "Your Business LLC",
             businessId: data.business.businessId || "Pending",
@@ -680,7 +661,7 @@ export default function DashboardPage() {
             serviceStatus: data.business.serviceStatus || "Pending",
             llcStatus: data.business.llcStatus || "In Progress",
             llcProgress: data.business.llcProgress || 0,
-            llcStatusMessage: llcStatusMessage,
+            llcStatusMessage: data.business.llcStatusMessage || "LLC formation initiated",
             annualReportFee: data.business.annualReportFee || 100,
             annualReportFrequency: data.business.annualReportFrequency || 1,
             annualReportDueDate: data.business.annualReportDueDate || "",

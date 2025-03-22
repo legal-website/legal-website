@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Role } from "@/lib/role" // Import from local file instead of @prisma/client
+import { Role } from "@prisma/client"
 
 // Define interfaces for type safety
 interface PendingUser {
