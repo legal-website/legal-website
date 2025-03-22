@@ -39,16 +39,28 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Use raw SQL to get user with business relation since TypeScript is having issues with the Prisma types
+    // Use a more comprehensive query to fetch all user data including phone and address
+    // This query joins User, Business, and PhoneNumberRequest tables
     const userQuery = `
-      SELECT u.*, b.* 
-      FROM User u
-      LEFT JOIN Business b ON u.businessId = b.id
-      WHERE u.id = ?
+      SELECT 
+        u.*,
+        b.*,
+        p.phoneNumber,
+        COALESCE(u.address, b.address) as userAddress
+      FROM 
+        User u
+      LEFT JOIN 
+        Business b ON u.businessId = b.id
+      LEFT JOIN 
+        PhoneNumberRequest p ON u.id = p.userId AND p.status = 'approved'
+      WHERE 
+        u.id = ?
     `
 
     const results = await db.$queryRawUnsafe(userQuery, session.user.id)
-    const userData = results[0] as (UserModel & Partial<BusinessData>) | null
+    const userData = results[0] as
+      | (UserModel & Partial<BusinessData> & { phoneNumber?: string; userAddress?: string })
+      | null
 
     if (!userData) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -60,8 +72,8 @@ export async function GET(req: NextRequest) {
           id: userData.businessId,
           name: userData.name,
           email: userData.email,
-          phone: userData.phone,
-          address: userData.address,
+          phone: userData.phoneNumber || userData.phone,
+          address: userData.userAddress || userData.address,
           website: userData.website,
           industry: userData.industry,
           formationDate: userData.formationDate,
@@ -107,8 +119,8 @@ export async function GET(req: NextRequest) {
         id: userData.id,
         name: userData.name,
         email: userData.email,
-        phone: userData.phone || "",
-        address: userData.address || "",
+        phone: userData.phoneNumber || "",
+        address: userData.userAddress || "",
       },
     })
   } catch (error) {
@@ -129,16 +141,27 @@ export async function PUT(req: NextRequest) {
     // Parse the request body
     const body = await req.json()
 
-    // Use raw SQL to get user with business relation
+    // Use a more comprehensive query to fetch all user data including phone and address
     const userQuery = `
-      SELECT u.*, b.* 
-      FROM User u
-      LEFT JOIN Business b ON u.businessId = b.id
-      WHERE u.id = ?
+      SELECT 
+        u.*,
+        b.*,
+        p.phoneNumber,
+        COALESCE(u.address, b.address) as userAddress
+      FROM 
+        User u
+      LEFT JOIN 
+        Business b ON u.businessId = b.id
+      LEFT JOIN 
+        PhoneNumberRequest p ON u.id = p.userId AND p.status = 'approved'
+      WHERE 
+        u.id = ?
     `
 
     const results = await db.$queryRawUnsafe(userQuery, session.user.id)
-    const userData = results[0] as (UserModel & Partial<BusinessData>) | null
+    const userData = results[0] as
+      | (UserModel & Partial<BusinessData> & { phoneNumber?: string; userAddress?: string })
+      | null
 
     if (!userData) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -148,21 +171,22 @@ export async function PUT(req: NextRequest) {
     if (body.phone !== undefined) {
       // Check if phone request exists
       const phoneRequest = await db.$queryRawUnsafe(
-        `SELECT * FROM PhoneNumberRequest WHERE userId = ?`,
+        `SELECT * FROM PhoneNumberRequest WHERE userId = ? AND status = 'approved'`,
         session.user.id,
       )
 
       if (phoneRequest && phoneRequest.length > 0) {
         // Update existing phone request
         await db.$executeRawUnsafe(
-          `UPDATE PhoneNumberRequest SET phoneNumber = ?, status = 'approved', updatedAt = NOW() WHERE userId = ?`,
+          `UPDATE PhoneNumberRequest SET phoneNumber = ?, updatedAt = NOW() WHERE userId = ? AND status = 'approved'`,
           body.phone,
           session.user.id,
         )
       } else {
         // Create new phone request
         await db.$executeRawUnsafe(
-          `INSERT INTO PhoneNumberRequest (id, userId, phoneNumber, status, createdAt, updatedAt) VALUES (UUID(), ?, ?, 'approved', NOW(), NOW())`,
+          `INSERT INTO PhoneNumberRequest (id, userId, phoneNumber, status, createdAt, updatedAt) 
+           VALUES (UUID(), ?, ?, 'approved', NOW(), NOW())`,
           session.user.id,
           body.phone,
         )
@@ -176,6 +200,11 @@ export async function PUT(req: NextRequest) {
 
       if (userColumns && userColumns.length > 0) {
         await db.$executeRawUnsafe(`UPDATE User SET address = ? WHERE id = ?`, body.address, session.user.id)
+      } else {
+        // If address doesn't exist in User table, update it in Business table if business exists
+        if (userData.businessId) {
+          await db.$executeRawUnsafe(`UPDATE Business SET address = ? WHERE id = ?`, body.address, userData.businessId)
+        }
       }
     }
 
@@ -219,13 +248,34 @@ export async function PUT(req: NextRequest) {
     // Create or update business
     if (!businessId) {
       // Create a new business
+      const newBusinessQuery = `
+        INSERT INTO Business (
+          id, 
+          name, 
+          website, 
+          industry, 
+          address,
+          createdAt, 
+          updatedAt
+        ) 
+        VALUES (
+          UUID(), 
+          ?, 
+          ?, 
+          ?, 
+          ?,
+          NOW(), 
+          NOW()
+        )
+        RETURNING id
+      `
+
       const newBusiness = await db.$executeRawUnsafe(
-        `INSERT INTO Business (id, name, website, industry, createdAt, updatedAt) 
-         VALUES (UUID(), ?, ?, ?, NOW(), NOW())
-         RETURNING id`,
+        newBusinessQuery,
         body.name || userData.name || "My Business",
         body.website || "",
         updatedIndustry || JSON.stringify(customData),
+        body.address || userData.userAddress || "",
       )
 
       businessId = newBusiness[0].id
@@ -234,42 +284,45 @@ export async function PUT(req: NextRequest) {
       await db.$executeRawUnsafe(`UPDATE User SET businessId = ? WHERE id = ?`, businessId, session.user.id)
     } else {
       // Update the existing business
-      if (body.website !== undefined || updatedIndustry !== undefined) {
-        let updateQuery = `UPDATE Business SET updatedAt = NOW()`
-        const params = []
+      const updateFields = []
+      const params = []
 
-        if (body.website !== undefined) {
-          updateQuery += `, website = ?`
-          params.push(body.website)
-        }
+      if (body.website !== undefined) {
+        updateFields.push("website = ?")
+        params.push(body.website)
+      }
 
-        if (updatedIndustry !== undefined) {
-          updateQuery += `, industry = ?`
-          params.push(updatedIndustry)
-        }
+      if (updatedIndustry !== undefined) {
+        updateFields.push("industry = ?")
+        params.push(updatedIndustry)
+      }
 
-        updateQuery += ` WHERE id = ?`
+      if (body.address !== undefined) {
+        updateFields.push("address = ?")
+        params.push(body.address)
+      }
+
+      if (updateFields.length > 0) {
+        const updateQuery = `
+          UPDATE Business 
+          SET ${updateFields.join(", ")}, updatedAt = NOW()
+          WHERE id = ?
+        `
+
         params.push(businessId)
-
         await db.$executeRawUnsafe(updateQuery, ...params)
       }
     }
 
     // Get the updated user and business data
     const updatedResults = await db.$queryRawUnsafe(userQuery, session.user.id)
-    const updatedUserData = updatedResults[0] as (UserModel & Partial<BusinessData>) | null
+    const updatedUserData = updatedResults[0] as
+      | (UserModel & Partial<BusinessData> & { phoneNumber?: string; userAddress?: string })
+      | null
 
     if (!updatedUserData) {
       throw new Error("Failed to retrieve updated user")
     }
-
-    // Get phone from PhoneNumberRequest
-    const phoneRequestResult = await db.$queryRawUnsafe(
-      `SELECT phoneNumber FROM PhoneNumberRequest WHERE userId = ? AND status = 'approved'`,
-      session.user.id,
-    )
-
-    const phoneNumber = phoneRequestResult && phoneRequestResult.length > 0 ? phoneRequestResult[0].phoneNumber : ""
 
     // Extract updated business data
     const updatedBusinessData = updatedUserData.businessId
@@ -277,8 +330,8 @@ export async function PUT(req: NextRequest) {
           id: updatedUserData.businessId,
           name: updatedUserData.name,
           email: updatedUserData.email,
-          phone: updatedUserData.phone,
-          address: updatedUserData.address,
+          phone: updatedUserData.phoneNumber || updatedUserData.phone,
+          address: updatedUserData.userAddress || updatedUserData.address,
           website: updatedUserData.website,
           industry: updatedUserData.industry,
           formationDate: updatedUserData.formationDate,
@@ -306,8 +359,8 @@ export async function PUT(req: NextRequest) {
         id: updatedUserData.id,
         name: updatedUserData.name,
         email: updatedUserData.email,
-        phone: phoneNumber || "",
-        address: updatedUserData.address || "",
+        phone: updatedUserData.phoneNumber || "",
+        address: updatedUserData.userAddress || "",
       },
     })
   } catch (error) {
