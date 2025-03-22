@@ -45,6 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     try {
       // Get the user's email from the invoice
       const userEmail = invoice.customerEmail
+      console.log("Checking affiliate for email:", userEmail)
 
       // Check if we have stored affiliate information for this user
       const userAffiliateCookie = await prisma.systemSettings.findFirst({
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       })
 
       if (userAffiliateCookie) {
-        console.log("Found affiliate cookie for user:", userEmail)
+        console.log("Found affiliate cookie for user:", userEmail, userAffiliateCookie.value)
         const affiliateCode = userAffiliateCookie.value
 
         // Find the affiliate link
@@ -63,22 +64,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         })
 
         if (affiliateLink) {
-          console.log("Found affiliate link:", affiliateLink.id)
+          console.log("Found affiliate link:", affiliateLink.id, "for user:", affiliateLink.userId)
 
           // Get commission rate from settings
           const settings = (await prisma.affiliateSettings.findFirst()) || { commissionRate: 10 }
+          console.log("Commission rate:", settings.commissionRate)
 
           // Calculate commission (10% of invoice amount)
           const commission = (invoice.amount * Number(settings.commissionRate)) / 100
+          console.log("Calculated commission:", commission, "from amount:", invoice.amount)
 
           // Check if a conversion already exists for this order
-          const existingConversion = await prisma.$queryRaw`
+          const existingConversions = await prisma.$queryRaw`
             SELECT * FROM affiliate_conversions WHERE orderId = ${invoiceId} LIMIT 1
           `
 
-          if (!existingConversion || (Array.isArray(existingConversion) && existingConversion.length === 0)) {
+          const existingConversion =
+            Array.isArray(existingConversions) && existingConversions.length > 0 ? existingConversions[0] : null
+
+          if (!existingConversion) {
+            console.log("No existing conversion found, creating new one")
             // Record the conversion
-            await prisma.affiliateConversion.create({
+            const newConversion = await prisma.affiliateConversion.create({
               data: {
                 linkId: affiliateLink.id,
                 orderId: invoiceId,
@@ -88,13 +95,33 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
               },
             })
 
-            console.log(`Recorded affiliate conversion for invoice ${invoiceId} with commission ${commission}`)
+            console.log(
+              `Recorded affiliate conversion for invoice ${invoiceId} with commission ${commission}`,
+              newConversion,
+            )
           } else {
-            console.log(`Conversion already exists for invoice ${invoiceId}`)
+            console.log(`Conversion already exists for invoice ${invoiceId}`, existingConversion)
           }
+        } else {
+          console.log("No affiliate link found for code:", affiliateCode)
         }
       } else {
         console.log("No affiliate cookie found for user:", userEmail)
+
+        // Additional debugging: check if there are any affiliate cookies at all
+        const allAffiliateCookies = await prisma.systemSettings.findMany({
+          where: {
+            key: {
+              startsWith: "affiliate_cookie_",
+            },
+          },
+        })
+
+        console.log(
+          "All affiliate cookies:",
+          allAffiliateCookies.length,
+          allAffiliateCookies.map((c: { key: string }) => c.key),
+        )
       }
     } catch (affiliateError) {
       // Don't let affiliate tracking errors disrupt the main flow

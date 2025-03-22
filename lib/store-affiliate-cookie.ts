@@ -4,8 +4,13 @@ export async function storeAffiliateCookie(email: string, affiliateCode: string)
   try {
     console.log(`Storing affiliate cookie for ${email}: ${affiliateCode}`)
 
+    if (!email || !affiliateCode) {
+      console.error("Missing email or affiliate code")
+      return false
+    }
+
     // Store the affiliate code in the database
-    await prisma.systemSettings.upsert({
+    const result = await prisma.systemSettings.upsert({
       where: {
         key: `affiliate_cookie_${email}`,
       },
@@ -18,6 +23,7 @@ export async function storeAffiliateCookie(email: string, affiliateCode: string)
       },
     })
 
+    console.log("Stored affiliate cookie successfully:", result)
     return true
   } catch (error) {
     console.error("Error storing affiliate cookie:", error)

@@ -31,9 +31,20 @@ export async function POST(req: NextRequest) {
     const cookieStore = await cookies()
     const affiliateCookie = cookieStore.get("affiliate")
 
-    if (affiliateCookie && email) {
+    console.log("Checkout for email:", email, "Affiliate cookie:", affiliateCookie?.value)
+
+    if (affiliateCookie?.value && email) {
       // Store the affiliate cookie in the database
       await storeAffiliateCookie(email, affiliateCookie.value)
+
+      // Double-check that it was stored
+      const storedCookie = await prisma.systemSettings.findFirst({
+        where: {
+          key: `affiliate_cookie_${email}`,
+        },
+      })
+
+      console.log("Verified stored cookie:", storedCookie)
     }
 
     return NextResponse.json({
