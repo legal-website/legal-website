@@ -1,10 +1,32 @@
-import { NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import type { AffiliateLinkWithCommission, AffiliateConversionWithRelations } from "@/lib/affiliate-types"
+import prisma from "@/lib/prisma"
 
-export async function GET() {
+// Define types for our data
+interface InvoiceWithMetadata {
+  id: string
+  invoiceNumber: string
+  amount: number
+  status: string
+  metadata?: string | null
+}
+
+interface ConversionWithRelations {
+  id: string
+  orderId: string
+  amount: number
+  commission: number
+  status: string
+  link: {
+    user: {
+      email: string
+    }
+  }
+  createdAt: Date
+}
+
+export async function GET(req: NextRequest) {
   try {
     // Check authentication
     const session = await getServerSession(authOptions)
@@ -12,91 +34,67 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get database type and version
-    const dbInfo = await db.$queryRaw`SELECT VERSION() as version`
+    const url = new URL(req.url)
+    const email = url.searchParams.get("email")
 
-    // Check if tables exist
-    const tablesExist = await db.$queryRaw`
-      SELECT 
-        EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'affiliate_links') as links_exist,
-        EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'affiliate_conversions') as conversions_exist,
-        EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'affiliate_clicks') as clicks_exist,
-        EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'affiliate_settings') as settings_exist
-    `
-
-    // Get counts
-    let linkCount = 0
-    let conversionCount = 0
-    let clickCount = 0
-
-    if ((tablesExist as any)[0].links_exist === 1) {
-      const linkCountResult = await db.$queryRaw`SELECT COUNT(*) as count FROM affiliate_links`
-      linkCount = (linkCountResult as any)[0].count
+    if (!email) {
+      return NextResponse.json({ error: "Email parameter is required" }, { status: 400 })
     }
 
-    if ((tablesExist as any)[0].conversions_exist === 1) {
-      const conversionCountResult = await db.$queryRaw`SELECT COUNT(*) as count FROM affiliate_conversions`
-      conversionCount = (conversionCountResult as any)[0].count
-    }
+    // Get invoices for this email
+    const invoices = (await prisma.invoice.findMany({
+      where: { customerEmail: email },
+    })) as InvoiceWithMetadata[]
 
-    if ((tablesExist as any)[0].clicks_exist === 1) {
-      const clickCountResult = await db.$queryRaw`SELECT COUNT(*) as count FROM affiliate_clicks`
-      clickCount = (clickCountResult as any)[0].count
-    }
+    // Extract affiliate codes from invoice metadata
+    const invoiceData = invoices.map((invoice: InvoiceWithMetadata) => {
+      let affiliateCode = null
+      if (invoice.metadata) {
+        try {
+          const metadata = JSON.parse(invoice.metadata as string)
+          affiliateCode = metadata.affiliateCode
+        } catch (e) {
+          console.error(`Error parsing metadata for invoice ${invoice.id}:`, e)
+        }
+      }
 
-    // Get sample data
-    let links: AffiliateLinkWithCommission[] = []
-    let conversions: AffiliateConversionWithRelations[] = []
+      return {
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        amount: invoice.amount,
+        status: invoice.status,
+        affiliateCode,
+      }
+    })
 
-    if ((tablesExist as any)[0].links_exist === 1) {
-      links = (await db.affiliateLink.findMany({
-        take: 5,
-        orderBy: { createdAt: "desc" },
-      })) as unknown as AffiliateLinkWithCommission[]
-    }
-
-    if ((tablesExist as any)[0].conversions_exist === 1) {
-      conversions = (await db.affiliateConversion.findMany({
-        take: 5,
-        orderBy: { createdAt: "desc" },
-        include: {
-          link: {
-            include: {
-              user: {
-                select: {
-                  email: true,
-                },
-              },
-            },
+    // Get conversions for this email
+    const conversions = (await prisma.affiliateConversion.findMany({
+      where: { customerEmail: email },
+      include: {
+        link: {
+          include: {
+            user: true,
           },
         },
-      })) as unknown as AffiliateConversionWithRelations[]
-    }
+      },
+    })) as ConversionWithRelations[]
 
     return NextResponse.json({
-      success: true,
-      database: {
-        info: dbInfo,
-        tables: {
-          affiliate_links: (tablesExist as any)[0].links_exist === 1,
-          affiliate_conversions: (tablesExist as any)[0].conversions_exist === 1,
-          affiliate_clicks: (tablesExist as any)[0].clicks_exist === 1,
-          affiliate_settings: (tablesExist as any)[0].settings_exist === 1,
-        },
-        counts: {
-          links: linkCount,
-          conversions: conversionCount,
-          clicks: clickCount,
-        },
-      },
-      data: {
-        links,
-        conversions,
-      },
+      email,
+      invoices: invoiceData,
+      conversions: conversions.map((conv: ConversionWithRelations) => ({
+        id: conv.id,
+        orderId: conv.orderId,
+        amount: conv.amount,
+        commission: conv.commission,
+        status: conv.status,
+        affiliateUser: conv.link.user.email,
+        createdAt: conv.createdAt,
+      })),
     })
-  } catch (error) {
-    console.error("[DEBUG_ERROR]", error)
-    return NextResponse.json({ error: "Failed to debug affiliate system", details: error }, { status: 500 })
+  } catch (error: any) {
+    console.error("Error retrieving debug information:", error)
+    return NextResponse.json({ error: error.message || "Something went wrong" }, { status: 500 })
   }
 }
 

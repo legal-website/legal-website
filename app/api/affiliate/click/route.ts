@@ -1,36 +1,59 @@
-import { NextResponse } from "next/server"
-import { recordAffiliateClick } from "@/lib/affiliate-utils"
+import { type NextRequest, NextResponse } from "next/server"
+import prisma from "@/lib/prisma"
 
-export async function GET(request: Request) {
+export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const code = searchParams.get("code")
-    const redirect = searchParams.get("redirect") || "/"
+    const url = new URL(req.url)
+    const code = url.searchParams.get("code")
+    const redirect = url.searchParams.get("redirect") || "/"
+
+    console.log(`Affiliate click: code=${code}, redirect=${redirect}`)
 
     if (!code) {
-      return NextResponse.json({ error: "Affiliate code is required" }, { status: 400 })
+      console.error("No affiliate code provided")
+      return NextResponse.redirect(new URL(redirect, req.url))
     }
 
-    // Get IP and user agent
-    const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown"
-    const userAgent = request.headers.get("user-agent") || "unknown"
+    // Find the affiliate link
+    const affiliateLink = await prisma.affiliateLink.findFirst({
+      where: { code },
+      include: { user: true },
+    })
+
+    if (!affiliateLink) {
+      console.error(`Invalid affiliate code: ${code}`)
+      return NextResponse.redirect(new URL(redirect, req.url))
+    }
+
+    console.log(`Valid affiliate click for user: ${affiliateLink.user.email}`)
 
     // Record the click
-    await recordAffiliateClick(code, ip as string, userAgent)
+    await prisma.affiliateClick.create({
+      data: {
+        linkId: affiliateLink.id,
+        ipAddress: req.headers.get("x-forwarded-for") || "unknown",
+      },
+    })
 
-    // Set the cookie
-    const response = NextResponse.redirect(new URL(redirect, request.url))
-    response.cookies.set("affiliate_code", code, {
-      maxAge: 30 * 24 * 60 * 60, // 30 days
+    // Set the cookie with a long expiration (30 days)
+    const response = NextResponse.redirect(new URL(redirect, req.url))
+    response.cookies.set({
+      name: "affiliate",
+      value: code,
       path: "/",
+      maxAge: 60 * 60 * 24 * 30, // 30 days
       httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
     })
 
+    console.log(`Set affiliate cookie: ${code} with 30-day expiration`)
+
+    // Return the response with the cookie
     return response
-  } catch (error) {
-    console.error("[AFFILIATE_CLICK_ERROR]", error)
-    return NextResponse.json({ error: "Failed to process affiliate click" }, { status: 500 })
+  } catch (error: any) {
+    console.error("Error processing affiliate click:", error)
+    return NextResponse.json({ error: error.message || "Something went wrong" }, { status: 500 })
   }
 }
 

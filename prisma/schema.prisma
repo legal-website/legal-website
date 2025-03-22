@@ -385,54 +385,44 @@ model PricingSettings {
   updatedAt DateTime @updatedAt
 }
 model AffiliateLink {
-  id         String   @id @default(uuid())
-  userId     String   @unique  // Add @unique here to fix the one-to-one relation error
-  code       String   @unique
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  active     Boolean  @default(true)
-  commission Decimal  @default(0) @db.Decimal(10, 2)
-  
-  // Fix: Change the relation to many-to-one instead of one-to-one
-  // This means one user can have many affiliate links
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clicks      AffiliateClick[]
+  id        String      @id @default(cuid())
+  userId    String      @unique
+  code      String      @unique
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clicks    AffiliateClick[]
   conversions AffiliateConversion[]
 
-  @@index([userId])
   @@map("affiliate_links")
 }
 
 model AffiliateClick {
-  id        String   @id @default(uuid())
+  id        String      @id @default(cuid())
   linkId    String
-  ip        String?
-  userAgent String?
-  createdAt DateTime @default(now())
-  
+  ipAddress String?
+  userAgent String?     @db.Text
+  referrer  String?
+  createdAt DateTime    @default(now())
   link      AffiliateLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
 
-  @@index([linkId])
   @@map("affiliate_clicks")
 }
 
 model AffiliateConversion {
-  id         String   @id @default(uuid())
+  id         String      @id @default(cuid())
   linkId     String
   orderId    String
-  amount     Decimal  @db.Decimal(10, 2)
-  commission Decimal  @db.Decimal(10, 2)
-  status     String   @default("pending")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  customerEmail String?
-  
+  amount     Decimal     @db.Decimal(10, 2)
+  commission Decimal     @db.Decimal(10, 2)
+  status     AffiliateConversionStatus @default(PENDING)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
   link       AffiliateLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
 
-  @@index([linkId])
-  @@index([orderId])
   @@map("affiliate_conversions")
 }
+
 model AffiliatePayout {
   id        String      @id @default(cuid())
   userId    String
