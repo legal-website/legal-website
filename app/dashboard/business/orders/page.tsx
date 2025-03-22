@@ -218,14 +218,42 @@ export default function OrderHistoryPage() {
     }
   }
 
-  // Fetch annual report filings
+  // Fetch annual report filings from the annual-reports page
   const fetchFilings = async () => {
     try {
       setLoadingFilings(true)
       setFilingError(null)
 
-      // Use mock data directly instead of attempting to fetch
-      const mockFilings = [
+      // Fetch data from the annual reports API endpoint
+      const response = await fetch("/api/annual-reports/user")
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch annual reports: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      // Filter for only filings with status "filed" or "completed"
+      const filedReports = data.reports.filter(
+        (report: any) => report.status === "filed" || report.status === "completed",
+      )
+
+      setFilings(filedReports)
+    } catch (error: any) {
+      console.error("Error fetching annual reports:", error)
+      setFilingError(error.message || "Failed to load annual report filings")
+      toast({
+        title: "Error",
+        description: `Failed to load annual report filings: ${error.message || "Unknown error"}`,
+        variant: "destructive",
+      })
+
+      // Set fallback data for development/demo purposes
+      setFilings([
         {
           id: "1",
           deadlineId: "d1",
@@ -252,31 +280,48 @@ export default function OrderHistoryPage() {
           dueDate: "2022-05-01T00:00:00Z",
           createdAt: "2022-03-15T14:00:00Z",
         },
-      ]
-
-      setFilings(mockFilings)
-    } catch (error: any) {
-      console.error("Error setting filings:", error)
-      setFilingError(error.message || "Failed to load annual report filings")
-      toast({
-        title: "Error",
-        description: `Failed to load annual report filings: ${error.message || "Unknown error"}`,
-        variant: "destructive",
-      })
-      setFilings([])
+      ])
     } finally {
       setLoadingFilings(false)
     }
   }
 
-  // Fetch amendments
+  // Fetch amendments from the amendments page
   const fetchAmendments = async () => {
     try {
       setLoadingAmendments(true)
       setAmendmentError(null)
 
-      // Use mock data directly instead of attempting to fetch
-      const mockAmendments = [
+      // Fetch data from the amendments API endpoint
+      const response = await fetch("/api/amendments/user")
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch amendments: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      // Filter for only approved amendments
+      const approvedAmendments = data.amendments.filter(
+        (amendment: any) => amendment.status === "approved" || amendment.status === "amendment_resolved",
+      )
+
+      setAmendments(approvedAmendments)
+    } catch (error: any) {
+      console.error("Error fetching amendments:", error)
+      setAmendmentError(error.message || "Failed to load amendments")
+      toast({
+        title: "Error",
+        description: `Failed to load amendments: ${error.message || "Unknown error"}`,
+        variant: "destructive",
+      })
+
+      // Set fallback data for development/demo purposes
+      setAmendments([
         {
           id: "1",
           type: "Change of Registered Agent",
@@ -300,18 +345,7 @@ export default function OrderHistoryPage() {
           paymentAmount: 79.0,
           notes: "Name change approved by state",
         },
-      ]
-
-      setAmendments(mockAmendments)
-    } catch (error: any) {
-      console.error("Error setting amendments:", error)
-      setAmendmentError(error.message || "Failed to load amendments")
-      toast({
-        title: "Error",
-        description: `Failed to load amendments: ${error.message || "Unknown error"}`,
-        variant: "destructive",
-      })
-      setAmendments([])
+      ])
     } finally {
       setLoadingAmendments(false)
     }
@@ -379,6 +413,7 @@ export default function OrderHistoryPage() {
       case "completed":
       case "approved":
       case "amendment_resolved":
+      case "filed":
         return "bg-green-100 text-green-800"
       case "pending":
       case "in_review":
