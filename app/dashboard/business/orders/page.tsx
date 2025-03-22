@@ -811,7 +811,7 @@ export default function OrderHistoryPage() {
                 <PenTool className="h-5 w-5 text-blue-600" />
               </div>
               <h3 className="font-semibold mb-2">Submit an Amendment</h3>
-              <p className="text-sm text-gray-600 mb-4">Update your business information or structure</p>
+              <p className="text-sm text-gray-600 mb-4">Let Us Update your business information or structure</p>
               <Button size="sm" variant="outline" className="w-full" asChild>
                 <a href="/dashboard/compliance/amendments">Learn More</a>
               </Button>
