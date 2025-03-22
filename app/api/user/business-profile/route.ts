@@ -2,9 +2,18 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
-import type { UserModel } from "@/lib/prisma-types"
 
-// Define Business interface since it's not exported from prisma-types
+// Define our own interfaces instead of relying on prisma-types.ts
+interface UserData {
+  id: string
+  name: string | null
+  email: string
+  role: string
+  businessId: string | null
+  image?: string | null
+  [key: string]: any // Allow for additional properties
+}
+
 interface BusinessData {
   id: string
   name: string
@@ -18,6 +27,32 @@ interface BusinessData {
   businessId: string | null
   createdAt: Date
   updatedAt: Date
+  [key: string]: any // Allow for additional properties
+}
+
+interface PhoneData {
+  id: string
+  userId: string
+  phoneNumber: string | null
+  status: string
+  createdAt: Date
+  updatedAt: Date
+  [key: string]: any // Allow for additional properties
+}
+
+interface InvoiceData {
+  id: string
+  invoiceNumber: string
+  customerName: string
+  customerEmail: string
+  customerPhone?: string | null
+  customerAddress?: string | null
+  customerCity?: string | null
+  customerState?: string | null
+  customerZip?: string | null
+  customerCountry?: string | null
+  items: string
+  [key: string]: any // Allow for additional properties
 }
 
 // Define custom data interface for industry field
@@ -28,28 +63,6 @@ interface BusinessCustomData {
   annualReportFee: number
   annualReportFrequency: number
   displayIndustry?: string
-}
-
-// Define invoice interface for fetching additional data
-interface Invoice {
-  id: string
-  invoiceNumber: string
-  customerName: string
-  customerEmail: string
-  customerPhone?: string
-  customerCompany?: string
-  customerAddress?: string
-  customerCity?: string
-  customerState?: string
-  customerZip?: string
-  customerCountry?: string
-  amount: number
-  status: string
-  items: any
-  createdAt: string
-  updatedAt: string
-  userId?: string
-  isTemplateInvoice?: boolean
 }
 
 export async function GET(req: NextRequest) {
@@ -66,30 +79,12 @@ export async function GET(req: NextRequest) {
 
     console.log("User session found for ID:", session.user.id)
 
-    // Use a more comprehensive query to fetch all user data including phone and address
-    // This query joins User, Business, and PhoneNumberRequest tables
+    // Get basic user data
     const userQuery = `
-      SELECT 
-        u.*,
-        b.*,
-        p.phoneNumber,
-        COALESCE(u.address, b.address) as userAddress
-      FROM 
-        User u
-      LEFT JOIN 
-        Business b ON u.businessId = b.id
-      LEFT JOIN 
-        PhoneNumberRequest p ON u.id = p.userId AND p.status = 'approved'
-      WHERE 
-        u.id = ?
+      SELECT * FROM User WHERE id = ?
     `
-
-    const results = await db.$queryRawUnsafe(userQuery, session.user.id)
-    console.log("Database query results:", JSON.stringify(results))
-
-    const userData = results[0] as
-      | (UserModel & Partial<BusinessData> & { phoneNumber?: string; userAddress?: string })
-      | null
+    const userResults = await db.$queryRawUnsafe(userQuery, session.user.id)
+    const userData = userResults[0] as UserData | null
 
     if (!userData) {
       console.log("No user data found in database")
@@ -100,29 +95,54 @@ export async function GET(req: NextRequest) {
       id: userData.id,
       name: userData.name,
       email: userData.email,
-      phone: userData.phoneNumber || userData.phone,
-      address: userData.userAddress || userData.address,
+      businessId: userData.businessId,
     })
 
-    // Extract business data from the results
-    const businessData = userData.businessId
-      ? {
-          id: userData.businessId,
-          name: userData.name,
-          email: userData.email,
-          phone: userData.phoneNumber || userData.phone,
-          address: userData.userAddress || userData.address,
-          website: userData.website,
-          industry: userData.industry,
-          formationDate: userData.formationDate,
-          ein: userData.ein,
-          businessId: userData.businessId,
-          createdAt: userData.createdAt,
-          updatedAt: userData.updatedAt,
-        }
-      : null
+    // Get business data if available
+    let businessData = null
+    if (userData.businessId) {
+      const businessQuery = `
+        SELECT * FROM Business WHERE id = ?
+      `
+      const businessResults = await db.$queryRawUnsafe(businessQuery, userData.businessId)
+      if (businessResults && businessResults.length > 0) {
+        businessData = businessResults[0] as BusinessData
+        console.log("Business data found:", businessData)
+      }
+    }
 
-    console.log("Initial business data:", businessData)
+    // Get phone number data if available
+    let phoneData = null
+    const phoneQuery = `
+      SELECT * FROM PhoneNumberRequest WHERE userId = ? AND status = 'approved'
+    `
+    const phoneResults = await db.$queryRawUnsafe(phoneQuery, session.user.id)
+    if (phoneResults && phoneResults.length > 0) {
+      phoneData = phoneResults[0] as PhoneData
+      console.log("Phone data found:", phoneData)
+    }
+
+    // Get invoice data for additional information
+    const invoiceQuery = `
+      SELECT * FROM Invoice WHERE userId = ? ORDER BY createdAt DESC
+    `
+    const invoiceResults = await db.$queryRawUnsafe(invoiceQuery, session.user.id)
+    console.log(`Found ${invoiceResults.length} invoices in database`)
+
+    // Find template invoices that start with "inv"
+    let relevantInvoice = null
+    for (const invoice of invoiceResults) {
+      const invoiceData = invoice as InvoiceData
+      // Check if it's a template invoice that starts with "inv"
+      const isTemplate = typeof invoiceData.items === "string" && invoiceData.items.toLowerCase().includes("template")
+      const startsWithInv = invoiceData.invoiceNumber.toLowerCase().startsWith("inv")
+
+      if (isTemplate && startsWithInv) {
+        relevantInvoice = invoiceData
+        console.log("Found relevant invoice:", invoiceData.invoiceNumber)
+        break
+      }
+    }
 
     // Parse custom data from industry field
     let customData: BusinessCustomData = {
@@ -143,73 +163,43 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Step 1: Fetch user invoices directly from the database
-    console.log("Fetching invoices from database...")
-    const invoicesQuery = `
-      SELECT * FROM Invoice 
-      WHERE userId = ? 
-      ORDER BY createdAt DESC
-    `
+    // Get business data from dashboard if available
+    let dashboardBusinessData = null
+    try {
+      // Try to get business data from dashboard
+      const dashboardQuery = `
+        SELECT * FROM Business WHERE userId = ? OR id = ?
+      `
+      const dashboardResults = await db.$queryRawUnsafe(dashboardQuery, session.user.id, userData.businessId || "")
 
-    const invoicesResults = await db.$queryRawUnsafe(invoicesQuery, session.user.id)
-    console.log(`Found ${invoicesResults.length} invoices in database`)
-
-    // Find template invoices that start with "inv"
-    let relevantInvoice = null
-
-    for (const invoice of invoicesResults) {
-      console.log(`Checking invoice ${invoice.invoiceNumber}:`, {
-        isTemplate: typeof invoice.items === "string" && invoice.items.toLowerCase().includes("template"),
-        startsWithInv: invoice.invoiceNumber.toLowerCase().startsWith("inv"),
-      })
-
-      // Check if it's a template invoice that starts with "inv"
-      const isTemplate = typeof invoice.items === "string" && invoice.items.toLowerCase().includes("template")
-      const startsWithInv = invoice.invoiceNumber.toLowerCase().startsWith("inv")
-
-      if (isTemplate && startsWithInv) {
-        relevantInvoice = invoice
-        console.log("Found relevant invoice:", invoice.invoiceNumber)
-        break
+      if (dashboardResults && dashboardResults.length > 0) {
+        dashboardBusinessData = dashboardResults[0] as BusinessData
+        console.log("Dashboard business data found:", dashboardBusinessData)
       }
+    } catch (error) {
+      console.error("Error fetching dashboard business data:", error)
     }
 
-    // Step 2: Fetch business data directly from the database
-    console.log("Fetching dashboard business data...")
-    const dashboardBusinessQuery = `
-      SELECT * FROM Business 
-      WHERE userId = ? OR id = ?
-    `
-
-    const dashboardBusinessResults = await db.$queryRawUnsafe(
-      dashboardBusinessQuery,
-      session.user.id,
-      userData.businessId || "",
-    )
-
-    const dashboardBusinessData = dashboardBusinessResults[0] || null
-    console.log("Dashboard business data:", dashboardBusinessData)
-
-    // Step 3: Merge data from all sources
-    // Create a merged business data object
+    // Merge data from all sources
     const mergedBusinessData = {
       // Start with the original business data
-      ...businessData,
+      ...(businessData || {}),
 
       // Override with dashboard data if available
       name: dashboardBusinessData?.name || businessData?.name || userData.name || "Your Business",
       formationDate: dashboardBusinessData?.formationDate || businessData?.formationDate,
       ein: dashboardBusinessData?.ein || businessData?.ein,
-      businessId: dashboardBusinessData?.businessId || businessData?.businessId,
 
       // Override with invoice data if available
-      email: relevantInvoice?.customerEmail || userData.email || "Not available",
-      phone: relevantInvoice?.customerPhone || userData.phoneNumber || userData.phone || "Not available",
-      address: formatInvoiceAddress(relevantInvoice) || userData.userAddress || userData.address || "Not available",
+      email: relevantInvoice?.customerEmail || businessData?.email || userData.email,
+      phone: phoneData?.phoneNumber || relevantInvoice?.customerPhone || businessData?.phone || "Not available",
+      address: formatInvoiceAddress(relevantInvoice) || businessData?.address || "Not available",
 
       // Keep other fields
-      website: businessData?.website,
+      website: businessData?.website || "Not available",
       industry: businessData?.industry,
+      id: businessData?.id || dashboardBusinessData?.id,
+      businessId: userData.businessId,
       createdAt: businessData?.createdAt || new Date(),
       updatedAt: businessData?.updatedAt || new Date(),
     }
@@ -218,23 +208,21 @@ export async function GET(req: NextRequest) {
 
     // Return the merged business and user data
     const response = {
-      business: mergedBusinessData
-        ? {
-            ...mergedBusinessData,
-            serviceStatus: dashboardBusinessData?.serviceStatus || customData.serviceStatus,
-            llcStatusMessage: dashboardBusinessData?.llcStatusMessage || customData.llcStatusMessage,
-            llcProgress: dashboardBusinessData?.llcProgress || customData.llcProgress,
-            annualReportFee: dashboardBusinessData?.annualReportFee || customData.annualReportFee,
-            annualReportFrequency: dashboardBusinessData?.annualReportFrequency || customData.annualReportFrequency,
-            displayIndustry: customData.displayIndustry,
-          }
-        : null,
+      business: {
+        ...mergedBusinessData,
+        serviceStatus: customData.serviceStatus,
+        llcStatusMessage: customData.llcStatusMessage,
+        llcProgress: customData.llcProgress,
+        annualReportFee: customData.annualReportFee,
+        annualReportFrequency: customData.annualReportFrequency,
+        displayIndustry: customData.displayIndustry,
+      },
       user: {
         id: userData.id,
         name: userData.name,
-        email: relevantInvoice?.customerEmail || userData.email || "Not available",
-        phone: relevantInvoice?.customerPhone || userData.phoneNumber || userData.phone || "Not available",
-        address: formatInvoiceAddress(relevantInvoice) || userData.userAddress || userData.address || "Not available",
+        email: userData.email,
+        phone: phoneData?.phoneNumber || relevantInvoice?.customerPhone || "Not available",
+        address: formatInvoiceAddress(relevantInvoice) || businessData?.address || "Not available",
       },
     }
 
@@ -247,7 +235,7 @@ export async function GET(req: NextRequest) {
 }
 
 // Helper function to format address from invoice data
-function formatInvoiceAddress(invoice: any): string | null {
+function formatInvoiceAddress(invoice: InvoiceData | null): string | null {
   if (!invoice) return null
 
   const parts = []
@@ -280,30 +268,27 @@ export async function PUT(req: NextRequest) {
     const body = await req.json()
     console.log("Request body:", body)
 
-    // Use a more comprehensive query to fetch all user data including phone and address
+    // Get user data
     const userQuery = `
-      SELECT 
-        u.*,
-        b.*,
-        p.phoneNumber,
-        COALESCE(u.address, b.address) as userAddress
-      FROM 
-        User u
-      LEFT JOIN 
-        Business b ON u.businessId = b.id
-      LEFT JOIN 
-        PhoneNumberRequest p ON u.id = p.userId AND p.status = 'approved'
-      WHERE 
-        u.id = ?
+      SELECT * FROM User WHERE id = ?
     `
-
-    const results = await db.$queryRawUnsafe(userQuery, session.user.id)
-    const userData = results[0] as
-      | (UserModel & Partial<BusinessData> & { phoneNumber?: string; userAddress?: string })
-      | null
+    const userResults = await db.$queryRawUnsafe(userQuery, session.user.id)
+    const userData = userResults[0] as UserData | null
 
     if (!userData) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Get business data if available
+    let businessData = null
+    if (userData.businessId) {
+      const businessQuery = `
+        SELECT * FROM Business WHERE id = ?
+      `
+      const businessResults = await db.$queryRawUnsafe(businessQuery, userData.businessId)
+      if (businessResults && businessResults.length > 0) {
+        businessData = businessResults[0] as BusinessData
+      }
     }
 
     // Update phone number through PhoneNumberRequest
@@ -311,12 +296,12 @@ export async function PUT(req: NextRequest) {
       console.log("Updating phone number:", body.phone)
 
       // Check if phone request exists
-      const phoneRequest = await db.$queryRawUnsafe(
-        `SELECT * FROM PhoneNumberRequest WHERE userId = ? AND status = 'approved'`,
-        session.user.id,
-      )
+      const phoneQuery = `
+        SELECT * FROM PhoneNumberRequest WHERE userId = ? AND status = 'approved'
+      `
+      const phoneResults = await db.$queryRawUnsafe(phoneQuery, session.user.id)
 
-      if (phoneRequest && phoneRequest.length > 0) {
+      if (phoneResults && phoneResults.length > 0) {
         // Update existing phone request
         await db.$executeRawUnsafe(
           `UPDATE PhoneNumberRequest SET phoneNumber = ?, updatedAt = NOW() WHERE userId = ? AND status = 'approved'`,
@@ -336,29 +321,6 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // Update address if provided
-    if (body.address !== undefined) {
-      console.log("Updating address:", body.address)
-
-      // Check if address column exists in User table
-      const userColumns = await db.$queryRawUnsafe(`SHOW COLUMNS FROM User LIKE 'address'`)
-
-      if (userColumns && userColumns.length > 0) {
-        await db.$executeRawUnsafe(`UPDATE User SET address = ? WHERE id = ?`, body.address, session.user.id)
-        console.log("Updated address in User table")
-      } else {
-        // If address doesn't exist in User table, update it in Business table if business exists
-        if (userData.businessId) {
-          await db.$executeRawUnsafe(`UPDATE Business SET address = ? WHERE id = ?`, body.address, userData.businessId)
-          console.log("Updated address in Business table")
-        }
-      }
-    }
-
-    // Handle business information
-    let businessId = userData.businessId
-    console.log("Current business ID:", businessId)
-
     // Parse custom data from industry field
     let customData: BusinessCustomData = {
       serviceStatus: "Pending",
@@ -368,9 +330,9 @@ export async function PUT(req: NextRequest) {
       annualReportFrequency: 1,
     }
 
-    if (userData.industry) {
+    if (businessData?.industry) {
       try {
-        const parsedData = JSON.parse(userData.industry as string)
+        const parsedData = JSON.parse(businessData.industry as string)
         customData = { ...customData, ...parsedData }
       } catch (e) {
         console.error("Error parsing custom data:", e)
@@ -378,7 +340,7 @@ export async function PUT(req: NextRequest) {
     }
 
     // Update industry with custom data if needed
-    let updatedIndustry = userData.industry
+    let updatedIndustry = businessData?.industry
 
     if (body.industry !== undefined) {
       console.log("Updating industry:", body.industry)
@@ -396,6 +358,9 @@ export async function PUT(req: NextRequest) {
     }
 
     // Create or update business
+    let businessId = userData.businessId
+    console.log("Current business ID:", businessId)
+
     if (!businessId) {
       console.log("Creating new business")
 
@@ -407,7 +372,6 @@ export async function PUT(req: NextRequest) {
           website, 
           industry, 
           address,
-          userId,
           createdAt, 
           updatedAt
         ) 
@@ -417,28 +381,39 @@ export async function PUT(req: NextRequest) {
           ?, 
           ?, 
           ?,
-          ?,
           NOW(), 
           NOW()
         )
-        RETURNING id
       `
 
-      const newBusiness = await db.$executeRawUnsafe(
+      await db.$executeRawUnsafe(
         newBusinessQuery,
         body.name || userData.name || "My Business",
         body.website || "",
         updatedIndustry || JSON.stringify(customData),
-        body.address || userData.userAddress || "",
-        session.user.id,
+        body.address || "",
       )
 
-      businessId = newBusiness[0].id
-      console.log("New business created with ID:", businessId)
+      // Get the newly created business ID
+      const newBusinessIdQuery = `
+        SELECT id FROM Business 
+        WHERE name = ? 
+        ORDER BY createdAt DESC 
+        LIMIT 1
+      `
+      const newBusinessResults = await db.$queryRawUnsafe(
+        newBusinessIdQuery,
+        body.name || userData.name || "My Business",
+      )
 
-      // Update user with business ID
-      await db.$executeRawUnsafe(`UPDATE User SET businessId = ? WHERE id = ?`, businessId, session.user.id)
-      console.log("Updated user with new business ID")
+      if (newBusinessResults && newBusinessResults.length > 0) {
+        businessId = newBusinessResults[0].id
+        console.log("New business created with ID:", businessId)
+
+        // Update user with business ID
+        await db.$executeRawUnsafe(`UPDATE User SET businessId = ? WHERE id = ?`, businessId, session.user.id)
+        console.log("Updated user with new business ID")
+      }
     } else {
       console.log("Updating existing business")
 
@@ -466,10 +441,6 @@ export async function PUT(req: NextRequest) {
         params.push(body.address)
       }
 
-      // Ensure the business is linked to the user
-      updateFields.push("userId = ?")
-      params.push(session.user.id)
-
       if (updateFields.length > 0) {
         const updateQuery = `
           UPDATE Business 
@@ -483,133 +454,112 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // Get the updated user and business data
-    const updatedResults = await db.$queryRawUnsafe(userQuery, session.user.id)
-    const updatedUserData = updatedResults[0] as
-      | (UserModel & Partial<BusinessData> & { phoneNumber?: string; userAddress?: string })
-      | null
+    // Get updated user data
+    const updatedUserQuery = `
+      SELECT * FROM User WHERE id = ?
+    `
+    const updatedUserResults = await db.$queryRawUnsafe(updatedUserQuery, session.user.id)
+    const updatedUserData = updatedUserResults[0] as UserData | null
 
     if (!updatedUserData) {
       throw new Error("Failed to retrieve updated user")
     }
 
-    // Step 1: Fetch user invoices directly from the database
-    console.log("Fetching invoices from database...")
-    const invoicesQuery = `
-      SELECT * FROM Invoice 
-      WHERE userId = ? 
-      ORDER BY createdAt DESC
-    `
+    // Get updated business data
+    let updatedBusinessData = null
+    if (updatedUserData.businessId) {
+      const updatedBusinessQuery = `
+        SELECT * FROM Business WHERE id = ?
+      `
+      const updatedBusinessResults = await db.$queryRawUnsafe(updatedBusinessQuery, updatedUserData.businessId)
+      if (updatedBusinessResults && updatedBusinessResults.length > 0) {
+        updatedBusinessData = updatedBusinessResults[0] as BusinessData
+      }
+    }
 
-    const invoicesResults = await db.$queryRawUnsafe(invoicesQuery, session.user.id)
-    console.log(`Found ${invoicesResults.length} invoices in database`)
+    // Get updated phone data
+    let updatedPhoneData = null
+    const updatedPhoneQuery = `
+      SELECT * FROM PhoneNumberRequest WHERE userId = ? AND status = 'approved'
+    `
+    const updatedPhoneResults = await db.$queryRawUnsafe(updatedPhoneQuery, session.user.id)
+    if (updatedPhoneResults && updatedPhoneResults.length > 0) {
+      updatedPhoneData = updatedPhoneResults[0] as PhoneData
+    }
+
+    // Get invoice data for additional information
+    const invoiceQuery = `
+      SELECT * FROM Invoice WHERE userId = ? ORDER BY createdAt DESC
+    `
+    const invoiceResults = await db.$queryRawUnsafe(invoiceQuery, session.user.id)
 
     // Find template invoices that start with "inv"
     let relevantInvoice = null
-
-    for (const invoice of invoicesResults) {
+    for (const invoice of invoiceResults) {
+      const invoiceData = invoice as InvoiceData
       // Check if it's a template invoice that starts with "inv"
-      const isTemplate = typeof invoice.items === "string" && invoice.items.toLowerCase().includes("template")
-      const startsWithInv = invoice.invoiceNumber.toLowerCase().startsWith("inv")
+      const isTemplate = typeof invoiceData.items === "string" && invoiceData.items.toLowerCase().includes("template")
+      const startsWithInv = invoiceData.invoiceNumber.toLowerCase().startsWith("inv")
 
       if (isTemplate && startsWithInv) {
-        relevantInvoice = invoice
-        console.log("Found relevant invoice:", invoice.invoiceNumber)
+        relevantInvoice = invoiceData
         break
       }
     }
 
-    // Step 2: Fetch business data directly from the database
-    console.log("Fetching dashboard business data...")
-    const dashboardBusinessQuery = `
-      SELECT * FROM Business 
-      WHERE userId = ? OR id = ?
-    `
-
-    const dashboardBusinessResults = await db.$queryRawUnsafe(
-      dashboardBusinessQuery,
-      session.user.id,
-      updatedUserData.businessId || "",
-    )
-
-    const dashboardBusinessData = dashboardBusinessResults[0] || null
-
-    // Extract updated business data
-    const updatedBusinessData = updatedUserData.businessId
-      ? {
-          id: updatedUserData.businessId,
-          name: updatedUserData.name,
-          email: updatedUserData.email,
-          phone: updatedUserData.phoneNumber || updatedUserData.phone,
-          address: updatedUserData.userAddress || updatedUserData.address,
-          website: updatedUserData.website,
-          industry: updatedUserData.industry,
-          formationDate: updatedUserData.formationDate,
-          ein: updatedUserData.ein,
-          businessId: updatedUserData.businessId,
-          createdAt: updatedUserData.createdAt,
-          updatedAt: updatedUserData.updatedAt,
-        }
-      : null
-
     // Merge with data from other sources
     const mergedBusinessData = {
-      ...updatedBusinessData,
+      ...(updatedBusinessData || {}),
 
-      // Override with dashboard data if available
-      name:
-        body.name ||
-        dashboardBusinessData?.name ||
-        updatedBusinessData?.name ||
-        updatedUserData.name ||
-        "Your Business",
-      formationDate: dashboardBusinessData?.formationDate || updatedBusinessData?.formationDate,
-      ein: dashboardBusinessData?.ein || updatedBusinessData?.ein,
-      businessId: dashboardBusinessData?.businessId || updatedBusinessData?.businessId,
+      // Override with user-provided data
+      name: body.name || updatedBusinessData?.name || updatedUserData.name || "Your Business",
 
       // Override with invoice data if available (but only if not explicitly updated in this request)
       email:
         body.email !== undefined
           ? body.email
-          : relevantInvoice?.customerEmail || updatedBusinessData?.email || updatedUserData.email || "Not available",
+          : relevantInvoice?.customerEmail || updatedBusinessData?.email || updatedUserData.email,
       phone:
         body.phone !== undefined
           ? body.phone
-          : relevantInvoice?.customerPhone ||
+          : updatedPhoneData?.phoneNumber ||
+            relevantInvoice?.customerPhone ||
             updatedBusinessData?.phone ||
-            updatedUserData.phoneNumber ||
             "Not available",
       address:
         body.address !== undefined
           ? body.address
-          : formatInvoiceAddress(relevantInvoice) ||
-            updatedBusinessData?.address ||
-            updatedUserData.userAddress ||
-            "Not available",
-    }
+          : formatInvoiceAddress(relevantInvoice) || updatedBusinessData?.address || "Not available",
 
-    console.log("Final merged business data:", mergedBusinessData)
+      // Keep other fields
+      website: body.website !== undefined ? body.website : updatedBusinessData?.website || "Not available",
+      industry: updatedBusinessData?.industry,
+      formationDate: updatedBusinessData?.formationDate,
+      ein: updatedBusinessData?.ein,
+      id: updatedBusinessData?.id,
+      businessId: updatedUserData.businessId,
+      createdAt: updatedBusinessData?.createdAt || new Date(),
+      updatedAt: updatedBusinessData?.updatedAt || new Date(),
+    }
 
     return NextResponse.json({
       success: true,
-      business: mergedBusinessData
-        ? {
-            ...mergedBusinessData,
-            serviceStatus: dashboardBusinessData?.serviceStatus || customData.serviceStatus,
-            llcStatusMessage: dashboardBusinessData?.llcStatusMessage || customData.llcStatusMessage,
-            llcProgress: dashboardBusinessData?.llcProgress || customData.llcProgress,
-            annualReportFee: dashboardBusinessData?.annualReportFee || customData.annualReportFee,
-            annualReportFrequency: dashboardBusinessData?.annualReportFrequency || customData.annualReportFrequency,
-            displayIndustry: customData.displayIndustry || body.industry,
-          }
-        : null,
+      business: {
+        ...mergedBusinessData,
+        serviceStatus: customData.serviceStatus,
+        llcStatusMessage: customData.llcStatusMessage,
+        llcProgress: customData.llcProgress,
+        annualReportFee: customData.annualReportFee,
+        annualReportFrequency: customData.annualReportFrequency,
+        displayIndustry: customData.displayIndustry || body.industry,
+      },
       user: {
         id: updatedUserData.id,
         name: updatedUserData.name,
-        email: body.email || relevantInvoice?.customerEmail || updatedUserData.email || "Not available",
-        phone: body.phone || relevantInvoice?.customerPhone || updatedUserData.phoneNumber || "Not available",
+        email: updatedUserData.email,
+        phone: body.phone || updatedPhoneData?.phoneNumber || relevantInvoice?.customerPhone || "Not available",
         address:
-          body.address || formatInvoiceAddress(relevantInvoice) || updatedUserData.userAddress || "Not available",
+          body.address || formatInvoiceAddress(relevantInvoice) || updatedBusinessData?.address || "Not available",
       },
     })
   } catch (error) {
