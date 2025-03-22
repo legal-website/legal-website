@@ -1,98 +1,158 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/db"
-import { sendPaymentApprovalEmail } from "@/lib/auth-service"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import prisma from "@/lib/prisma"
+
+interface InvoiceRecord {
+  id: string
+  customerEmail: string
+  amount: number
+  metadata: string
+  [key: string]: any
+}
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log("Approving invoice:", params.id)
+    const id = params.id
 
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session || (session.user as any).role !== "ADMIN") {
-      console.log("Unauthorized approval attempt")
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!id) {
+      return NextResponse.json({ error: "Invoice ID is required" }, { status: 400 })
     }
 
-    const invoiceId = params.id
+    console.log(`[INVOICE APPROVAL] Processing approval for invoice: ${id}`)
 
     // Get the invoice
-    const invoice = await db.invoice.findUnique({
-      where: { id: invoiceId },
-      include: { user: true },
-    })
+    const invoice = (await prisma.invoice.findUnique({
+      where: { id },
+    })) as InvoiceRecord | null
 
     if (!invoice) {
-      console.log("Invoice not found:", invoiceId)
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
     }
 
-    console.log("Found invoice:", invoice.invoiceNumber)
-
-    // Update invoice status to paid
-    const updatedInvoice = await db.invoice.update({
-      where: { id: invoiceId },
-      data: {
-        status: "paid",
-        paymentDate: new Date(),
-      },
+    // Update the invoice status
+    await prisma.invoice.update({
+      where: { id },
+      data: { status: "approved" },
     })
 
-    console.log("Invoice updated successfully")
+    console.log(`[INVOICE APPROVAL] Invoice ${id} approved for ${invoice.customerEmail}`)
 
-    // Check if this is a template purchase
+    // Check for affiliate cookie in metadata or system settings
+    let affiliateCode = null
+    let metadata = {}
+
     try {
-      // Parse the items JSON string if it exists
-      if (invoice.items && typeof invoice.items === "string") {
-        const itemsArray = JSON.parse(invoice.items)
-        const templateItems = itemsArray.filter(
-          (item: any) => item.type === "template" || (item.tier && item.tier.toLowerCase().includes("template")),
-        )
+      metadata = JSON.parse(invoice.metadata || "{}")
+      if (metadata && (metadata as any).affiliateCode) {
+        affiliateCode = (metadata as any).affiliateCode
+        console.log(`[AFFILIATE] Found affiliate code in metadata: ${affiliateCode}`)
+      }
+    } catch (e) {
+      console.error(`[AFFILIATE] Error parsing metadata for invoice ${id}:`, e)
+    }
 
-        if (templateItems.length > 0 && invoice.user?.businessId) {
-          console.log("Processing template purchase")
+    // If no affiliate code in metadata, check system settings
+    if (!affiliateCode) {
+      const affiliateCookieSetting = await prisma.systemSettings.findFirst({
+        where: { key: `affiliate_cookie_${invoice.customerEmail}` },
+      })
 
-          // For each template in the invoice
-          for (const item of templateItems) {
-            // Get the original template
-            if (item.templateId) {
-              const originalTemplate = await db.document.findUnique({
-                where: { id: item.templateId },
+      if (affiliateCookieSetting) {
+        affiliateCode = affiliateCookieSetting.value
+        console.log(`[AFFILIATE] Found affiliate code in system settings: ${affiliateCode}`)
+      }
+    }
+
+    // If we have an affiliate code, record the conversion
+    if (affiliateCode) {
+      console.log(`[AFFILIATE] Processing conversion for code: ${affiliateCode}`)
+
+      // Find the affiliate link
+      const affiliateLink = await prisma.affiliateLink.findFirst({
+        where: { code: affiliateCode },
+        include: { user: true },
+      })
+
+      if (!affiliateLink) {
+        console.error(`[AFFILIATE] Invalid affiliate code: ${affiliateCode}`)
+      } else {
+        console.log(`[AFFILIATE] Valid affiliate code for user: ${affiliateLink.user.email}`)
+
+        try {
+          // Use raw SQL to create the conversion record
+          await prisma.$executeRaw`
+            INSERT INTO affiliate_conversions (
+              link_id, invoice_id, amount, commission_amount, 
+              status, customer_email, created_at, updated_at
+            ) VALUES (
+              ${affiliateLink.id}, ${id}, ${invoice.amount}, 
+              ${invoice.amount * affiliateLink.commissionRate}, 
+              'pending', ${invoice.customerEmail}, NOW(), NOW()
+            )
+          `
+
+          console.log(`[AFFILIATE] Successfully recorded conversion for ${affiliateLink.user.email}`)
+        } catch (error) {
+          console.error(`[AFFILIATE] Error recording conversion:`, error)
+
+          // Try an alternative approach if the first one fails
+          try {
+            // Get all affiliate cookies from system settings
+            const allAffiliateCookies = await prisma.systemSettings.findMany({
+              where: {
+                key: {
+                  startsWith: "affiliate_cookie_",
+                },
+              },
+            })
+
+            console.log(`[AFFILIATE] Found ${allAffiliateCookies.length} affiliate cookies in system`)
+            console.log(`[AFFILIATE] Cookie keys: ${allAffiliateCookies.map((c: { key: string }) => c.key).join(", ")}`)
+
+            // Check if our email is in the list
+            const matchingCookie = allAffiliateCookies.find(
+              (c: any) => c.key === `affiliate_cookie_${invoice.customerEmail}`,
+            )
+
+            if (matchingCookie) {
+              console.log(`[AFFILIATE] Found matching cookie for ${invoice.customerEmail}: ${matchingCookie.value}`)
+
+              // Try again with the matching cookie
+              const retryAffiliateLink = await prisma.affiliateLink.findFirst({
+                where: { code: matchingCookie.value },
+                include: { user: true },
               })
 
-              if (originalTemplate) {
-                // Create a copy of the template for the user's business
-                await db.document.create({
-                  data: {
-                    name: `template_${originalTemplate.id}`, // Store original ID in name
-                    category: "template", // User templates have category "template"
-                    businessId: invoice.user.businessId,
-                    fileUrl: originalTemplate.fileUrl,
-                    type: "template",
-                  },
-                })
-                console.log(`Template ${originalTemplate.id} granted to business ${invoice.user.businessId}`)
+              if (retryAffiliateLink) {
+                await prisma.$executeRaw`
+                  INSERT INTO affiliate_conversions (
+                    link_id, invoice_id, amount, commission_amount, 
+                    status, customer_email, created_at, updated_at
+                  ) VALUES (
+                    ${retryAffiliateLink.id}, ${id}, ${invoice.amount}, 
+                    ${invoice.amount * retryAffiliateLink.commissionRate}, 
+                    'pending', ${invoice.customerEmail}, NOW(), NOW()
+                  )
+                `
+
+                console.log(
+                  `[AFFILIATE] Successfully recorded conversion on retry for ${retryAffiliateLink.user.email}`,
+                )
               }
             }
+          } catch (retryError) {
+            console.error(`[AFFILIATE] Error in retry approach:`, retryError)
           }
         }
       }
-    } catch (parseError) {
-      console.error("Error processing template purchase:", parseError)
-      // Continue even if there's an error processing templates
+    } else {
+      console.log(`[AFFILIATE] No affiliate code found for ${invoice.customerEmail}`)
     }
 
-    // Send approval email
-    try {
-      await sendPaymentApprovalEmail(invoice.customerEmail, invoice.customerName, invoiceId)
-      console.log("Approval email sent")
-    } catch (emailError) {
-      console.error("Error sending approval email:", emailError)
-      // Continue even if email fails
-    }
-
-    return NextResponse.json({ success: true, invoice: updatedInvoice })
+    return NextResponse.json({
+      success: true,
+      message: "Invoice approved successfully",
+      affiliateProcessed: !!affiliateCode,
+    })
   } catch (error: any) {
     console.error("Error approving invoice:", error)
     return NextResponse.json({ error: error.message || "Something went wrong" }, { status: 500 })

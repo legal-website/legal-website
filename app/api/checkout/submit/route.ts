@@ -12,10 +12,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
+    console.log(`Processing checkout for ${email} with amount ${amount}`)
+
     // Generate invoice number
     const invoiceNumber = `INV-${Date.now()}`
 
-    // Create invoice
+    // Check for affiliate cookie before creating the invoice
+    const cookieStore = await cookies()
+    const affiliateCookie = cookieStore.get("affiliate")
+
+    console.log(`Checkout affiliate cookie for ${email}: ${affiliateCookie?.value || "none"}`)
+
+    // Store metadata about this order
+    const metadata: Record<string, any> = {}
+
+    if (affiliateCookie?.value) {
+      // Store the affiliate information in metadata
+      metadata.affiliateCode = affiliateCookie.value
+
+      // Store the affiliate cookie in the database immediately
+      await storeAffiliateCookie(email, affiliateCookie.value)
+      console.log(`Stored affiliate cookie for ${email}: ${affiliateCookie.value}`)
+
+      // Verify storage
+      const storedCookie = await prisma.systemSettings.findFirst({
+        where: { key: `affiliate_cookie_${email}` },
+      })
+
+      if (storedCookie) {
+        console.log(`Verified stored cookie for ${email}: ${storedCookie.value}`)
+      } else {
+        console.error(`Failed to store affiliate cookie for ${email}`)
+      }
+    }
+
+    // Create invoice with metadata
     const invoice = await prisma.invoice.create({
       data: {
         invoiceNumber,
@@ -24,28 +55,11 @@ export async function POST(req: NextRequest) {
         amount: Number.parseFloat(amount),
         status: "pending",
         items: JSON.stringify(items || []),
+        metadata: JSON.stringify(metadata),
       },
     })
 
-    // Check for affiliate cookie - properly await the cookies() call
-    const cookieStore = await cookies()
-    const affiliateCookie = cookieStore.get("affiliate")
-
-    console.log("Checkout for email:", email, "Affiliate cookie:", affiliateCookie?.value)
-
-    if (affiliateCookie?.value && email) {
-      // Store the affiliate cookie in the database
-      await storeAffiliateCookie(email, affiliateCookie.value)
-
-      // Double-check that it was stored
-      const storedCookie = await prisma.systemSettings.findFirst({
-        where: {
-          key: `affiliate_cookie_${email}`,
-        },
-      })
-
-      console.log("Verified stored cookie:", storedCookie)
-    }
+    console.log(`Created invoice ${invoice.id} for ${email}`)
 
     return NextResponse.json({
       success: true,
