@@ -392,21 +392,6 @@ model AffiliateLink {
   updatedAt  DateTime @updatedAt
   active     Boolean  @default(true)
   commission Decimal  @default(0) @db.Decimal(10, 2)
-  
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clicks      AffiliateClick[]
-  conversions AffiliateConversion[]
-
-  @@map("affiliate_links")
-}
-model AffiliateLink {
-  id         String   @id @default(uuid())
-  userId     String
-  code       String   @unique
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  active     Boolean  @default(true)
-  commission Decimal  @default(0) @db.Decimal(10, 2)
   user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   clicks      AffiliateClick[]
   conversions AffiliateConversion[]
@@ -445,6 +430,7 @@ model AffiliateConversion {
   @@index([orderId])
   @@map("affiliate_conversions")
 }
+
 
 
 model AffiliatePayout {
