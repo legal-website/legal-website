@@ -156,6 +156,10 @@ export default function OrderHistoryPage() {
 
   const { toast } = useToast()
 
+  // Add new state variables to track whether to show all items
+  const [showAllPackages, setShowAllPackages] = useState(false)
+  const [showAllTemplates, setShowAllTemplates] = useState(false)
+
   useEffect(() => {
     fetchInvoices()
     // No need to fetch filings and amendments since we're using mock data
@@ -511,111 +515,125 @@ export default function OrderHistoryPage() {
               <>
                 {getFilteredInvoices("package").length > 0 ? (
                   <div className="space-y-4">
-                    {getFilteredInvoices("package").map((invoice) => (
-                      <Dialog key={invoice.id}>
-                        <DialogTrigger asChild>
-                          <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 bg-blue-100 rounded-lg">
-                                <ShoppingBag className="h-5 w-5 text-blue-600" />
-                              </div>
-                              <div>
-                                <p className="font-medium">{invoice.invoiceNumber}</p>
-                                <div className="flex items-center gap-3 text-sm text-gray-500">
-                                  <span>{formatDate(invoice.createdAt)}</span>
-                                  <span>•</span>
-                                  <span>${invoice.amount.toFixed(2)}</span>
+                    {getFilteredInvoices("package")
+                      .slice(0, showAllPackages ? undefined : 4)
+                      .map((invoice) => (
+                        <Dialog key={invoice.id}>
+                          <DialogTrigger asChild>
+                            <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                  <ShoppingBag className="h-5 w-5 text-blue-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{invoice.invoiceNumber}</p>
+                                  <div className="flex items-center gap-3 text-sm text-gray-500">
+                                    <span>{formatDate(invoice.createdAt)}</span>
+                                    <span>•</span>
+                                    <span>${invoice.amount.toFixed(2)}</span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}>
-                                {formatStatus(invoice.status)}
-                              </span>
-                              <svg
-                                className="h-5 w-5 text-gray-400"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            </div>
-                          </div>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Order Details</DialogTitle>
-                          </DialogHeader>
-                          <div className="mt-4 space-y-4">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <p className="text-sm text-gray-500">Order Number</p>
-                                <p className="font-medium">{invoice.invoiceNumber}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500">Date</p>
-                                <p className="font-medium">{formatDate(invoice.createdAt)}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500">Status</p>
+                              <div className="flex items-center gap-3">
                                 <span
                                   className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}
                                 >
                                   {formatStatus(invoice.status)}
                                 </span>
+                                <svg
+                                  className="h-5 w-5 text-gray-400"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
                               </div>
                             </div>
-
-                            <div className="border-t pt-4">
-                              <h4 className="font-medium mb-2">Order Items</h4>
-                              <ul className="space-y-2">
-                                {Array.isArray(invoice.items) ? (
-                                  invoice.items.map((item, index) => (
-                                    <li key={index} className="flex items-center gap-2">
-                                      <CheckCircle className="h-4 w-4 text-green-500" />
-                                      <span>{item.tier}</span>
-                                      <span className="ml-auto">${Number(item.price).toFixed(2)}</span>
-                                    </li>
-                                  ))
-                                ) : (
-                                  <li className="flex items-center gap-2">
-                                    <CheckCircle className="h-4 w-4 text-green-500" />
-                                    <span>{getInvoiceItems(invoice)}</span>
-                                  </li>
-                                )}
-                              </ul>
-                            </div>
-
-                            <div className="border-t pt-4">
-                              <h4 className="font-medium mb-2">Payment Information</h4>
-                              <div className="flex justify-between">
-                                <span>Total</span>
-                                <span className="font-bold">${invoice.amount.toFixed(2)}</span>
-                              </div>
-                              {invoice.paymentDate && (
-                                <div className="flex justify-between text-sm text-gray-500">
-                                  <span>Payment Date</span>
-                                  <span>{formatDate(invoice.paymentDate)}</span>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Order Details</DialogTitle>
+                            </DialogHeader>
+                            <div className="mt-4 space-y-4">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <p className="text-sm text-gray-500">Order Number</p>
+                                  <p className="font-medium">{invoice.invoiceNumber}</p>
                                 </div>
-                              )}
-                            </div>
+                                <div>
+                                  <p className="text-sm text-gray-500">Date</p>
+                                  <p className="font-medium">{formatDate(invoice.createdAt)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-500">Status</p>
+                                  <span
+                                    className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}
+                                  >
+                                    {formatStatus(invoice.status)}
+                                  </span>
+                                </div>
+                              </div>
 
-                            <div className="flex justify-end gap-2">
-                              {invoice.paymentReceipt && (
-                                <Button variant="outline" asChild>
-                                  <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
-                                    <Download className="h-4 w-4 mr-2" />
-                                    View Receipt
-                                  </a>
-                                </Button>
-                              )}
-                              <Button>Contact Support</Button>
+                              <div className="border-t pt-4">
+                                <h4 className="font-medium mb-2">Order Items</h4>
+                                <ul className="space-y-2">
+                                  {Array.isArray(invoice.items) ? (
+                                    invoice.items.map((item, index) => (
+                                      <li key={index} className="flex items-center gap-2">
+                                        <CheckCircle className="h-4 w-4 text-green-500" />
+                                        <span>{item.tier}</span>
+                                        <span className="ml-auto">${Number(item.price).toFixed(2)}</span>
+                                      </li>
+                                    ))
+                                  ) : (
+                                    <li className="flex items-center gap-2">
+                                      <CheckCircle className="h-4 w-4 text-green-500" />
+                                      <span>{getInvoiceItems(invoice)}</span>
+                                    </li>
+                                  )}
+                                </ul>
+                              </div>
+
+                              <div className="border-t pt-4">
+                                <h4 className="font-medium mb-2">Payment Information</h4>
+                                <div className="flex justify-between">
+                                  <span>Total</span>
+                                  <span className="font-bold">${invoice.amount.toFixed(2)}</span>
+                                </div>
+                                {invoice.paymentDate && (
+                                  <div className="flex justify-between text-sm text-gray-500">
+                                    <span>Payment Date</span>
+                                    <span>{formatDate(invoice.paymentDate)}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex justify-end gap-2">
+                                {invoice.paymentReceipt && (
+                                  <Button variant="outline" asChild>
+                                    <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
+                                      <Download className="h-4 w-4 mr-2" />
+                                      View Receipt
+                                    </a>
+                                  </Button>
+                                )}
+                                <Button>Contact Support</Button>
+                              </div>
                             </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    ))}
+                          </DialogContent>
+                        </Dialog>
+                      ))}
+                    {getFilteredInvoices("package").length > 4 && !showAllPackages && (
+                      <Button variant="outline" className="w-full mt-4" onClick={() => setShowAllPackages(true)}>
+                        Show More
+                      </Button>
+                    )}
+                    {showAllPackages && getFilteredInvoices("package").length > 4 && (
+                      <Button variant="outline" className="w-full mt-4" onClick={() => setShowAllPackages(false)}>
+                        Show Less
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <EmptyState message="No package orders found" icon={<ShoppingBag className="h-12 w-12" />} />
@@ -634,111 +652,125 @@ export default function OrderHistoryPage() {
               <>
                 {getFilteredInvoices("template").length > 0 ? (
                   <div className="space-y-4">
-                    {getFilteredInvoices("template").map((invoice) => (
-                      <Dialog key={invoice.id}>
-                        <DialogTrigger asChild>
-                          <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 bg-purple-100 rounded-lg">
-                                <FileText className="h-5 w-5 text-purple-600" />
-                              </div>
-                              <div>
-                                <p className="font-medium">{invoice.invoiceNumber}</p>
-                                <div className="flex items-center gap-3 text-sm text-gray-500">
-                                  <span>{formatDate(invoice.createdAt)}</span>
-                                  <span>•</span>
-                                  <span>${invoice.amount.toFixed(2)}</span>
+                    {getFilteredInvoices("template")
+                      .slice(0, showAllTemplates ? undefined : 4)
+                      .map((invoice) => (
+                        <Dialog key={invoice.id}>
+                          <DialogTrigger asChild>
+                            <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-purple-100 rounded-lg">
+                                  <FileText className="h-5 w-5 text-purple-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{invoice.invoiceNumber}</p>
+                                  <div className="flex items-center gap-3 text-sm text-gray-500">
+                                    <span>{formatDate(invoice.createdAt)}</span>
+                                    <span>•</span>
+                                    <span>${invoice.amount.toFixed(2)}</span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}>
-                                {formatStatus(invoice.status)}
-                              </span>
-                              <svg
-                                className="h-5 w-5 text-gray-400"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            </div>
-                          </div>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Template Order Details</DialogTitle>
-                          </DialogHeader>
-                          <div className="mt-4 space-y-4">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <p className="text-sm text-gray-500">Invoice Number</p>
-                                <p className="font-medium">{invoice.invoiceNumber}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500">Date</p>
-                                <p className="font-medium">{formatDate(invoice.createdAt)}</p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-500">Status</p>
+                              <div className="flex items-center gap-3">
                                 <span
                                   className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}
                                 >
                                   {formatStatus(invoice.status)}
                                 </span>
+                                <svg
+                                  className="h-5 w-5 text-gray-400"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
                               </div>
                             </div>
-
-                            <div className="border-t pt-4">
-                              <h4 className="font-medium mb-2">Template Details</h4>
-                              <ul className="space-y-2">
-                                {Array.isArray(invoice.items) ? (
-                                  invoice.items.map((item, index) => (
-                                    <li key={index} className="flex items-center gap-2">
-                                      <FileText className="h-4 w-4 text-purple-500" />
-                                      <span>{item.tier}</span>
-                                      <span className="ml-auto">${Number(item.price).toFixed(2)}</span>
-                                    </li>
-                                  ))
-                                ) : (
-                                  <li className="flex items-center gap-2">
-                                    <FileText className="h-4 w-4 text-purple-500" />
-                                    <span>{getInvoiceItems(invoice)}</span>
-                                  </li>
-                                )}
-                              </ul>
-                            </div>
-
-                            <div className="border-t pt-4">
-                              <h4 className="font-medium mb-2">Payment Information</h4>
-                              <div className="flex justify-between">
-                                <span>Total</span>
-                                <span className="font-bold">${invoice.amount.toFixed(2)}</span>
-                              </div>
-                              {invoice.paymentDate && (
-                                <div className="flex justify-between text-sm text-gray-500">
-                                  <span>Payment Date</span>
-                                  <span>{formatDate(invoice.paymentDate)}</span>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Template Order Details</DialogTitle>
+                            </DialogHeader>
+                            <div className="mt-4 space-y-4">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <p className="text-sm text-gray-500">Invoice Number</p>
+                                  <p className="font-medium">{invoice.invoiceNumber}</p>
                                 </div>
-                              )}
-                            </div>
+                                <div>
+                                  <p className="text-sm text-gray-500">Date</p>
+                                  <p className="font-medium">{formatDate(invoice.createdAt)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-500">Status</p>
+                                  <span
+                                    className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}
+                                  >
+                                    {formatStatus(invoice.status)}
+                                  </span>
+                                </div>
+                              </div>
 
-                            <div className="flex justify-end gap-2">
-                              {invoice.paymentReceipt && (
-                                <Button variant="outline" asChild>
-                                  <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
-                                    <Download className="h-4 w-4 mr-2" />
-                                    View Receipt
-                                  </a>
-                                </Button>
-                              )}
-                              <Button>Contact Support</Button>
+                              <div className="border-t pt-4">
+                                <h4 className="font-medium mb-2">Template Details</h4>
+                                <ul className="space-y-2">
+                                  {Array.isArray(invoice.items) ? (
+                                    invoice.items.map((item, index) => (
+                                      <li key={index} className="flex items-center gap-2">
+                                        <FileText className="h-4 w-4 text-purple-500" />
+                                        <span>{item.tier}</span>
+                                        <span className="ml-auto">${Number(item.price).toFixed(2)}</span>
+                                      </li>
+                                    ))
+                                  ) : (
+                                    <li className="flex items-center gap-2">
+                                      <FileText className="h-4 w-4 text-purple-500" />
+                                      <span>{getInvoiceItems(invoice)}</span>
+                                    </li>
+                                  )}
+                                </ul>
+                              </div>
+
+                              <div className="border-t pt-4">
+                                <h4 className="font-medium mb-2">Payment Information</h4>
+                                <div className="flex justify-between">
+                                  <span>Total</span>
+                                  <span className="font-bold">${invoice.amount.toFixed(2)}</span>
+                                </div>
+                                {invoice.paymentDate && (
+                                  <div className="flex justify-between text-sm text-gray-500">
+                                    <span>Payment Date</span>
+                                    <span>{formatDate(invoice.paymentDate)}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex justify-end gap-2">
+                                {invoice.paymentReceipt && (
+                                  <Button variant="outline" asChild>
+                                    <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
+                                      <Download className="h-4 w-4 mr-2" />
+                                      View Receipt
+                                    </a>
+                                  </Button>
+                                )}
+                                <Button>Contact Support</Button>
+                              </div>
                             </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    ))}
+                          </DialogContent>
+                        </Dialog>
+                      ))}
+                    {getFilteredInvoices("template").length > 4 && !showAllTemplates && (
+                      <Button variant="outline" className="w-full mt-4" onClick={() => setShowAllTemplates(true)}>
+                        Show More
+                      </Button>
+                    )}
+                    {showAllTemplates && getFilteredInvoices("template").length > 4 && (
+                      <Button variant="outline" className="w-full mt-4" onClick={() => setShowAllTemplates(false)}>
+                        Show Less
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <EmptyState message="No template orders found" icon={<FileText className="h-12 w-12" />} />
