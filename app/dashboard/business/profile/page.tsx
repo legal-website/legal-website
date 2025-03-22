@@ -2,33 +2,216 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AlertCircle, Building, Calendar, Eye, EyeOff, Mail, MapPin, Phone, User } from "lucide-react"
+import { AlertCircle, Building, Calendar, Eye, EyeOff, Mail, MapPin, Phone, User, Loader2 } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { useToast } from "@/components/ui/use-toast"
+import { useRouter } from "next/navigation"
+
+interface BusinessData {
+  id: string
+  name: string
+  email?: string | null
+  phone?: string | null
+  address?: string | null
+  website?: string | null
+  industry?: string | null
+  formationDate?: Date | null
+  ein?: string | null
+  businessId?: string | null
+  createdAt: Date
+  updatedAt: Date
+  serviceStatus?: string
+  llcStatusMessage?: string
+  llcProgress?: number
+  annualReportFee?: number
+  annualReportFrequency?: number
+  displayIndustry?: string
+}
+
+interface UserData {
+  id: string
+  name?: string | null
+  email: string
+  phone?: string | null
+  address?: string | null
+}
+
+interface BusinessProfileResponse {
+  business: BusinessData | null
+  user: UserData
+}
 
 export default function BusinessProfilePage() {
+  const { data: session, status } = useSession()
+  const { toast } = useToast()
+  const router = useRouter()
+
+  const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState(false)
+  const [resettingPassword, setResettingPassword] = useState(false)
+
   const [showPassword, setShowPassword] = useState(false)
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [passwordError, setPasswordError] = useState("")
 
   const [businessInfo, setBusinessInfo] = useState({
-    name: "Rapid Ventures LLC",
-    email: "contact@rapidventures.com",
-    formationDate: "January 15, 2023",
-    phone: "(555) 123-4567",
-    address: "100 Ambition Parkway, New York, NY 10001, USA",
-    website: "www.rapidventures.com",
-    industry: "Technology",
-    ein: "93-4327510",
-    businessId: "10724418",
+    name: "",
+    email: "",
+    formationDate: "",
+    phone: "",
+    address: "",
+    website: "",
+    industry: "Technology", // Default value
+    ein: "",
+    businessId: "",
   })
 
-  const handlePasswordReset = (e: React.FormEvent) => {
+  // Fetch business profile data
+  const fetchBusinessData = async () => {
+    try {
+      const response = await fetch("/api/user/business-profile")
+      if (!response.ok) {
+        throw new Error(`Error fetching business profile: ${response.status}`)
+      }
+
+      const data: BusinessProfileResponse = await response.json()
+
+      if (data.business || data.user) {
+        // Get industry display value
+        let industryDisplay = "Technology"
+        if (data.business?.industry) {
+          try {
+            const parsedIndustry = JSON.parse(data.business.industry)
+            industryDisplay = parsedIndustry.displayIndustry || "Technology"
+          } catch (e) {
+            industryDisplay = data.business.industry
+          }
+        }
+
+        return {
+          name: data.business?.name || data.user?.name || "",
+          businessId: data.business?.businessId || "",
+          formationDate: data.business?.formationDate ? new Date(data.business.formationDate).toLocaleDateString() : "",
+          ein: data.business?.ein || "",
+          address: data.user?.address || data.business?.address || "",
+          phone: data.user?.phone || data.business?.phone || "",
+          email: data.user?.email || data.business?.email || "",
+          website: data.business?.website || "",
+          industry: data.business?.displayIndustry || industryDisplay,
+        }
+      }
+      return null
+    } catch (error) {
+      console.error("Error fetching business data:", error)
+      return null
+    }
+  }
+
+  // Load all data
+  const loadAllData = async () => {
+    setLoading(true)
+    try {
+      const businessData = await fetchBusinessData()
+
+      if (businessData) {
+        setBusinessInfo({
+          name: businessData.name || "",
+          email: businessData.email || "",
+          formationDate: businessData.formationDate || "",
+          phone: businessData.phone || "",
+          address: businessData.address || "",
+          website: businessData.website || "",
+          industry: businessData.industry || "Technology",
+          ein: businessData.ein || "",
+          businessId: businessData.businessId || "",
+        })
+      }
+    } catch (error) {
+      console.error("Error loading data:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load business profile data. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Update user info
+  const updateUserInfo = async (updatedInfo: {
+    phone?: string
+    address?: string
+    website?: string
+    industry?: string
+  }) => {
+    if (!session?.user?.id) return false
+
+    try {
+      const response = await fetch(`/api/user/business-profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedInfo),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update user information")
+      }
+
+      const data = await response.json()
+      return data.success
+    } catch (error) {
+      console.error("Error updating user information:", error)
+      return false
+    }
+  }
+
+  // Reset password
+  const resetPassword = async (newPassword: string) => {
+    if (!session?.user?.id) return false
+
+    try {
+      const response = await fetch(`/api/user/reset-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          password: newPassword,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to reset password")
+      }
+
+      return true
+    } catch (error) {
+      console.error("Error resetting password:", error)
+      return false
+    }
+  }
+
+  // Load data when session is available
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.id) {
+      loadAllData()
+    } else if (status === "unauthenticated") {
+      router.push("/login")
+    }
+  }, [status, session, router])
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault()
+    setPasswordError("")
 
     if (password !== confirmPassword) {
       setPasswordError("Passwords do not match")
@@ -40,17 +223,78 @@ export default function BusinessProfilePage() {
       return
     }
 
-    // In a real app, this would call an API to reset the password
-    setPasswordError("")
-    setPassword("")
-    setConfirmPassword("")
-    alert("Password reset successful")
+    setResettingPassword(true)
+    try {
+      const success = await resetPassword(password)
+
+      if (success) {
+        toast({
+          title: "Success",
+          description: "Your password has been reset successfully.",
+        })
+
+        setPassword("")
+        setConfirmPassword("")
+      } else {
+        throw new Error("Failed to reset password")
+      }
+    } catch (error) {
+      console.error("Error resetting password:", error)
+      setPasswordError("Failed to reset password. Please try again.")
+
+      toast({
+        title: "Error",
+        description: "Failed to reset password. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setResettingPassword(false)
+    }
   }
 
-  const handleInfoUpdate = (e: React.FormEvent) => {
+  const handleInfoUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
-    // In a real app, this would call an API to update business info
-    alert("Business information updated successfully")
+    setUpdating(true)
+
+    try {
+      const success = await updateUserInfo({
+        phone: businessInfo.phone,
+        address: businessInfo.address,
+        website: businessInfo.website,
+        industry: businessInfo.industry,
+      })
+
+      if (success) {
+        toast({
+          title: "Success",
+          description: "Business information updated successfully.",
+        })
+
+        // Reload data to show updated values
+        await loadAllData()
+      } else {
+        throw new Error("Failed to update business information")
+      }
+    } catch (error) {
+      console.error("Error updating business information:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update business information. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
+        <p className="text-lg font-medium text-muted-foreground">Loading business profile...</p>
+      </div>
+    )
   }
 
   return (
@@ -94,6 +338,7 @@ export default function BusinessProfilePage() {
                       id="business-phone"
                       value={businessInfo.phone}
                       onChange={(e) => setBusinessInfo({ ...businessInfo, phone: e.target.value })}
+                      placeholder="Enter phone number"
                     />
                   </div>
 
@@ -103,6 +348,7 @@ export default function BusinessProfilePage() {
                       id="business-website"
                       value={businessInfo.website}
                       onChange={(e) => setBusinessInfo({ ...businessInfo, website: e.target.value })}
+                      placeholder="Enter website URL"
                     />
                   </div>
 
@@ -112,6 +358,7 @@ export default function BusinessProfilePage() {
                       id="business-industry"
                       value={businessInfo.industry}
                       onChange={(e) => setBusinessInfo({ ...businessInfo, industry: e.target.value })}
+                      placeholder="Enter industry"
                     />
                   </div>
 
@@ -127,10 +374,20 @@ export default function BusinessProfilePage() {
                     id="business-address"
                     value={businessInfo.address}
                     onChange={(e) => setBusinessInfo({ ...businessInfo, address: e.target.value })}
+                    placeholder="Enter business address"
                   />
                 </div>
 
-                <Button type="submit">Update Information</Button>
+                <Button type="submit" disabled={updating}>
+                  {updating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Information"
+                  )}
+                </Button>
               </form>
             </div>
           </Card>
@@ -149,6 +406,7 @@ export default function BusinessProfilePage() {
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter new password"
                     />
                     <button
                       type="button"
@@ -168,6 +426,7 @@ export default function BusinessProfilePage() {
                       type={showPassword ? "text" : "password"}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
                     />
                     <button
                       type="button"
@@ -179,9 +438,23 @@ export default function BusinessProfilePage() {
                   </div>
                 </div>
 
-                {passwordError && <div className="text-red-500 text-sm">{passwordError}</div>}
+                {passwordError && (
+                  <div className="text-red-500 text-sm flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    {passwordError}
+                  </div>
+                )}
 
-                <Button type="submit">Reset Password</Button>
+                <Button type="submit" disabled={resettingPassword}>
+                  {resettingPassword ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Resetting...
+                    </>
+                  ) : (
+                    "Reset Password"
+                  )}
+                </Button>
               </form>
             </div>
           </Card>
@@ -198,7 +471,7 @@ export default function BusinessProfilePage() {
                   <Building className="h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-500">Business ID</p>
-                    <p className="font-medium">{businessInfo.businessId}</p>
+                    <p className="font-medium">{businessInfo.businessId || "Not available"}</p>
                   </div>
                 </div>
 
@@ -206,7 +479,7 @@ export default function BusinessProfilePage() {
                   <User className="h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-500">EIN</p>
-                    <p className="font-medium">{businessInfo.ein}</p>
+                    <p className="font-medium">{businessInfo.ein || "Not available"}</p>
                   </div>
                 </div>
 
@@ -214,7 +487,7 @@ export default function BusinessProfilePage() {
                   <Calendar className="h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-500">Formation Date</p>
-                    <p className="font-medium">{businessInfo.formationDate}</p>
+                    <p className="font-medium">{businessInfo.formationDate || "Not available"}</p>
                   </div>
                 </div>
 
@@ -222,7 +495,7 @@ export default function BusinessProfilePage() {
                   <Mail className="h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-500">Email</p>
-                    <p className="font-medium">{businessInfo.email}</p>
+                    <p className="font-medium">{businessInfo.email || "Not available"}</p>
                   </div>
                 </div>
 
@@ -230,7 +503,7 @@ export default function BusinessProfilePage() {
                   <Phone className="h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-500">Phone</p>
-                    <p className="font-medium">{businessInfo.phone}</p>
+                    <p className="font-medium">{businessInfo.phone || "Not available"}</p>
                   </div>
                 </div>
 
@@ -238,7 +511,7 @@ export default function BusinessProfilePage() {
                   <MapPin className="h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-500">Address</p>
-                    <p className="font-medium">{businessInfo.address}</p>
+                    <p className="font-medium">{businessInfo.address || "Not available"}</p>
                   </div>
                 </div>
               </div>
@@ -262,7 +535,7 @@ export default function BusinessProfilePage() {
                 </div>
               </div>
 
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full" onClick={() => router.push("/dashboard/tickets/new")}>
                 Contact Support
               </Button>
             </div>
