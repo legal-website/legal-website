@@ -23,7 +23,8 @@ export async function POST() {
         "commission" DECIMAL(10,2) NOT NULL DEFAULT 0.10,
 
         CONSTRAINT "affiliate_links_pkey" PRIMARY KEY ("id"),
-        CONSTRAINT "affiliate_links_code_key" UNIQUE ("code")
+        CONSTRAINT "affiliate_links_code_key" UNIQUE ("code"),
+        CONSTRAINT "affiliate_links_userId_key" UNIQUE ("userId")
       );
     `
 

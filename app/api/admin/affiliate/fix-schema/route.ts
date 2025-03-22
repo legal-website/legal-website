@@ -11,41 +11,36 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Add index to userId in affiliate_links table
-    await db.$executeRaw`
-      DO $$
-      BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM pg_indexes 
-          WHERE tablename = 'affiliate_links' AND indexname = 'affiliate_links_userId_idx'
-        ) THEN
-          CREATE INDEX "affiliate_links_userId_idx" ON "affiliate_links"("userId");
-        END IF;
-      END $$;
-    `
-
-    // Add unique constraint to code in affiliate_links table
+    // Add unique constraint to userId in affiliate_links table
     await db.$executeRaw`
       DO $$
       BEGIN
         IF NOT EXISTS (
           SELECT 1 FROM pg_constraint 
-          WHERE conname = 'affiliate_links_code_key'
+          WHERE conname = 'affiliate_links_userId_key'
         ) THEN
-          ALTER TABLE "affiliate_links" ADD CONSTRAINT "affiliate_links_code_key" UNIQUE ("code");
-        END IF;
-      END $$;
-    `
-
-    // Add customerEmail column to affiliate_conversions if it doesn't exist
-    await db.$executeRaw`
-      DO $$
-      BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.columns 
-          WHERE table_name = 'affiliate_conversions' AND column_name = 'customerEmail'
-        ) THEN
-          ALTER TABLE "affiliate_conversions" ADD COLUMN "customerEmail" TEXT;
+          -- First check if there are any duplicate userId values
+          IF EXISTS (
+            SELECT userId FROM affiliate_links
+            GROUP BY userId
+            HAVING COUNT(*) > 1
+          ) THEN
+            -- Handle duplicates by keeping only the most recent affiliate link for each user
+            WITH ranked_links AS (
+              SELECT 
+                id,
+                userId,
+                ROW_NUMBER() OVER (PARTITION BY userId ORDER BY updatedAt DESC) as rn
+              FROM affiliate_links
+            )
+            DELETE FROM affiliate_links
+            WHERE id IN (
+              SELECT id FROM ranked_links WHERE rn > 1
+            );
+          END IF;
+          
+          -- Now add the unique constraint
+          ALTER TABLE "affiliate_links" ADD CONSTRAINT "affiliate_links_userId_key" UNIQUE ("userId");
         END IF;
       END $$;
     `

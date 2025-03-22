@@ -386,12 +386,15 @@ model PricingSettings {
 }
 model AffiliateLink {
   id         String   @id @default(uuid())
-  userId     String
+  userId     String   @unique  // Add @unique here to fix the one-to-one relation error
   code       String   @unique
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   active     Boolean  @default(true)
   commission Decimal  @default(0) @db.Decimal(10, 2)
+  
+  // Fix: Change the relation to many-to-one instead of one-to-one
+  // This means one user can have many affiliate links
   user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   clicks      AffiliateClick[]
   conversions AffiliateConversion[]
@@ -430,9 +433,6 @@ model AffiliateConversion {
   @@index([orderId])
   @@map("affiliate_conversions")
 }
-
-
-
 model AffiliatePayout {
   id        String      @id @default(cuid())
   userId    String
