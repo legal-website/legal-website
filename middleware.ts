@@ -2,14 +2,8 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
 import { Role } from "@prisma/client"
-import { trackAffiliateClick } from "./lib/middleware/affiliate"
 
 export async function middleware(request: NextRequest) {
-  // Track affiliate clicks if ref parameter is present
-  if (request.nextUrl.searchParams.has("ref")) {
-    return await trackAffiliateClick(request)
-  }
-
   // Get the pathname
   const path = request.nextUrl.pathname
 
@@ -54,12 +48,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/admin/:path*",
-    "/dashboard/:path*",
-    "/api/:path*",
-    // Add matcher for affiliate tracking (all paths except certain ones)
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/admin/:path*", "/dashboard/:path*", "/api/:path*"],
 }
 
