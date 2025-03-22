@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag } from "lucide-react"
+import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Users } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 
@@ -157,8 +157,8 @@ export default function OrderHistoryPage() {
   const { toast } = useToast()
 
   // Add new state variables to track whether to show all items
-  const [showAllPackages, setShowAllPackages] = useState(false)
-  const [showAllTemplates, setShowAllTemplates] = useState(false)
+  const [packagesDisplayCount, setPackagesDisplayCount] = useState(4)
+  const [templatesDisplayCount, setTemplatesDisplayCount] = useState(4)
 
   useEffect(() => {
     fetchInvoices()
@@ -516,7 +516,7 @@ export default function OrderHistoryPage() {
                 {getFilteredInvoices("package").length > 0 ? (
                   <div className="space-y-4">
                     {getFilteredInvoices("package")
-                      .slice(0, showAllPackages ? undefined : 4)
+                      .slice(0, packagesDisplayCount)
                       .map((invoice) => (
                         <Dialog key={invoice.id}>
                           <DialogTrigger asChild>
@@ -624,13 +624,17 @@ export default function OrderHistoryPage() {
                           </DialogContent>
                         </Dialog>
                       ))}
-                    {getFilteredInvoices("package").length > 4 && !showAllPackages && (
-                      <Button variant="outline" className="w-full mt-4" onClick={() => setShowAllPackages(true)}>
+                    {getFilteredInvoices("package").length > packagesDisplayCount && (
+                      <Button
+                        variant="outline"
+                        className="w-full mt-4"
+                        onClick={() => setPackagesDisplayCount((prev) => prev + 4)}
+                      >
                         Show More
                       </Button>
                     )}
-                    {showAllPackages && getFilteredInvoices("package").length > 4 && (
-                      <Button variant="outline" className="w-full mt-4" onClick={() => setShowAllPackages(false)}>
+                    {packagesDisplayCount > 4 && (
+                      <Button variant="outline" className="w-full mt-4" onClick={() => setPackagesDisplayCount(4)}>
                         Show Less
                       </Button>
                     )}
@@ -653,7 +657,7 @@ export default function OrderHistoryPage() {
                 {getFilteredInvoices("template").length > 0 ? (
                   <div className="space-y-4">
                     {getFilteredInvoices("template")
-                      .slice(0, showAllTemplates ? undefined : 4)
+                      .slice(0, templatesDisplayCount)
                       .map((invoice) => (
                         <Dialog key={invoice.id}>
                           <DialogTrigger asChild>
@@ -761,13 +765,17 @@ export default function OrderHistoryPage() {
                           </DialogContent>
                         </Dialog>
                       ))}
-                    {getFilteredInvoices("template").length > 4 && !showAllTemplates && (
-                      <Button variant="outline" className="w-full mt-4" onClick={() => setShowAllTemplates(true)}>
+                    {getFilteredInvoices("template").length > templatesDisplayCount && (
+                      <Button
+                        variant="outline"
+                        className="w-full mt-4"
+                        onClick={() => setTemplatesDisplayCount((prev) => prev + 4)}
+                      >
                         Show More
                       </Button>
                     )}
-                    {showAllTemplates && getFilteredInvoices("template").length > 4 && (
-                      <Button variant="outline" className="w-full mt-4" onClick={() => setShowAllTemplates(false)}>
+                    {templatesDisplayCount > 4 && (
+                      <Button variant="outline" className="w-full mt-4" onClick={() => setTemplatesDisplayCount(4)}>
                         Show Less
                       </Button>
                     )}
@@ -800,41 +808,23 @@ export default function OrderHistoryPage() {
 
             <div className="p-4 border rounded-lg">
               <div className="p-2 bg-blue-100 rounded-lg inline-block mb-3">
-                <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                  />
-                </svg>
+                <PenTool className="h-5 w-5 text-blue-600" />
               </div>
-              <h3 className="font-semibold mb-2">Registered Agent</h3>
-              <p className="text-sm text-gray-600 mb-4">Professional registered agent service for your business</p>
+              <h3 className="font-semibold mb-2">Submit an Amendment</h3>
+              <p className="text-sm text-gray-600 mb-4">Update your business information or structure</p>
               <Button size="sm" variant="outline" className="w-full" asChild>
-                <a href="https://test.com" target="_blank" rel="noopener noreferrer">
-                  Learn More
-                </a>
+                <a href="/dashboard/compliance/amendments">Learn More</a>
               </Button>
             </div>
 
             <div className="p-4 border rounded-lg">
               <div className="p-2 bg-purple-100 rounded-lg inline-block mb-3">
-                <svg className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                  />
-                </svg>
+                <Users className="h-5 w-5 text-purple-600" />
               </div>
-              <h3 className="font-semibold mb-2">Business Licenses</h3>
-              <p className="text-sm text-gray-600 mb-4">Get the licenses and permits your business needs</p>
+              <h3 className="font-semibold mb-2">Add Beneficial Ownership</h3>
+              <p className="text-sm text-gray-600 mb-4">Comply with beneficial ownership reporting requirements</p>
               <Button size="sm" variant="outline" className="w-full" asChild>
-                <a href="https://test.com" target="_blank" rel="noopener noreferrer">
-                  Learn More
-                </a>
+                <a href="/dashboard/compliance/beneficial-ownership">Learn More</a>
               </Button>
             </div>
           </div>
