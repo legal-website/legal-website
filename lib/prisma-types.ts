@@ -400,6 +400,41 @@ export interface PricingSettingsDelegate {
 
 // Add these interfaces after the existing interfaces
 
+// Invoice model
+export interface InvoiceModel {
+  id: string
+  invoiceNumber: string
+  customerName: string
+  customerEmail: string
+  customerPhone?: string | null
+  customerCompany?: string | null
+  customerAddress?: string | null
+  customerCity?: string | null
+  customerState?: string | null
+  customerZip?: string | null
+  customerCountry?: string | null
+  amount: number
+  status: string
+  items: string
+  paymentReceipt?: string | null
+  paymentDate?: Date | null
+  createdAt: Date
+  updatedAt: Date
+  userId?: string | null
+  user?: UserModel | null
+}
+
+// Invoice delegate
+export interface InvoiceDelegate {
+  findMany: (args?: any) => Promise<InvoiceModel[]>
+  findUnique: (args: { where: { id: string }; include?: any }) => Promise<InvoiceModel | null>
+  create: (args: { data: any }) => Promise<InvoiceModel>
+  update: (args: { where: { id: string }; data: any }) => Promise<InvoiceModel>
+  delete: (args: { where: { id: string } }) => Promise<InvoiceModel>
+}
+
+// Add these interfaces after the existing interfaces
+
 // Affiliate models
 export interface AffiliateLinkModel {
   id: string
@@ -532,6 +567,8 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   systemSettings: SystemSettingsDelegate
   // Add pricing settings model
   pricingSettings: PricingSettingsDelegate
+  // Add invoice model
+  invoice: InvoiceDelegate
 
   // Add affiliate delegates
   affiliateLink: AffiliateLinkDelegate
