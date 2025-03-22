@@ -3,10 +3,14 @@
 import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 
-export function AffiliateTracker() {
+// This is the component that uses useSearchParams
+function AffiliateTrackerContent() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
+    // Add null check for searchParams
+    if (!searchParams) return
+
     const refCode = searchParams.get("ref")
 
     if (refCode) {
@@ -27,5 +31,16 @@ export function AffiliateTracker() {
   }, [searchParams])
 
   return null
+}
+
+// This is the main component that will be imported elsewhere
+import { Suspense } from "react"
+
+export function AffiliateTracker() {
+  return (
+    <Suspense fallback={null}>
+      <AffiliateTrackerContent />
+    </Suspense>
+  )
 }
 
