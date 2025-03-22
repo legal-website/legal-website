@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { Role } from "@prisma/client"
+import { Role } from "@/lib/role" // Import from local file instead of @prisma/client
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -24,12 +24,16 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       llcProgress,
       annualReportFee,
       annualReportFrequency,
+      completedAt,
     } = await request.json()
 
     // Find the user
     const user = await db.user.findUnique({
       where: { id: userId },
-      include: { business: true },
+      select: {
+        id: true,
+        businessId: true,
+      },
     })
 
     if (!user) {
@@ -47,41 +51,52 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       annualReportFrequency,
     })
 
+    // Calculate completedAt value
+    const completedAtValue = completedAt ? new Date(completedAt) : llcProgress === 100 ? new Date() : null
+
     // If user already has a business, update it
     if (user.businessId) {
-      business = await db.business.update({
-        where: { id: user.businessId },
-        data: {
-          name,
-          // Don't update businessId if it already exists
-          ...(user.business?.businessId ? {} : { businessId }),
-          ein,
-          formationDate: formationDate ? new Date(formationDate) : undefined,
-          industry: customData,
-        },
-      })
+      await db.$executeRawUnsafe(
+        `UPDATE Business SET 
+         name = ?, 
+         ein = ?, 
+         formationDate = ?, 
+         industry = ?,
+         completedAt = ?
+         WHERE id = ?`,
+        name,
+        ein,
+        formationDate ? new Date(formationDate) : null,
+        customData,
+        completedAtValue,
+        user.businessId,
+      )
+
+      // Fetch the updated business
+      const updatedBusiness = await db.$queryRawUnsafe(`SELECT * FROM Business WHERE id = ?`, user.businessId)
+      business = updatedBusiness[0]
     } else {
       // If user doesn't have a business, create one
-      business = await db.business.create({
-        data: {
-          name,
-          businessId,
-          ein,
-          formationDate: formationDate ? new Date(formationDate) : undefined,
-          industry: customData,
-          users: {
-            connect: { id: userId },
-          },
-        },
-      })
+      const newBusinessId = businessId || generateUUID()
+
+      await db.$executeRawUnsafe(
+        `INSERT INTO Business (id, name, businessId, ein, formationDate, industry, completedAt) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        newBusinessId,
+        name,
+        newBusinessId,
+        ein,
+        formationDate ? new Date(formationDate) : null,
+        customData,
+        completedAtValue,
+      )
 
       // Update user with business relation
-      await db.user.update({
-        where: { id: userId },
-        data: {
-          businessId: business.id,
-        },
-      })
+      await db.$executeRawUnsafe(`UPDATE User SET businessId = ? WHERE id = ?`, newBusinessId, userId)
+
+      // Fetch the new business
+      const newBusiness = await db.$queryRawUnsafe(`SELECT * FROM Business WHERE id = ?`, newBusinessId)
+      business = newBusiness[0]
     }
 
     // Return the business with the custom fields
@@ -115,13 +130,25 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // Find the user's business information
     const user = await db.user.findUnique({
       where: { id: userId },
-      include: {
-        business: true,
+      select: {
+        id: true,
+        businessId: true,
       },
     })
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    let business = null
+
+    if (user.businessId) {
+      // Fetch the business
+      const businessData = await db.$queryRawUnsafe(`SELECT * FROM Business WHERE id = ?`, user.businessId)
+
+      if (businessData && businessData[0]) {
+        business = businessData[0]
+      }
     }
 
     // Parse custom data from industry field
@@ -133,9 +160,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
       annualReportFrequency: 1,
     }
 
-    if (user.business?.industry) {
+    if (business?.industry) {
       try {
-        const parsedData = JSON.parse(user.business.industry as string)
+        const parsedData = JSON.parse(business.industry as string)
         customData = { ...customData, ...parsedData }
       } catch (e) {
         console.error("Error parsing custom data:", e)
@@ -144,9 +171,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     // Return the business with custom fields
     return NextResponse.json({
-      business: user.business
+      business: business
         ? {
-            ...user.business,
+            ...business,
             serviceStatus: customData.serviceStatus,
             llcStatusMessage: customData.llcStatusMessage,
             llcProgress: customData.llcProgress,
@@ -159,5 +186,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
     console.error("Error fetching business information:", error)
     return NextResponse.json({ error: "Failed to fetch business information" }, { status: 500 })
   }
+}
+
+// Helper function to generate UUID
+function generateUUID() {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0,
+      v = c === "x" ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
 }
 

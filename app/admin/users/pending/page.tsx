@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Role } from "@prisma/client"
+import { Role } from "@/lib/role" // Import from local file instead of @prisma/client
 
 // Define interfaces for type safety
 interface PendingUser {
@@ -39,6 +39,7 @@ interface PendingUser {
     llcProgress?: number
     annualReportFee?: number
     annualReportFrequency?: number
+    completedAt?: string | null
   }
   phoneRequest?: PhoneNumberRequest
   accountManagerRequest?: AccountManagerRequest
@@ -88,6 +89,7 @@ export default function PendingUsersPage() {
     llcProgress: 10,
     annualReportFee: 100,
     annualReportFrequency: 1,
+    completedAt: null as string | null, // Add this field to track when the LLC was completed
   })
   const [phoneFormData, setPhoneFormData] = useState({
     phoneNumber: "",
@@ -217,6 +219,7 @@ export default function PendingUsersPage() {
             llcProgress: data.business.llcProgress || 10,
             annualReportFee: data.business.annualReportFee || 100,
             annualReportFrequency: data.business.annualReportFrequency || 1,
+            completedAt: data.business.completedAt || null,
           }
         }
       }
@@ -232,6 +235,7 @@ export default function PendingUsersPage() {
         llcProgress: 10,
         annualReportFee: 100,
         annualReportFrequency: 1,
+        completedAt: null,
       }
     } catch (error) {
       console.error("Error fetching business data:", error)
@@ -302,6 +306,7 @@ export default function PendingUsersPage() {
           llcProgress: user.business.llcProgress || 10,
           annualReportFee: user.business.annualReportFee || 100,
           annualReportFrequency: user.business.annualReportFrequency || 1,
+          completedAt: user.business.completedAt || null,
         })
         setSelectedUser(user)
         setShowUserDialog(true)
@@ -319,6 +324,7 @@ export default function PendingUsersPage() {
             llcProgress: businessData.llcProgress || 10,
             annualReportFee: businessData.annualReportFee || 100,
             annualReportFrequency: businessData.annualReportFrequency || 1,
+            completedAt: businessData.completedAt || null,
           })
           setSelectedUser(user)
           setShowUserDialog(true)
@@ -436,7 +442,18 @@ export default function PendingUsersPage() {
 
   const handleProgressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number.parseInt(e.target.value)
-    setBusinessFormData((prev) => ({ ...prev, llcProgress: value }))
+
+    // If progress is set to 100%, automatically update the status message and set completedAt timestamp
+    if (value === 100 && businessFormData.llcProgress !== 100) {
+      setBusinessFormData((prev) => ({
+        ...prev,
+        llcProgress: value,
+        llcStatusMessage: "Congratulations your LLC is formed",
+        completedAt: new Date().toISOString(), // Set the completion timestamp
+      }))
+    } else {
+      setBusinessFormData((prev) => ({ ...prev, llcProgress: value }))
+    }
   }
 
   const saveBusinessData = async () => {
@@ -445,13 +462,23 @@ export default function PendingUsersPage() {
     setProcessingAction(true)
 
     try {
+      // If progress is 100% but completedAt is not set, set it now
+      const dataToSend = {
+        ...businessFormData,
+        // Ensure completedAt is set if progress is 100%
+        completedAt:
+          businessFormData.llcProgress === 100 && !businessFormData.completedAt
+            ? new Date().toISOString()
+            : businessFormData.completedAt,
+      }
+
       const response = await fetch(`/api/admin/users/${selectedUser.id}/business`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           "Cache-Control": "no-cache",
         },
-        body: JSON.stringify(businessFormData),
+        body: JSON.stringify(dataToSend),
       })
 
       if (!response.ok) {
@@ -463,7 +490,7 @@ export default function PendingUsersPage() {
         description: "Business information updated successfully.",
       })
 
-      // Update the saveBusinessData function to include annual report fields in the local state update
+      // Update the local state
       setPendingUsers((prev) =>
         prev.map((user) => {
           if (user.id === selectedUser.id) {
@@ -480,6 +507,7 @@ export default function PendingUsersPage() {
                 llcProgress: businessFormData.llcProgress,
                 annualReportFee: businessFormData.annualReportFee,
                 annualReportFrequency: businessFormData.annualReportFrequency,
+                completedAt: dataToSend.completedAt,
               },
             }
           }

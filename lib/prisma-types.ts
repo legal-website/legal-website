@@ -61,7 +61,27 @@ export interface UserModel {
   email: string
   role: string
   image?: string | null
+  businessId?: string | null
+  business?: BusinessModel | null
   // Add other fields as needed
+}
+
+// Define Business model
+export interface BusinessModel {
+  id: string
+  name: string
+  email?: string | null
+  phone?: string | null
+  address?: string | null
+  website?: string | null
+  industry?: string | null
+  formationDate?: Date | null
+  ein?: string | null
+  businessId?: string | null
+  createdAt: Date
+  updatedAt: Date
+  completedAt?: Date | null
+  users?: UserModel[]
 }
 
 // Define Amendment status history model
@@ -145,7 +165,7 @@ export interface DocumentModel {
   businessId: string
   fileUrl: string
   type: string
-  business?: any // You can define a BusinessModel if needed
+  business?: BusinessModel // Updated to use BusinessModel
 }
 
 // Community models
@@ -285,6 +305,16 @@ export interface DocumentDelegate {
   delete: (args: { where: { id: string } }) => Promise<DocumentModel>
 }
 
+// Add Business delegate
+export interface BusinessDelegate {
+  findMany: (args?: any) => Promise<BusinessModel[]>
+  findUnique: (args: { where: { id: string } }) => Promise<BusinessModel | null>
+  findFirst: (args: { where: any }) => Promise<BusinessModel | null>
+  create: (args: { data: any }) => Promise<BusinessModel>
+  update: (args: { where: { id: string }; data: any }) => Promise<BusinessModel>
+  delete: (args: { where: { id: string } }) => Promise<BusinessModel>
+}
+
 // Community delegates
 export interface PostDelegate {
   findMany: (args?: any) => Promise<PostModel[]>
@@ -327,8 +357,8 @@ export interface PostTagDelegate {
 
 // Add this interface to your existing interfaces
 export interface UserDelegate {
-  findUnique: (args: { where: { id: string } }) => Promise<UserModel | null>
-  findFirst: (args: { where: any }) => Promise<UserModel | null>
+  findUnique: (args: { where: { id: string }; select?: any }) => Promise<UserModel | null>
+  findFirst: (args: { where: any; select?: any }) => Promise<UserModel | null>
   findMany: (args?: any) => Promise<UserModel[]>
   create: (args: { data: any; include?: any }) => Promise<UserModel>
   update: (args: { where: { id: string }; data: any }) => Promise<UserModel>
@@ -380,6 +410,8 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   user: UserDelegate
   // Add document model
   document: DocumentDelegate
+  // Add business model
+  business: BusinessDelegate
   // Add community models
   post: PostDelegate
   comment: CommentDelegate
