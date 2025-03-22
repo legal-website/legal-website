@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { storeAffiliateCookie } from "@/lib/store-affiliate-cookie"
 import prisma from "@/lib/prisma"
 
 export async function POST(req: NextRequest) {
@@ -29,21 +28,7 @@ export async function POST(req: NextRequest) {
     if (affiliateCookie?.value) {
       // Store the affiliate information in metadata
       metadata.affiliateCode = affiliateCookie.value
-
-      // Store the affiliate cookie in the database immediately
-      await storeAffiliateCookie(email, affiliateCookie.value)
-      console.log(`Stored affiliate cookie for ${email}: ${affiliateCookie.value}`)
-
-      // Verify storage
-      const storedCookie = await prisma.systemSettings.findFirst({
-        where: { key: `affiliate_cookie_${email}` },
-      })
-
-      if (storedCookie) {
-        console.log(`Verified stored cookie for ${email}: ${storedCookie.value}`)
-      } else {
-        console.error(`Failed to store affiliate cookie for ${email}`)
-      }
+      console.log(`Storing affiliate code in invoice metadata: ${affiliateCookie.value}`)
     }
 
     // Create invoice with metadata

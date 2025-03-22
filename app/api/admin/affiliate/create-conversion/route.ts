@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import { AffiliateConversionStatus } from "@/lib/affiliate-types"
 import prisma from "@/lib/prisma"
 
 interface CreateConversionRequest {
@@ -24,7 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    console.log(`[MANUAL] Creating conversion for invoice ${invoiceId} with affiliate code ${affiliateCode}`)
+    console.log(`Creating conversion for invoice ${invoiceId} with affiliate code ${affiliateCode}`)
 
     // Get the invoice
     const invoice = await prisma.invoice.findUnique({
@@ -74,11 +73,12 @@ export async function POST(req: NextRequest) {
         orderId: invoiceId,
         amount,
         commission,
-        status: AffiliateConversionStatus.PENDING,
+        status: "PENDING",
+        customerEmail: invoice.customerEmail,
       },
     })
 
-    console.log(`[MANUAL] Successfully created conversion: ${conversion.id}`)
+    console.log(`Successfully created conversion: ${conversion.id}`)
 
     return NextResponse.json({
       success: true,
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       message: "Conversion created successfully",
     })
   } catch (error: any) {
-    console.error("[MANUAL] Error creating conversion:", error)
+    console.error("Error creating conversion:", error)
     return NextResponse.json({ error: error.message || "Something went wrong" }, { status: 500 })
   }
 }

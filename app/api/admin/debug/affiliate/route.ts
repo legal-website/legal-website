@@ -1,9 +1,39 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
+
+// Define types for our data
+interface InvoiceWithMetadata {
+  id: string
+  invoiceNumber: string
+  amount: number
+  status: string
+  metadata?: string | null
+}
+
+interface ConversionWithRelations {
+  id: string
+  orderId: string
+  amount: number
+  commission: number
+  status: string
+  link: {
+    user: {
+      email: string
+    }
+  }
+  createdAt: Date
+}
 
 export async function GET(req: NextRequest) {
   try {
+    // Check authentication
+    const session = await getServerSession(authOptions)
+    if (!session || (session.user as any).role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const url = new URL(req.url)
     const email = url.searchParams.get("email")
 
@@ -11,35 +41,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Email parameter is required" }, { status: 400 })
     }
 
-    console.log(`[AFFILIATE DEBUG] Checking affiliate status for email: ${email}`)
-
-    // Get all system settings related to this email
-    const affiliateCookieSetting = await prisma.systemSettings.findFirst({
-      where: { key: `affiliate_cookie_${email}` },
-    })
-
-    // Get all invoices for this email
-    const invoices = await prisma.invoice.findMany({
+    // Get invoices for this email
+    const invoices = (await prisma.invoice.findMany({
       where: { customerEmail: email },
-    })
+    })) as InvoiceWithMetadata[]
 
-    // Get current cookie
-    const cookieStore = await cookies()
-    const currentAffiliateCookie = cookieStore.get("affiliate")
-
-    // Check for conversions
-    const conversions = await prisma.$queryRaw`
-      SELECT * FROM affiliate_conversions 
-      WHERE customer_email = ${email}
-    `
-
-    // Format invoice data
-    const formattedInvoices = invoices.map((invoice: any) => {
-      let metadata = {}
-      try {
-        metadata = JSON.parse(invoice.metadata || "{}")
-      } catch (e) {
-        console.error(`Error parsing metadata for invoice ${invoice.id}:`, e)
+    // Extract affiliate codes from invoice metadata
+    const invoiceData = invoices.map((invoice: InvoiceWithMetadata) => {
+      let affiliateCode = null
+      if (invoice.metadata) {
+        try {
+          const metadata = JSON.parse(invoice.metadata as string)
+          affiliateCode = metadata.affiliateCode
+        } catch (e) {
+          console.error(`Error parsing metadata for invoice ${invoice.id}:`, e)
+        }
       }
 
       return {
@@ -47,19 +63,37 @@ export async function GET(req: NextRequest) {
         invoiceNumber: invoice.invoiceNumber,
         amount: invoice.amount,
         status: invoice.status,
-        metadata,
+        affiliateCode,
       }
     })
 
+    // Get conversions for this email
+    const conversions = (await prisma.affiliateConversion.findMany({
+      where: { customerEmail: email },
+      include: {
+        link: {
+          include: {
+            user: true,
+          },
+        },
+      },
+    })) as ConversionWithRelations[]
+
     return NextResponse.json({
       email,
-      currentCookie: currentAffiliateCookie?.value || null,
-      storedCookie: affiliateCookieSetting?.value || null,
-      invoices: formattedInvoices,
-      conversions: conversions || [],
+      invoices: invoiceData,
+      conversions: conversions.map((conv: ConversionWithRelations) => ({
+        id: conv.id,
+        orderId: conv.orderId,
+        amount: conv.amount,
+        commission: conv.commission,
+        status: conv.status,
+        affiliateUser: conv.link.user.email,
+        createdAt: conv.createdAt,
+      })),
     })
   } catch (error: any) {
-    console.error("Error in affiliate debug:", error)
+    console.error("Error retrieving debug information:", error)
     return NextResponse.json({ error: error.message || "Something went wrong" }, { status: 500 })
   }
 }

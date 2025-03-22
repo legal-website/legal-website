@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import prisma from "@/lib/prisma"
 
 export async function GET(req: NextRequest) {
@@ -37,8 +36,8 @@ export async function GET(req: NextRequest) {
     })
 
     // Set the cookie with a long expiration (30 days)
-    const cookieStore = await cookies()
-    cookieStore.set({
+    const response = NextResponse.redirect(new URL(redirect, req.url))
+    response.cookies.set({
       name: "affiliate",
       value: code,
       path: "/",
@@ -50,8 +49,8 @@ export async function GET(req: NextRequest) {
 
     console.log(`Set affiliate cookie: ${code} with 30-day expiration`)
 
-    // Redirect to the target URL
-    return NextResponse.redirect(new URL(redirect, req.url))
+    // Return the response with the cookie
+    return response
   } catch (error: any) {
     console.error("Error processing affiliate click:", error)
     return NextResponse.json({ error: error.message || "Something went wrong" }, { status: 500 })
