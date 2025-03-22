@@ -1,4 +1,16 @@
-// Affiliate conversion status enum
+import type { Decimal } from "@prisma/client/runtime/library"
+
+// Extend the base AffiliateLink model with our additional properties
+export interface AffiliateLinkWithCommission {
+  id: string
+  userId: string
+  code: string
+  createdAt: Date
+  updatedAt: Date
+  active: boolean
+  commission: Decimal | number
+}
+
 export enum AffiliateConversionStatus {
   PENDING = "PENDING",
   APPROVED = "APPROVED",
@@ -6,68 +18,20 @@ export enum AffiliateConversionStatus {
   PAID = "PAID",
 }
 
-// Affiliate payout status enum
-export enum AffiliatePayoutStatus {
-  PENDING = "PENDING",
-  COMPLETED = "COMPLETED",
-  REJECTED = "REJECTED",
-}
-
-// Affiliate link model
-export interface AffiliateLink {
-  id: string
-  userId: string
-  code: string
-  createdAt: Date
-  updatedAt: Date
-  user?: any
-  clicks?: AffiliateClick[]
-  conversions?: AffiliateConversion[]
-}
-
-// Affiliate click model
-export interface AffiliateClick {
-  id: string
-  linkId: string
-  ipAddress?: string | null
-  userAgent?: string | null
-  referrer?: string | null
-  createdAt: Date
-  link?: AffiliateLink
-}
-
-// Affiliate conversion model
-export interface AffiliateConversion {
+export interface AffiliateConversionWithRelations {
   id: string
   linkId: string
   orderId: string
-  amount: number
-  commission: number
-  status: AffiliateConversionStatus
+  amount: Decimal
+  commission: Decimal
+  status: string
   createdAt: Date
   updatedAt: Date
-  link?: AffiliateLink
-}
-
-// Affiliate payout model
-export interface AffiliatePayout {
-  id: string
-  userId: string
-  amount: number
-  method: string
-  status: AffiliatePayoutStatus
-  notes?: string | null
-  createdAt: Date
-  updatedAt: Date
-  user?: any
-}
-
-// Affiliate settings model
-export interface AffiliateSettings {
-  id: number
-  commissionRate: number
-  minPayoutAmount: number
-  cookieDuration: number
-  updatedAt: Date
+  customerEmail?: string | null
+  link?: {
+    user: {
+      email: string
+    }
+  }
 }
 

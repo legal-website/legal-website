@@ -3,18 +3,20 @@ import { db } from "@/lib/db"
 
 export async function GET() {
   try {
-    // Check affiliate_links table structure
+    // Check affiliate_links table structure - MySQL syntax
     const linkColumns = await db.$queryRaw`
       SELECT column_name, data_type 
       FROM information_schema.columns 
-      WHERE table_name = 'affiliate_links';
+      WHERE table_schema = DATABASE()
+      AND table_name = 'affiliate_links';
     `
 
-    // Check affiliate_conversions table structure
+    // Check affiliate_conversions table structure - MySQL syntax
     const conversionColumns = await db.$queryRaw`
       SELECT column_name, data_type 
       FROM information_schema.columns 
-      WHERE table_name = 'affiliate_conversions';
+      WHERE table_schema = DATABASE()
+      AND table_name = 'affiliate_conversions';
     `
 
     return NextResponse.json({

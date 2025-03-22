@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
 import { v4 as uuidv4 } from "uuid"
+import { type AffiliateLinkWithCommission, AffiliateConversionStatus } from "@/lib/affiliate-types"
 
 export async function POST(req: Request) {
   try {
+    // Check authentication
+    const session = await getServerSession(authOptions)
+    if (!session || (session.user as any).role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await req.json()
     const { linkId, orderId, amount } = body
 
@@ -14,13 +23,13 @@ export async function POST(req: Request) {
     // Check if the affiliate_conversions table exists
     const tableCheck = await db.$queryRaw`
       SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public'
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = DATABASE()
         AND table_name = 'affiliate_conversions'
       ) as exists;
     `
 
-    const tableExists = (tableCheck as any)[0].exists
+    const tableExists = (tableCheck as any)[0].exists === 1
 
     if (!tableExists) {
       return NextResponse.json(
@@ -32,18 +41,21 @@ export async function POST(req: Request) {
       )
     }
 
-    // Get the link
-    const link = await db.affiliateLink.findUnique({
+    // Get the link and cast it to our custom type
+    const link = (await db.affiliateLink.findUnique({
       where: { id: linkId },
-    })
+    })) as unknown as AffiliateLinkWithCommission
 
     if (!link) {
       return NextResponse.json({ error: "Affiliate link not found" }, { status: 404 })
     }
 
     // Use a default commission rate if not available in the model
-    // This fixes the "Property 'commission' does not exist" error
-    const commissionRate = 0.1 // Default 10% commission
+    const commissionRate = link.commission
+      ? typeof link.commission === "number"
+        ? link.commission
+        : Number.parseFloat(link.commission.toString())
+      : 0.1
 
     // Calculate commission
     const commissionAmount = Number.parseFloat(amount) * commissionRate
@@ -56,7 +68,7 @@ export async function POST(req: Request) {
         orderId,
         amount: Number.parseFloat(amount),
         commission: commissionAmount,
-        status: "completed",
+        status: AffiliateConversionStatus.PENDING,
         updatedAt: new Date(),
       },
     })
