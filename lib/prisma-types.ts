@@ -398,6 +398,116 @@ export interface PricingSettingsDelegate {
   upsert: (args: { where: any; update: any; create: any }) => Promise<PricingSettingsModel>
 }
 
+// Add these interfaces after the existing interfaces
+
+// Affiliate models
+export interface AffiliateLinkModel {
+  id: string
+  userId: string
+  code: string
+  createdAt: Date
+  updatedAt: Date
+  user?: UserModel
+  clicks?: AffiliateClickModel[]
+  conversions?: AffiliateConversionModel[]
+  _count?: {
+    clicks: number
+    conversions: number
+  }
+}
+
+export interface AffiliateClickModel {
+  id: string
+  linkId: string
+  ipAddress?: string | null
+  userAgent?: string | null
+  referrer?: string | null
+  createdAt: Date
+  link?: AffiliateLinkModel
+}
+
+export enum AffiliateConversionStatus {
+  PENDING = "PENDING",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+  PAID = "PAID",
+}
+
+export interface AffiliateConversionModel {
+  id: string
+  linkId: string
+  orderId: string
+  amount: Decimal
+  commission: Decimal
+  status: AffiliateConversionStatus
+  createdAt: Date
+  updatedAt: Date
+  link?: AffiliateLinkModel
+}
+
+export enum AffiliatePayoutStatus {
+  PENDING = "PENDING",
+  COMPLETED = "COMPLETED",
+  REJECTED = "REJECTED",
+}
+
+export interface AffiliatePayoutModel {
+  id: string
+  userId: string
+  amount: Decimal
+  method: string
+  status: AffiliatePayoutStatus
+  notes?: string | null
+  createdAt: Date
+  updatedAt: Date
+  user?: UserModel
+}
+
+export interface AffiliateSettingsModel {
+  id: number
+  commissionRate: Decimal
+  minPayoutAmount: Decimal
+  cookieDuration: number
+  updatedAt: Date
+}
+
+// Add these delegates
+export interface AffiliateLinkDelegate {
+  findUnique: (args: { where: any; include?: any }) => Promise<AffiliateLinkModel | null>
+  findFirst: (args: { where: any; include?: any }) => Promise<AffiliateLinkModel | null>
+  findMany: (args?: any) => Promise<AffiliateLinkModel[]>
+  create: (args: { data: any; include?: any }) => Promise<AffiliateLinkModel>
+  update: (args: { where: any; data: any; include?: any }) => Promise<AffiliateLinkModel>
+  upsert: (args: { where: any; create: any; update: any; include?: any }) => Promise<AffiliateLinkModel>
+  count: (args?: any) => Promise<number>
+}
+
+export interface AffiliateClickDelegate {
+  create: (args: { data: any }) => Promise<AffiliateClickModel>
+  findMany: (args?: any) => Promise<AffiliateClickModel[]>
+  count: (args?: any) => Promise<number>
+}
+
+export interface AffiliateConversionDelegate {
+  findMany: (args?: any) => Promise<AffiliateConversionModel[]>
+  findUnique: (args: { where: any; include?: any }) => Promise<AffiliateConversionModel | null>
+  create: (args: { data: any }) => Promise<AffiliateConversionModel>
+  update: (args: { where: any; data: any }) => Promise<AffiliateConversionModel>
+  count: (args?: any) => Promise<number>
+}
+
+export interface AffiliatePayoutDelegate {
+  findMany: (args?: any) => Promise<AffiliatePayoutModel[]>
+  findUnique: (args: { where: any }) => Promise<AffiliatePayoutModel | null>
+  create: (args: { data: any }) => Promise<AffiliatePayoutModel>
+  update: (args: { where: any; data: any }) => Promise<AffiliatePayoutModel>
+}
+
+export interface AffiliateSettingsDelegate {
+  findFirst: (args?: any) => Promise<AffiliateSettingsModel | null>
+  upsert: (args: { where: any; create: any; update: any }) => Promise<AffiliateSettingsModel>
+}
+
 // Then update your ExtendedPrismaClient type to include the user property
 export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   amendment: AmendmentDelegate
@@ -422,6 +532,13 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   systemSettings: SystemSettingsDelegate
   // Add pricing settings model
   pricingSettings: PricingSettingsDelegate
+
+  // Add affiliate delegates
+  affiliateLink: AffiliateLinkDelegate
+  affiliateClick: AffiliateClickDelegate
+  affiliateConversion: AffiliateConversionDelegate
+  affiliatePayout: AffiliatePayoutDelegate
+  affiliateSettings: AffiliateSettingsDelegate
   // Include raw query methods with proper typing
   $queryRaw: any // Using 'any' to avoid TypeScript errors
   $executeRaw: any // Using 'any' to avoid TypeScript errors

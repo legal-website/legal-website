@@ -1,31 +1,27 @@
 "use client"
 
-import { useState } from "react"
-import { Card } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Label } from "@/components/ui/label"
 import {
-  Search,
-  Plus,
-  Filter,
-  Edit,
-  Trash2,
-  Copy,
-  BarChart3,
-  Calendar,
-  Tag,
-  CheckCircle2,
-  Clock,
+  DollarSign,
   Users,
-  Layers,
-  ArrowUpRight,
-  Mail,
-  Globe,
-  MessageSquare,
-  Share2,
-  Megaphone,
+  MousePointer,
+  BarChart3,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Settings,
+  Download,
 } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useToast } from "@/components/ui/use-toast"
+import { formatCurrency, formatDate } from "@/lib/affiliate"
 import {
   Dialog,
   DialogContent,
@@ -34,654 +30,1268 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Progress } from "@/components/ui/progress"
 
-// Define types for campaign data structure
-interface CampaignMetrics {
-  impressions: number
-  clicks: number
-  conversions: number
-  revenue: string
-  roi: string
-}
-
-interface Campaign {
-  id: number
-  name: string
-  description: string
-  startDate: string
-  endDate: string
-  status: "Active" | "Scheduled" | "Completed"
-  channels: string[]
-  audience: string
-  deals: string[]
-  metrics: CampaignMetrics
-}
-
-export default function CampaignsPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [activeTab, setActiveTab] = useState("active")
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
-
-  const campaigns: Campaign[] = [
-    {
-      id: 1,
-      name: "Spring Business Launch",
-      description: "Comprehensive campaign for spring business formation",
-      startDate: "Mar 1, 2025",
-      endDate: "Mar 31, 2025",
-      status: "Active",
-      channels: ["Email", "Social Media", "Website", "Client Dashboard"],
-      audience: "All Prospects",
-      deals: ["Spring Business Setup Special", "Referral Bonus"],
-      metrics: {
-        impressions: 12450,
-        clicks: 2340,
-        conversions: 187,
-        revenue: "$37,400",
-        roi: "320%",
-      },
-    },
-    {
-      id: 2,
-      name: "Tax Season Readiness",
-      description: "Campaign focused on tax preparation services",
-      startDate: "Feb 1, 2025",
-      endDate: "Apr 15, 2025",
-      status: "Active",
-      channels: ["Email", "Client Dashboard", "Direct Mail"],
-      audience: "Existing Clients",
-      deals: ["Tax Season Special", "Compliance Bundle"],
-      metrics: {
-        impressions: 8750,
-        clicks: 1560,
-        conversions: 132,
-        revenue: "$26,400",
-        roi: "280%",
-      },
-    },
-    {
-      id: 3,
-      name: "Referral Program Boost",
-      description: "Campaign to increase client referrals",
-      startDate: "Jan 15, 2025",
-      endDate: "Jun 30, 2025",
-      status: "Active",
-      channels: ["Email", "Social Media", "Client Dashboard"],
-      audience: "Existing Clients",
-      deals: ["Referral Bonus"],
-      metrics: {
-        impressions: 6320,
-        clicks: 980,
-        conversions: 95,
-        revenue: "$19,000",
-        roi: "350%",
-      },
-    },
-    {
-      id: 4,
-      name: "Summer Business Growth",
-      description: "Campaign for summer business expansion services",
-      startDate: "Jun 1, 2025",
-      endDate: "Aug 31, 2025",
-      status: "Scheduled",
-      channels: ["Email", "Social Media", "Website", "Webinars"],
-      audience: "All Customers",
-      deals: ["Summer Business Boost"],
-      metrics: {
-        impressions: 0,
-        clicks: 0,
-        conversions: 0,
-        revenue: "$0",
-        roi: "0%",
-      },
-    },
-    {
-      id: 5,
-      name: "Black Friday & Holiday Special",
-      description: "End of year promotion for business services",
-      startDate: "Nov 25, 2025",
-      endDate: "Dec 31, 2025",
-      status: "Scheduled",
-      channels: ["Email", "Social Media", "Website", "Client Dashboard", "Direct Mail"],
-      audience: "All Customers and Prospects",
-      deals: ["Black Friday Special", "Holiday Bundle"],
-      metrics: {
-        impressions: 0,
-        clicks: 0,
-        conversions: 0,
-        revenue: "$0",
-        roi: "0%",
-      },
-    },
-    {
-      id: 6,
-      name: "New Year Business Planning",
-      description: "Campaign for business planning and formation services",
-      startDate: "Dec 15, 2024",
-      endDate: "Jan 31, 2025",
-      status: "Completed",
-      channels: ["Email", "Social Media", "Website", "Webinars"],
-      audience: "All Prospects",
-      deals: ["Holiday Bundle"],
-      metrics: {
-        impressions: 15680,
-        clicks: 3240,
-        conversions: 245,
-        revenue: "$49,000",
-        roi: "410%",
-      },
-    },
-  ]
-
-  const filteredCampaigns = campaigns.filter((campaign) => {
-    const matchesSearch =
-      campaign.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      campaign.description.toLowerCase().includes(searchQuery.toLowerCase())
-
-    const matchesTab =
-      (activeTab === "active" && campaign.status === "Active") ||
-      (activeTab === "scheduled" && campaign.status === "Scheduled") ||
-      (activeTab === "completed" && campaign.status === "Completed") ||
-      activeTab === "all"
-
-    return matchesSearch && matchesTab
+export default function AdminAffiliatePage() {
+  const [activeTab, setActiveTab] = useState("overview")
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<any>(null)
+  const [affiliates, setAffiliates] = useState<any[]>([])
+  const [conversions, setConversions] = useState<any[]>([])
+  const [payouts, setPayouts] = useState<any[]>([])
+  const [settings, setSettings] = useState<any>(null)
+  const [pagination, setPagination] = useState({
+    affiliates: { page: 1, total: 0, pages: 0 },
+    conversions: { page: 1, total: 0, pages: 0 },
+    payouts: { page: 1, total: 0, pages: 0 },
   })
+  const [statusFilter, setStatusFilter] = useState("")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [editingSettings, setEditingSettings] = useState(false)
+  const [updatedSettings, setUpdatedSettings] = useState<any>(null)
+  const [selectedConversion, setSelectedConversion] = useState<any>(null)
+  const [selectedPayout, setSelectedPayout] = useState<any>(null)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    if (activeTab === "overview") {
+      fetchStats()
+    } else if (activeTab === "affiliates") {
+      fetchAffiliates()
+    } else if (activeTab === "conversions") {
+      fetchConversions()
+    } else if (activeTab === "payouts") {
+      fetchPayouts()
+    } else if (activeTab === "settings") {
+      fetchSettings()
+    }
+  }, [activeTab, pagination.affiliates.page, pagination.conversions.page, pagination.payouts.page, statusFilter])
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true)
+      const res = await fetch("/api/admin/affiliate/stats")
+      const data = await res.json()
+
+      if (res.ok) {
+        setStats(data)
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to fetch affiliate stats",
+          variant: "destructive",
+        })
+      }
+      setLoading(false)
+    } catch (error) {
+      console.error("Error fetching affiliate stats:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+      setLoading(false)
+    }
+  }
+
+  const fetchAffiliates = async () => {
+    try {
+      setLoading(true)
+      const res = await fetch(`/api/admin/affiliate/affiliates?page=${pagination.affiliates.page}`)
+      const data = await res.json()
+
+      if (res.ok) {
+        setAffiliates(data.affiliates)
+        setPagination((prev) => ({
+          ...prev,
+          affiliates: data.pagination,
+        }))
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to fetch affiliates",
+          variant: "destructive",
+        })
+      }
+      setLoading(false)
+    } catch (error) {
+      console.error("Error fetching affiliates:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+      setLoading(false)
+    }
+  }
+
+  const fetchConversions = async () => {
+    try {
+      setLoading(true)
+      const statusParam = statusFilter ? `&status=${statusFilter}` : ""
+      const res = await fetch(`/api/admin/affiliate/conversions?page=${pagination.conversions.page}${statusParam}`)
+      const data = await res.json()
+
+      if (res.ok) {
+        setConversions(data.conversions)
+        setPagination((prev) => ({
+          ...prev,
+          conversions: data.pagination,
+        }))
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to fetch conversions",
+          variant: "destructive",
+        })
+      }
+      setLoading(false)
+    } catch (error) {
+      console.error("Error fetching conversions:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+      setLoading(false)
+    }
+  }
+
+  const fetchPayouts = async () => {
+    try {
+      setLoading(true)
+      const statusParam = statusFilter ? `&status=${statusFilter}` : ""
+      const res = await fetch(`/api/admin/affiliate/payouts?page=${pagination.payouts.page}${statusParam}`)
+      const data = await res.json()
+
+      if (res.ok) {
+        setPayouts(data.payouts)
+        setPagination((prev) => ({
+          ...prev,
+          payouts: data.pagination,
+        }))
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to fetch payouts",
+          variant: "destructive",
+        })
+      }
+      setLoading(false)
+    } catch (error) {
+      console.error("Error fetching payouts:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+      setLoading(false)
+    }
+  }
+
+  const fetchSettings = async () => {
+    try {
+      setLoading(true)
+      const res = await fetch("/api/admin/affiliate/settings")
+      const data = await res.json()
+
+      if (res.ok) {
+        setSettings(data.settings)
+        setUpdatedSettings(data.settings)
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to fetch settings",
+          variant: "destructive",
+        })
+      }
+      setLoading(false)
+    } catch (error) {
+      console.error("Error fetching settings:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+      setLoading(false)
+    }
+  }
+
+  const updateConversionStatus = async (id: string, status: string) => {
+    try {
+      const res = await fetch(`/api/admin/affiliate/conversions/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        toast({
+          title: "Success",
+          description: "Conversion status updated successfully",
+        })
+        setSelectedConversion(null)
+        fetchConversions()
+        fetchStats()
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to update conversion status",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error updating conversion status:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const updatePayoutStatus = async (id: string, status: string, notes?: string) => {
+    try {
+      const res = await fetch(`/api/admin/affiliate/payouts/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status, notes }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        toast({
+          title: "Success",
+          description: "Payout status updated successfully",
+        })
+        setSelectedPayout(null)
+        fetchPayouts()
+        fetchStats()
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to update payout status",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error updating payout status:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const updateSettings = async () => {
+    try {
+      const res = await fetch("/api/admin/affiliate/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedSettings),
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        setSettings(data.settings)
+        setEditingSettings(false)
+        toast({
+          title: "Success",
+          description: "Affiliate settings updated successfully",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to update settings",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error updating settings:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const exportData = (type: string) => {
+    let data: any[] = []
+    let filename = ""
+
+    if (type === "affiliates") {
+      data = affiliates
+      filename = "affiliates.csv"
+    } else if (type === "conversions") {
+      data = conversions
+      filename = "conversions.csv"
+    } else if (type === "payouts") {
+      data = payouts
+      filename = "payouts.csv"
+    }
+
+    if (data.length === 0) {
+      toast({
+        title: "Error",
+        description: "No data to export",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Convert data to CSV
+    const headers = Object.keys(data[0]).filter((key) => !key.includes("_") && typeof data[0][key] !== "object")
+
+    const csvContent = [
+      headers.join(","),
+      ...data.map((row) =>
+        headers
+          .map((header) => {
+            const value = row[header]
+            if (value instanceof Date) {
+              return formatDate(value)
+            }
+            return typeof value === "string" ? `"${value}"` : value
+          })
+          .join(","),
+      ),
+    ].join("\n")
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", filename)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const renderOverviewTab = () => {
+    if (loading) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <Skeleton className="h-8 w-24 mb-2" />
+                <Skeleton className="h-6 w-32" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )
+    }
+
+    return (
+      <>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-blue-600" />
+                <h3 className="font-medium">Total Affiliates</h3>
+              </div>
+              <p className="text-2xl font-bold mt-2">{stats?.totalAffiliates || 0}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2">
+                <MousePointer className="h-5 w-5 text-purple-600" />
+                <h3 className="font-medium">Total Clicks</h3>
+              </div>
+              <p className="text-2xl font-bold mt-2">{stats?.totalClicks || 0}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-green-600" />
+                <h3 className="font-medium">Conversion Rate</h3>
+              </div>
+              <p className="text-2xl font-bold mt-2">{stats?.conversionRate?.toFixed(1) || 0}%</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-amber-600" />
+                <h3 className="font-medium">Total Commission</h3>
+              </div>
+              <p className="text-2xl font-bold mt-2">{formatCurrency(stats?.totalCommission || 0)}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending Approvals</CardTitle>
+              <CardDescription>Conversions waiting for approval</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {stats?.recentConversions?.filter((c: any) => c.status === "PENDING").length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Affiliate</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Commission</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {stats.recentConversions
+                      .filter((c: any) => c.status === "PENDING")
+                      .map((conversion: any) => (
+                        <TableRow key={conversion.id}>
+                          <TableCell>{formatDate(conversion.createdAt)}</TableCell>
+                          <TableCell>{conversion.link.user.name || conversion.link.user.email}</TableCell>
+                          <TableCell>{formatCurrency(Number(conversion.amount))}</TableCell>
+                          <TableCell>{formatCurrency(Number(conversion.commission))}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" onClick={() => setSelectedConversion(conversion)}>
+                                Review
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-4 text-gray-500">No pending conversions</div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending Payouts</CardTitle>
+              <CardDescription>Payout requests waiting for processing</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {stats?.pendingPayouts > 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-2xl font-bold mb-2">{stats.pendingPayouts}</p>
+                  <p className="text-gray-500 mb-4">Pending payout requests</p>
+                  <p className="text-xl font-bold mb-2">{formatCurrency(stats.pendingPayoutAmount)}</p>
+                  <p className="text-gray-500 mb-4">Total amount to be paid</p>
+                  <Button onClick={() => setActiveTab("payouts")}>View Pending Payouts</Button>
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-500">No pending payouts</div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Conversions</CardTitle>
+            <CardDescription>Latest affiliate conversions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {stats?.recentConversions?.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Affiliate</TableHead>
+                    <TableHead>Order ID</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Commission</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stats.recentConversions.map((conversion: any) => (
+                    <TableRow key={conversion.id}>
+                      <TableCell>{formatDate(conversion.createdAt)}</TableCell>
+                      <TableCell>{conversion.link.user.name || conversion.link.user.email}</TableCell>
+                      <TableCell>{conversion.orderId}</TableCell>
+                      <TableCell>{formatCurrency(Number(conversion.amount))}</TableCell>
+                      <TableCell>{formatCurrency(Number(conversion.commission))}</TableCell>
+                      <TableCell>
+                        <Badge
+                          className={
+                            conversion.status === "APPROVED"
+                              ? "bg-green-100 text-green-800"
+                              : conversion.status === "PAID"
+                                ? "bg-blue-100 text-blue-800"
+                                : conversion.status === "PENDING"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-red-100 text-red-800"
+                          }
+                        >
+                          {conversion.status.charAt(0) + conversion.status.slice(1).toLowerCase()}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-4 text-gray-500">No conversions yet</div>
+            )}
+          </CardContent>
+        </Card>
+      </>
+    )
+  }
+
+  const renderAffiliatesTab = () => {
+    if (loading) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Affiliates</CardTitle>
+            <CardDescription>Manage your affiliate partners</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-64 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    return (
+      <Card>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Affiliates</CardTitle>
+            <CardDescription>Manage your affiliate partners</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" className="mt-2 sm:mt-0" onClick={() => exportData("affiliates")}>
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4 flex items-center">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                placeholder="Search affiliates..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Joined</TableHead>
+                  <TableHead>Clicks</TableHead>
+                  <TableHead>Conversions</TableHead>
+                  <TableHead>Earnings</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {affiliates.length > 0 ? (
+                  affiliates
+                    .filter(
+                      (affiliate) =>
+                        !searchTerm ||
+                        (affiliate.user.name && affiliate.user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        affiliate.user.email.toLowerCase().includes(searchTerm.toLowerCase()),
+                    )
+                    .map((affiliate) => (
+                      <TableRow key={affiliate.id}>
+                        <TableCell>{affiliate.user.name || "N/A"}</TableCell>
+                        <TableCell>{affiliate.user.email}</TableCell>
+                        <TableCell>{formatDate(affiliate.createdAt)}</TableCell>
+                        <TableCell>{affiliate._count.clicks}</TableCell>
+                        <TableCell>{affiliate._count.conversions}</TableCell>
+                        <TableCell>{formatCurrency(affiliate.earnings)}</TableCell>
+                      </TableRow>
+                    ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-4 text-gray-500">
+                      No affiliates found
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {pagination.affiliates.pages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-gray-500">
+                Showing {(pagination.affiliates.page - 1) * 10 + 1} to{" "}
+                {Math.min(pagination.affiliates.page * 10, pagination.affiliates.total)} of{" "}
+                {pagination.affiliates.total} affiliates
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setPagination((prev) => ({
+                      ...prev,
+                      affiliates: { ...prev.affiliates, page: prev.affiliates.page - 1 },
+                    }))
+                  }
+                  disabled={pagination.affiliates.page === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setPagination((prev) => ({
+                      ...prev,
+                      affiliates: { ...prev.affiliates, page: prev.affiliates.page + 1 },
+                    }))
+                  }
+                  disabled={pagination.affiliates.page === pagination.affiliates.pages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderConversionsTab = () => {
+    if (loading) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Conversions</CardTitle>
+            <CardDescription>Manage affiliate conversions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-64 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    return (
+      <Card>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Conversions</CardTitle>
+            <CardDescription>Manage affiliate conversions</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" className="mt-2 sm:mt-0" onClick={() => exportData("conversions")}>
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4 flex items-center justify-between">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                placeholder="Search by order ID..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="PAID">Paid</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Affiliate</TableHead>
+                  <TableHead>Order ID</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Commission</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {conversions.length > 0 ? (
+                  conversions
+                    .filter(
+                      (conversion) =>
+                        !searchTerm || conversion.orderId.toLowerCase().includes(searchTerm.toLowerCase()),
+                    )
+                    .map((conversion) => (
+                      <TableRow key={conversion.id}>
+                        <TableCell>{formatDate(conversion.createdAt)}</TableCell>
+                        <TableCell>{conversion.link.user.name || conversion.link.user.email}</TableCell>
+                        <TableCell>{conversion.orderId}</TableCell>
+                        <TableCell>{formatCurrency(Number(conversion.amount))}</TableCell>
+                        <TableCell>{formatCurrency(Number(conversion.commission))}</TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              conversion.status === "APPROVED"
+                                ? "bg-green-100 text-green-800"
+                                : conversion.status === "PAID"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : conversion.status === "PENDING"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-red-100 text-red-800"
+                            }
+                          >
+                            {conversion.status.charAt(0) + conversion.status.slice(1).toLowerCase()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline" onClick={() => setSelectedConversion(conversion)}>
+                            Review
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-4 text-gray-500">
+                      No conversions found
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {pagination.conversions.pages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-gray-500">
+                Showing {(pagination.conversions.page - 1) * 10 + 1} to{" "}
+                {Math.min(pagination.conversions.page * 10, pagination.conversions.total)} of{" "}
+                {pagination.conversions.total} conversions
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setPagination((prev) => ({
+                      ...prev,
+                      conversions: { ...prev.conversions, page: prev.conversions.page - 1 },
+                    }))
+                  }
+                  disabled={pagination.conversions.page === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setPagination((prev) => ({
+                      ...prev,
+                      conversions: { ...prev.conversions, page: prev.conversions.page + 1 },
+                    }))
+                  }
+                  disabled={pagination.conversions.page === pagination.conversions.pages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Conversion Review Dialog */}
+          <Dialog open={!!selectedConversion} onOpenChange={(open) => !open && setSelectedConversion(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Review Conversion</DialogTitle>
+                <DialogDescription>Review and update the status of this conversion</DialogDescription>
+              </DialogHeader>
+
+              {selectedConversion && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Affiliate</Label>
+                      <p className="font-medium">
+                        {selectedConversion.link.user.name || selectedConversion.link.user.email}
+                      </p>
+                    </div>
+                    <div>
+                      <Label>Date</Label>
+                      <p className="font-medium">{formatDate(selectedConversion.createdAt)}</p>
+                    </div>
+                    <div>
+                      <Label>Order ID</Label>
+                      <p className="font-medium">{selectedConversion.orderId}</p>
+                    </div>
+                    <div>
+                      <Label>Status</Label>
+                      <p className="font-medium">{selectedConversion.status}</p>
+                    </div>
+                    <div>
+                      <Label>Amount</Label>
+                      <p className="font-medium">{formatCurrency(Number(selectedConversion.amount))}</p>
+                    </div>
+                    <div>
+                      <Label>Commission</Label>
+                      <p className="font-medium">{formatCurrency(Number(selectedConversion.commission))}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Update Status</Label>
+                    <Select
+                      defaultValue={selectedConversion.status}
+                      onValueChange={(value) => updateConversionStatus(selectedConversion.id, value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PENDING">Pending</SelectItem>
+                        <SelectItem value="APPROVED">Approved</SelectItem>
+                        <SelectItem value="REJECTED">Rejected</SelectItem>
+                        <SelectItem value="PAID">Paid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setSelectedConversion(null)}>
+                  Cancel
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderPayoutsTab = () => {
+    if (loading) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Payouts</CardTitle>
+            <CardDescription>Manage affiliate payouts</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-64 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    return (
+      <Card>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Payouts</CardTitle>
+            <CardDescription>Manage affiliate payouts</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" className="mt-2 sm:mt-0" onClick={() => exportData("payouts")}>
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4 flex items-center justify-between">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                placeholder="Search by affiliate..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="COMPLETED">Completed</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Affiliate</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Method</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payouts.length > 0 ? (
+                  payouts
+                    .filter(
+                      (payout) =>
+                        !searchTerm ||
+                        (payout.user.name && payout.user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        payout.user.email.toLowerCase().includes(searchTerm.toLowerCase()),
+                    )
+                    .map((payout) => (
+                      <TableRow key={payout.id}>
+                        <TableCell>{formatDate(payout.createdAt)}</TableCell>
+                        <TableCell>{payout.user.name || payout.user.email}</TableCell>
+                        <TableCell>{formatCurrency(Number(payout.amount))}</TableCell>
+                        <TableCell>{payout.method}</TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              payout.status === "COMPLETED"
+                                ? "bg-green-100 text-green-800"
+                                : payout.status === "PENDING"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-red-100 text-red-800"
+                            }
+                          >
+                            {payout.status.charAt(0) + payout.status.slice(1).toLowerCase()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline" onClick={() => setSelectedPayout(payout)}>
+                            Review
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-4 text-gray-500">
+                      No payouts found
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {pagination.payouts.pages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-gray-500">
+                Showing {(pagination.payouts.page - 1) * 10 + 1} to{" "}
+                {Math.min(pagination.payouts.page * 10, pagination.payouts.total)} of {pagination.payouts.total} payouts
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setPagination((prev) => ({
+                      ...prev,
+                      payouts: { ...prev.payouts, page: prev.payouts.page - 1 },
+                    }))
+                  }
+                  disabled={pagination.payouts.page === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setPagination((prev) => ({
+                      ...prev,
+                      payouts: { ...prev.payouts, page: prev.payouts.page + 1 },
+                    }))
+                  }
+                  disabled={pagination.payouts.page === pagination.payouts.pages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Payout Review Dialog */}
+          <Dialog open={!!selectedPayout} onOpenChange={(open) => !open && setSelectedPayout(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Review Payout</DialogTitle>
+                <DialogDescription>Review and update the status of this payout request</DialogDescription>
+              </DialogHeader>
+
+              {selectedPayout && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Affiliate</Label>
+                      <p className="font-medium">{selectedPayout.user.name || selectedPayout.user.email}</p>
+                    </div>
+                    <div>
+                      <Label>Date</Label>
+                      <p className="font-medium">{formatDate(selectedPayout.createdAt)}</p>
+                    </div>
+                    <div>
+                      <Label>Amount</Label>
+                      <p className="font-medium">{formatCurrency(Number(selectedPayout.amount))}</p>
+                    </div>
+                    <div>
+                      <Label>Method</Label>
+                      <p className="font-medium">{selectedPayout.method}</p>
+                    </div>
+                    <div>
+                      <Label>Status</Label>
+                      <p className="font-medium">{selectedPayout.status}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Notes</Label>
+                    <Textarea
+                      placeholder="Add notes about this payout"
+                      defaultValue={selectedPayout.notes || ""}
+                      id="payout-notes"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Update Status</Label>
+                    <Select
+                      defaultValue={selectedPayout.status}
+                      onValueChange={(value) => {
+                        const notes = (document.getElementById("payout-notes") as HTMLTextAreaElement)?.value
+                        updatePayoutStatus(selectedPayout.id, value, notes)
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PENDING">Pending</SelectItem>
+                        <SelectItem value="COMPLETED">Completed</SelectItem>
+                        <SelectItem value="REJECTED">Rejected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setSelectedPayout(null)}>
+                  Cancel
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderSettingsTab = () => {
+    if (loading) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Affiliate Program Settings</CardTitle>
+            <CardDescription>Configure your affiliate program settings</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    return (
+      <Card>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Affiliate Program Settings</CardTitle>
+            <CardDescription>Configure your affiliate program settings</CardDescription>
+          </div>
+          {!editingSettings ? (
+            <Button variant="outline" size="sm" className="mt-2 sm:mt-0" onClick={() => setEditingSettings(true)}>
+              <Settings className="mr-2 h-4 w-4" />
+              Edit Settings
+            </Button>
+          ) : (
+            <div className="flex gap-2 mt-2 sm:mt-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditingSettings(false)
+                  setUpdatedSettings(settings)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button size="sm" onClick={updateSettings}>
+                Save Changes
+              </Button>
+            </div>
+          )}
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            <div className="grid gap-2">
+              <Label htmlFor="commission-rate">Commission Rate (%)</Label>
+              {editingSettings ? (
+                <Input
+                  id="commission-rate"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={updatedSettings?.commissionRate}
+                  onChange={(e) =>
+                    setUpdatedSettings({
+                      ...updatedSettings,
+                      commissionRate: Number.parseFloat(e.target.value),
+                    })
+                  }
+                />
+              ) : (
+                <p className="text-lg font-medium">{settings?.commissionRate}%</p>
+              )}
+              <p className="text-sm text-gray-500">
+                The percentage of the purchase amount that affiliates earn as commission
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="min-payout">Minimum Payout Amount ($)</Label>
+              {editingSettings ? (
+                <Input
+                  id="min-payout"
+                  type="number"
+                  min="1"
+                  value={updatedSettings?.minPayoutAmount}
+                  onChange={(e) =>
+                    setUpdatedSettings({
+                      ...updatedSettings,
+                      minPayoutAmount: Number.parseFloat(e.target.value),
+                    })
+                  }
+                />
+              ) : (
+                <p className="text-lg font-medium">${settings?.minPayoutAmount}</p>
+              )}
+              <p className="text-sm text-gray-500">
+                The minimum amount an affiliate must earn before they can request a payout
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="cookie-duration">Cookie Duration (Days)</Label>
+              {editingSettings ? (
+                <Input
+                  id="cookie-duration"
+                  type="number"
+                  min="1"
+                  value={updatedSettings?.cookieDuration}
+                  onChange={(e) =>
+                    setUpdatedSettings({
+                      ...updatedSettings,
+                      cookieDuration: Number.parseInt(e.target.value),
+                    })
+                  }
+                />
+              ) : (
+                <p className="text-lg font-medium">{settings?.cookieDuration} days</p>
+              )}
+              <p className="text-sm text-gray-500">
+                How long the affiliate cookie lasts after a user clicks an affiliate link
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Marketing Campaigns</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Create and manage multi-channel marketing campaigns</p>
-        </div>
-        <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <Button onClick={() => setShowCreateDialog(true)} className="bg-purple-600 hover:bg-purple-700">
-            <Plus className="mr-2 h-4 w-4" />
-            Create Campaign
-          </Button>
-        </div>
-      </div>
+    <div className="p-8 mb-40">
+      <h1 className="text-3xl font-bold mb-6">Affiliate Program Management</h1>
 
-      {/* Performance Overview */}
-      <Card className="mb-6">
-        <div className="p-6">
-          <h2 className="text-lg font-medium mb-4">Campaign Performance Overview</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Active Campaigns</span>
-                <span className="text-sm font-medium">3</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Total Impressions</span>
-                <div className="flex items-center">
-                  <span className="text-sm font-medium mr-2">27,520</span>
-                  <div className="flex items-center text-green-500">
-                    <ArrowUpRight className="h-3 w-3 mr-1" />
-                    <span className="text-xs">15%</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Total Conversions</span>
-                <div className="flex items-center">
-                  <span className="text-sm font-medium mr-2">414</span>
-                  <div className="flex items-center text-green-500">
-                    <ArrowUpRight className="h-3 w-3 mr-1" />
-                    <span className="text-xs">12%</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Total Revenue</span>
-                <div className="flex items-center">
-                  <span className="text-sm font-medium mr-2">$82,800</span>
-                  <div className="flex items-center text-green-500">
-                    <ArrowUpRight className="h-3 w-3 mr-1" />
-                    <span className="text-xs">18%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm text-gray-500 mb-1">Conversion Rate</p>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">8.5%</span>
-                <div className="flex items-center text-green-500">
-                  <ArrowUpRight className="h-3 w-3 mr-1" />
-                  <span className="text-xs">1.2%</span>
-                </div>
-              </div>
-              <Progress value={8.5} className="h-2" />
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm text-gray-500 mb-1">Average ROI</p>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">316%</span>
-                <div className="flex items-center text-green-500">
-                  <ArrowUpRight className="h-3 w-3 mr-1" />
-                  <span className="text-xs">5%</span>
-                </div>
-              </div>
-              <Progress value={75} className="h-2" />
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm text-gray-500 mb-1">Top Performing Campaign</p>
-              <p className="text-sm font-medium">Spring Business Launch</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">187 conversions</span>
-                <span className="text-xs text-gray-500">$37,400 revenue</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Search campaigns..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+          <TabsList className="mb-4 sm:mb-0">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
+            <TabsTrigger value="conversions">Conversions</TabsTrigger>
+            <TabsTrigger value="payouts">Payouts</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
         </div>
 
-        <div className="flex space-x-2">
-          <Button variant="outline" className="flex-1">
-            <Filter className="mr-2 h-4 w-4" />
-            Filter
-          </Button>
-          <Button variant="outline" className="flex-1">
-            <BarChart3 className="mr-2 h-4 w-4" />
-            Analytics
-          </Button>
-        </div>
+        <TabsContent value="overview">{renderOverviewTab()}</TabsContent>
 
-        <div className="flex items-center justify-end space-x-2">
-          <span className="text-sm text-gray-500">Sort by:</span>
-          <select className="h-10 px-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-            <option>Most Conversions</option>
-            <option>Highest Revenue</option>
-            <option>Recently Created</option>
-            <option>Ending Soon</option>
-          </select>
-        </div>
-      </div>
+        <TabsContent value="affiliates">{renderAffiliatesTab()}</TabsContent>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="all">All Campaigns</TabsTrigger>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-        </TabsList>
+        <TabsContent value="conversions">{renderConversionsTab()}</TabsContent>
+
+        <TabsContent value="payouts">{renderPayoutsTab()}</TabsContent>
+
+        <TabsContent value="settings">{renderSettingsTab()}</TabsContent>
       </Tabs>
-
-      {/* Campaigns List */}
-      <div className="space-y-4">
-        {filteredCampaigns.map((campaign) => (
-          <CampaignCard key={campaign.id} campaign={campaign} />
-        ))}
-      </div>
-
-      {/* Create Campaign Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-[700px]">
-          <DialogHeader>
-            <DialogTitle>Create New Campaign</DialogTitle>
-            <DialogDescription>Create a new marketing campaign across multiple channels.</DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Campaign Name
-              </Label>
-              <Input id="name" placeholder="e.g. Summer Business Growth" className="col-span-3" />
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
-                Description
-              </Label>
-              <Textarea id="description" placeholder="Brief description of this campaign" className="col-span-3" />
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Campaign Period</Label>
-              <div className="col-span-3 grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="startDate" className="text-sm text-gray-500">
-                    Start Date
-                  </Label>
-                  <Input id="startDate" type="date" />
-                </div>
-                <div>
-                  <Label htmlFor="endDate" className="text-sm text-gray-500">
-                    End Date
-                  </Label>
-                  <Input id="endDate" type="date" />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="audience" className="text-right">
-                Target Audience
-              </Label>
-              <select
-                id="audience"
-                className="col-span-3 h-10 px-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-              >
-                <option value="all">All Customers and Prospects</option>
-                <option value="customers">Existing Customers Only</option>
-                <option value="prospects">Prospects Only</option>
-                <option value="segment">Custom Segment</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Marketing Channels</Label>
-              <div className="col-span-3 grid grid-cols-2 gap-3">
-                <div className="flex items-center">
-                  <input type="checkbox" id="email" className="mr-2" defaultChecked />
-                  <label htmlFor="email" className="text-sm">
-                    Email Marketing
-                  </label>
-                </div>
-                <div className="flex items-center">
-                  <input type="checkbox" id="social" className="mr-2" defaultChecked />
-                  <label htmlFor="social" className="text-sm">
-                    Social Media
-                  </label>
-                </div>
-                <div className="flex items-center">
-                  <input type="checkbox" id="website" className="mr-2" defaultChecked />
-                  <label htmlFor="website" className="text-sm">
-                    Website
-                  </label>
-                </div>
-                <div className="flex items-center">
-                  <input type="checkbox" id="dashboard" className="mr-2" defaultChecked />
-                  <label htmlFor="dashboard" className="text-sm">
-                    Client Dashboard
-                  </label>
-                </div>
-                <div className="flex items-center">
-                  <input type="checkbox" id="direct" className="mr-2" />
-                  <label htmlFor="direct" className="text-sm">
-                    Direct Mail
-                  </label>
-                </div>
-                <div className="flex items-center">
-                  <input type="checkbox" id="webinar" className="mr-2" />
-                  <label htmlFor="webinar" className="text-sm">
-                    Webinars
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Associated Deals</Label>
-              <div className="col-span-3 space-y-2">
-                <div className="flex items-center">
-                  <input type="checkbox" id="deal1" className="mr-2" defaultChecked />
-                  <label htmlFor="deal1" className="text-sm">
-                    Summer Business Boost
-                  </label>
-                </div>
-                <div className="flex items-center">
-                  <input type="checkbox" id="deal2" className="mr-2" />
-                  <label htmlFor="deal2" className="text-sm">
-                    Referral Bonus
-                  </label>
-                </div>
-                <div className="flex items-center">
-                  <input type="checkbox" id="deal3" className="mr-2" />
-                  <label htmlFor="deal3" className="text-sm">
-                    Compliance Bundle
-                  </label>
-                </div>
-                <div className="flex items-center text-purple-600">
-                  <Plus className="h-4 w-4 mr-2" />
-                  <span className="text-sm cursor-pointer">Create New Deal</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Campaign Goals</Label>
-              <div className="col-span-3 space-y-3">
-                <div>
-                  <Label htmlFor="impressions" className="text-sm text-gray-500">
-                    Target Impressions
-                  </Label>
-                  <Input id="impressions" type="number" placeholder="e.g. 10000" />
-                </div>
-                <div>
-                  <Label htmlFor="conversions" className="text-sm text-gray-500">
-                    Target Conversions
-                  </Label>
-                  <Input id="conversions" type="number" placeholder="e.g. 200" />
-                </div>
-                <div>
-                  <Label htmlFor="revenue" className="text-sm text-gray-500">
-                    Target Revenue
-                  </Label>
-                  <Input id="revenue" type="text" placeholder="e.g. $40,000" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-              Cancel
-            </Button>
-            <Button className="bg-purple-600 hover:bg-purple-700">Create Campaign</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
-}
-
-interface CampaignCardProps {
-  campaign: Campaign
-}
-
-function CampaignCard({ campaign }: CampaignCardProps) {
-  const getStatusColor = (status: Campaign["status"]) => {
-    switch (status) {
-      case "Active":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-      case "Scheduled":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-      case "Completed":
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400"
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400"
-    }
-  }
-
-  const getStatusIcon = (status: Campaign["status"]) => {
-    switch (status) {
-      case "Active":
-        return <CheckCircle2 className="h-4 w-4 mr-1" />
-      case "Scheduled":
-        return <Clock className="h-4 w-4 mr-1" />
-      case "Completed":
-        return <CheckCircle2 className="h-4 w-4 mr-1" />
-      default:
-        return null
-    }
-  }
-
-  // Calculate click-through rate
-  const ctr =
-    campaign.metrics.impressions > 0 ? ((campaign.metrics.clicks / campaign.metrics.impressions) * 100).toFixed(1) : 0
-
-  return (
-    <Card className="p-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between">
-        <div className="mb-4 md:mb-0">
-          <div className="flex items-center mb-1">
-            <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded mr-3">
-              <Megaphone className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <div className="flex items-center">
-                <h3 className="font-medium">{campaign.name}</h3>
-                <span
-                  className={`ml-2 px-2 py-0.5 text-xs rounded-full flex items-center ${getStatusColor(campaign.status)}`}
-                >
-                  {getStatusIcon(campaign.status)}
-                  {campaign.status}
-                </span>
-              </div>
-              <p className="text-sm text-gray-500">{campaign.description}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm">
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
-          <Button variant="outline" size="sm">
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Analytics
-          </Button>
-          <Button variant="outline" size="sm">
-            <Copy className="h-4 w-4 mr-2" />
-            Duplicate
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete
-          </Button>
-        </div>
-      </div>
-
-      <div className="mt-4 pt-4 border-t">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <div className="flex items-center mb-2">
-              <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-              <span className="text-sm text-gray-500">
-                Campaign Period: {campaign.startDate} - {campaign.endDate}
-              </span>
-            </div>
-            <div className="flex items-center mb-2">
-              <Users className="h-4 w-4 mr-2 text-gray-400" />
-              <span className="text-sm text-gray-500">Target Audience: {campaign.audience}</span>
-            </div>
-            <div className="flex items-start mb-2">
-              <Tag className="h-4 w-4 mr-2 text-gray-400 mt-0.5" />
-              <div>
-                <span className="text-sm text-gray-500">Associated Deals: </span>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {campaign.deals.map((deal, index) => (
-                    <span
-                      key={index}
-                      className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
-                    >
-                      {deal}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-start mb-2">
-              <Share2 className="h-4 w-4 mr-2 text-gray-400 mt-0.5" />
-              <div>
-                <span className="text-sm text-gray-500">Marketing Channels: </span>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {campaign.channels.map((channel, index) => (
-                    <span
-                      key={index}
-                      className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 flex items-center"
-                    >
-                      {getChannelIcon(channel)}
-                      {channel}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {campaign.status !== "Scheduled" && (
-          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Impressions</p>
-                <p className="text-sm font-medium">{campaign.metrics.impressions.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Clicks</p>
-                <div className="flex items-center">
-                  <p className="text-sm font-medium mr-2">{campaign.metrics.clicks.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500">({ctr}% CTR)</p>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Conversions</p>
-                <p className="text-sm font-medium">{campaign.metrics.conversions.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Revenue</p>
-                <p className="text-sm font-medium">{campaign.metrics.revenue}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">ROI</p>
-                <p className="text-sm font-medium">{campaign.metrics.roi}</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </Card>
-  )
-}
-
-function getChannelIcon(channel: string) {
-  switch (channel) {
-    case "Email":
-      return <Mail className="h-3 w-3 mr-1" />
-    case "Social Media":
-      return <MessageSquare className="h-3 w-3 mr-1" />
-    case "Website":
-      return <Globe className="h-3 w-3 mr-1" />
-    case "Client Dashboard":
-      return <Layers className="h-3 w-3 mr-1" />
-    case "Direct Mail":
-      return <Mail className="h-3 w-3 mr-1" />
-    case "Webinars":
-      return <Users className="h-3 w-3 mr-1" />
-    default:
-      return null
-  }
 }
 

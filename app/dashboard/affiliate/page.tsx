@@ -1,22 +1,71 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Copy, DollarSign, Link, Share2, Users, UserPlus, ChevronDown, ChevronUp, MessageSquare } from "lucide-react"
+import {
+  Copy,
+  DollarSign,
+  Link,
+  Share2,
+  Users,
+  UserPlus,
+  ChevronDown,
+  ChevronUp,
+  MessageSquare,
+  AlertCircle,
+} from "lucide-react"
 import { Progress } from "@/components/ui/progress"
+import { generateReferralLink, formatCurrency, formatDate, calculateProgress } from "@/lib/affiliate"
+import { useToast } from "@/components/ui/use-toast"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function AffiliateProgramPage() {
   const [copied, setCopied] = useState(false)
   const [showFAQItem, setShowFAQItem] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [affiliateData, setAffiliateData] = useState<any>(null)
+  const [stats, setStats] = useState<any>(null)
+  const { toast } = useToast()
 
-  const referralLink = "https://orizen.com/ref/user123"
+  useEffect(() => {
+    const fetchAffiliateData = async () => {
+      try {
+        // Fetch affiliate link
+        const linkRes = await fetch("/api/affiliate/link")
+        const linkData = await linkRes.json()
+
+        if (linkData.link) {
+          setAffiliateData(linkData.link)
+        }
+
+        // Fetch affiliate stats
+        const statsRes = await fetch("/api/affiliate/stats")
+        const statsData = await statsRes.json()
+        setStats(statsData)
+
+        setLoading(false)
+      } catch (error) {
+        console.error("Error fetching affiliate data:", error)
+        setLoading(false)
+      }
+    }
+
+    fetchAffiliateData()
+  }, [])
+
+  const referralLink = affiliateData ? generateReferralLink(affiliateData.code) : ""
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(referralLink)
     setCopied(true)
+    toast({
+      title: "Link copied!",
+      description: "Your referral link has been copied to clipboard.",
+    })
     setTimeout(() => setCopied(false), 2000)
   }
 
@@ -24,28 +73,118 @@ export default function AffiliateProgramPage() {
     setShowFAQItem(showFAQItem === index ? null : index)
   }
 
+  const shareToSocial = (platform: string) => {
+    let url = ""
+
+    switch (platform) {
+      case "facebook":
+        url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralLink)}`
+        break
+      case "twitter":
+        url = `https://twitter.com/intent/tweet?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Join me on Legal Website! Use my referral link:")}`
+        break
+      case "linkedin":
+        url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(referralLink)}`
+        break
+      default:
+        return
+    }
+
+    window.open(url, "_blank", "width=600,height=400")
+  }
+
+  const requestPayout = async () => {
+    try {
+      const res = await fetch("/api/affiliate/payout/request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ method: "PayPal" }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        toast({
+          title: "Payout requested!",
+          description: "Your payout request has been submitted successfully.",
+        })
+
+        // Refresh stats
+        const statsRes = await fetch("/api/affiliate/stats")
+        const statsData = await statsRes.json()
+        setStats(statsData)
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to request payout.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error requesting payout:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const faqItems = [
     {
       question: "How does the affiliate program work?",
       answer:
-        "Our affiliate program allows you to earn commissions by referring new customers to our services. You&apos;ll receive a unique referral link to share, and when someone signs up using your link, you&apos;ll earn a commission on their purchases.",
+        "Our affiliate program allows you to earn commissions by referring new customers to our services. You'll receive a unique referral link to share, and when someone signs up using your link, you'll earn a commission on their purchases.",
     },
     {
       question: "How much can I earn?",
-      answer:
-        "You can earn 20% commission on all purchases made by users you refer. There&apos;s no limit to how much you can earn, and commissions are paid out monthly.",
+      answer: `You can earn ${stats?.settings?.commissionRate || 10}% commission on all purchases made by users you refer. There's no limit to how much you can earn, and commissions are paid out monthly.`,
     },
     {
       question: "When do I get paid?",
-      answer:
-        "Commissions are calculated at the end of each month and paid out by the 15th of the following month. You need a minimum balance of $50 to receive a payout.",
+      answer: `Commissions are calculated at the end of each month and paid out by the 15th of the following month. You need a minimum balance of $${stats?.settings?.minPayoutAmount || 50} to receive a payout.`,
     },
     {
       question: "How long do referral cookies last?",
-      answer:
-        "Our referral cookies last for 30 days. This means if someone clicks your link but doesn&apos;t sign up immediately, you&apos;ll still get credit if they return and sign up within 30 days.",
+      answer: `Our referral cookies last for ${stats?.settings?.cookieDuration || 30} days. This means if someone clicks your link but doesn't sign up immediately, you'll still get credit if they return and sign up within ${stats?.settings?.cookieDuration || 30} days.`,
     },
   ]
+
+  if (loading) {
+    return (
+      <div className="p-8 mb-40">
+        <h1 className="text-3xl font-bold mb-6">Affiliate Program</h1>
+        <div className="grid md:grid-cols-3 gap-8 mb-8">
+          {[1, 2, 3].map((i) => (
+            <Card className="p-6" key={i}>
+              <div className="flex items-center gap-3 mb-4">
+                <Skeleton className="h-10 w-10 rounded-lg" />
+                <Skeleton className="h-6 w-32" />
+              </div>
+              <Skeleton className="h-8 w-24 mb-2" />
+              <Skeleton className="h-4 w-32" />
+            </Card>
+          ))}
+        </div>
+        <Card className="mb-8">
+          <div className="p-6 border-b">
+            <Skeleton className="h-6 w-40" />
+          </div>
+          <div className="p-6">
+            <Skeleton className="h-4 w-full mb-4" />
+            <Skeleton className="h-10 w-full mb-4" />
+            <div className="grid md:grid-cols-3 gap-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </div>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="p-8 mb-40">
@@ -62,8 +201,10 @@ export default function AffiliateProgramPage() {
               <h3 className="text-lg font-semibold">Total Earnings</h3>
             </div>
           </div>
-          <p className="text-3xl font-bold mb-2">$420.00</p>
-          <p className="text-sm text-gray-500">+$120.00 this month</p>
+          <p className="text-3xl font-bold mb-2">{formatCurrency(stats?.totalEarnings || 0)}</p>
+          <p className="text-sm text-gray-500">
+            {stats?.pendingEarnings > 0 ? `+${formatCurrency(stats?.pendingEarnings)} pending` : "No pending earnings"}
+          </p>
         </Card>
 
         {/* Referrals Card */}
@@ -76,8 +217,8 @@ export default function AffiliateProgramPage() {
               <h3 className="text-lg font-semibold">Total Referrals</h3>
             </div>
           </div>
-          <p className="text-3xl font-bold mb-2">21</p>
-          <p className="text-sm text-gray-500">6 active in the last 30 days</p>
+          <p className="text-3xl font-bold mb-2">{stats?.totalReferrals || 0}</p>
+          <p className="text-sm text-gray-500">{stats?.recentReferrals?.length || 0} active in the last 30 days</p>
         </Card>
 
         {/* Conversion Rate Card */}
@@ -90,8 +231,8 @@ export default function AffiliateProgramPage() {
               <h3 className="text-lg font-semibold">Conversion Rate</h3>
             </div>
           </div>
-          <p className="text-3xl font-bold mb-2">12.5%</p>
-          <p className="text-sm text-gray-500">168 link clicks</p>
+          <p className="text-3xl font-bold mb-2">{stats?.conversionRate?.toFixed(1) || 0}%</p>
+          <p className="text-sm text-gray-500">{stats?.totalClicks || 0} link clicks</p>
         </Card>
       </div>
 
@@ -103,8 +244,8 @@ export default function AffiliateProgramPage() {
         <div className="p-6">
           <div className="mb-6">
             <p className="text-gray-600 mb-4">
-              Share this unique link with your network. When someone signs up using your link, you&apos;ll earn 20%
-              commission on their purchases.
+              Share this unique link with your network. When someone signs up using your link, you&apos;ll earn{" "}
+              {stats?.settings?.commissionRate || 10}% commission on their purchases.
             </p>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
@@ -125,19 +266,31 @@ export default function AffiliateProgramPage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-4">
-            <Button variant="outline" className="flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              className="flex items-center justify-center gap-2"
+              onClick={() => shareToSocial("facebook")}
+            >
               <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
               </svg>
               Facebook
             </Button>
-            <Button variant="outline" className="flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              className="flex items-center justify-center gap-2"
+              onClick={() => shareToSocial("twitter")}
+            >
               <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z" />
               </svg>
               Twitter
             </Button>
-            <Button variant="outline" className="flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              className="flex items-center justify-center gap-2"
+              onClick={() => shareToSocial("linkedin")}
+            >
               <svg className="h-5 w-5 text-blue-700" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
               </svg>
@@ -179,111 +332,108 @@ export default function AffiliateProgramPage() {
 
             <div>
               <h3 className="font-medium mb-4">Recent Earnings</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left border-b">
-                      <th className="pb-3 font-medium">Date</th>
-                      <th className="pb-3 font-medium">Referral</th>
-                      <th className="pb-3 font-medium">Purchase</th>
-                      <th className="pb-3 font-medium">Commission</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    <tr>
-                      <td className="py-3">Jun 12, 2024</td>
-                      <td className="py-3">john.doe@example.com</td>
-                      <td className="py-3">LLC Formation Package</td>
-                      <td className="py-3 font-medium">$39.80</td>
-                      <td className="py-3">
-                        <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Paid</span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="py-3">Jun 08, 2024</td>
-                      <td className="py-3">sarah.smith@example.com</td>
-                      <td className="py-3">Premium Package</td>
-                      <td className="py-3 font-medium">$49.80</td>
-                      <td className="py-3">
-                        <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Paid</span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="py-3">May 29, 2024</td>
-                      <td className="py-3">mike.johnson@example.com</td>
-                      <td className="py-3">Standard Package</td>
-                      <td className="py-3 font-medium">$39.80</td>
-                      <td className="py-3">
-                        <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">Pending</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              {stats?.recentEarnings?.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left border-b">
+                        <th className="pb-3 font-medium">Date</th>
+                        <th className="pb-3 font-medium">Order ID</th>
+                        <th className="pb-3 font-medium">Purchase Amount</th>
+                        <th className="pb-3 font-medium">Commission</th>
+                        <th className="pb-3 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {stats.recentEarnings.map((earning: any) => (
+                        <tr key={earning.id}>
+                          <td className="py-3">{formatDate(earning.createdAt)}</td>
+                          <td className="py-3">{earning.orderId}</td>
+                          <td className="py-3">{formatCurrency(Number(earning.amount))}</td>
+                          <td className="py-3 font-medium">{formatCurrency(Number(earning.commission))}</td>
+                          <td className="py-3">
+                            <span
+                              className={`text-xs px-2 py-1 rounded-full ${
+                                earning.status === "PAID"
+                                  ? "bg-green-100 text-green-800"
+                                  : earning.status === "APPROVED"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : earning.status === "PENDING"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {earning.status.charAt(0) + earning.status.slice(1).toLowerCase()}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>No earnings yet</AlertTitle>
+                  <AlertDescription>Start sharing your referral link to earn commissions.</AlertDescription>
+                </Alert>
+              )}
             </div>
           </TabsContent>
 
           <TabsContent value="referrals" className="p-6">
             <div className="mb-6">
               <h3 className="font-medium mb-4">Your Referrals</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left border-b">
-                      <th className="pb-3 font-medium">Name/Email</th>
-                      <th className="pb-3 font-medium">Date Joined</th>
-                      <th className="pb-3 font-medium">Total Spent</th>
-                      <th className="pb-3 font-medium">Your Commission</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    <tr>
-                      <td className="py-3">
-                        <div>
-                          <p className="font-medium">John Doe</p>
-                          <p className="text-sm text-gray-500">john.doe@example.com</p>
-                        </div>
-                      </td>
-                      <td className="py-3">Jun 12, 2024</td>
-                      <td className="py-3">$199.00</td>
-                      <td className="py-3 font-medium">$39.80</td>
-                      <td className="py-3">
-                        <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Active</span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="py-3">
-                        <div>
-                          <p className="font-medium">Sarah Smith</p>
-                          <p className="text-sm text-gray-500">sarah.smith@example.com</p>
-                        </div>
-                      </td>
-                      <td className="py-3">Jun 08, 2024</td>
-                      <td className="py-3">$249.00</td>
-                      <td className="py-3 font-medium">$49.80</td>
-                      <td className="py-3">
-                        <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Active</span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="py-3">
-                        <div>
-                          <p className="font-medium">Mike Johnson</p>
-                          <p className="text-sm text-gray-500">mike.johnson@example.com</p>
-                        </div>
-                      </td>
-                      <td className="py-3">May 29, 2024</td>
-                      <td className="py-3">$199.00</td>
-                      <td className="py-3 font-medium">$39.80</td>
-                      <td className="py-3">
-                        <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Active</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              {stats?.recentReferrals?.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left border-b">
+                        <th className="pb-3 font-medium">Order ID</th>
+                        <th className="pb-3 font-medium">Date Joined</th>
+                        <th className="pb-3 font-medium">Total Spent</th>
+                        <th className="pb-3 font-medium">Your Commission</th>
+                        <th className="pb-3 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {stats.recentReferrals.map((referral: any) => (
+                        <tr key={referral.id}>
+                          <td className="py-3">
+                            <div>
+                              <p className="font-medium">{referral.orderId}</p>
+                            </div>
+                          </td>
+                          <td className="py-3">{formatDate(referral.createdAt)}</td>
+                          <td className="py-3">{formatCurrency(Number(referral.amount))}</td>
+                          <td className="py-3 font-medium">{formatCurrency(Number(referral.commission))}</td>
+                          <td className="py-3">
+                            <span
+                              className={`text-xs px-2 py-1 rounded-full ${
+                                referral.status === "PAID"
+                                  ? "bg-green-100 text-green-800"
+                                  : referral.status === "APPROVED"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : referral.status === "PENDING"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {referral.status.charAt(0) + referral.status.slice(1).toLowerCase()}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>No referrals yet</AlertTitle>
+                  <AlertDescription>Share your referral link to start earning commissions.</AlertDescription>
+                </Alert>
+              )}
             </div>
           </TabsContent>
 
@@ -308,15 +458,19 @@ export default function AffiliateProgramPage() {
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="p-4 border rounded-lg">
                   <p className="text-sm text-gray-500 mb-1">Total Clicks</p>
-                  <p className="text-2xl font-bold">168</p>
+                  <p className="text-2xl font-bold">{stats?.totalClicks || 0}</p>
                 </div>
                 <div className="p-4 border rounded-lg">
                   <p className="text-sm text-gray-500 mb-1">Conversion Rate</p>
-                  <p className="text-2xl font-bold">12.5%</p>
+                  <p className="text-2xl font-bold">{stats?.conversionRate?.toFixed(1) || 0}%</p>
                 </div>
                 <div className="p-4 border rounded-lg">
                   <p className="text-sm text-gray-500 mb-1">Avg. Commission</p>
-                  <p className="text-2xl font-bold">$42.80</p>
+                  <p className="text-2xl font-bold">
+                    {stats?.totalReferrals > 0
+                      ? formatCurrency(stats.totalEarnings / stats.totalReferrals)
+                      : formatCurrency(0)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -334,62 +488,80 @@ export default function AffiliateProgramPage() {
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="font-medium">Current Balance</h3>
-                <p className="text-2xl font-bold">$120.00</p>
+                <p className="text-2xl font-bold">{formatCurrency(stats?.pendingEarnings || 0)}</p>
               </div>
-              <Button>Request Payout</Button>
+              <Button
+                onClick={requestPayout}
+                disabled={!stats?.pendingEarnings || stats.pendingEarnings < (stats?.settings?.minPayoutAmount || 50)}
+              >
+                Request Payout
+              </Button>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <p className="text-sm font-medium">Progress to next payout</p>
-                <p className="text-xs text-gray-500">($50 minimum)</p>
+                <p className="text-xs text-gray-500">(${stats?.settings?.minPayoutAmount || 50} minimum)</p>
               </div>
               <div className="mb-2">
-                <Progress value={100} className="h-2" />
+                <Progress
+                  value={calculateProgress(stats?.pendingEarnings || 0, stats?.settings?.minPayoutAmount || 50)}
+                  className="h-2"
+                />
               </div>
-              <p className="text-xs text-gray-500">You&apos;ve reached the minimum payout threshold</p>
+              <p className="text-xs text-gray-500">
+                {stats?.pendingEarnings >= (stats?.settings?.minPayoutAmount || 50)
+                  ? "You've reached the minimum payout threshold"
+                  : `$${(stats?.settings?.minPayoutAmount || 50) - (stats?.pendingEarnings || 0)} more needed to reach minimum payout`}
+              </p>
             </div>
           </div>
 
           <div>
             <h3 className="font-medium mb-4">Payout History</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-left border-b">
-                    <th className="pb-3 font-medium">Date</th>
-                    <th className="pb-3 font-medium">Amount</th>
-                    <th className="pb-3 font-medium">Method</th>
-                    <th className="pb-3 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  <tr>
-                    <td className="py-3">May 15, 2024</td>
-                    <td className="py-3 font-medium">$300.00</td>
-                    <td className="py-3">PayPal</td>
-                    <td className="py-3">
-                      <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Completed</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-3">Apr 15, 2024</td>
-                    <td className="py-3 font-medium">$250.00</td>
-                    <td className="py-3">Bank Transfer</td>
-                    <td className="py-3">
-                      <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Completed</span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-3">Mar 15, 2024</td>
-                    <td className="py-3 font-medium">$180.00</td>
-                    <td className="py-3">PayPal</td>
-                    <td className="py-3">
-                      <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">Completed</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            {stats?.payouts?.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left border-b">
+                      <th className="pb-3 font-medium">Date</th>
+                      <th className="pb-3 font-medium">Amount</th>
+                      <th className="pb-3 font-medium">Method</th>
+                      <th className="pb-3 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {stats.payouts.map((payout: any) => (
+                      <tr key={payout.id}>
+                        <td className="py-3">{formatDate(payout.createdAt)}</td>
+                        <td className="py-3 font-medium">{formatCurrency(Number(payout.amount))}</td>
+                        <td className="py-3">{payout.method}</td>
+                        <td className="py-3">
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full ${
+                              payout.status === "COMPLETED"
+                                ? "bg-green-100 text-green-800"
+                                : payout.status === "PENDING"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {payout.status.charAt(0) + payout.status.slice(1).toLowerCase()}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>No payout history</AlertTitle>
+                <AlertDescription>
+                  Your payout history will appear here once you've requested a payout.
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         </div>
       </Card>

@@ -12,6 +12,7 @@ import { ThemeProvider } from "@/context/theme-context"
 import { AuthProvider } from "@/context/auth-context"
 import { SessionProvider } from "@/components/session-provider"
 import { PricingProvider } from "@/context/pricing-context"
+import { AffiliateTracker } from "@/components/affiliate-tracker"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -48,6 +49,7 @@ export default function RootLayout({
             </AuthProvider>
           </SessionProvider>
         </ThemeProvider>
+        <AffiliateTracker />
       
       </body>
     </html>
