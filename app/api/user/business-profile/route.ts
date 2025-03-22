@@ -30,6 +30,28 @@ interface BusinessCustomData {
   displayIndustry?: string
 }
 
+// Define invoice interface for fetching additional data
+interface Invoice {
+  id: string
+  invoiceNumber: string
+  customerName: string
+  customerEmail: string
+  customerPhone?: string
+  customerCompany?: string
+  customerAddress?: string
+  customerCity?: string
+  customerState?: string
+  customerZip?: string
+  customerCountry?: string
+  amount: number
+  status: string
+  items: any
+  createdAt: string
+  updatedAt: string
+  userId?: string
+  isTemplateInvoice?: boolean
+}
+
 export async function GET(req: NextRequest) {
   try {
     // Get the current user session
@@ -102,31 +124,148 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Return the business and user data
+    // Step 1: Fetch additional business data from /api/user/business
+    // This is the same endpoint used by dashboard/page.tsx
+    let dashboardBusinessData = null
+    try {
+      const businessResponse = await fetch(`${req.nextUrl.origin}/api/user/business`, {
+        headers: {
+          cookie: req.headers.get("cookie") || "",
+        },
+      })
+
+      if (businessResponse.ok) {
+        const businessResult = await businessResponse.json()
+        if (businessResult.business) {
+          dashboardBusinessData = businessResult.business
+          console.log("Fetched dashboard business data:", dashboardBusinessData)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard business data:", error)
+    }
+
+    // Step 2: Fetch invoice data to get additional user information
+    // This is similar to what's done in admin/billing/invoices/page.tsx
+    let invoiceData = null
+    try {
+      // First try admin endpoint
+      let invoicesResponse = await fetch(`${req.nextUrl.origin}/api/admin/invoices`, {
+        headers: {
+          cookie: req.headers.get("cookie") || "",
+        },
+      })
+
+      // If admin endpoint fails (e.g., not an admin), try user-specific endpoint
+      if (!invoicesResponse.ok) {
+        invoicesResponse = await fetch(`${req.nextUrl.origin}/api/user/invoices`, {
+          headers: {
+            cookie: req.headers.get("cookie") || "",
+          },
+        })
+      }
+
+      if (invoicesResponse.ok) {
+        const invoicesResult = await invoicesResponse.json()
+        if (invoicesResult.invoices && invoicesResult.invoices.length > 0) {
+          // Filter for template invoices that start with "inv"
+          const templateInvoices = invoicesResult.invoices.filter((invoice: Invoice) => {
+            // Check if it's a template invoice
+            const isTemplate =
+              invoice.isTemplateInvoice === true ||
+              (typeof invoice.items === "string" && invoice.items.toLowerCase().includes("template")) ||
+              (Array.isArray(invoice.items) &&
+                invoice.items.some(
+                  (item) => item.type === "template" || (item.tier && item.tier.toLowerCase().includes("template")),
+                ))
+
+            // Check if invoice number starts with "inv"
+            const startsWithInv = invoice.invoiceNumber.toLowerCase().startsWith("inv")
+
+            return isTemplate && startsWithInv
+          })
+
+          if (templateInvoices.length > 0) {
+            // Sort by date (newest first) and get the first one
+            invoiceData = templateInvoices.sort(
+              (a: Invoice, b: Invoice) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+            )[0]
+            console.log("Fetched invoice data:", invoiceData)
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching invoice data:", error)
+    }
+
+    // Step 3: Merge data from all sources, prioritizing the most specific/recent data
+    // Create a merged business data object
+    const mergedBusinessData = {
+      // Start with the original business data
+      ...businessData,
+
+      // Override with dashboard data if available
+      name: dashboardBusinessData?.name || businessData?.name || userData.name,
+      formationDate: dashboardBusinessData?.formationDate || businessData?.formationDate,
+      ein: dashboardBusinessData?.ein || businessData?.ein,
+      businessId: dashboardBusinessData?.businessId || businessData?.businessId,
+
+      // Override with invoice data if available
+      email: invoiceData?.customerEmail || businessData?.email || userData.email,
+      phone: invoiceData?.customerPhone || businessData?.phone || userData.phoneNumber,
+      address: formatInvoiceAddress(invoiceData) || businessData?.address || userData.userAddress,
+
+      // Keep other fields
+      website: businessData?.website,
+      industry: businessData?.industry,
+      createdAt: businessData?.createdAt || new Date(),
+      updatedAt: businessData?.updatedAt || new Date(),
+    }
+
+    // Return the merged business and user data
     return NextResponse.json({
-      business: businessData
+      business: mergedBusinessData
         ? {
-            ...businessData,
-            serviceStatus: customData.serviceStatus,
-            llcStatusMessage: customData.llcStatusMessage,
-            llcProgress: customData.llcProgress,
-            annualReportFee: customData.annualReportFee,
-            annualReportFrequency: customData.annualReportFrequency,
+            ...mergedBusinessData,
+            serviceStatus: dashboardBusinessData?.serviceStatus || customData.serviceStatus,
+            llcStatusMessage: dashboardBusinessData?.llcStatusMessage || customData.llcStatusMessage,
+            llcProgress: dashboardBusinessData?.llcProgress || customData.llcProgress,
+            annualReportFee: dashboardBusinessData?.annualReportFee || customData.annualReportFee,
+            annualReportFrequency: dashboardBusinessData?.annualReportFrequency || customData.annualReportFrequency,
             displayIndustry: customData.displayIndustry,
           }
         : null,
       user: {
         id: userData.id,
         name: userData.name,
-        email: userData.email,
-        phone: userData.phoneNumber || "",
-        address: userData.userAddress || "",
+        email: invoiceData?.customerEmail || userData.email,
+        phone: invoiceData?.customerPhone || userData.phoneNumber || "",
+        address: formatInvoiceAddress(invoiceData) || userData.userAddress || "",
       },
     })
   } catch (error) {
     console.error("Error fetching business profile:", error)
     return NextResponse.json({ error: "Failed to fetch business profile" }, { status: 500 })
   }
+}
+
+// Helper function to format address from invoice data
+function formatInvoiceAddress(invoice: Invoice | null): string | null {
+  if (!invoice) return null
+
+  const parts = []
+
+  if (invoice.customerAddress) parts.push(invoice.customerAddress)
+
+  let cityStateZip = ""
+  if (invoice.customerCity) cityStateZip += invoice.customerCity
+  if (invoice.customerState) cityStateZip += cityStateZip ? `, ${invoice.customerState}` : invoice.customerState
+  if (invoice.customerZip) cityStateZip += cityStateZip ? ` ${invoice.customerZip}` : invoice.customerZip
+
+  if (cityStateZip) parts.push(cityStateZip)
+  if (invoice.customerCountry) parts.push(invoice.customerCountry)
+
+  return parts.length > 0 ? parts.join(", ") : null
 }
 
 export async function PUT(req: NextRequest) {
@@ -324,6 +463,77 @@ export async function PUT(req: NextRequest) {
       throw new Error("Failed to retrieve updated user")
     }
 
+    // Fetch additional data from other sources
+    // Step 1: Fetch additional business data from /api/user/business
+    let dashboardBusinessData = null
+    try {
+      const businessResponse = await fetch(`${req.nextUrl.origin}/api/user/business`, {
+        headers: {
+          cookie: req.headers.get("cookie") || "",
+        },
+      })
+
+      if (businessResponse.ok) {
+        const businessResult = await businessResponse.json()
+        if (businessResult.business) {
+          dashboardBusinessData = businessResult.business
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard business data:", error)
+    }
+
+    // Step 2: Fetch invoice data to get additional user information
+    let invoiceData = null
+    try {
+      // First try admin endpoint
+      let invoicesResponse = await fetch(`${req.nextUrl.origin}/api/admin/invoices`, {
+        headers: {
+          cookie: req.headers.get("cookie") || "",
+        },
+      })
+
+      // If admin endpoint fails (e.g., not an admin), try user-specific endpoint
+      if (!invoicesResponse.ok) {
+        invoicesResponse = await fetch(`${req.nextUrl.origin}/api/user/invoices`, {
+          headers: {
+            cookie: req.headers.get("cookie") || "",
+          },
+        })
+      }
+
+      if (invoicesResponse.ok) {
+        const invoicesResult = await invoicesResponse.json()
+        if (invoicesResult.invoices && invoicesResult.invoices.length > 0) {
+          // Filter for template invoices that start with "inv"
+          const templateInvoices = invoicesResult.invoices.filter((invoice: Invoice) => {
+            // Check if it's a template invoice
+            const isTemplate =
+              invoice.isTemplateInvoice === true ||
+              (typeof invoice.items === "string" && invoice.items.toLowerCase().includes("template")) ||
+              (Array.isArray(invoice.items) &&
+                invoice.items.some(
+                  (item) => item.type === "template" || (item.tier && item.tier.toLowerCase().includes("template")),
+                ))
+
+            // Check if invoice number starts with "inv"
+            const startsWithInv = invoice.invoiceNumber.toLowerCase().startsWith("inv")
+
+            return isTemplate && startsWithInv
+          })
+
+          if (templateInvoices.length > 0) {
+            // Sort by date (newest first) and get the first one
+            invoiceData = templateInvoices.sort(
+              (a: Invoice, b: Invoice) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+            )[0]
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching invoice data:", error)
+    }
+
     // Extract updated business data
     const updatedBusinessData = updatedUserData.businessId
       ? {
@@ -342,25 +552,50 @@ export async function PUT(req: NextRequest) {
         }
       : null
 
+    // Merge with data from other sources
+    const mergedBusinessData = {
+      ...updatedBusinessData,
+
+      // Override with dashboard data if available
+      name: dashboardBusinessData?.name || updatedBusinessData?.name || updatedUserData.name,
+      formationDate: dashboardBusinessData?.formationDate || updatedBusinessData?.formationDate,
+      ein: dashboardBusinessData?.ein || updatedBusinessData?.ein,
+      businessId: dashboardBusinessData?.businessId || updatedBusinessData?.businessId,
+
+      // Override with invoice data if available (but only if not explicitly updated in this request)
+      email:
+        body.email !== undefined
+          ? body.email
+          : invoiceData?.customerEmail || updatedBusinessData?.email || updatedUserData.email,
+      phone:
+        body.phone !== undefined
+          ? body.phone
+          : invoiceData?.customerPhone || updatedBusinessData?.phone || updatedUserData.phoneNumber,
+      address:
+        body.address !== undefined
+          ? body.address
+          : formatInvoiceAddress(invoiceData) || updatedBusinessData?.address || updatedUserData.userAddress,
+    }
+
     return NextResponse.json({
       success: true,
-      business: updatedBusinessData
+      business: mergedBusinessData
         ? {
-            ...updatedBusinessData,
-            serviceStatus: customData.serviceStatus,
-            llcStatusMessage: customData.llcStatusMessage,
-            llcProgress: customData.llcProgress,
-            annualReportFee: customData.annualReportFee,
-            annualReportFrequency: customData.annualReportFrequency,
+            ...mergedBusinessData,
+            serviceStatus: dashboardBusinessData?.serviceStatus || customData.serviceStatus,
+            llcStatusMessage: dashboardBusinessData?.llcStatusMessage || customData.llcStatusMessage,
+            llcProgress: dashboardBusinessData?.llcProgress || customData.llcProgress,
+            annualReportFee: dashboardBusinessData?.annualReportFee || customData.annualReportFee,
+            annualReportFrequency: dashboardBusinessData?.annualReportFrequency || customData.annualReportFrequency,
             displayIndustry: customData.displayIndustry || body.industry,
           }
         : null,
       user: {
         id: updatedUserData.id,
         name: updatedUserData.name,
-        email: updatedUserData.email,
-        phone: updatedUserData.phoneNumber || "",
-        address: updatedUserData.userAddress || "",
+        email: invoiceData?.customerEmail || updatedUserData.email,
+        phone: body.phone || invoiceData?.customerPhone || updatedUserData.phoneNumber || "",
+        address: body.address || formatInvoiceAddress(invoiceData) || updatedUserData.userAddress || "",
       },
     })
   } catch (error) {
