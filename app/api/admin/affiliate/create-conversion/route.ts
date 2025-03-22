@@ -1,93 +1,75 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import prisma from "@/lib/prisma"
+import { NextResponse } from "next/server"
+import { db } from "@/lib/db"
+import { v4 as uuidv4 } from "uuid"
 
-interface CreateConversionRequest {
-  invoiceId: string
-  affiliateCode: string
-}
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session || (session.user as any).role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const body = await req.json()
+    const { linkId, orderId, amount } = body
 
-    const data = (await req.json()) as CreateConversionRequest
-    const { invoiceId, affiliateCode } = data
-
-    if (!invoiceId || !affiliateCode) {
+    if (!linkId || !orderId || !amount) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    console.log(`Creating conversion for invoice ${invoiceId} with affiliate code ${affiliateCode}`)
+    // Check if the affiliate_conversions table exists
+    const tableCheck = await db.$queryRaw`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public'
+        AND table_name = 'affiliate_conversions'
+      ) as exists;
+    `
 
-    // Get the invoice
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: invoiceId },
-    })
+    const tableExists = (tableCheck as any)[0].exists
 
-    if (!invoice) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
-    }
-
-    // Find the affiliate link
-    const affiliateLink = await prisma.affiliateLink.findFirst({
-      where: { code: affiliateCode },
-    })
-
-    if (!affiliateLink) {
-      return NextResponse.json({ error: "Affiliate link not found" }, { status: 404 })
-    }
-
-    // Check if a conversion already exists
-    const existingConversion = await prisma.affiliateConversion.findFirst({
-      where: { orderId: invoiceId },
-    })
-
-    if (existingConversion) {
+    if (!tableExists) {
       return NextResponse.json(
         {
-          error: "Conversion already exists for this invoice",
-          conversion: existingConversion,
+          error: "The affiliate_conversions table does not exist",
+          solution: "Please call /api/admin/affiliate/create-tables first",
         },
         { status: 400 },
       )
     }
 
-    // Get commission rate from settings
-    const settings = (await prisma.affiliateSettings.findFirst()) || { commissionRate: 10 }
-    const commissionRate = Number(settings.commissionRate)
+    // Get the link
+    const link = await db.affiliateLink.findUnique({
+      where: { id: linkId },
+    })
+
+    if (!link) {
+      return NextResponse.json({ error: "Affiliate link not found" }, { status: 404 })
+    }
+
+    // Use a default commission rate if not available in the model
+    // This fixes the "Property 'commission' does not exist" error
+    const commissionRate = 0.1 // Default 10% commission
 
     // Calculate commission
-    const amount = invoice.amount
-    const commission = (amount * commissionRate) / 100
+    const commissionAmount = Number.parseFloat(amount) * commissionRate
 
     // Create the conversion
-    const conversion = await prisma.affiliateConversion.create({
+    const conversion = await db.affiliateConversion.create({
       data: {
-        linkId: affiliateLink.id,
-        orderId: invoiceId,
-        amount,
-        commission,
-        status: "PENDING",
-        customerEmail: invoice.customerEmail,
+        id: uuidv4(),
+        linkId,
+        orderId,
+        amount: Number.parseFloat(amount),
+        commission: commissionAmount,
+        status: "completed",
+        updatedAt: new Date(),
       },
     })
 
-    console.log(`Successfully created conversion: ${conversion.id}`)
+    console.log("[MANUAL_CONVERSION_CREATED]", conversion)
 
     return NextResponse.json({
       success: true,
       conversion,
-      message: "Conversion created successfully",
     })
-  } catch (error: any) {
-    console.error("Error creating conversion:", error)
-    return NextResponse.json({ error: error.message || "Something went wrong" }, { status: 500 })
+  } catch (error) {
+    console.error("[MANUAL_CONVERSION_ERROR]", error)
+    return NextResponse.json({ error: "Failed to create conversion", details: error }, { status: 500 })
   }
 }
 

@@ -385,44 +385,47 @@ model PricingSettings {
   updatedAt DateTime @updatedAt
 }
 model AffiliateLink {
-  id        String      @id @default(cuid())
-  userId    String      @unique
-  code      String      @unique
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clicks    AffiliateClick[]
+  id         String   @id @default(uuid())
+  userId     String
+  code       String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  active     Boolean  @default(true)
+  commission Decimal  @default(0) @db.Decimal(10, 2)
+  
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clicks      AffiliateClick[]
   conversions AffiliateConversion[]
 
   @@map("affiliate_links")
 }
 
 model AffiliateClick {
-  id        String      @id @default(cuid())
+  id        String   @id @default(uuid())
   linkId    String
-  ipAddress String?
-  userAgent String?     @db.Text
-  referrer  String?
-  createdAt DateTime    @default(now())
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  
   link      AffiliateLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
 
   @@map("affiliate_clicks")
 }
 
 model AffiliateConversion {
-  id         String      @id @default(cuid())
+  id         String   @id @default(uuid())
   linkId     String
   orderId    String
-  amount     Decimal     @db.Decimal(10, 2)
-  commission Decimal     @db.Decimal(10, 2)
-  status     AffiliateConversionStatus @default(PENDING)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  amount     Decimal  @db.Decimal(10, 2)
+  commission Decimal  @db.Decimal(10, 2)
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
   link       AffiliateLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
 
   @@map("affiliate_conversions")
 }
-
 model AffiliatePayout {
   id        String      @id @default(cuid())
   userId    String
