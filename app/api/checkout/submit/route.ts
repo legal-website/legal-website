@@ -6,7 +6,7 @@ import { storeAffiliateCookie } from "@/lib/store-affiliate-cookie"
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json()
-    const { email, name, amount, items } = data
+    const { email, name, amount, items, affiliateCode } = data
 
     if (!email || !name || !amount) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -27,19 +27,27 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Check for affiliate cookie - using a try/catch to handle potential cookie issues
-    try {
-      const cookieStore = cookies()
-      // TypeScript fix: Use type assertion to tell TypeScript this is not a Promise
-      const affiliateCookie = (cookieStore as any).get("affiliate")
+    // Check for affiliate code from the request (sent from client-side)
+    if (affiliateCode && email) {
+      // Store the affiliate code in the database
+      await storeAffiliateCookie(email, affiliateCode)
+      console.log(`Stored affiliate code ${affiliateCode} for user ${email}`)
+    } else {
+      // Fallback to cookie if no code was passed in the request
+      try {
+        const cookieStore = cookies()
+        // TypeScript fix: Use type assertion to tell TypeScript this is not a Promise
+        const affiliateCookie = (cookieStore as any).get("affiliate")
 
-      if (affiliateCookie && email) {
-        // Store the affiliate cookie in the database
-        await storeAffiliateCookie(email, affiliateCookie.value)
+        if (affiliateCookie && email) {
+          // Store the affiliate cookie in the database
+          await storeAffiliateCookie(email, affiliateCookie.value)
+          console.log(`Stored affiliate code ${affiliateCookie.value} from cookie for user ${email}`)
+        }
+      } catch (cookieError) {
+        console.error("Error accessing cookies:", cookieError)
+        // Continue execution even if cookie handling fails
       }
-    } catch (cookieError) {
-      console.error("Error accessing cookies:", cookieError)
-      // Continue execution even if cookie handling fails
     }
 
     return NextResponse.json({

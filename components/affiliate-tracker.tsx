@@ -14,6 +14,9 @@ function AffiliateTrackerContent() {
     const refCode = searchParams.get("ref")
 
     if (refCode) {
+      // Store the affiliate code in localStorage to persist across page navigations
+      localStorage.setItem("affiliateCode", refCode)
+
       // Record the click via API
       fetch("/api/affiliate/clicks", {
         method: "POST",

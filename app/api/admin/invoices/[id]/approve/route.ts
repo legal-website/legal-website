@@ -79,20 +79,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
           if (existingConversions.length === 0) {
             // Record the conversion
-            await db.affiliateConversion.create({
+            const conversion = await db.affiliateConversion.create({
               data: {
                 linkId: affiliateLink.id,
                 orderId: invoiceId,
                 amount: invoice.amount,
                 commission,
-                status: "PENDING",
+                status: "APPROVED", // Set to APPROVED immediately since the payment is approved
               },
             })
 
             console.log(`Recorded affiliate conversion for invoice ${invoiceId} with commission ${commission}`)
+            console.log(`Conversion ID: ${conversion.id}`)
           } else {
-            console.log(`Conversion already exists for invoice ${invoiceId}`)
+            // Update existing conversion to APPROVED
+            const conversion = await db.affiliateConversion.update({
+              where: { id: existingConversions[0].id },
+              data: { status: "APPROVED" },
+            })
+            console.log(`Updated existing conversion ${conversion.id} to APPROVED`)
           }
+        } else {
+          console.log(`No affiliate link found for code ${affiliateCode}`)
         }
       } else {
         console.log("No affiliate cookie found for user:", userEmail)
