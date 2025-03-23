@@ -69,17 +69,39 @@ export function CheckoutForm({ packageId, packageName, amount }: CheckoutFormPro
     try {
       console.log("Submitting checkout form with affiliate code:", affiliateCode)
 
+      // Create a copy of the form data to modify
+      const modifiedFormData = { ...formData }
+
+      // Store the affiliate code in the company field with a prefix
+      if (affiliateCode) {
+        // If company field is empty, use it for the affiliate code
+        if (!modifiedFormData.company || modifiedFormData.company.trim() === "") {
+          modifiedFormData.company = `ref:${affiliateCode}`
+          console.log("Storing affiliate code in company field:", modifiedFormData.company)
+        }
+        // Otherwise, use the address field
+        else if (!modifiedFormData.address || modifiedFormData.address.trim() === "") {
+          modifiedFormData.address = `ref:${affiliateCode}`
+          console.log("Storing affiliate code in address field:", modifiedFormData.address)
+        }
+        // If both are used, use the city field
+        else if (!modifiedFormData.city || modifiedFormData.city.trim() === "") {
+          modifiedFormData.city = `ref:${affiliateCode}`
+          console.log("Storing affiliate code in city field:", modifiedFormData.city)
+        }
+      }
+
       const response = await fetch("/api/checkout/submit", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...formData,
+          ...modifiedFormData,
           packageId,
           packageName,
           amount,
-          affiliateCode, // Send the affiliate code
+          affiliateCode, // Also send it as a separate field
         }),
       })
 

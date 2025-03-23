@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       affiliateCode,
     } = data
 
-    console.log("Checkout data received:", data)
+    console.log("Checkout data received:", JSON.stringify(data, null, 2))
 
     if (!email || !name || !amount) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -29,23 +29,37 @@ export async function POST(req: NextRequest) {
     // Generate invoice number
     const invoiceNumber = `INV-${Date.now()}`
 
-    // Store affiliate code in one of the fields
+    // Ensure we have the affiliate code in one of the fields
     let customerCompany = company || ""
     let customerAddress = address || ""
     let customerCity = city || ""
 
-    // If we have an affiliate code, store it with a prefix
-    if (affiliateCode) {
-      console.log("Storing affiliate code in invoice:", affiliateCode)
+    // Double-check if we need to add the affiliate code
+    if (
+      affiliateCode &&
+      !customerCompany.includes(`ref:${affiliateCode}`) &&
+      !customerAddress.includes(`ref:${affiliateCode}`) &&
+      !customerCity.includes(`ref:${affiliateCode}`)
+    ) {
+      console.log("Adding affiliate code to invoice fields:", affiliateCode)
 
+      // Add the affiliate code to the first available field
       if (!customerCompany) {
         customerCompany = `ref:${affiliateCode}`
       } else if (!customerAddress) {
         customerAddress = `ref:${affiliateCode}`
       } else if (!customerCity) {
         customerCity = `ref:${affiliateCode}`
+      } else {
+        // If all fields are filled, append to company
+        customerCompany = `${customerCompany} (ref:${affiliateCode})`
       }
     }
+
+    console.log("Final invoice fields:")
+    console.log("Company:", customerCompany)
+    console.log("Address:", customerAddress)
+    console.log("City:", customerCity)
 
     // Create invoice with all fields
     const invoice = await db.invoice.create({

@@ -28,7 +28,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     console.log("Found invoice:", invoice.invoiceNumber)
-    console.log("Invoice details:", JSON.stringify(invoice, null, 2))
+    console.log(
+      "Invoice details:",
+      JSON.stringify(
+        {
+          id: invoice.id,
+          customerName: invoice.customerName,
+          customerEmail: invoice.customerEmail,
+          amount: invoice.amount,
+          status: invoice.status,
+          customerCompany: invoice.customerCompany,
+          customerAddress: invoice.customerAddress,
+          customerCity: invoice.customerCity,
+        },
+        null,
+        2,
+      ),
+    )
 
     // Update invoice status to paid
     const updatedInvoice = await db.invoice.update({
@@ -47,19 +63,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       let affiliateCode = null
 
       // Check company field
-      if (invoice.customerCompany && invoice.customerCompany.startsWith("ref:")) {
-        affiliateCode = invoice.customerCompany.replace("ref:", "")
-        console.log("Found affiliate code in company field:", affiliateCode)
+      if (invoice.customerCompany && invoice.customerCompany.includes("ref:")) {
+        const match = invoice.customerCompany.match(/ref:([a-zA-Z0-9]+)/)
+        if (match && match[1]) {
+          affiliateCode = match[1]
+          console.log("Found affiliate code in company field:", affiliateCode)
+        }
       }
       // Check address field
-      else if (invoice.customerAddress && invoice.customerAddress.startsWith("ref:")) {
-        affiliateCode = invoice.customerAddress.replace("ref:", "")
-        console.log("Found affiliate code in address field:", affiliateCode)
+      else if (invoice.customerAddress && invoice.customerAddress.includes("ref:")) {
+        const match = invoice.customerAddress.match(/ref:([a-zA-Z0-9]+)/)
+        if (match && match[1]) {
+          affiliateCode = match[1]
+          console.log("Found affiliate code in address field:", affiliateCode)
+        }
       }
       // Check city field
-      else if (invoice.customerCity && invoice.customerCity.startsWith("ref:")) {
-        affiliateCode = invoice.customerCity.replace("ref:", "")
-        console.log("Found affiliate code in city field:", affiliateCode)
+      else if (invoice.customerCity && invoice.customerCity.includes("ref:")) {
+        const match = invoice.customerCity.match(/ref:([a-zA-Z0-9]+)/)
+        if (match && match[1]) {
+          affiliateCode = match[1]
+          console.log("Found affiliate code in city field:", affiliateCode)
+        }
       }
 
       console.log("Extracted affiliate code:", affiliateCode)
@@ -85,20 +110,29 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           const commission = (invoice.amount * commissionRate) / 100
           console.log("Calculated commission:", commission)
 
-          // Create the conversion record
-          try {
-            const conversion = await db.affiliateConversion.create({
-              data: {
-                linkId: affiliateLink.id,
-                orderId: invoiceId,
-                amount: invoice.amount,
-                commission: commission,
-                status: "APPROVED", // Set to APPROVED immediately
-              },
-            })
-            console.log("Successfully created conversion record:", conversion.id)
-          } catch (conversionError) {
-            console.error("Error creating conversion record:", conversionError)
+          // Check if a conversion already exists for this order
+          const existingConversions = await db.affiliateConversion.findMany({
+            where: { orderId: invoiceId },
+          })
+
+          if (existingConversions.length === 0) {
+            // Create the conversion record
+            try {
+              const conversion = await db.affiliateConversion.create({
+                data: {
+                  linkId: affiliateLink.id,
+                  orderId: invoiceId,
+                  amount: invoice.amount,
+                  commission: commission,
+                  status: "APPROVED", // Set to APPROVED immediately
+                },
+              })
+              console.log("Successfully created conversion record:", conversion.id)
+            } catch (conversionError) {
+              console.error("Error creating conversion record:", conversionError)
+            }
+          } else {
+            console.log("Conversion already exists for this invoice:", existingConversions[0].id)
           }
         } else {
           console.log("No affiliate link found for code:", affiliateCode)

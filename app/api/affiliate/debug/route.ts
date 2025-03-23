@@ -50,12 +50,33 @@ export async function GET() {
       },
     })
 
+    // Get all recent invoices for debugging
+    const recentInvoices = await db.invoice.findMany({
+      take: 10,
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        customerName: true,
+        customerEmail: true,
+        amount: true,
+        status: true,
+        createdAt: true,
+        customerCompany: true,
+        customerAddress: true,
+        customerCity: true,
+      },
+    })
+
     return NextResponse.json({
       success: true,
       data: {
         affiliateLinks,
         affiliateConversions,
         invoicesWithReferral,
+        recentInvoices,
       },
     })
   } catch (error) {
