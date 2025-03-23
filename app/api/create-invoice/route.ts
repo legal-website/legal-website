@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const { customer, items, total, paymentReceipt } = body
+    const { customer, items, total, paymentReceipt, affiliateCode } = body
 
     // Validate required fields
     if (!paymentReceipt) {
@@ -95,6 +95,40 @@ export async function POST(req: Request) {
     // Convert amount to a number - use the provided total which should match the template price
     const amount = typeof total === "string" ? Number.parseFloat(total) : Number(total)
 
+    // Handle affiliate code - ensure it's stored in one of the customer fields
+    let customerCompany = customer.company || ""
+    let customerAddress = customer.address || ""
+    let customerCity = customer.city || ""
+
+    // If we have an affiliate code and it's not already in one of the fields, add it
+    if (
+      affiliateCode &&
+      !customerCompany.includes(`ref:${affiliateCode}`) &&
+      !customerAddress.includes(`ref:${affiliateCode}`) &&
+      !customerCity.includes(`ref:${affiliateCode}`)
+    ) {
+      console.log("Adding affiliate code to invoice fields:", affiliateCode)
+
+      // Add the affiliate code to the first available field
+      if (!customerCompany) {
+        customerCompany = `ref:${affiliateCode}`
+      } else if (!customerAddress) {
+        customerAddress = `ref:${affiliateCode}`
+      } else if (!customerCity) {
+        customerCity = `ref:${affiliateCode}`
+      } else {
+        // If all fields are filled, append to company
+        customerCompany = `${customerCompany} (ref:${affiliateCode})`
+      }
+
+      console.log("Updated fields with affiliate code:")
+      console.log("Company:", customerCompany)
+      console.log("Address:", customerAddress)
+      console.log("City:", customerCity)
+    } else if (affiliateCode) {
+      console.log("Affiliate code already present in customer data:", affiliateCode)
+    }
+
     // Create the invoice
     const invoice = await db.invoice.create({
       data: {
@@ -105,11 +139,12 @@ export async function POST(req: Request) {
         status: "pending",
         items: JSON.stringify(safeItems), // Store the items with correct prices
         paymentReceipt: paymentReceipt,
-        // Add optional fields only if they exist
+        // Use our potentially modified fields with affiliate code
+        customerCompany: customerCompany || null,
+        customerAddress: customerAddress || null,
+        customerCity: customerCity || null,
+        // Add remaining optional fields only if they exist
         ...(customer.phone && { customerPhone: customer.phone }),
-        ...(customer.company && { customerCompany: customer.company }),
-        ...(customer.address && { customerAddress: customer.address }),
-        ...(customer.city && { customerCity: customer.city }),
         ...(customer.state && { customerState: customer.state }),
         ...(customer.zip && { customerZip: customer.zip }),
         ...(customer.country && { customerCountry: customer.country }),

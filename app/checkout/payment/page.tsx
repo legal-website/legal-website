@@ -21,6 +21,7 @@ function PaymentPageContent() {
   const [checkoutData, setCheckoutData] = useState<any>(null)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [affiliateCode, setAffiliateCode] = useState<string | null>(null)
 
   // Bank account details
   const bankDetails = {
@@ -42,6 +43,20 @@ function PaymentPageContent() {
 
       const parsedData = JSON.parse(storedData)
       setCheckoutData(parsedData)
+
+      // Check for affiliate code in checkout data
+      if (parsedData.affiliateCode) {
+        setAffiliateCode(parsedData.affiliateCode)
+        console.log("Found affiliate code in checkout data:", parsedData.affiliateCode)
+      }
+      // Fallback to localStorage
+      else if (typeof window !== "undefined") {
+        const storedAffiliateCode = localStorage.getItem("affiliateCode")
+        if (storedAffiliateCode) {
+          setAffiliateCode(storedAffiliateCode)
+          console.log("Found affiliate code in localStorage:", storedAffiliateCode)
+        }
+      }
     } catch (error) {
       console.error("Error loading checkout data:", error)
       setError("Failed to load checkout data. Please try again.")
@@ -139,11 +154,14 @@ function PaymentPageContent() {
 
       // Step 3: Create invoice with receipt URL
       console.log("Creating invoice with receipt URL:", receiptUrl)
+
+      // Include affiliate code in the invoice data
       const invoiceData = {
         customer: checkoutData.customer,
         items: checkoutData.items,
         total: checkoutData.total,
         paymentReceipt: receiptUrl,
+        affiliateCode: affiliateCode, // Include the affiliate code
       }
 
       console.log("Invoice data:", JSON.stringify(invoiceData, null, 2))
@@ -245,6 +263,16 @@ function PaymentPageContent() {
         {/* Payment Instructions */}
         <div>
           <h1 className="text-3xl font-bold mb-6">Payment</h1>
+
+          {affiliateCode && (
+            <div className="bg-green-50 p-4 rounded-md flex items-start mb-6">
+              <AlertCircle className="text-green-500 mr-2 mt-0.5" size={18} />
+              <div>
+                <p className="text-green-800 font-medium">Referral code applied</p>
+                <p className="text-green-700 text-sm">You're using a referral code: {affiliateCode}</p>
+              </div>
+            </div>
+          )}
 
           <Card className="mb-8">
             <CardHeader>

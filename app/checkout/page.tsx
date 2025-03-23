@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, AlertCircle } from "lucide-react"
 import { useCart } from "@/context/cart-context"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -18,6 +18,7 @@ export default function CheckoutPage() {
   const { items, getCartTotal, clearCart } = useCart()
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
+  const [affiliateCode, setAffiliateCode] = useState<string | null>(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -36,6 +37,15 @@ export default function CheckoutPage() {
     // Redirect if cart is empty
     if (items.length === 0) {
       router.push("/")
+    }
+
+    // Check for affiliate code in localStorage
+    if (typeof window !== "undefined") {
+      const storedAffiliateCode = localStorage.getItem("affiliateCode")
+      if (storedAffiliateCode) {
+        console.log("Found affiliate code in localStorage:", storedAffiliateCode)
+        setAffiliateCode(storedAffiliateCode)
+      }
     }
   }, [items, router])
 
@@ -70,6 +80,7 @@ export default function CheckoutPage() {
           customer: formData,
           items: items,
           total: getCartTotal(),
+          affiliateCode: affiliateCode, // Store the affiliate code directly
         }),
       )
 
@@ -105,6 +116,16 @@ export default function CheckoutPage() {
         {/* Checkout Form */}
         <div>
           <h1 className="text-3xl font-bold mb-6">Checkout</h1>
+
+          {affiliateCode && (
+            <div className="bg-green-50 p-4 rounded-md flex items-start mb-6">
+              <AlertCircle className="text-green-500 mr-2 mt-0.5" size={18} />
+              <div>
+                <p className="text-green-800 font-medium">Referral code applied</p>
+                <p className="text-green-700 text-sm">You're using a referral code: {affiliateCode}</p>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
