@@ -1,38 +1,27 @@
-import { cookies } from "next/headers"
-import prisma from "@/lib/prisma"
+import { db } from "@/lib/db"
 
-export async function storeAffiliateCookie(email: string, code: string) {
+export async function storeAffiliateCookie(email: string, affiliateCode: string): Promise<void> {
   try {
-    console.log(`[AFFILIATE] Storing affiliate cookie for ${email}: ${code}`)
+    console.log(`Storing affiliate cookie for ${email}: ${affiliateCode}`)
 
-    // Store in database
-    await prisma.systemSettings.upsert({
-      where: { key: `affiliate_cookie_${email}` },
-      update: { value: code },
+    // Store the affiliate code in the system settings table
+    await db.systemSettings.upsert({
+      where: {
+        key: `affiliate_cookie_${email}`,
+      },
+      update: {
+        value: affiliateCode,
+      },
       create: {
         key: `affiliate_cookie_${email}`,
-        value: code,
-        type: "string",
+        value: affiliateCode,
       },
     })
 
-    // Also set/refresh the cookie
-    const cookieStore = await cookies()
-    cookieStore.set({
-      name: "affiliate",
-      value: code,
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-    })
-
-    console.log(`[AFFILIATE] Successfully stored affiliate cookie for ${email}`)
-    return true
+    console.log(`Successfully stored affiliate cookie for ${email}`)
   } catch (error) {
-    console.error(`[AFFILIATE] Error storing affiliate cookie for ${email}:`, error)
-    return false
+    console.error("Error storing affiliate cookie:", error)
+    throw error
   }
 }
 

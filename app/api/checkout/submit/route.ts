@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { db } from "@/lib/db"
 import { cookies } from "next/headers"
-import prisma from "@/lib/prisma"
+import { storeAffiliateCookie } from "@/lib/store-affiliate-cookie"
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,28 +12,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    console.log(`Processing checkout for ${email} with amount ${amount}`)
-
     // Generate invoice number
     const invoiceNumber = `INV-${Date.now()}`
 
-    // Check for affiliate cookie before creating the invoice
-    const cookieStore = await cookies()
-    const affiliateCookie = cookieStore.get("affiliate")
-
-    console.log(`Checkout affiliate cookie for ${email}: ${affiliateCookie?.value || "none"}`)
-
-    // Store metadata about this order
-    const metadata: Record<string, any> = {}
-
-    if (affiliateCookie?.value) {
-      // Store the affiliate information in metadata
-      metadata.affiliateCode = affiliateCookie.value
-      console.log(`Storing affiliate code in invoice metadata: ${affiliateCookie.value}`)
-    }
-
-    // Create invoice with metadata
-    const invoice = await prisma.invoice.create({
+    // Create invoice
+    const invoice = await db.invoice.create({
       data: {
         invoiceNumber,
         customerName: name,
@@ -40,11 +24,23 @@ export async function POST(req: NextRequest) {
         amount: Number.parseFloat(amount),
         status: "pending",
         items: JSON.stringify(items || []),
-        metadata: JSON.stringify(metadata),
       },
     })
 
-    console.log(`Created invoice ${invoice.id} for ${email}`)
+    // Check for affiliate cookie - using a try/catch to handle potential cookie issues
+    try {
+      const cookieStore = cookies()
+      // TypeScript fix: Use type assertion to tell TypeScript this is not a Promise
+      const affiliateCookie = (cookieStore as any).get("affiliate")
+
+      if (affiliateCookie && email) {
+        // Store the affiliate cookie in the database
+        await storeAffiliateCookie(email, affiliateCookie.value)
+      }
+    } catch (cookieError) {
+      console.error("Error accessing cookies:", cookieError)
+      // Continue execution even if cookie handling fails
+    }
 
     return NextResponse.json({
       success: true,
