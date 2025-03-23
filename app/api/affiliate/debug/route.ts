@@ -1,17 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session || (session.user as any).role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Get all affiliate links
+    // Get all affiliate links with user information
     const affiliateLinks = await db.affiliateLink.findMany({
       include: {
         user: {
@@ -24,7 +16,7 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    // Get all affiliate conversions
+    // Get all affiliate conversions with link information
     const affiliateConversions = await db.affiliateConversion.findMany({
       include: {
         link: {
@@ -39,9 +31,12 @@ export async function GET(req: NextRequest) {
           },
         },
       },
+      orderBy: {
+        createdAt: "desc",
+      },
     })
 
-    // Get all invoices with referral information
+    // Get invoices that might have referral information
     const invoicesWithReferral = await db.invoice.findMany({
       where: {
         OR: [
@@ -50,17 +45,8 @@ export async function GET(req: NextRequest) {
           { customerCity: { contains: "ref:" } },
         ],
       },
-      select: {
-        id: true,
-        invoiceNumber: true,
-        customerName: true,
-        customerEmail: true,
-        amount: true,
-        status: true,
-        createdAt: true,
-        customerCompany: true,
-        customerAddress: true,
-        customerCity: true,
+      orderBy: {
+        createdAt: "desc",
       },
     })
 
@@ -72,9 +58,9 @@ export async function GET(req: NextRequest) {
         invoicesWithReferral,
       },
     })
-  } catch (error: any) {
-    console.error("Error in affiliate debug:", error)
-    return NextResponse.json({ error: error.message || "Something went wrong" }, { status: 500 })
+  } catch (error) {
+    console.error("Error fetching affiliate debug data:", error)
+    return NextResponse.json({ success: false, error: "Failed to fetch affiliate debug data" }, { status: 500 })
   }
 }
 

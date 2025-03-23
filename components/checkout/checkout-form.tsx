@@ -1,16 +1,36 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, type ChangeEvent, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { AlertCircle } from "lucide-react"
 
-export function CheckoutForm({ packageId, packageName, amount }) {
+interface CheckoutFormProps {
+  packageId: string
+  packageName: string
+  amount: number
+}
+
+interface FormData {
+  name: string
+  email: string
+  phone: string
+  company: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  country: string
+  notes: string
+}
+
+export function CheckoutForm({ packageId, packageName, amount }: CheckoutFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
     phone: "",
@@ -37,29 +57,17 @@ export function CheckoutForm({ packageId, packageName, amount }) {
     }
   }, [])
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      // Store affiliate code in a field that will be visible to admins
-      // We'll use the company field if it's empty, otherwise append to address
-      const updatedFormData = { ...formData }
-
-      if (affiliateCode) {
-        if (!updatedFormData.company) {
-          updatedFormData.company = `ref:${affiliateCode}`
-        } else if (!updatedFormData.address) {
-          updatedFormData.address = `ref:${affiliateCode}`
-        } else if (!updatedFormData.city) {
-          updatedFormData.city = `ref:${affiliateCode}`
-        }
-      }
+      console.log("Submitting checkout form with affiliate code:", affiliateCode)
 
       const response = await fetch("/api/checkout/submit", {
         method: "POST",
@@ -67,15 +75,16 @@ export function CheckoutForm({ packageId, packageName, amount }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...updatedFormData,
+          ...formData,
           packageId,
           packageName,
           amount,
-          affiliateCode, // Also send it as a separate field
+          affiliateCode, // Send the affiliate code
         }),
       })
 
       const data = await response.json()
+      console.log("Checkout response:", data)
 
       if (data.success) {
         // Redirect to payment page
@@ -93,6 +102,16 @@ export function CheckoutForm({ packageId, packageName, amount }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {affiliateCode && (
+        <div className="bg-green-50 p-4 rounded-md flex items-start">
+          <AlertCircle className="text-green-500 mr-2 mt-0.5" size={18} />
+          <div>
+            <p className="text-green-800 font-medium">Referral code applied</p>
+            <p className="text-green-700 text-sm">You're using a referral code: {affiliateCode}</p>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
         <div>
           <Label htmlFor="name">Full Name *</Label>
@@ -148,12 +167,6 @@ export function CheckoutForm({ packageId, packageName, amount }) {
           <Textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} className="min-h-[100px]" />
         </div>
       </div>
-
-      {affiliateCode && (
-        <div className="bg-green-50 p-3 rounded-md">
-          <p className="text-green-700 text-sm">Referral code applied: {affiliateCode}</p>
-        </div>
-      )}
 
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? "Processing..." : "Continue to Payment"}

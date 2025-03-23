@@ -1,12 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { cookies } from "next/headers"
-import { storeAffiliateCookie } from "@/lib/store-affiliate-cookie"
 
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json()
-    const { email, name, amount, items, affiliateCode } = data
+    const {
+      name,
+      email,
+      phone,
+      company,
+      address,
+      city,
+      state,
+      zip,
+      country,
+      notes,
+      amount,
+      packageName,
+      affiliateCode,
+    } = data
+
+    console.log("Checkout data received:", data)
 
     if (!email || !name || !amount) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -15,43 +29,54 @@ export async function POST(req: NextRequest) {
     // Generate invoice number
     const invoiceNumber = `INV-${Date.now()}`
 
-    // Create invoice
+    // Store affiliate code in one of the fields
+    let customerCompany = company || ""
+    let customerAddress = address || ""
+    let customerCity = city || ""
+
+    // If we have an affiliate code, store it with a prefix
+    if (affiliateCode) {
+      console.log("Storing affiliate code in invoice:", affiliateCode)
+
+      if (!customerCompany) {
+        customerCompany = `ref:${affiliateCode}`
+      } else if (!customerAddress) {
+        customerAddress = `ref:${affiliateCode}`
+      } else if (!customerCity) {
+        customerCity = `ref:${affiliateCode}`
+      }
+    }
+
+    // Create invoice with all fields
     const invoice = await db.invoice.create({
       data: {
         invoiceNumber,
         customerName: name,
         customerEmail: email,
-        amount: Number.parseFloat(amount),
+        customerPhone: phone || null,
+        customerCompany,
+        customerAddress,
+        customerCity,
+        customerState: state || null,
+        customerZip: zip || null,
+        customerCountry: country || null,
+        amount: Number.parseFloat(amount.toString()),
         status: "pending",
-        items: JSON.stringify(items || []),
+        items: JSON.stringify([
+          {
+            name: packageName || "Service Package",
+            price: Number.parseFloat(amount.toString()),
+            quantity: 1,
+          },
+        ]),
       },
     })
 
-    // Check for affiliate code from the request (sent from client-side)
-    if (affiliateCode && email) {
-      // Store the affiliate code in the database
-      await storeAffiliateCookie(email, affiliateCode)
-      console.log(`Stored affiliate code ${affiliateCode} for user ${email}`)
-    } else {
-      // Fallback to cookie if no code was passed in the request
-      try {
-        const cookieStore = cookies()
-        // TypeScript fix: Use type assertion to tell TypeScript this is not a Promise
-        const affiliateCookie = (cookieStore as any).get("affiliate")
-
-        if (affiliateCookie && email) {
-          // Store the affiliate cookie in the database
-          await storeAffiliateCookie(email, affiliateCookie.value)
-          console.log(`Stored affiliate code ${affiliateCookie.value} from cookie for user ${email}`)
-        }
-      } catch (cookieError) {
-        console.error("Error accessing cookies:", cookieError)
-        // Continue execution even if cookie handling fails
-      }
-    }
+    console.log("Invoice created:", invoice.id)
 
     return NextResponse.json({
       success: true,
+      invoiceId: invoice.id,
       invoice,
       message: "Invoice created successfully. Please upload payment receipt.",
     })

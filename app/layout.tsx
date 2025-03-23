@@ -36,6 +36,7 @@ export default function RootLayout({
             <AuthProvider>
             <PricingProvider>
               <CartProvider>
+              <AffiliateTracker />
                 <Toaster />
                 <TopBar /> {/* Topbar at the top */}
                 <Preloader />
@@ -43,14 +44,11 @@ export default function RootLayout({
                 <main>{children}</main> {/* Main content */}
                 <Footer /> {/* Footer at the bottom */}
                 <ScrollToTopButton /> {/* Scroll to top button */}
-                
               </CartProvider>
               </PricingProvider>
             </AuthProvider>
           </SessionProvider>
         </ThemeProvider>
-        <AffiliateTracker />
-      
       </body>
     </html>
   )

@@ -28,6 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     console.log("Found invoice:", invoice.invoiceNumber)
+    console.log("Invoice details:", JSON.stringify(invoice, null, 2))
 
     // Update invoice status to paid
     const updatedInvoice = await db.invoice.update({
@@ -48,14 +49,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       // Check company field
       if (invoice.customerCompany && invoice.customerCompany.startsWith("ref:")) {
         affiliateCode = invoice.customerCompany.replace("ref:", "")
+        console.log("Found affiliate code in company field:", affiliateCode)
       }
       // Check address field
       else if (invoice.customerAddress && invoice.customerAddress.startsWith("ref:")) {
         affiliateCode = invoice.customerAddress.replace("ref:", "")
+        console.log("Found affiliate code in address field:", affiliateCode)
       }
       // Check city field
       else if (invoice.customerCity && invoice.customerCity.startsWith("ref:")) {
         affiliateCode = invoice.customerCity.replace("ref:", "")
+        console.log("Found affiliate code in city field:", affiliateCode)
       }
 
       console.log("Extracted affiliate code:", affiliateCode)
