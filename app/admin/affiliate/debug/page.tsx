@@ -146,28 +146,50 @@ export default function AffiliateDebugPage() {
 
       <div className="space-y-8">
         <section>
-          <h2 className="text-2xl font-bold mb-4">Affiliate Cookies</h2>
-          {data?.affiliateCookies?.length > 0 ? (
+          <h2 className="text-2xl font-bold mb-4">Invoices with Referral Information</h2>
+          {data?.invoicesWithReferral?.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full bg-white border border-gray-200">
                 <thead>
                   <tr>
-                    <th className="px-4 py-2 border">Key</th>
-                    <th className="px-4 py-2 border">Value (Affiliate Code)</th>
+                    <th className="px-4 py-2 border">Invoice #</th>
+                    <th className="px-4 py-2 border">Customer</th>
+                    <th className="px-4 py-2 border">Email</th>
+                    <th className="px-4 py-2 border">Amount</th>
+                    <th className="px-4 py-2 border">Status</th>
+                    <th className="px-4 py-2 border">Referral Code</th>
+                    <th className="px-4 py-2 border">Created At</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.affiliateCookies.map((cookie: any) => (
-                    <tr key={cookie.id}>
-                      <td className="px-4 py-2 border">{cookie.key}</td>
-                      <td className="px-4 py-2 border">{cookie.value}</td>
-                    </tr>
-                  ))}
+                  {data.invoicesWithReferral.map((invoice: any) => {
+                    // Extract referral code
+                    let refCode = ""
+                    if (invoice.customerCompany && invoice.customerCompany.startsWith("ref:")) {
+                      refCode = invoice.customerCompany.replace("ref:", "")
+                    } else if (invoice.customerAddress && invoice.customerAddress.startsWith("ref:")) {
+                      refCode = invoice.customerAddress.replace("ref:", "")
+                    } else if (invoice.customerCity && invoice.customerCity.startsWith("ref:")) {
+                      refCode = invoice.customerCity.replace("ref:", "")
+                    }
+
+                    return (
+                      <tr key={invoice.id}>
+                        <td className="px-4 py-2 border">{invoice.invoiceNumber}</td>
+                        <td className="px-4 py-2 border">{invoice.customerName}</td>
+                        <td className="px-4 py-2 border">{invoice.customerEmail}</td>
+                        <td className="px-4 py-2 border">${invoice.amount.toFixed(2)}</td>
+                        <td className="px-4 py-2 border">{invoice.status}</td>
+                        <td className="px-4 py-2 border">{refCode}</td>
+                        <td className="px-4 py-2 border">{new Date(invoice.createdAt).toLocaleString()}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
           ) : (
-            <p>No affiliate cookies found</p>
+            <p>No invoices with referral information found</p>
           )}
         </section>
 

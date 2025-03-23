@@ -40,27 +40,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     console.log("Invoice updated successfully")
 
-    // AFFILIATE CONVERSION HANDLING - SIMPLIFIED AND ROBUST
+    // AFFILIATE CONVERSION HANDLING
     try {
-      // Get the user's email from the invoice
-      const userEmail = invoice.customerEmail
-      console.log("Processing affiliate conversion for email:", userEmail)
+      // Extract affiliate code from invoice fields
+      let affiliateCode = null
 
-      // 1. First try to find affiliate code in system settings
-      const userAffiliateCookie = await db.systemSettings.findFirst({
-        where: {
-          key: `affiliate_cookie_${userEmail}`,
-        },
-      })
-
-      const affiliateCode = userAffiliateCookie?.value
-      console.log("Affiliate code from system settings:", affiliateCode || "None found")
-
-      // 2. If no affiliate code found, check if there's a direct record in the database
-      if (!affiliateCode) {
-        // You might have other tables or methods to find the affiliate code
-        console.log("No affiliate code found in system settings")
+      // Check company field
+      if (invoice.customerCompany && invoice.customerCompany.startsWith("ref:")) {
+        affiliateCode = invoice.customerCompany.replace("ref:", "")
       }
+      // Check address field
+      else if (invoice.customerAddress && invoice.customerAddress.startsWith("ref:")) {
+        affiliateCode = invoice.customerAddress.replace("ref:", "")
+      }
+      // Check city field
+      else if (invoice.customerCity && invoice.customerCity.startsWith("ref:")) {
+        affiliateCode = invoice.customerCity.replace("ref:", "")
+      }
+
+      console.log("Extracted affiliate code:", affiliateCode)
 
       // If we have an affiliate code, proceed with creating a conversion
       if (affiliateCode) {
@@ -83,8 +81,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           const commission = (invoice.amount * commissionRate) / 100
           console.log("Calculated commission:", commission)
 
-          // IMPORTANT: Create the conversion record
-          // We'll use a try/catch specifically for this operation to ensure it doesn't fail silently
+          // Create the conversion record
           try {
             const conversion = await db.affiliateConversion.create({
               data: {
@@ -98,25 +95,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             console.log("Successfully created conversion record:", conversion.id)
           } catch (conversionError) {
             console.error("Error creating conversion record:", conversionError)
-
-            // If creation failed, try to find if a record already exists and update it
-            try {
-              const existingConversions = await db.affiliateConversion.findMany({
-                where: { orderId: invoiceId },
-              })
-
-              if (existingConversions.length > 0) {
-                const updated = await db.affiliateConversion.update({
-                  where: { id: existingConversions[0].id },
-                  data: { status: "APPROVED" },
-                })
-                console.log("Updated existing conversion:", updated.id)
-              } else {
-                console.error("Could not create or find conversion record")
-              }
-            } catch (findError) {
-              console.error("Error finding existing conversion:", findError)
-            }
           }
         } else {
           console.log("No affiliate link found for code:", affiliateCode)

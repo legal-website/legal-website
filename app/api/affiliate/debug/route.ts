@@ -11,12 +11,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get all affiliate cookies stored in system settings
-    // Using findFirst with where condition instead of findMany
-    const affiliateCookies = await Promise.all(
-      (await db.$queryRaw`SELECT * FROM SystemSettings WHERE \`key\` LIKE 'affiliate_cookie_%'`) as any[],
-    )
-
     // Get all affiliate links
     const affiliateLinks = await db.affiliateLink.findMany({
       include: {
@@ -47,12 +41,35 @@ export async function GET(req: NextRequest) {
       },
     })
 
+    // Get all invoices with referral information
+    const invoicesWithReferral = await db.invoice.findMany({
+      where: {
+        OR: [
+          { customerCompany: { contains: "ref:" } },
+          { customerAddress: { contains: "ref:" } },
+          { customerCity: { contains: "ref:" } },
+        ],
+      },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        customerName: true,
+        customerEmail: true,
+        amount: true,
+        status: true,
+        createdAt: true,
+        customerCompany: true,
+        customerAddress: true,
+        customerCity: true,
+      },
+    })
+
     return NextResponse.json({
       success: true,
       data: {
-        affiliateCookies,
         affiliateLinks,
         affiliateConversions,
+        invoicesWithReferral,
       },
     })
   } catch (error: any) {
