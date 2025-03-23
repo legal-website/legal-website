@@ -2,8 +2,10 @@
 
 import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 
-export function AffiliateTracker() {
+// This component uses useSearchParams and must be wrapped in Suspense
+function AffiliateTrackerContent() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
@@ -35,5 +37,14 @@ export function AffiliateTracker() {
   }, [searchParams])
 
   return null // This component doesn't render anything
+}
+
+// This is the main component that will be imported elsewhere
+export function AffiliateTracker() {
+  return (
+    <Suspense fallback={null}>
+      <AffiliateTrackerContent />
+    </Suspense>
+  )
 }
 
