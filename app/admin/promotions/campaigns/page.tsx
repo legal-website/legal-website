@@ -32,7 +32,6 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { AffiliateStatusFilter } from "@/components/admin/affiliate-status-filter"
 
 export default function AdminAffiliatePage() {
   const [activeTab, setActiveTab] = useState("overview")
@@ -47,7 +46,7 @@ export default function AdminAffiliatePage() {
     conversions: { page: 1, total: 0, pages: 0 },
     payouts: { page: 1, total: 0, pages: 0 },
   })
-  const [statusFilter, setStatusFilter] = useState("ALL")
+  const [statusFilter, setStatusFilter] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [editingSettings, setEditingSettings] = useState(false)
   const [updatedSettings, setUpdatedSettings] = useState<any>(null)
@@ -130,7 +129,7 @@ export default function AdminAffiliatePage() {
   const fetchConversions = async () => {
     try {
       setLoading(true)
-      const statusParam = statusFilter !== "ALL" ? `&status=${statusFilter}` : ""
+      const statusParam = statusFilter ? `&status=${statusFilter}` : ""
       const res = await fetch(`/api/admin/affiliate/conversions?page=${pagination.conversions.page}${statusParam}`)
       const data = await res.json()
 
@@ -162,7 +161,7 @@ export default function AdminAffiliatePage() {
   const fetchPayouts = async () => {
     try {
       setLoading(true)
-      const statusParam = statusFilter !== "ALL" ? `&status=${statusFilter}` : ""
+      const statusParam = statusFilter ? `&status=${statusFilter}` : ""
       const res = await fetch(`/api/admin/affiliate/payouts?page=${pagination.payouts.page}${statusParam}`)
       const data = await res.json()
 
@@ -731,7 +730,18 @@ export default function AdminAffiliatePage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <AffiliateStatusFilter value={statusFilter} onValueChange={setStatusFilter} type="conversion" />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="PAID">Paid</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="rounded-md border">
@@ -945,7 +955,17 @@ export default function AdminAffiliatePage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <AffiliateStatusFilter value={statusFilter} onValueChange={setStatusFilter} type="payout" />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="COMPLETED">Completed</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="rounded-md border">

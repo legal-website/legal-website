@@ -1,50 +1,59 @@
 import { type NextRequest, NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
+import { db } from "@/lib/db"
 
+// This middleware tracks affiliate link clicks
 export async function trackAffiliateClick(req: NextRequest) {
   try {
-    const url = new URL(req.url)
-    const ref = url.searchParams.get("ref")
+    const refCode = req.nextUrl.searchParams.get("ref")
 
-    if (!ref) {
-      return null
+    if (!refCode) {
+      return NextResponse.next()
     }
 
     // Find the affiliate link
-    const affiliateLink = await prisma.affiliateLink.findFirst({
-      where: { code: ref },
+    const affiliateLink = await db.affiliateLink.findFirst({
+      where: { code: refCode },
     })
 
     if (!affiliateLink) {
-      return null
+      return NextResponse.next()
     }
 
-    // Get IP address from headers
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown"
-
     // Record the click
-    await prisma.affiliateClick.create({
+    const ipAddress = req.headers.get("x-forwarded-for") || "unknown"
+    const userAgent = req.headers.get("user-agent") || "unknown"
+    const referrer = req.headers.get("referer") || null
+
+    await db.affiliateClick.create({
       data: {
         linkId: affiliateLink.id,
-        ipAddress: ip,
-        userAgent: req.headers.get("user-agent") || null,
-        referrer: req.headers.get("referer") || null,
+        ipAddress,
+        userAgent,
+        referrer,
       },
     })
 
-    // Create a response that sets a cookie and redirects to the same URL without the ref parameter
-    const response = NextResponse.redirect(url)
+    // Set a cookie to track the affiliate
+    const response = NextResponse.next()
 
-    // Set the affiliate cookie
-    response.cookies.set("affiliate", ref, {
-      maxAge: 30 * 24 * 60 * 60, // 30 days
+    // Get cookie duration from settings
+    const settings = (await db.affiliateSettings.findFirst()) || { cookieDuration: 30 }
+
+    // Set cookie to expire in X days
+    const expires = new Date()
+    expires.setDate(expires.getDate() + settings.cookieDuration)
+
+    response.cookies.set({
+      name: "affiliate",
+      value: refCode,
+      expires,
       path: "/",
     })
 
     return response
   } catch (error) {
     console.error("Error tracking affiliate click:", error)
-    return null
+    return NextResponse.next()
   }
 }
 
