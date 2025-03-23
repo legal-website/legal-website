@@ -40,21 +40,31 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     console.log("Invoice updated successfully")
 
-    // Check for affiliate referral and record conversion
+    // AFFILIATE CONVERSION HANDLING - SIMPLIFIED AND ROBUST
     try {
       // Get the user's email from the invoice
       const userEmail = invoice.customerEmail
+      console.log("Processing affiliate conversion for email:", userEmail)
 
-      // Check if we have stored affiliate information for this user
+      // 1. First try to find affiliate code in system settings
       const userAffiliateCookie = await db.systemSettings.findFirst({
         where: {
           key: `affiliate_cookie_${userEmail}`,
         },
       })
 
-      if (userAffiliateCookie) {
-        console.log("Found affiliate cookie for user:", userEmail)
-        const affiliateCode = userAffiliateCookie.value
+      const affiliateCode = userAffiliateCookie?.value
+      console.log("Affiliate code from system settings:", affiliateCode || "None found")
+
+      // 2. If no affiliate code found, check if there's a direct record in the database
+      if (!affiliateCode) {
+        // You might have other tables or methods to find the affiliate code
+        console.log("No affiliate code found in system settings")
+      }
+
+      // If we have an affiliate code, proceed with creating a conversion
+      if (affiliateCode) {
+        console.log("Processing conversion for affiliate code:", affiliateCode)
 
         // Find the affiliate link
         const affiliateLink = await db.affiliateLink.findFirst({
@@ -62,52 +72,60 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         })
 
         if (affiliateLink) {
-          console.log("Found affiliate link:", affiliateLink.id)
+          console.log("Found affiliate link ID:", affiliateLink.id)
 
-          // Get commission rate from settings
-          const settings = (await db.affiliateSettings.findFirst()) || { commissionRate: 10 }
+          // Get commission rate from settings (default to 10% if not found)
+          const settings = await db.affiliateSettings.findFirst()
+          const commissionRate = settings?.commissionRate ? Number(settings.commissionRate) : 10
+          console.log("Commission rate:", commissionRate)
 
-          // Calculate commission (10% of invoice amount)
-          const commission = (invoice.amount * Number(settings.commissionRate)) / 100
+          // Calculate commission amount
+          const commission = (invoice.amount * commissionRate) / 100
+          console.log("Calculated commission:", commission)
 
-          // Check if a conversion already exists for this order
-          const existingConversions = await db.affiliateConversion.findMany({
-            where: {
-              orderId: invoiceId,
-            },
-          })
-
-          if (existingConversions.length === 0) {
-            // Record the conversion
+          // IMPORTANT: Create the conversion record
+          // We'll use a try/catch specifically for this operation to ensure it doesn't fail silently
+          try {
             const conversion = await db.affiliateConversion.create({
               data: {
                 linkId: affiliateLink.id,
                 orderId: invoiceId,
                 amount: invoice.amount,
-                commission,
-                status: "APPROVED", // Set to APPROVED immediately since the payment is approved
+                commission: commission,
+                status: "APPROVED", // Set to APPROVED immediately
               },
             })
+            console.log("Successfully created conversion record:", conversion.id)
+          } catch (conversionError) {
+            console.error("Error creating conversion record:", conversionError)
 
-            console.log(`Recorded affiliate conversion for invoice ${invoiceId} with commission ${commission}`)
-            console.log(`Conversion ID: ${conversion.id}`)
-          } else {
-            // Update existing conversion to APPROVED
-            const conversion = await db.affiliateConversion.update({
-              where: { id: existingConversions[0].id },
-              data: { status: "APPROVED" },
-            })
-            console.log(`Updated existing conversion ${conversion.id} to APPROVED`)
+            // If creation failed, try to find if a record already exists and update it
+            try {
+              const existingConversions = await db.affiliateConversion.findMany({
+                where: { orderId: invoiceId },
+              })
+
+              if (existingConversions.length > 0) {
+                const updated = await db.affiliateConversion.update({
+                  where: { id: existingConversions[0].id },
+                  data: { status: "APPROVED" },
+                })
+                console.log("Updated existing conversion:", updated.id)
+              } else {
+                console.error("Could not create or find conversion record")
+              }
+            } catch (findError) {
+              console.error("Error finding existing conversion:", findError)
+            }
           }
         } else {
-          console.log(`No affiliate link found for code ${affiliateCode}`)
+          console.log("No affiliate link found for code:", affiliateCode)
         }
       } else {
-        console.log("No affiliate cookie found for user:", userEmail)
+        console.log("No affiliate code found for this invoice")
       }
     } catch (affiliateError) {
-      // Don't let affiliate tracking errors disrupt the main flow
-      console.error("Error processing affiliate conversion:", affiliateError)
+      console.error("Error in affiliate conversion processing:", affiliateError)
     }
 
     // Send approval email
@@ -116,7 +134,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       console.log("Approval email sent")
     } catch (emailError) {
       console.error("Error sending approval email:", emailError)
-      // Continue even if email fails
     }
 
     return NextResponse.json({ success: true, invoice: updatedInvoice })
