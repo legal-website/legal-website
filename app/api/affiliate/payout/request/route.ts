@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       data
 
     // Validate required fields
-    if (!method || !fullName || !amount) {
+    if (!method || !fullName || amount === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
@@ -49,11 +49,17 @@ export async function POST(req: Request) {
     })
 
     // Calculate total pending amount
-    const pendingAmount = pendingConversions.reduce((sum, conversion) => sum + Number(conversion.commission), 0)
+    const pendingAmount = pendingConversions.reduce((sum, conversion) => {
+      const commissionValue =
+        typeof conversion.commission === "string"
+          ? Number.parseFloat(conversion.commission)
+          : Number(conversion.commission)
+      return sum + commissionValue
+    }, 0)
 
     if (payoutAmount > pendingAmount) {
       return NextResponse.json(
-        { error: `Requested amount exceeds available balance of $${pendingAmount}` },
+        { error: `Requested amount exceeds available balance of $${pendingAmount.toFixed(2)}` },
         { status: 400 },
       )
     }
@@ -92,21 +98,25 @@ export async function POST(req: Request) {
 
     // Process conversions for partial payout
     let remainingAmount = payoutAmount
-    const conversionsToUpdate = []
 
     for (const conversion of pendingConversions) {
-      const conversionAmount = Number(conversion.commission)
+      const conversionAmount =
+        typeof conversion.commission === "string"
+          ? Number.parseFloat(conversion.commission)
+          : Number(conversion.commission)
 
       if (remainingAmount >= conversionAmount) {
         // Take the full conversion
-        conversionsToUpdate.push({
-          id: conversion.id,
-          status: "APPROVED",
-          metadata: JSON.stringify({
-            payoutId: payout.id,
-            originalStatus: conversion.status,
-            fullAmount: true,
-          }),
+        await db.affiliateConversion.update({
+          where: { id: conversion.id },
+          data: {
+            status: "APPROVED" as AffiliateConversionStatus,
+            metadata: JSON.stringify({
+              payoutId: payout.id,
+              originalStatus: conversion.status,
+              fullAmount: true,
+            }),
+          },
         })
         remainingAmount -= conversionAmount
       } else if (remainingAmount > 0) {
@@ -123,34 +133,24 @@ export async function POST(req: Request) {
         })
 
         // Update the original conversion with the partial amount
-        conversionsToUpdate.push({
-          id: conversion.id,
-          status: "APPROVED",
-          commission: remainingAmount.toString(),
-          metadata: JSON.stringify({
-            payoutId: payout.id,
-            originalStatus: conversion.status,
-            fullAmount: false,
-            originalAmount: conversionAmount,
-          }),
+        await db.affiliateConversion.update({
+          where: { id: conversion.id },
+          data: {
+            status: "APPROVED" as AffiliateConversionStatus,
+            commission: remainingAmount.toString(),
+            metadata: JSON.stringify({
+              payoutId: payout.id,
+              originalStatus: conversion.status,
+              fullAmount: false,
+              originalAmount: conversionAmount,
+            }),
+          },
         })
 
         remainingAmount = 0
       }
 
       if (remainingAmount <= 0) break
-    }
-
-    // Update all the conversions individually since $transaction isn't available
-    for (const conv of conversionsToUpdate) {
-      await db.affiliateConversion.update({
-        where: { id: conv.id },
-        data: {
-          status: conv.status as AffiliateConversionStatus,
-          ...(conv.commission ? { commission: conv.commission } : {}),
-          metadata: conv.metadata,
-        },
-      })
     }
 
     return NextResponse.json({ success: true, payout })
