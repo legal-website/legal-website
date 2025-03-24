@@ -67,17 +67,13 @@ export async function GET(req: NextRequest) {
       .reduce((sum, c) => sum + Number(c.commission), 0)
 
     // Get total successful referrals
-    const totalReferrals = conversions.filter(
-      (c) => c.status === AffiliateConversionStatus.APPROVED || c.status === AffiliateConversionStatus.PAID,
-    ).length
+    const totalReferrals = conversions.filter((c) => c.status !== AffiliateConversionStatus.REJECTED).length
 
     // Calculate conversion rate
     const conversionRate = totalClicks > 0 ? (totalReferrals / totalClicks) * 100 : 0
 
     // Get recent earnings (last 5)
-    const recentEarnings = conversions
-      .filter((c) => c.status === AffiliateConversionStatus.APPROVED || c.status === AffiliateConversionStatus.PAID)
-      .slice(0, 5)
+    const recentEarnings = conversions.filter((c) => c.status !== AffiliateConversionStatus.REJECTED).slice(0, 5)
 
     // Get recent referrals with user info
     const recentReferrals = await db.affiliateConversion.findMany({
