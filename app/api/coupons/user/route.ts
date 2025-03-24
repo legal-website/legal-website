@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
         isActive: true,
         startDate: { lte: now },
         endDate: { gte: now },
-        usageCount: { lt: "usageLimit" }, // Using string comparison instead of fields property
+        // We can't directly compare fields in Prisma, so we'll filter all coupons
         OR: [
           { specificClient: false },
           {
@@ -33,6 +33,12 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     })
 
+    // Filter out coupons that have reached their usage limit
+    // Since we can't do this in the query, we'll do it in memory
+    const availableCoupons = coupons.filter((coupon) => {
+      return coupon.usageCount < coupon.usageLimit
+    })
+
     // Filter out coupons that the user has already used (if onePerCustomer is true)
     const usedCouponIds = await db.couponUsage.findMany({
       where: { userId },
@@ -41,7 +47,7 @@ export async function GET(req: NextRequest) {
 
     const usedCouponIdSet = new Set(usedCouponIds.map((u) => u.couponId))
 
-    const availableCoupons = coupons.filter((coupon) => {
+    const filteredCoupons = availableCoupons.filter((coupon) => {
       // If onePerCustomer is true and user has used this coupon, filter it out
       if (coupon.onePerCustomer && usedCouponIdSet.has(coupon.id)) {
         return false
@@ -51,7 +57,7 @@ export async function GET(req: NextRequest) {
     })
 
     // Format coupons for response
-    const formattedCoupons = availableCoupons.map((coupon) => {
+    const formattedCoupons = filteredCoupons.map((coupon) => {
       return {
         id: coupon.id,
         code: coupon.code,

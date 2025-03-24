@@ -30,6 +30,7 @@ export default function DashboardCouponsPage() {
   const { toast } = useToast()
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("available")
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
@@ -52,16 +53,19 @@ export default function DashboardCouponsPage() {
   const fetchCoupons = async () => {
     try {
       setLoading(true)
+      setError(null)
       const response = await fetch("/api/coupons/user")
 
       if (!response.ok) {
-        throw new Error("Failed to fetch coupons")
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to fetch coupons")
       }
 
       const data = await response.json()
       setCoupons(data.coupons || [])
     } catch (error) {
       console.error("Error fetching coupons:", error)
+      setError(error instanceof Error ? error.message : "Failed to load coupons")
       toast({
         title: "Error",
         description: "Failed to load available coupons. Please try again.",
@@ -146,6 +150,19 @@ export default function DashboardCouponsPage() {
               onClick={handleRemoveCoupon}
             >
               Remove
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {error && (
+        <Alert className="mb-6 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+          <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+          <AlertTitle className="text-red-800 dark:text-red-400">Error</AlertTitle>
+          <AlertDescription className="text-red-700 dark:text-red-500">
+            {error}
+            <Button variant="link" className="text-red-700 dark:text-red-500 p-0 h-auto ml-2" onClick={fetchCoupons}>
+              Retry
             </Button>
           </AlertDescription>
         </Alert>
