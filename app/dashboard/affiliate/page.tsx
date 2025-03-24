@@ -19,6 +19,7 @@ import {
   MessageSquare,
   AlertCircle,
   ChevronRight,
+  Info,
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { generateReferralLink, formatCurrency, formatDate, calculateProgress } from "@/lib/affiliate"
@@ -49,14 +50,19 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface PayoutFormData {
   method: string
-  accountName: string
-  accountNumber: string
-  routingNumber: string
-  bankName: string
+  fullName: string
+  bankName?: string
+  accountNumber?: string
+  iban?: string
   swiftCode?: string
+  branchAddress?: string
+  paypalEmail?: string
+  mobileNumber?: string
+  cnic?: string
   additionalInfo?: string
 }
 
@@ -80,14 +86,19 @@ export default function AffiliateProgramPage() {
   const [payoutDialogOpen, setPayoutDialogOpen] = useState(false)
   const [payoutFormData, setPayoutFormData] = useState<PayoutFormData>({
     method: "bank",
-    accountName: "",
-    accountNumber: "",
-    routingNumber: "",
+    fullName: "",
     bankName: "",
+    accountNumber: "",
+    iban: "",
     swiftCode: "",
+    branchAddress: "",
+    paypalEmail: "",
+    mobileNumber: "",
+    cnic: "",
     additionalInfo: "",
   })
   const [payoutSubmitting, setPayoutSubmitting] = useState(false)
+  const [rejectedPayout, setRejectedPayout] = useState<any>(null)
 
   const fetchEarningsChartData = async (period: string) => {
     try {
@@ -136,6 +147,14 @@ export default function AffiliateProgramPage() {
         const statsRes = await fetch("/api/affiliate/stats")
         const statsData = await statsRes.json()
         setStats(statsData)
+
+        // Check for rejected payouts
+        if (statsData.payouts && statsData.payouts.length > 0) {
+          const rejected = statsData.payouts.find((p: any) => p.status === "REJECTED" && !p.processed)
+          if (rejected) {
+            setRejectedPayout(rejected)
+          }
+        }
 
         // Fetch initial chart data
         fetchEarningsChartData(earningsPeriod)
@@ -221,32 +240,72 @@ export default function AffiliateProgramPage() {
     }
   }
 
+  const validatePayoutForm = (): boolean => {
+    // Common validation
+    if (!payoutFormData.fullName) {
+      toast({
+        title: "Missing information",
+        description: "Please enter your full name.",
+        variant: "destructive",
+      })
+      return false
+    }
+
+    // Method-specific validation
+    if (payoutFormData.method === "bank") {
+      if (!payoutFormData.bankName || !payoutFormData.accountNumber) {
+        toast({
+          title: "Missing information",
+          description: "Please fill in all required bank account fields.",
+          variant: "destructive",
+        })
+        return false
+      }
+    } else if (payoutFormData.method === "paypal") {
+      if (!payoutFormData.paypalEmail) {
+        toast({
+          title: "Missing information",
+          description: "Please enter your PayPal email address.",
+          variant: "destructive",
+        })
+        return false
+      }
+    } else if (["easypaisa", "jazzcash", "nayapay"].includes(payoutFormData.method)) {
+      if (!payoutFormData.mobileNumber) {
+        toast({
+          title: "Missing information",
+          description: "Please enter your registered mobile number.",
+          variant: "destructive",
+        })
+        return false
+      }
+    }
+
+    return true
+  }
+
   const submitPayoutRequest = async () => {
     try {
       setPayoutSubmitting(true)
 
       // Validate form data
-      if (
-        !payoutFormData.accountName ||
-        !payoutFormData.accountNumber ||
-        !payoutFormData.routingNumber ||
-        !payoutFormData.bankName
-      ) {
-        toast({
-          title: "Missing information",
-          description: "Please fill in all required fields.",
-          variant: "destructive",
-        })
+      if (!validatePayoutForm()) {
         setPayoutSubmitting(false)
         return
       }
+
+      // If there's a rejected payout that needs to be processed
+      const payoutId = rejectedPayout ? rejectedPayout.id : undefined
 
       const res = await fetch("/api/affiliate/payout/request", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payoutFormData),
+        body: JSON.stringify({
+          ...payoutFormData,
+          payoutId, // Include the rejected payout ID if available
+        }),
       })
 
       const data = await res.json()
@@ -261,16 +320,21 @@ export default function AffiliateProgramPage() {
         const statsRes = await fetch("/api/affiliate/stats")
         const statsData = await statsRes.json()
         setStats(statsData)
+        setRejectedPayout(null)
 
         // Close dialog and reset form
         setPayoutDialogOpen(false)
         setPayoutFormData({
           method: "bank",
-          accountName: "",
-          accountNumber: "",
-          routingNumber: "",
+          fullName: "",
           bankName: "",
+          accountNumber: "",
+          iban: "",
           swiftCode: "",
+          branchAddress: "",
+          paypalEmail: "",
+          mobileNumber: "",
+          cnic: "",
           additionalInfo: "",
         })
       } else {
@@ -294,6 +358,31 @@ export default function AffiliateProgramPage() {
 
   const loadMoreReferrals = () => {
     setVisibleReferrals((prev) => prev + 4)
+  }
+
+  const acknowledgeRejectedPayout = async () => {
+    if (!rejectedPayout) return
+
+    try {
+      const res = await fetch(`/api/affiliate/payout/acknowledge/${rejectedPayout.id}`, {
+        method: "POST",
+      })
+
+      if (res.ok) {
+        // Refresh stats
+        const statsRes = await fetch("/api/affiliate/stats")
+        const statsData = await statsRes.json()
+        setStats(statsData)
+        setRejectedPayout(null)
+
+        toast({
+          title: "Acknowledged",
+          description: "The rejected payout has been returned to your available balance.",
+        })
+      }
+    } catch (error) {
+      console.error("Error acknowledging rejected payout:", error)
+    }
   }
 
   const faqItems = [
@@ -354,6 +443,29 @@ export default function AffiliateProgramPage() {
     <div className="p-8 mb-40">
       <h1 className="text-3xl font-bold mb-6">Affiliate Program</h1>
 
+      {/* Rejected Payout Alert */}
+      {rejectedPayout && (
+        <Alert className="mb-6 border-red-200 bg-red-50">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertTitle className="text-red-600">Payout Request Rejected</AlertTitle>
+          <AlertDescription className="mt-2">
+            <p>
+              Your payout request has been rejected.{" "}
+              {rejectedPayout.adminNotes && `Reason: ${rejectedPayout.adminNotes}`}
+            </p>
+            <p className="mt-2">The amount has been returned to your available balance.</p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 border-red-300 text-red-600 hover:bg-red-50"
+              onClick={acknowledgeRejectedPayout}
+            >
+              Acknowledge
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid md:grid-cols-3 gap-8 mb-8">
         {/* Earnings Card */}
         <Card className="p-6">
@@ -411,8 +523,8 @@ export default function AffiliateProgramPage() {
               Share this unique link with your network. When someone signs up using your link, you&apos;ll earn{" "}
               {stats?.settings?.commissionRate || 10}% commission on their purchases.
             </p>
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
+            <div className="flex flex-col sm:flex-row items-center gap-2">
+              <div className="relative flex-1 w-full">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2">
                   <Link className="h-4 w-4 text-gray-400" />
                 </div>
@@ -422,14 +534,14 @@ export default function AffiliateProgramPage() {
                   <Copy className="ml-2 h-3.5 w-3.5" />
                 </Button>
               </div>
-              <Button variant="outline">
+              <Button variant="outline" className="w-full sm:w-auto mt-2 sm:mt-0">
                 <Share2 className="mr-2 h-4 w-4" />
                 Share
               </Button>
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Button
               variant="outline"
               className="flex items-center justify-center gap-2"
@@ -851,13 +963,14 @@ export default function AffiliateProgramPage() {
         </div>
         <div className="p-6">
           <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
               <div>
                 <h3 className="font-medium">Current Balance</h3>
                 <p className="text-2xl font-bold">{formatCurrency(stats?.pendingEarnings || 0)}</p>
               </div>
               <Button
                 onClick={requestPayout}
+                className="mt-2 sm:mt-0"
                 disabled={!stats?.pendingEarnings || stats.pendingEarnings < (stats?.settings?.minPayoutAmount || 50)}
               >
                 Request Payout
@@ -893,6 +1006,7 @@ export default function AffiliateProgramPage() {
                       <th className="pb-3 font-medium">Amount</th>
                       <th className="pb-3 font-medium">Method</th>
                       <th className="pb-3 font-medium">Status</th>
+                      <th className="pb-3 font-medium">Notes</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -917,6 +1031,22 @@ export default function AffiliateProgramPage() {
                               ? "In Progress"
                               : payout.status.charAt(0) + payout.status.slice(1).toLowerCase()}
                           </span>
+                        </td>
+                        <td className="py-3">
+                          {payout.adminNotes && (
+                            <TooltipProvider>
+                              <UITooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                    <Info className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="max-w-xs">{payout.adminNotes}</p>
+                                </TooltipContent>
+                              </UITooltip>
+                            </TooltipProvider>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -977,16 +1107,18 @@ export default function AffiliateProgramPage() {
 
       {/* Payout Request Dialog */}
       <Dialog open={payoutDialogOpen} onOpenChange={setPayoutDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Request Payout</DialogTitle>
             <DialogDescription>
-              Please provide your bank account details for the payout. This information will be securely stored.
+              Please provide your payment details for the payout. This information will be securely stored.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="method">Payment Method</Label>
+              <Label htmlFor="method">
+                Payment Method <span className="text-red-500">*</span>
+              </Label>
               <Select
                 name="method"
                 value={payoutFormData.method}
@@ -998,25 +1130,33 @@ export default function AffiliateProgramPage() {
                 <SelectContent>
                   <SelectItem value="bank">Bank Transfer</SelectItem>
                   <SelectItem value="paypal">PayPal</SelectItem>
+                  <SelectItem value="easypaisa">Easypaisa</SelectItem>
+                  <SelectItem value="jazzcash">JazzCash</SelectItem>
+                  <SelectItem value="nayapay">NayaPay</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {payoutFormData.method === "bank" ? (
+            {/* Bank Transfer Fields */}
+            {payoutFormData.method === "bank" && (
               <>
                 <div className="grid gap-2">
-                  <Label htmlFor="accountName">Account Holder Name</Label>
+                  <Label htmlFor="fullName">
+                    Full Name (as per bank records) <span className="text-red-500">*</span>
+                  </Label>
                   <Input
-                    id="accountName"
-                    name="accountName"
-                    value={payoutFormData.accountName}
+                    id="fullName"
+                    name="fullName"
+                    value={payoutFormData.fullName}
                     onChange={handlePayoutFormChange}
                     placeholder="John Doe"
                     required
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="bankName">Bank Name</Label>
+                  <Label htmlFor="bankName">
+                    Bank Name <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="bankName"
                     name="bankName"
@@ -1026,32 +1166,37 @@ export default function AffiliateProgramPage() {
                     required
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="accountNumber">Account Number</Label>
-                    <Input
-                      id="accountNumber"
-                      name="accountNumber"
-                      value={payoutFormData.accountNumber}
-                      onChange={handlePayoutFormChange}
-                      placeholder="123456789"
-                      required
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="routingNumber">Routing Number</Label>
-                    <Input
-                      id="routingNumber"
-                      name="routingNumber"
-                      value={payoutFormData.routingNumber}
-                      onChange={handlePayoutFormChange}
-                      placeholder="987654321"
-                      required
-                    />
-                  </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="accountNumber">
+                    Bank Account Number <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="accountNumber"
+                    name="accountNumber"
+                    value={payoutFormData.accountNumber}
+                    onChange={handlePayoutFormChange}
+                    placeholder="123456789"
+                    required
+                  />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="swiftCode">SWIFT/BIC Code (International transfers)</Label>
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor="iban">IBAN (International Bank Account Number)</Label>
+                    <span className="text-xs text-gray-500">(if applicable)</span>
+                  </div>
+                  <Input
+                    id="iban"
+                    name="iban"
+                    value={payoutFormData.iban}
+                    onChange={handlePayoutFormChange}
+                    placeholder="GB29NWBK60161331926819"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor="swiftCode">SWIFT/BIC Code</Label>
+                    <span className="text-xs text-gray-500">(for international transfers)</span>
+                  </div>
                   <Input
                     id="swiftCode"
                     name="swiftCode"
@@ -1060,24 +1205,103 @@ export default function AffiliateProgramPage() {
                     placeholder="BOFAUS3N"
                   />
                 </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor="branchAddress">Bank Branch Name & Address</Label>
+                    <span className="text-xs text-gray-500">(if applicable)</span>
+                  </div>
+                  <Textarea
+                    id="branchAddress"
+                    name="branchAddress"
+                    value={payoutFormData.branchAddress}
+                    onChange={handlePayoutFormChange}
+                    placeholder="123 Main St, New York, NY 10001"
+                    rows={2}
+                  />
+                </div>
               </>
-            ) : (
-              <div className="grid gap-2">
-                <Label htmlFor="accountName">PayPal Email</Label>
-                <Input
-                  id="accountName"
-                  name="accountName"
-                  value={payoutFormData.accountName}
-                  onChange={handlePayoutFormChange}
-                  placeholder="your-email@example.com"
-                  type="email"
-                  required
-                />
-              </div>
+            )}
+
+            {/* PayPal Fields */}
+            {payoutFormData.method === "paypal" && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="paypalEmail">
+                    PayPal Email Address <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="paypalEmail"
+                    name="paypalEmail"
+                    value={payoutFormData.paypalEmail}
+                    onChange={handlePayoutFormChange}
+                    placeholder="your-email@example.com"
+                    type="email"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="fullName">
+                    Full Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="fullName"
+                    name="fullName"
+                    value={payoutFormData.fullName}
+                    onChange={handlePayoutFormChange}
+                    placeholder="John Doe"
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Mobile Payment Fields (Easypaisa, JazzCash, NayaPay) */}
+            {["easypaisa", "jazzcash", "nayapay"].includes(payoutFormData.method) && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="mobileNumber">
+                    Registered Mobile Number <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="mobileNumber"
+                    name="mobileNumber"
+                    value={payoutFormData.mobileNumber}
+                    onChange={handlePayoutFormChange}
+                    placeholder="03XX-XXXXXXX"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="fullName">
+                    Full Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="fullName"
+                    name="fullName"
+                    value={payoutFormData.fullName}
+                    onChange={handlePayoutFormChange}
+                    placeholder="John Doe"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor="cnic">CNIC</Label>
+                    <span className="text-xs text-gray-500">(for transactions over $30)</span>
+                  </div>
+                  <Input
+                    id="cnic"
+                    name="cnic"
+                    value={payoutFormData.cnic}
+                    onChange={handlePayoutFormChange}
+                    placeholder="XXXXX-XXXXXXX-X"
+                  />
+                </div>
+              </>
             )}
 
             <div className="grid gap-2">
-              <Label htmlFor="additionalInfo">Additional Information (Optional)</Label>
+              <Label htmlFor="additionalInfo">Additional Information</Label>
               <Textarea
                 id="additionalInfo"
                 name="additionalInfo"
@@ -1088,7 +1312,7 @@ export default function AffiliateProgramPage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setPayoutDialogOpen(false)}>
               Cancel
             </Button>
