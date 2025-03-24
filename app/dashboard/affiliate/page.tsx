@@ -112,6 +112,25 @@ export default function AffiliateProgramPage() {
   })
   const [payoutSubmitting, setPayoutSubmitting] = useState(false)
 
+  // First, add new state variables for the field review feature
+  // Add these after the existing state declarations, around line 80
+
+  const [reviewingField, setReviewingField] = useState<string | null>(null)
+  const [reviewComplete, setReviewComplete] = useState(false)
+  const reviewFields = [
+    { id: "fullName", label: "Full Name" },
+    { id: "method", label: "Payment Method" },
+    // Bank fields
+    { id: "bankName", label: "Bank Name", condition: () => payoutFormData.method === "bank" },
+    { id: "accountNumber", label: "Account Number", condition: () => payoutFormData.method === "bank" },
+    { id: "iban", label: "IBAN", condition: () => payoutFormData.method === "bank" },
+    // PayPal fields
+    { id: "email", label: "PayPal Email", condition: () => payoutFormData.method === "paypal" },
+    // Mobile payment fields
+    { id: "serviceProvider", label: "Service Provider", condition: () => payoutFormData.method === "mobile" },
+    { id: "mobileNumber", label: "Mobile Number", condition: () => payoutFormData.method === "mobile" },
+  ]
+
   const fetchEarningsChartData = async (period: string) => {
     try {
       setEarningsLoading(true)
@@ -195,6 +214,44 @@ export default function AffiliateProgramPage() {
       setDismissedRejections(JSON.parse(savedDismissals))
     }
   }, [])
+
+  // Add a useEffect to handle the field review process when the dialog opens
+  // Add this after the other useEffect hooks
+
+  useEffect(() => {
+    if (payoutDialogOpen && !reviewComplete) {
+      let currentIndex = 0
+
+      const reviewNextField = () => {
+        // Find the next applicable field based on payment method
+        while (
+          currentIndex < reviewFields.length &&
+          reviewFields[currentIndex].condition !== undefined &&
+          !reviewFields[currentIndex].condition?.()
+        ) {
+          currentIndex++
+        }
+
+        if (currentIndex < reviewFields.length) {
+          setReviewingField(reviewFields[currentIndex].id)
+          currentIndex++
+          setTimeout(reviewNextField, 5000) // Move to next field after 5 seconds
+        } else {
+          setReviewingField(null)
+          setReviewComplete(true)
+        }
+      }
+
+      // Start the review process
+      reviewNextField()
+
+      return () => {
+        // Reset when dialog closes
+        setReviewingField(null)
+        setReviewComplete(false)
+      }
+    }
+  }, [payoutDialogOpen, payoutFormData.method])
 
   const referralLink = affiliateData ? generateReferralLink(affiliateData.code) : ""
 
@@ -285,24 +342,50 @@ export default function AffiliateProgramPage() {
         return
       }
 
-      if (payoutFormData.method === "paypal" && !payoutFormData.email) {
-        toast({
-          title: "Missing information",
-          description: "Please enter your PayPal email address.",
-          variant: "destructive",
-        })
-        setPayoutSubmitting(false)
-        return
+      if (payoutFormData.method === "paypal") {
+        if (!payoutFormData.email) {
+          toast({
+            title: "Missing information",
+            description: "Please enter your PayPal email address.",
+            variant: "destructive",
+          })
+          setPayoutSubmitting(false)
+          return
+        }
+
+        // Add email format validation
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+        if (!emailRegex.test(payoutFormData.email)) {
+          toast({
+            title: "Invalid email",
+            description: "Please enter a valid email address.",
+            variant: "destructive",
+          })
+          setPayoutSubmitting(false)
+          return
+        }
       }
 
-      if (payoutFormData.method === "mobile" && (!payoutFormData.mobileNumber || !payoutFormData.serviceProvider)) {
-        toast({
-          title: "Missing information",
-          description: "Please fill in all required mobile payment details.",
-          variant: "destructive",
-        })
-        setPayoutSubmitting(false)
-        return
+      if (payoutFormData.method === "mobile") {
+        if (!payoutFormData.mobileNumber || !payoutFormData.serviceProvider) {
+          toast({
+            title: "Missing information",
+            description: "Please fill in all required mobile payment details.",
+            variant: "destructive",
+          })
+          setPayoutSubmitting(false)
+          return
+        }
+
+        if (payoutFormData.mobileNumber.length !== 11) {
+          toast({
+            title: "Invalid mobile number",
+            description: "Mobile number must be exactly 11 digits.",
+            variant: "destructive",
+          })
+          setPayoutSubmitting(false)
+          return
+        }
       }
 
       const payoutAmount = stats?.pendingEarnings || 0
@@ -1181,6 +1264,17 @@ export default function AffiliateProgramPage() {
               required.
             </DialogDescription>
           </DialogHeader>
+
+          {!reviewComplete && (
+            <Alert className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Please review your information carefully</AlertTitle>
+              <AlertDescription>
+                Each field will be highlighted for 5 seconds. Please verify all your account details before submitting.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <div className="flex justify-between items-center">
@@ -1190,15 +1284,25 @@ export default function AffiliateProgramPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="method">
+              <Label
+                htmlFor="method"
+                className={reviewingField === "method" ? "text-primary font-bold animate-pulse" : ""}
+              >
                 Payment Method <span className="text-red-500">*</span>
+                {reviewingField === "method" && (
+                  <span className="ml-2 text-sm text-primary">← Please verify this information</span>
+                )}
               </Label>
               <Select
                 name="method"
                 value={payoutFormData.method}
-                onValueChange={(value) => setPayoutFormData((prev) => ({ ...prev, method: value }))}
+                onValueChange={(value) => {
+                  setPayoutFormData((prev) => ({ ...prev, method: value }))
+                  // Reset review process when payment method changes
+                  setReviewComplete(false)
+                }}
               >
-                <SelectTrigger>
+                <SelectTrigger className={reviewingField === "method" ? "border-primary border-2" : ""}>
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1210,8 +1314,14 @@ export default function AffiliateProgramPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="fullName">
+              <Label
+                htmlFor="fullName"
+                className={reviewingField === "fullName" ? "text-primary font-bold animate-pulse" : ""}
+              >
                 Full Name <span className="text-red-500">*</span>
+                {reviewingField === "fullName" && (
+                  <span className="ml-2 text-sm text-primary">← Please verify this information</span>
+                )}
               </Label>
               <Input
                 id="fullName"
@@ -1220,14 +1330,21 @@ export default function AffiliateProgramPage() {
                 onChange={handlePayoutFormChange}
                 placeholder="John Doe"
                 required
+                className={reviewingField === "fullName" ? "border-primary border-2" : ""}
               />
             </div>
 
             {payoutFormData.method === "bank" && (
               <>
                 <div className="grid gap-2">
-                  <Label htmlFor="bankName">
+                  <Label
+                    htmlFor="bankName"
+                    className={reviewingField === "bankName" ? "text-primary font-bold animate-pulse" : ""}
+                  >
                     Bank Name <span className="text-red-500">*</span>
+                    {reviewingField === "bankName" && (
+                      <span className="ml-2 text-sm text-primary">← Please verify this information</span>
+                    )}
                   </Label>
                   <Input
                     id="bankName"
@@ -1236,11 +1353,18 @@ export default function AffiliateProgramPage() {
                     onChange={handlePayoutFormChange}
                     placeholder="Bank of America"
                     required
+                    className={reviewingField === "bankName" ? "border-primary border-2" : ""}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="accountNumber">
+                  <Label
+                    htmlFor="accountNumber"
+                    className={reviewingField === "accountNumber" ? "text-primary font-bold animate-pulse" : ""}
+                  >
                     Bank Account Number <span className="text-red-500">*</span>
+                    {reviewingField === "accountNumber" && (
+                      <span className="ml-2 text-sm text-primary">← Please verify this information</span>
+                    )}
                   </Label>
                   <Input
                     id="accountNumber"
@@ -1249,16 +1373,26 @@ export default function AffiliateProgramPage() {
                     onChange={handlePayoutFormChange}
                     placeholder="123456789"
                     required
+                    className={reviewingField === "accountNumber" ? "border-primary border-2" : ""}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="iban">IBAN (if applicable)</Label>
+                  <Label
+                    htmlFor="iban"
+                    className={reviewingField === "iban" ? "text-primary font-bold animate-pulse" : ""}
+                  >
+                    IBAN (if applicable)
+                    {reviewingField === "iban" && (
+                      <span className="ml-2 text-sm text-primary">← Please verify this information</span>
+                    )}
+                  </Label>
                   <Input
                     id="iban"
                     name="iban"
                     value={payoutFormData.iban}
                     onChange={handlePayoutFormChange}
                     placeholder="GB29NWBK60161331926819"
+                    className={reviewingField === "iban" ? "border-primary border-2" : ""}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -1287,8 +1421,14 @@ export default function AffiliateProgramPage() {
 
             {payoutFormData.method === "paypal" && (
               <div className="grid gap-2">
-                <Label htmlFor="email">
+                <Label
+                  htmlFor="email"
+                  className={reviewingField === "email" ? "text-primary font-bold animate-pulse" : ""}
+                >
                   PayPal Email Address <span className="text-red-500">*</span>
+                  {reviewingField === "email" && (
+                    <span className="ml-2 text-sm text-primary">← Please verify this information</span>
+                  )}
                 </Label>
                 <Input
                   id="email"
@@ -1297,23 +1437,35 @@ export default function AffiliateProgramPage() {
                   onChange={handlePayoutFormChange}
                   placeholder="your-email@example.com"
                   type="email"
+                  pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
                   required
+                  className={reviewingField === "email" ? "border-primary border-2" : ""}
                 />
+                {payoutFormData.email &&
+                  !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(payoutFormData.email) && (
+                    <p className="text-sm text-red-500">Please enter a valid email address</p>
+                  )}
               </div>
             )}
 
             {payoutFormData.method === "mobile" && (
               <>
                 <div className="grid gap-2">
-                  <Label htmlFor="serviceProvider">
+                  <Label
+                    htmlFor="serviceProvider"
+                    className={reviewingField === "serviceProvider" ? "text-primary font-bold animate-pulse" : ""}
+                  >
                     Service Provider <span className="text-red-500">*</span>
+                    {reviewingField === "serviceProvider" && (
+                      <span className="ml-2 text-sm text-primary">← Please verify this information</span>
+                    )}
                   </Label>
                   <Select
                     name="serviceProvider"
                     value={payoutFormData.serviceProvider}
                     onValueChange={(value) => setPayoutFormData((prev) => ({ ...prev, serviceProvider: value }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={reviewingField === "serviceProvider" ? "border-primary border-2" : ""}>
                       <SelectValue placeholder="Select service provider" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1324,17 +1476,35 @@ export default function AffiliateProgramPage() {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="mobileNumber">
+                  <Label
+                    htmlFor="mobileNumber"
+                    className={reviewingField === "mobileNumber" ? "text-primary font-bold animate-pulse" : ""}
+                  >
                     Registered Mobile Number <span className="text-red-500">*</span>
+                    {reviewingField === "mobileNumber" && (
+                      <span className="ml-2 text-sm text-primary">← Please verify this information</span>
+                    )}
                   </Label>
                   <Input
                     id="mobileNumber"
                     name="mobileNumber"
                     value={payoutFormData.mobileNumber}
-                    onChange={handlePayoutFormChange}
-                    placeholder="03XX-XXXXXXX"
+                    onChange={(e) => {
+                      // Only allow numbers
+                      const value = e.target.value.replace(/\D/g, "")
+                      if (value.length <= 11) {
+                        setPayoutFormData((prev) => ({ ...prev, mobileNumber: value }))
+                      }
+                    }}
+                    placeholder="03XXXXXXXXX"
                     required
+                    maxLength={11}
+                    pattern="[0-9]{11}"
+                    className={reviewingField === "mobileNumber" ? "border-primary border-2" : ""}
                   />
+                  {payoutFormData.mobileNumber && payoutFormData.mobileNumber.length !== 11 && (
+                    <p className="text-sm text-red-500">Mobile number must be exactly 11 digits</p>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="cnic">CNIC (required for transactions over $30)</Label>
