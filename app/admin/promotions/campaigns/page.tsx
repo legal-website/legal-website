@@ -43,6 +43,8 @@ import {
   Legend,
   ResponsiveContainer,
   Tooltip,
+  Area,
+  AreaChart,
 } from "recharts"
 
 export default function AdminAffiliatePage() {
@@ -70,14 +72,6 @@ export default function AdminAffiliatePage() {
   // State for Overview Tab
   const [showMoreCount, setShowMoreCount] = useState(10)
   const [chartsLoading, setChartsLoading] = useState(true)
-
-  const [chartData, setChartData] = useState<{
-    earnings: any[]
-    clicks: any[]
-  }>({
-    earnings: [],
-    clicks: [],
-  })
 
   useEffect(() => {
     if (activeTab === "overview") {
@@ -132,20 +126,6 @@ export default function AdminAffiliatePage() {
 
       const data = await res.json()
       setDashboardData(data)
-
-      // Also fetch specific chart data for more detailed visualizations
-      const earningsRes = await fetch("/api/affiliate/chart-data?type=earnings&period=6months")
-      const clicksRes = await fetch("/api/affiliate/chart-data?type=clicks&period=6months")
-
-      if (earningsRes.ok && clicksRes.ok) {
-        const earningsData = await earningsRes.json()
-        const clicksData = await clicksRes.json()
-
-        setChartData({
-          earnings: earningsData.data || [],
-          clicks: clicksData.data || [],
-        })
-      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error)
       toast({
@@ -516,7 +496,7 @@ export default function AdminAffiliatePage() {
                 <DollarSign className="h-5 w-5 text-amber-600" />
                 <h3 className="font-medium">Total Commission</h3>
               </div>
-              <p className="text-2xl font-bold mt-2">{formatCurrency(stats?.totalCommission || 0)}</p>
+              <p className="text-2xl font-bold mt-2">{formatCurrency(dashboardData?.stats?.totalCommission || 0)}</p>
             </CardContent>
           </Card>
         </div>
@@ -605,7 +585,7 @@ export default function AdminAffiliatePage() {
                 <Skeleton className="h-full w-full" />
               </div>
             ) : (
-              <CommissionChart data={chartData.earnings} />
+              <CommissionChart data={dashboardData?.monthlyStats || []} />
             )}
           </CardContent>
         </Card>
@@ -623,7 +603,7 @@ export default function AdminAffiliatePage() {
                   <Skeleton className="h-full w-full" />
                 </div>
               ) : (
-                <ClicksChart data={chartData.clicks} />
+                <ClicksChart data={dashboardData?.monthlyStats || []} />
               )}
             </CardContent>
           </Card>
@@ -639,7 +619,7 @@ export default function AdminAffiliatePage() {
                   <Skeleton className="h-full w-full" />
                 </div>
               ) : (
-                <AffiliatesChart data={dashboardData?.affiliateLinks || []} dashboardData={dashboardData} />
+                <AffiliatesChart data={dashboardData?.monthlyStats || []} />
               )}
             </CardContent>
           </Card>
@@ -1548,76 +1528,67 @@ export default function AdminAffiliatePage() {
 
 // Chart Components
 const CommissionChart = ({ data }: { data: any[] }) => {
-  // Use the affiliate dashboard data
-  const chartData =
-    data.length > 0
-      ? data.map((item) => ({
-          month: item.date ? new Date(item.date).toLocaleString("default", { month: "short" }) : "Unknown",
-          totalCommission: item.amount || 0,
-          avgCommission: item.amount ? item.amount / 2 : 0, // Simplified average calculation
-        }))
-      : [
-          { month: "Jan", totalCommission: 0, avgCommission: 0 },
-          { month: "Feb", totalCommission: 0, avgCommission: 0 },
-          { month: "Mar", totalCommission: 0, avgCommission: 0 },
-        ]
-
   return (
     <div className="h-full w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+        <AreaChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+          <defs>
+            <linearGradient id="colorCommission" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.8} />
+              <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.1} />
+            </linearGradient>
+            <linearGradient id="colorAvgCommission" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+              <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
+            </linearGradient>
+          </defs>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="month" />
           <YAxis />
           <Tooltip
-            formatter={(value: number) => [`$${value.toFixed(2)}`, undefined]}
+            formatter={(value: number, name: string) => {
+              return [`$${value.toFixed(2)}`, name === "commission" ? "Total Commission" : "Avg Commission"]
+            }}
             contentStyle={{ backgroundColor: "white", borderRadius: "8px", border: "1px solid #e2e8f0" }}
           />
           <Legend />
-          <Line
+          <Area
             type="monotone"
-            dataKey="totalCommission"
-            stroke="#4f46e5"
+            dataKey="commission"
             name="Total Commission"
-            strokeWidth={2}
-            dot={{ r: 4 }}
-            activeDot={{ r: 6 }}
+            stroke="#4f46e5"
+            fillOpacity={1}
+            fill="url(#colorCommission)"
             animationDuration={1500}
+            animationEasing="ease-in-out"
           />
-          <Line
+          <Area
             type="monotone"
             dataKey="avgCommission"
-            stroke="#10b981"
             name="Avg Commission"
-            strokeWidth={2}
-            dot={{ r: 4 }}
-            activeDot={{ r: 6 }}
+            stroke="#10b981"
+            fillOpacity={1}
+            fill="url(#colorAvgCommission)"
             animationDuration={1500}
+            animationEasing="ease-in-out"
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   )
 }
 
 const ClicksChart = ({ data }: { data: any[] }) => {
-  // Use the clicks data from the API
-  const chartData =
-    data.length > 0
-      ? data.map((item) => ({
-          month: item.date ? new Date(item.date).toLocaleString("default", { month: "short" }) : "Unknown",
-          clicks: item.clicks || 0,
-        }))
-      : [
-          { month: "Jan", clicks: 0 },
-          { month: "Feb", clicks: 0 },
-          { month: "Mar", clicks: 0 },
-        ]
-
   return (
     <div className="h-full w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+          <defs>
+            <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
+              <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1} />
+            </linearGradient>
+          </defs>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="month" />
           <YAxis />
@@ -1626,46 +1597,49 @@ const ClicksChart = ({ data }: { data: any[] }) => {
             contentStyle={{ backgroundColor: "white", borderRadius: "8px", border: "1px solid #e2e8f0" }}
           />
           <Legend />
-          <Bar dataKey="clicks" fill="#8b5cf6" name="Clicks" radius={[4, 4, 0, 0]} animationDuration={1500} />
+          <Bar
+            dataKey="clicks"
+            fill="url(#colorClicks)"
+            name="Clicks"
+            radius={[4, 4, 0, 0]}
+            animationDuration={1500}
+            animationEasing="ease-in-out"
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
   )
 }
 
-const AffiliatesChart = ({ data, dashboardData }: { data: any[]; dashboardData: any }) => {
-  // Use the affiliates data from the dashboard
-  const affiliatesData = dashboardData?.affiliateLinks || []
+const AffiliatesChart = ({ data }: { data: any[] }) => {
+  // Calculate cumulative affiliates
+  const chartData = data.map((item, index, array) => {
+    const previousAffiliates = index > 0 ? array.slice(0, index).reduce((sum, prev) => sum + prev.newAffiliates, 0) : 0
 
-  // Group affiliates by month they joined
-  const affiliatesByMonth = affiliatesData.reduce((acc: Record<string, number>, affiliate: any) => {
-    const month = new Date(affiliate.createdAt).toLocaleString("default", { month: "short" })
-    acc[month] = (acc[month] || 0) + 1
-    return acc
-  }, {})
-
-  // Convert to array format for the chart
-  const chartData =
-    Object.keys(affiliatesByMonth).length > 0
-      ? Object.entries(affiliatesByMonth).map(([month, count]) => ({
-          month,
-          affiliates: count,
-        }))
-      : [
-          { month: "Jan", affiliates: 0 },
-          { month: "Feb", affiliates: 0 },
-          { month: "Mar", affiliates: 0 },
-        ]
+    return {
+      month: item.month,
+      affiliates: previousAffiliates + item.newAffiliates,
+      newAffiliates: item.newAffiliates,
+    }
+  })
 
   return (
     <div className="h-full w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+          <defs>
+            <linearGradient id="colorAffiliates" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
+              <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.1} />
+            </linearGradient>
+          </defs>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="month" />
           <YAxis />
           <Tooltip
-            formatter={(value: number) => [value.toString(), "Affiliates"]}
+            formatter={(value: number, name: string) => {
+              return [value.toString(), name === "affiliates" ? "Total Affiliates" : "New Affiliates"]
+            }}
             contentStyle={{ backgroundColor: "white", borderRadius: "8px", border: "1px solid #e2e8f0" }}
           />
           <Legend />
@@ -1675,9 +1649,21 @@ const AffiliatesChart = ({ data, dashboardData }: { data: any[]; dashboardData: 
             stroke="#f59e0b"
             name="Total Affiliates"
             strokeWidth={2}
-            dot={{ r: 4 }}
-            activeDot={{ r: 6 }}
+            dot={{ r: 4, fill: "#f59e0b" }}
+            activeDot={{ r: 6, fill: "#f59e0b", stroke: "#fff" }}
             animationDuration={1500}
+            animationEasing="ease-in-out"
+          />
+          <Line
+            type="monotone"
+            dataKey="newAffiliates"
+            stroke="#60a5fa"
+            name="New Affiliates"
+            strokeWidth={2}
+            dot={{ r: 4, fill: "#60a5fa" }}
+            activeDot={{ r: 6, fill: "#60a5fa", stroke: "#fff" }}
+            animationDuration={1500}
+            animationEasing="ease-in-out"
           />
         </LineChart>
       </ResponsiveContainer>
