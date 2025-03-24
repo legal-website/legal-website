@@ -586,8 +586,6 @@ export default function AdminAffiliatePage() {
 
     return (
       <>
-        <div className="flex justify-between items-center mb-6">{renderRefreshButton()}</div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
           <Card>
             <CardContent className="pt-6">
@@ -1671,40 +1669,38 @@ export default function AdminAffiliatePage() {
 
       {renderLoadingOverlay()}
 
-      <div className="flex items-center justify-between mb-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4 sm:mb-0">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
-            <TabsTrigger value="conversions">Conversions</TabsTrigger>
-            <TabsTrigger value="payouts">Payouts</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <div className="flex items-center gap-2">
-          <p className="text-xs text-muted-foreground">Last updated: {lastRefreshed.toLocaleTimeString()}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing || backgroundLoading}
-            className={isRefreshing ? "animate-spin" : ""}
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            <span className="sr-only">Refresh</span>
-          </Button>
+      <div className="mb-6">
+        <div className="flex items-center justify-between">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4 sm:mb-0">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
+              <TabsTrigger value="conversions">Conversions</TabsTrigger>
+              <TabsTrigger value="payouts">Payouts</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+            </TabsList>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">Last updated: {lastRefreshed.toLocaleTimeString()}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isRefreshing || backgroundLoading}
+                className={isRefreshing ? "animate-spin" : ""}
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                <span className="sr-only">Refresh</span>
+              </Button>
+            </div>
+          </Tabs>
         </div>
+
+        <TabsContent value="overview">{renderOverviewTab()}</TabsContent>
+        <TabsContent value="affiliates">{renderAffiliatesTab()}</TabsContent>
+        <TabsContent value="conversions">{renderConversionsTab()}</TabsContent>
+        <TabsContent value="payouts">{renderPayoutsTab()}</TabsContent>
+        <TabsContent value="settings">{renderSettingsTab()}</TabsContent>
       </div>
-
-      <TabsContent value="overview">{renderOverviewTab()}</TabsContent>
-
-      <TabsContent value="affiliates">{renderAffiliatesTab()}</TabsContent>
-
-      <TabsContent value="conversions">{renderConversionsTab()}</TabsContent>
-
-      <TabsContent value="payouts">{renderPayoutsTab()}</TabsContent>
-
-      <TabsContent value="settings">{renderSettingsTab()}</TabsContent>
     </div>
   )
 }
