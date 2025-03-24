@@ -1211,7 +1211,7 @@ export default function AdminAffiliatePage() {
                     )}
                   </div>
 
-                  {selectedPayout.notes && selectedPayout.status === "REJECTED" && (
+                  {selectedPayout.status === "REJECTED" && selectedPayout.notes && (
                     <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                       <Label className="text-xs text-amber-800">Admin Notes</Label>
                       <p className="text-sm text-amber-900">{selectedPayout.notes}</p>

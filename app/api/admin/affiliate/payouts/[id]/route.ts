@@ -41,8 +41,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const updateData: any = { status }
 
     // Only update notes if adminNotes is provided
-    if (adminNotes !== undefined) {
+    if (adminNotes !== undefined && adminNotes.trim() !== "") {
+      // Store admin notes directly, not as part of payment details
       updateData.notes = adminNotes
+    } else if (currentPayout.notes) {
+      // If we have existing notes and no new admin notes provided, keep the existing notes
+      // This ensures we don't lose payment details when updating status
+      updateData.notes = currentPayout.notes
     }
 
     // Update the payout

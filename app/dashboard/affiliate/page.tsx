@@ -909,10 +909,10 @@ export default function AffiliateProgramPage() {
                       Rejected
                     </Badge>
                   </div>
-                  {payout.adminNotes && (
+                  {payout.notes && (
                     <div className="mt-1 text-xs text-amber-800">
                       <p className="font-medium">Admin Notes:</p>
-                      <p>{payout.adminNotes}</p>
+                      <p>{payout.notes}</p>
                     </div>
                   )}
                 </div>
