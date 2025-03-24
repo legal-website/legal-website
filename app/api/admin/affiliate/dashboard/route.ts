@@ -12,21 +12,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get client filter if provided
-    const url = new URL(req.url)
-    const clientId = url.searchParams.get("clientId")
-
-    // Base where clause
-    const whereClause: any = {}
-
-    // Add client filter if provided
-    if (clientId) {
-      whereClause.userId = clientId
-    }
-
     // Get all affiliate links with the filter
     const affiliateLinks = await db.affiliateLink.findMany({
-      where: clientId ? { userId: clientId } : {},
+      where: {},
       include: {
         user: {
           select: {
@@ -46,13 +34,7 @@ export async function GET(req: NextRequest) {
 
     // Get all conversions with the filter
     const conversions = await db.affiliateConversion.findMany({
-      where: clientId
-        ? {
-            link: {
-              userId: clientId,
-            },
-          }
-        : {},
+      where: {},
       include: {
         link: {
           include: {
@@ -73,7 +55,7 @@ export async function GET(req: NextRequest) {
 
     // Get all payouts with the filter
     const payouts = await db.affiliatePayout.findMany({
-      where: clientId ? { userId: clientId } : {},
+      where: {},
       include: {
         user: {
           select: {
@@ -97,47 +79,22 @@ export async function GET(req: NextRequest) {
 
     // Calculate total stats with the filter
     const totalClicks = await db.affiliateClick.count({
-      where: clientId
-        ? {
-            link: {
-              userId: clientId,
-            },
-          }
-        : {},
+      where: {},
     })
 
     const totalConversions = await db.affiliateConversion.count({
-      where: clientId
-        ? {
-            link: {
-              userId: clientId,
-            },
-          }
-        : {},
+      where: {},
     })
 
     const totalPendingConversions = await db.affiliateConversion.count({
       where: {
         status: "PENDING",
-        ...(clientId
-          ? {
-              link: {
-                userId: clientId,
-              },
-            }
-          : {}),
       },
     })
 
     // Calculate total commission with the filter
     const allConversions = await db.affiliateConversion.findMany({
-      where: clientId
-        ? {
-            link: {
-              userId: clientId,
-            },
-          }
-        : {},
+      where: {},
       select: {
         commission: true,
         amount: true,
@@ -165,7 +122,6 @@ export async function GET(req: NextRequest) {
         createdAt: {
           gte: sixMonthsAgo,
         },
-        ...(clientId ? { userId: clientId } : {}),
       },
       select: {
         createdAt: true,
@@ -178,13 +134,6 @@ export async function GET(req: NextRequest) {
         createdAt: {
           gte: sixMonthsAgo,
         },
-        ...(clientId
-          ? {
-              link: {
-                userId: clientId,
-              },
-            }
-          : {}),
       },
       select: {
         createdAt: true,
@@ -197,13 +146,6 @@ export async function GET(req: NextRequest) {
         createdAt: {
           gte: sixMonthsAgo,
         },
-        ...(clientId
-          ? {
-              link: {
-                userId: clientId,
-              },
-            }
-          : {}),
       },
       select: {
         createdAt: true,
@@ -217,16 +159,13 @@ export async function GET(req: NextRequest) {
     const currentMonth = new Date().getMonth()
 
     // Initialize cumulative affiliates count
-    let cumulativeAffiliates = clientId
-      ? affiliateLinks.filter((link) => new Date(link.createdAt) < sixMonthsAgo).length
-      : await db.affiliateLink.count({
-          where: {
-            createdAt: {
-              lt: sixMonthsAgo,
-            },
-            ...(clientId ? { userId: clientId } : {}),
-          },
-        })
+    let cumulativeAffiliates = await db.affiliateLink.count({
+      where: {
+        createdAt: {
+          lt: sixMonthsAgo,
+        },
+      },
+    })
 
     for (let i = 0; i < 6; i++) {
       const monthIndex = (currentMonth - 5 + i + 12) % 12

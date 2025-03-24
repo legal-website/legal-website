@@ -18,7 +18,6 @@ import {
   Download,
   RefreshCw,
   ArrowUpDown,
-  Filter,
   X,
 } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -50,7 +49,6 @@ import {
   Area,
   AreaChart,
 } from "recharts"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 export default function AdminAffiliatePage() {
   const [activeTab, setActiveTab] = useState("overview")
@@ -81,8 +79,6 @@ export default function AdminAffiliatePage() {
 
   // New states for enhanced features
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null)
-  const [clientFilter, setClientFilter] = useState<string>("")
-  const [availableClients, setAvailableClients] = useState<any[]>([])
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
 
@@ -125,14 +121,7 @@ export default function AdminAffiliatePage() {
         setIsRefreshing(false)
       }
     },
-    [
-      activeTab,
-      pagination.affiliates.page,
-      pagination.conversions.page,
-      pagination.payouts.page,
-      statusFilter,
-      clientFilter,
-    ],
+    [activeTab, pagination.affiliates.page, pagination.conversions.page, pagination.payouts.page, statusFilter],
   )
 
   // Manual refresh function
@@ -159,31 +148,12 @@ export default function AdminAffiliatePage() {
     pagination.conversions.page,
     pagination.payouts.page,
     statusFilter,
-    clientFilter,
     fetchData,
   ])
 
-  // Fetch available clients for filtering
-  useEffect(() => {
-    const fetchClients = async () => {
-      try {
-        const res = await fetch("/api/admin/affiliate/clients")
-        if (res.ok) {
-          const data = await res.json()
-          setAvailableClients(data.clients)
-        }
-      } catch (error) {
-        console.error("Error fetching clients:", error)
-      }
-    }
-
-    fetchClients()
-  }, [])
-
   const fetchStats = async () => {
     try {
-      const clientParam = clientFilter ? `?clientId=${clientFilter}` : ""
-      const res = await fetch(`/api/admin/affiliate/stats${clientParam}`)
+      const res = await fetch(`/api/admin/affiliate/stats`)
       const data = await res.json()
 
       if (res.ok) {
@@ -204,8 +174,7 @@ export default function AdminAffiliatePage() {
   const fetchDashboardData = async () => {
     try {
       setChartsLoading(true)
-      const clientParam = clientFilter ? `?clientId=${clientFilter}` : ""
-      const res = await fetch(`/api/admin/affiliate/dashboard${clientParam}`)
+      const res = await fetch(`/api/admin/affiliate/dashboard`)
 
       if (!res.ok) {
         throw new Error(`API error: ${res.status}`)
@@ -229,10 +198,7 @@ export default function AdminAffiliatePage() {
   const fetchAffiliates = async () => {
     try {
       const sortParam = sortConfig ? `&sort=${sortConfig.key}&order=${sortConfig.direction}` : ""
-      const clientParam = clientFilter ? `&clientId=${clientFilter}` : ""
-      const res = await fetch(
-        `/api/admin/affiliate/affiliates?page=${pagination.affiliates.page}${sortParam}${clientParam}`,
-      )
+      const res = await fetch(`/api/admin/affiliate/affiliates?page=${pagination.affiliates.page}${sortParam}`)
       const data = await res.json()
 
       if (res.ok) {
@@ -258,9 +224,8 @@ export default function AdminAffiliatePage() {
     try {
       const statusParam = statusFilter ? `&status=${statusFilter}` : ""
       const sortParam = sortConfig ? `&sort=${sortConfig.key}&order=${sortConfig.direction}` : ""
-      const clientParam = clientFilter ? `&clientId=${clientFilter}` : ""
       const res = await fetch(
-        `/api/admin/affiliate/conversions?page=${pagination.conversions.page}${statusParam}${sortParam}${clientParam}`,
+        `/api/admin/affiliate/conversions?page=${pagination.conversions.page}${statusParam}${sortParam}`,
       )
       const data = await res.json()
 
@@ -287,10 +252,7 @@ export default function AdminAffiliatePage() {
     try {
       const statusParam = statusFilter ? `&status=${statusFilter}` : ""
       const sortParam = sortConfig ? `&sort=${sortConfig.key}&order=${sortConfig.direction}` : ""
-      const clientParam = clientFilter ? `&clientId=${clientFilter}` : ""
-      const res = await fetch(
-        `/api/admin/affiliate/payouts?page=${pagination.payouts.page}${statusParam}${sortParam}${clientParam}`,
-      )
+      const res = await fetch(`/api/admin/affiliate/payouts?page=${pagination.payouts.page}${statusParam}${sortParam}`)
       const data = await res.json()
 
       if (res.ok) {
@@ -356,7 +318,6 @@ export default function AdminAffiliatePage() {
   // Clear all filters
   const clearFilters = () => {
     setStatusFilter("")
-    setClientFilter("")
     setSortConfig(null)
     setSearchTerm("")
 
@@ -565,82 +526,6 @@ export default function AdminAffiliatePage() {
     )
   }
 
-  // Render the client filter
-  const renderClientFilter = () => {
-    return (
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className={clientFilter ? "bg-primary/10" : ""}>
-            <Filter className="h-4 w-4 mr-2" />
-            {clientFilter ? "Filtered by client" : "Filter by client"}
-            {clientFilter && (
-              <X
-                className="h-4 w-4 ml-2"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setClientFilter("")
-                }}
-              />
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-80 p-0" align="start">
-          <div className="p-4 border-b">
-            <h4 className="font-medium">Filter by client</h4>
-            <p className="text-sm text-muted-foreground">Select a client to view their data</p>
-          </div>
-          <div className="p-4 space-y-4">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search clients..."
-                className="pl-8"
-                onChange={(e) => setSearchTerm(e.target.value)}
-                value={searchTerm}
-              />
-            </div>
-            <div className="max-h-60 overflow-y-auto space-y-1">
-              {availableClients
-                .filter(
-                  (client) =>
-                    !searchTerm ||
-                    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    client.email.toLowerCase().includes(searchTerm.toLowerCase()),
-                )
-                .map((client) => (
-                  <Button
-                    key={client.id}
-                    variant="ghost"
-                    className="w-full justify-start font-normal"
-                    onClick={() => {
-                      setClientFilter(client.id)
-                      setSearchTerm("")
-                    }}
-                  >
-                    <div className="flex flex-col items-start">
-                      <span>{client.name}</span>
-                      <span className="text-xs text-muted-foreground">{client.email}</span>
-                    </div>
-                  </Button>
-                ))}
-              {availableClients.length === 0 && (
-                <p className="text-sm text-center text-muted-foreground py-2">No clients found</p>
-              )}
-            </div>
-            <div className="flex justify-between">
-              <Button variant="outline" size="sm" onClick={() => setClientFilter("")}>
-                Clear filter
-              </Button>
-              <Button size="sm" onClick={() => document.body.click()}>
-                Apply
-              </Button>
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-    )
-  }
-
   // Render the refresh button with last refreshed time
   const renderRefreshButton = () => {
     return (
@@ -701,10 +586,7 @@ export default function AdminAffiliatePage() {
 
     return (
       <>
-        <div className="flex justify-between items-center mb-6">
-          {renderClientFilter()}
-          {renderRefreshButton()}
-        </div>
+        <div className="flex justify-between items-center mb-6">{renderRefreshButton()}</div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
           <Card>
@@ -980,8 +862,7 @@ export default function AdminAffiliatePage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            {renderClientFilter()}
-            {(sortConfig || statusFilter || clientFilter || searchTerm) && (
+            {(sortConfig || statusFilter || searchTerm) && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-auto">
                 <X className="h-4 w-4 mr-2" />
                 Clear filters
@@ -1130,8 +1011,7 @@ export default function AdminAffiliatePage() {
                 <SelectItem value="PAID">Paid</SelectItem>
               </SelectContent>
             </Select>
-            {renderClientFilter()}
-            {(sortConfig || statusFilter || clientFilter || searchTerm) && (
+            {(sortConfig || statusFilter || searchTerm) && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-auto">
                 <X className="h-4 w-4 mr-2" />
                 Clear filters
@@ -1365,8 +1245,7 @@ export default function AdminAffiliatePage() {
                 <SelectItem value="REJECTED">Rejected</SelectItem>
               </SelectContent>
             </Select>
-            {renderClientFilter()}
-            {(sortConfig || statusFilter || clientFilter || searchTerm) && (
+            {(sortConfig || statusFilter || searchTerm) && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-auto">
                 <X className="h-4 w-4 mr-2" />
                 Clear filters
