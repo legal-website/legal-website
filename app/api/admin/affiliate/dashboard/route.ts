@@ -89,51 +89,49 @@ export async function GET(req: NextRequest) {
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 
-    // Get monthly clicks
-    const monthlyClicks = await db.affiliateClick.groupBy({
-      by: ["createdAt"],
-      _count: {
-        id: true,
-      },
+    // Get clicks for the last 6 months
+    const recentClicks = await db.affiliateClick.findMany({
       where: {
         createdAt: {
           gte: sixMonthsAgo,
         },
+      },
+      select: {
+        id: true,
+        createdAt: true,
       },
       orderBy: {
         createdAt: "asc",
       },
     })
 
-    // Get monthly conversions
-    const monthlyConversions = await db.affiliateConversion.groupBy({
-      by: ["createdAt"],
-      _sum: {
+    // Get conversions for the last 6 months
+    const recentConversions = await db.affiliateConversion.findMany({
+      where: {
+        createdAt: {
+          gte: sixMonthsAgo,
+        },
+      },
+      select: {
+        id: true,
+        createdAt: true,
         commission: true,
       },
-      _count: {
-        id: true,
-      },
-      where: {
-        createdAt: {
-          gte: sixMonthsAgo,
-        },
-      },
       orderBy: {
         createdAt: "asc",
       },
     })
 
-    // Get monthly new affiliates
-    const monthlyNewAffiliates = await db.affiliateLink.groupBy({
-      by: ["createdAt"],
-      _count: {
-        id: true,
-      },
+    // Get new affiliates for the last 6 months
+    const recentAffiliates = await db.affiliateLink.findMany({
       where: {
         createdAt: {
           gte: sixMonthsAgo,
         },
+      },
+      select: {
+        id: true,
+        createdAt: true,
       },
       orderBy: {
         createdAt: "asc",
@@ -141,7 +139,13 @@ export async function GET(req: NextRequest) {
     })
 
     // Format monthly data for charts
-    const monthlyStats = []
+    const monthlyStats: Array<{
+      month: string
+      clicks: number
+      conversions: number
+      commission: number
+      newAffiliates: number
+    }> = []
 
     // Process the last 6 months
     for (let i = 0; i < 6; i++) {
@@ -150,32 +154,31 @@ export async function GET(req: NextRequest) {
       const month = date.toLocaleString("default", { month: "short" })
 
       // Find clicks for this month
-      const clicksForMonth = monthlyClicks.filter((click) => {
+      const clicksForMonth = recentClicks.filter((click) => {
         const clickDate = new Date(click.createdAt)
         return clickDate.getMonth() === date.getMonth() && clickDate.getFullYear() === date.getFullYear()
       })
 
-      const totalClicksForMonth = clicksForMonth.reduce((sum, click) => sum + click._count.id, 0)
+      const totalClicksForMonth = clicksForMonth.length
 
       // Find conversions for this month
-      const conversionsForMonth = monthlyConversions.filter((conversion) => {
+      const conversionsForMonth = recentConversions.filter((conversion) => {
         const conversionDate = new Date(conversion.createdAt)
         return conversionDate.getMonth() === date.getMonth() && conversionDate.getFullYear() === date.getFullYear()
       })
 
-      const totalConversionsForMonth = conversionsForMonth.reduce((sum, conversion) => sum + conversion._count.id, 0)
-      const totalCommissionForMonth = conversionsForMonth.reduce(
-        (sum, conversion) => sum + Number(conversion._sum.commission || 0),
-        0,
-      )
+      const totalConversionsForMonth = conversionsForMonth.length
+      const totalCommissionForMonth = conversionsForMonth.reduce((sum, conversion) => {
+        return sum + Number(conversion.commission || 0)
+      }, 0)
 
       // Find new affiliates for this month
-      const newAffiliatesForMonth = monthlyNewAffiliates.filter((affiliate) => {
+      const newAffiliatesForMonth = recentAffiliates.filter((affiliate) => {
         const affiliateDate = new Date(affiliate.createdAt)
         return affiliateDate.getMonth() === date.getMonth() && affiliateDate.getFullYear() === date.getFullYear()
       })
 
-      const totalNewAffiliatesForMonth = newAffiliatesForMonth.reduce((sum, affiliate) => sum + affiliate._count.id, 0)
+      const totalNewAffiliatesForMonth = newAffiliatesForMonth.length
 
       monthlyStats.push({
         month,
