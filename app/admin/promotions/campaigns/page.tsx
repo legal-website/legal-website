@@ -117,25 +117,40 @@ export default function AdminAffiliatePage() {
     try {
       setChartsLoading(true)
       const res = await fetch("/api/admin/affiliate/dashboard")
+
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`)
+      }
+
       const data = await res.json()
 
-      if (res.ok) {
-        setDashboardData(data)
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to fetch dashboard data",
-          variant: "destructive",
+      // Validate the data structure
+      if (!data || !Array.isArray(data.monthlyStats)) {
+        console.warn("Invalid dashboard data format:", data)
+        // Set default empty data structure
+        setDashboardData({
+          monthlyStats: [],
         })
+      } else {
+        setDashboardData(data)
       }
-      setChartsLoading(false)
     } catch (error) {
       console.error("Error fetching dashboard data:", error)
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: "Failed to load chart data. Using sample data instead.",
         variant: "destructive",
       })
+
+      // Set fallback data for charts
+      setDashboardData({
+        monthlyStats: [
+          { month: "Jan", commission: 1200, clicks: 450, newAffiliates: 5, conversions: 20 },
+          { month: "Feb", commission: 1800, clicks: 520, newAffiliates: 8, conversions: 35 },
+          { month: "Mar", commission: 2200, clicks: 650, newAffiliates: 12, conversions: 42 },
+        ],
+      })
+    } finally {
       setChartsLoading(false)
     }
   }
@@ -1530,12 +1545,34 @@ export default function AdminAffiliatePage() {
 
 // Chart Components
 const CommissionChart = ({ data }: { data: any[] }) => {
-  // Process data for the chart
-  const chartData = data.map((stat) => ({
-    month: stat.month,
-    totalCommission: Number(stat.commission || 0),
-    avgCommission: Number(stat.commission || 0) / (stat.conversions || 1),
-  }))
+  // Add fallback data for error cases
+  const fallbackData = [
+    { month: "Jan", totalCommission: 0, avgCommission: 0 },
+    { month: "Feb", totalCommission: 0, avgCommission: 0 },
+    { month: "Mar", totalCommission: 0, avgCommission: 0 },
+  ]
+
+  // Process data for the chart with error handling
+  const chartData =
+    Array.isArray(data) && data.length > 0
+      ? data.map((stat) => ({
+          month: stat.month || "Unknown",
+          totalCommission:
+            typeof stat.commission === "number"
+              ? stat.commission
+              : typeof stat.commission === "string"
+                ? Number(stat.commission)
+                : 0,
+          avgCommission:
+            stat.conversions && stat.conversions > 0
+              ? (typeof stat.commission === "number"
+                  ? stat.commission
+                  : typeof stat.commission === "string"
+                    ? Number(stat.commission)
+                    : 0) / stat.conversions
+              : 0,
+        }))
+      : fallbackData
 
   return (
     <div className="h-full w-full">
@@ -1576,11 +1613,22 @@ const CommissionChart = ({ data }: { data: any[] }) => {
 }
 
 const ClicksChart = ({ data }: { data: any[] }) => {
-  // Process data for the chart
-  const chartData = data.map((stat) => ({
-    month: stat.month,
-    clicks: stat.clicks || 0,
-  }))
+  // Add fallback data for error cases
+  const fallbackData = [
+    { month: "Jan", clicks: 0 },
+    { month: "Feb", clicks: 0 },
+    { month: "Mar", clicks: 0 },
+  ]
+
+  // Process data for the chart with error handling
+  const chartData =
+    Array.isArray(data) && data.length > 0
+      ? data.map((stat) => ({
+          month: stat.month || "Unknown",
+          clicks:
+            typeof stat.clicks === "number" ? stat.clicks : typeof stat.clicks === "string" ? Number(stat.clicks) : 0,
+        }))
+      : fallbackData
 
   return (
     <div className="h-full w-full">
@@ -1602,15 +1650,31 @@ const ClicksChart = ({ data }: { data: any[] }) => {
 }
 
 const AffiliatesChart = ({ data }: { data: any[] }) => {
-  // Process data for the chart - accumulate affiliates over time
+  // Add fallback data for error cases
+  const fallbackData = [
+    { month: "Jan", affiliates: 0 },
+    { month: "Feb", affiliates: 0 },
+    { month: "Mar", affiliates: 0 },
+  ]
+
+  // Process data for the chart with error handling
   let totalAffiliates = 0
-  const chartData = data.map((stat) => {
-    totalAffiliates += stat.newAffiliates || 0
-    return {
-      month: stat.month,
-      affiliates: totalAffiliates,
-    }
-  })
+  const chartData =
+    Array.isArray(data) && data.length > 0
+      ? data.map((stat) => {
+          const newAffiliates =
+            typeof stat.newAffiliates === "number"
+              ? stat.newAffiliates
+              : typeof stat.newAffiliates === "string"
+                ? Number(stat.newAffiliates)
+                : 0
+          totalAffiliates += newAffiliates
+          return {
+            month: stat.month || "Unknown",
+            affiliates: totalAffiliates,
+          }
+        })
+      : fallbackData
 
   return (
     <div className="h-full w-full">
