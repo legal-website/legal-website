@@ -49,6 +49,7 @@ export default function AdminAffiliatePage() {
   const [activeTab, setActiveTab] = useState("overview")
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<any>(null)
+  const [dashboardData, setDashboardData] = useState<any>(null)
   const [affiliates, setAffiliates] = useState<any[]>([])
   const [conversions, setConversions] = useState<any[]>([])
   const [payouts, setPayouts] = useState<any[]>([])
@@ -68,10 +69,12 @@ export default function AdminAffiliatePage() {
 
   // State for Overview Tab
   const [showMoreCount, setShowMoreCount] = useState(10)
+  const [chartsLoading, setChartsLoading] = useState(true)
 
   useEffect(() => {
     if (activeTab === "overview") {
       fetchStats()
+      fetchDashboardData()
     } else if (activeTab === "affiliates") {
       fetchAffiliates()
     } else if (activeTab === "conversions") {
@@ -107,6 +110,33 @@ export default function AdminAffiliatePage() {
         variant: "destructive",
       })
       setLoading(false)
+    }
+  }
+
+  const fetchDashboardData = async () => {
+    try {
+      setChartsLoading(true)
+      const res = await fetch("/api/admin/affiliate/dashboard")
+      const data = await res.json()
+
+      if (res.ok) {
+        setDashboardData(data)
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to fetch dashboard data",
+          variant: "destructive",
+        })
+      }
+      setChartsLoading(false)
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+      setChartsLoading(false)
     }
   }
 
@@ -552,7 +582,13 @@ export default function AdminAffiliatePage() {
             <CardDescription>Total and average commission per conversion</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
-            <CommissionChart />
+            {chartsLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <Skeleton className="h-full w-full" />
+              </div>
+            ) : (
+              <CommissionChart data={dashboardData?.monthlyStats || []} />
+            )}
           </CardContent>
         </Card>
 
@@ -564,7 +600,13 @@ export default function AdminAffiliatePage() {
               <CardDescription>Number of affiliate link clicks</CardDescription>
             </CardHeader>
             <CardContent className="h-[300px]">
-              <ClicksChart />
+              {chartsLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Skeleton className="h-full w-full" />
+                </div>
+              ) : (
+                <ClicksChart data={dashboardData?.monthlyStats || []} />
+              )}
             </CardContent>
           </Card>
 
@@ -574,7 +616,13 @@ export default function AdminAffiliatePage() {
               <CardDescription>Total number of affiliates over time</CardDescription>
             </CardHeader>
             <CardContent className="h-[300px]">
-              <AffiliatesChart />
+              {chartsLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Skeleton className="h-full w-full" />
+                </div>
+              ) : (
+                <AffiliatesChart data={dashboardData?.monthlyStats || []} />
+              )}
             </CardContent>
           </Card>
         </div>
@@ -1481,77 +1529,13 @@ export default function AdminAffiliatePage() {
 }
 
 // Chart Components
-const CommissionChart = () => {
-  const [chartData, setChartData] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true)
-        const res = await fetch("/api/affiliate/chart-data")
-        const data = await res.json()
-
-        if (res.ok) {
-          // Create sample data if API doesn't return expected format
-          if (!data.monthlyData || !Array.isArray(data.monthlyData) || data.monthlyData.length === 0) {
-            const sampleData = [
-              { month: "Jan", totalCommission: 1200, avgCommission: 120 },
-              { month: "Feb", totalCommission: 1800, avgCommission: 150 },
-              { month: "Mar", totalCommission: 2400, avgCommission: 160 },
-              { month: "Apr", totalCommission: 2000, avgCommission: 140 },
-              { month: "May", totalCommission: 2800, avgCommission: 175 },
-              { month: "Jun", totalCommission: 3600, avgCommission: 200 },
-            ]
-            setChartData(sampleData)
-          } else {
-            // Process API data
-            const processedData = data.monthlyData.map((stat: any) => ({
-              month: stat.month,
-              totalCommission: Number(stat.commission || 0),
-              avgCommission: Number(stat.commission || 0) / (stat.conversions || 1),
-            }))
-            setChartData(processedData)
-          }
-        } else {
-          // Fallback to sample data
-          const sampleData = [
-            { month: "Jan", totalCommission: 1200, avgCommission: 120 },
-            { month: "Feb", totalCommission: 1800, avgCommission: 150 },
-            { month: "Mar", totalCommission: 2400, avgCommission: 160 },
-            { month: "Apr", totalCommission: 2000, avgCommission: 140 },
-            { month: "May", totalCommission: 2800, avgCommission: 175 },
-            { month: "Jun", totalCommission: 3600, avgCommission: 200 },
-          ]
-          setChartData(sampleData)
-        }
-        setLoading(false)
-      } catch (error) {
-        console.error("Error fetching chart data:", error)
-        // Fallback to sample data on error
-        const sampleData = [
-          { month: "Jan", totalCommission: 1200, avgCommission: 120 },
-          { month: "Feb", totalCommission: 1800, avgCommission: 150 },
-          { month: "Mar", totalCommission: 2400, avgCommission: 160 },
-          { month: "Apr", totalCommission: 2000, avgCommission: 140 },
-          { month: "May", totalCommission: 2800, avgCommission: 175 },
-          { month: "Jun", totalCommission: 3600, avgCommission: 200 },
-        ]
-        setChartData(sampleData)
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [])
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Skeleton className="h-full w-full" />
-      </div>
-    )
-  }
+const CommissionChart = ({ data }: { data: any[] }) => {
+  // Process data for the chart
+  const chartData = data.map((stat) => ({
+    month: stat.month,
+    totalCommission: Number(stat.commission || 0),
+    avgCommission: Number(stat.commission || 0) / (stat.conversions || 1),
+  }))
 
   return (
     <div className="h-full w-full">
@@ -1591,76 +1575,12 @@ const CommissionChart = () => {
   )
 }
 
-const ClicksChart = () => {
-  const [chartData, setChartData] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true)
-        const res = await fetch("/api/affiliate/chart-data")
-        const data = await res.json()
-
-        if (res.ok) {
-          // Create sample data if API doesn't return expected format
-          if (!data.monthlyData || !Array.isArray(data.monthlyData) || data.monthlyData.length === 0) {
-            const sampleData = [
-              { month: "Jan", clicks: 450 },
-              { month: "Feb", clicks: 680 },
-              { month: "Mar", clicks: 1100 },
-              { month: "Apr", clicks: 890 },
-              { month: "May", clicks: 1200 },
-              { month: "Jun", clicks: 1500 },
-            ]
-            setChartData(sampleData)
-          } else {
-            // Process API data
-            const processedData = data.monthlyData.map((stat: any) => ({
-              month: stat.month,
-              clicks: stat.clicks || 0,
-            }))
-            setChartData(processedData)
-          }
-        } else {
-          // Fallback to sample data
-          const sampleData = [
-            { month: "Jan", clicks: 450 },
-            { month: "Feb", clicks: 680 },
-            { month: "Mar", clicks: 1100 },
-            { month: "Apr", clicks: 890 },
-            { month: "May", clicks: 1200 },
-            { month: "Jun", clicks: 1500 },
-          ]
-          setChartData(sampleData)
-        }
-        setLoading(false)
-      } catch (error) {
-        console.error("Error fetching chart data:", error)
-        // Fallback to sample data on error
-        const sampleData = [
-          { month: "Jan", clicks: 450 },
-          { month: "Feb", clicks: 680 },
-          { month: "Mar", clicks: 1100 },
-          { month: "Apr", clicks: 890 },
-          { month: "May", clicks: 1200 },
-          { month: "Jun", clicks: 1500 },
-        ]
-        setChartData(sampleData)
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [])
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Skeleton className="h-full w-full" />
-      </div>
-    )
-  }
+const ClicksChart = ({ data }: { data: any[] }) => {
+  // Process data for the chart
+  const chartData = data.map((stat) => ({
+    month: stat.month,
+    clicks: stat.clicks || 0,
+  }))
 
   return (
     <div className="h-full w-full">
@@ -1681,80 +1601,16 @@ const ClicksChart = () => {
   )
 }
 
-const AffiliatesChart = () => {
-  const [chartData, setChartData] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true)
-        const res = await fetch("/api/affiliate/chart-data")
-        const data = await res.json()
-
-        if (res.ok) {
-          // Create sample data if API doesn't return expected format
-          if (!data.monthlyData || !Array.isArray(data.monthlyData) || data.monthlyData.length === 0) {
-            const sampleData = [
-              { month: "Jan", affiliates: 12 },
-              { month: "Feb", affiliates: 18 },
-              { month: "Mar", affiliates: 24 },
-              { month: "Apr", affiliates: 32 },
-              { month: "May", affiliates: 45 },
-              { month: "Jun", affiliates: 56 },
-            ]
-            setChartData(sampleData)
-          } else {
-            // Process data for chart - accumulate affiliates over time
-            let totalAffiliates = 0
-            const processedData = data.monthlyData.map((stat: any) => {
-              totalAffiliates += stat.newAffiliates || 0
-              return {
-                month: stat.month,
-                affiliates: totalAffiliates,
-              }
-            })
-            setChartData(processedData)
-          }
-        } else {
-          // Fallback to sample data
-          const sampleData = [
-            { month: "Jan", affiliates: 12 },
-            { month: "Feb", affiliates: 18 },
-            { month: "Mar", affiliates: 24 },
-            { month: "Apr", affiliates: 32 },
-            { month: "May", affiliates: 45 },
-            { month: "Jun", affiliates: 56 },
-          ]
-          setChartData(sampleData)
-        }
-        setLoading(false)
-      } catch (error) {
-        console.error("Error fetching chart data:", error)
-        // Fallback to sample data on error
-        const sampleData = [
-          { month: "Jan", affiliates: 12 },
-          { month: "Feb", affiliates: 18 },
-          { month: "Mar", affiliates: 24 },
-          { month: "Apr", affiliates: 32 },
-          { month: "May", affiliates: 45 },
-          { month: "Jun", affiliates: 56 },
-        ]
-        setChartData(sampleData)
-        setLoading(false)
-      }
+const AffiliatesChart = ({ data }: { data: any[] }) => {
+  // Process data for the chart - accumulate affiliates over time
+  let totalAffiliates = 0
+  const chartData = data.map((stat) => {
+    totalAffiliates += stat.newAffiliates || 0
+    return {
+      month: stat.month,
+      affiliates: totalAffiliates,
     }
-
-    fetchData()
-  }, [])
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Skeleton className="h-full w-full" />
-      </div>
-    )
-  }
+  })
 
   return (
     <div className="h-full w-full">
