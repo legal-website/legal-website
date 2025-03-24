@@ -22,8 +22,8 @@ import { generateReferralLink, formatCurrency, formatDate, calculateProgress } f
 import { useToast } from "@/components/ui/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { MonthlyEarningsChart } from "@/components/affiliate/monthly-earnings-chart"
-import { LinkClicksChart } from "@/components/affiliate/link-clicks-chart"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
 
 export default function AffiliateProgramPage() {
   const [copied, setCopied] = useState(false)
@@ -32,6 +32,45 @@ export default function AffiliateProgramPage() {
   const [affiliateData, setAffiliateData] = useState<any>(null)
   const [stats, setStats] = useState<any>(null)
   const { toast } = useToast()
+
+  const [earningsChartData, setEarningsChartData] = useState<any[]>([])
+  const [clicksChartData, setClicksChartData] = useState<any[]>([])
+  const [earningsPeriod, setEarningsPeriod] = useState("6months")
+  const [clicksPeriod, setClicksPeriod] = useState("30days")
+  const [earningsLoading, setEarningsLoading] = useState(false)
+  const [clicksLoading, setClicksLoading] = useState(false)
+
+  const fetchEarningsChartData = async (period: string) => {
+    try {
+      setEarningsLoading(true)
+      const res = await fetch(`/api/affiliate/chart-data?type=earnings&period=${period}`)
+      const data = await res.json()
+
+      if (data.data) {
+        setEarningsChartData(data.data)
+      }
+      setEarningsLoading(false)
+    } catch (error) {
+      console.error("Error fetching earnings chart data:", error)
+      setEarningsLoading(false)
+    }
+  }
+
+  const fetchClicksChartData = async (period: string) => {
+    try {
+      setClicksLoading(true)
+      const res = await fetch(`/api/affiliate/chart-data?type=clicks&period=${period}`)
+      const data = await res.json()
+
+      if (data.data) {
+        setClicksChartData(data.data)
+      }
+      setClicksLoading(false)
+    } catch (error) {
+      console.error("Error fetching clicks chart data:", error)
+      setClicksLoading(false)
+    }
+  }
 
   useEffect(() => {
     const fetchAffiliateData = async () => {
@@ -49,6 +88,10 @@ export default function AffiliateProgramPage() {
         const statsData = await statsRes.json()
         setStats(statsData)
 
+        // Fetch initial chart data
+        fetchEarningsChartData(earningsPeriod)
+        fetchClicksChartData(clicksPeriod)
+
         setLoading(false)
       } catch (error) {
         console.error("Error fetching affiliate data:", error)
@@ -58,6 +101,19 @@ export default function AffiliateProgramPage() {
 
     fetchAffiliateData()
   }, [])
+
+  // Fetch chart data when period changes
+  useEffect(() => {
+    if (!loading) {
+      fetchEarningsChartData(earningsPeriod)
+    }
+  }, [earningsPeriod, loading])
+
+  useEffect(() => {
+    if (!loading) {
+      fetchClicksChartData(clicksPeriod)
+    }
+  }, [clicksPeriod, loading])
 
   const referralLink = affiliateData ? generateReferralLink(affiliateData.code) : ""
 
@@ -189,13 +245,8 @@ export default function AffiliateProgramPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="p-8 mb-40">
       <h1 className="text-3xl font-bold mb-6">Affiliate Program</h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <MonthlyEarningsChart />
-        <LinkClicksChart />
-      </div>
 
       <div className="grid md:grid-cols-3 gap-8 mb-8">
         {/* Earnings Card */}
@@ -325,15 +376,48 @@ export default function AffiliateProgramPage() {
             <div className="mb-6">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="font-medium">Monthly Earnings</h3>
-                <select className="text-sm border rounded-md px-2 py-1">
-                  <option>Last 6 months</option>
-                  <option>Last year</option>
-                  <option>All time</option>
-                </select>
+                <Select value={earningsPeriod} onValueChange={setEarningsPeriod}>
+                  <SelectTrigger className="text-sm border rounded-md px-2 py-1 h-8 w-[140px]">
+                    <SelectValue placeholder="Last 6 months" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30days">Last 30 days</SelectItem>
+                    <SelectItem value="90days">Last 90 days</SelectItem>
+                    <SelectItem value="6months">Last 6 months</SelectItem>
+                    <SelectItem value="1year">Last year</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
-                {/* This would be a chart in a real implementation */}
-                <p className="text-gray-500">Earnings chart would appear here</p>
+              <div className="h-64 bg-gray-50 rounded-lg">
+                {earningsLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Skeleton className="h-[90%] w-[95%] rounded-lg" />
+                  </div>
+                ) : earningsChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={earningsChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="month" axisLine={false} tickLine={false} tickMargin={10} />
+                      <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `$${value}`} tickMargin={10} />
+                      <Tooltip
+                        formatter={(value) => [`$${Number(value).toFixed(2)}`, "Earnings"]}
+                        labelFormatter={(label) => `Month: ${label}`}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="amount"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-500">
+                    No earnings data available
+                  </div>
+                )}
               </div>
             </div>
 
@@ -448,15 +532,56 @@ export default function AffiliateProgramPage() {
             <div className="mb-6">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="font-medium">Link Clicks</h3>
-                <select className="text-sm border rounded-md px-2 py-1">
-                  <option>Last 30 days</option>
-                  <option>Last 90 days</option>
-                  <option>All time</option>
-                </select>
+                <Select value={clicksPeriod} onValueChange={setClicksPeriod}>
+                  <SelectTrigger className="text-sm border rounded-md px-2 py-1 h-8 w-[140px]">
+                    <SelectValue placeholder="Last 30 days" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30days">Last 30 days</SelectItem>
+                    <SelectItem value="90days">Last 90 days</SelectItem>
+                    <SelectItem value="6months">Last 6 months</SelectItem>
+                    <SelectItem value="1year">Last year</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
-                {/* This would be a chart in a real implementation */}
-                <p className="text-gray-500">Clicks chart would appear here</p>
+              <div className="h-64 bg-gray-50 rounded-lg">
+                {clicksLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Skeleton className="h-[90%] w-[95%] rounded-lg" />
+                  </div>
+                ) : clicksChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={clicksChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis
+                        dataKey="date"
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(value) => {
+                          const date = new Date(value)
+                          return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                        }}
+                        tickMargin={10}
+                      />
+                      <YAxis axisLine={false} tickLine={false} allowDecimals={false} tickMargin={10} />
+                      <Tooltip
+                        formatter={(value) => [`${value}`, "Clicks"]}
+                        labelFormatter={(label) => {
+                          const date = new Date(label)
+                          return date.toLocaleDateString("en-US", {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })
+                        }}
+                      />
+                      <Bar dataKey="clicks" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-500">No click data available</div>
+                )}
               </div>
             </div>
 
