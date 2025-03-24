@@ -255,11 +255,11 @@ export default function AdminAffiliatePage() {
     }
   }
 
-  const updatePayoutStatus = async (id: string, status: string, notes?: string) => {
+  const updatePayoutStatus = async (id: string, status: string) => {
     try {
       // Get the notes from the textarea
       const notesElement = document.getElementById("payout-notes") as HTMLTextAreaElement
-      const adminNotes = notesElement ? notesElement.value : notes || ""
+      const notes = notesElement ? notesElement.value : ""
 
       const res = await fetch(`/api/admin/affiliate/payouts/${id}`, {
         method: "PATCH",
@@ -268,7 +268,7 @@ export default function AdminAffiliatePage() {
         },
         body: JSON.stringify({
           status,
-          adminNotes,
+          adminNotes: notes, // Keep this as adminNotes for the request
         }),
       })
 
@@ -1021,8 +1021,13 @@ export default function AdminAffiliatePage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" variant="outline" onClick={() => setSelectedPayout(payout)}>
-                            Review
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedPayout(payout)}
+                            disabled={payout.status === "REJECTED"}
+                          >
+                            {payout.status === "REJECTED" ? "Rejected" : "Review"}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -1201,45 +1206,49 @@ export default function AdminAffiliatePage() {
                     )}
                   </div>
 
-                  {selectedPayout.adminNotes && (
+                  {selectedPayout.notes && selectedPayout.status === "REJECTED" && (
                     <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                       <Label className="text-xs text-amber-800">Admin Notes</Label>
-                      <p className="text-sm text-amber-900">{selectedPayout.adminNotes}</p>
+                      <p className="text-sm text-amber-900">{selectedPayout.notes}</p>
                     </div>
                   )}
 
-                  <div>
-                    <Label>Admin Notes</Label>
-                    <Textarea
-                      placeholder="Add notes about this payout"
-                      defaultValue={selectedPayout.adminNotes || ""}
-                      id="payout-notes"
-                    />
-                  </div>
+                  {selectedPayout.status !== "REJECTED" && (
+                    <>
+                      <div>
+                        <Label>Admin Notes</Label>
+                        <Textarea
+                          placeholder="Add notes about this payout"
+                          defaultValue={selectedPayout.notes || ""}
+                          id="payout-notes"
+                        />
+                      </div>
 
-                  <div>
-                    <Label>Update Status</Label>
-                    <Select
-                      defaultValue={selectedPayout.status}
-                      onValueChange={(value) => updatePayoutStatus(selectedPayout.id, value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="PENDING">Pending</SelectItem>
-                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                        <SelectItem value="COMPLETED">Completed</SelectItem>
-                        <SelectItem value="REJECTED">Rejected</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      <div>
+                        <Label>Update Status</Label>
+                        <Select
+                          defaultValue={selectedPayout.status}
+                          onValueChange={(value) => updatePayoutStatus(selectedPayout.id, value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PENDING">Pending</SelectItem>
+                            <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                            <SelectItem value="COMPLETED">Completed</SelectItem>
+                            <SelectItem value="REJECTED">Rejected</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
               <DialogFooter>
                 <Button variant="outline" onClick={() => setSelectedPayout(null)}>
-                  Cancel
+                  {selectedPayout?.status === "REJECTED" ? "Close" : "Cancel"}
                 </Button>
               </DialogFooter>
             </DialogContent>

@@ -20,19 +20,29 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     // Get the current payout to check if it's being rejected
     const currentPayout = await db.affiliatePayout.findUnique({
-      where: { id: params.id }
+      where: { id: params.id },
     })
 
     if (!currentPayout) {
       return NextResponse.json({ error: "Payout not found" }, { status: 404 })
     }
 
-    // Update the payout
+    // Prevent changing status of already rejected payouts
+    if (currentPayout.status === "REJECTED" && status !== "REJECTED") {
+      return NextResponse.json(
+        {
+          error: "Cannot change status of rejected payouts",
+        },
+        { status: 400 },
+      )
+    }
+
+    // Update the payout - use 'notes' field instead of 'adminNotes'
     const payout = await db.affiliatePayout.update({
       where: { id: params.id },
       data: {
         status,
-        adminNotes: adminNotes || undefined,
+        notes: adminNotes || undefined,
       },
     })
 
@@ -79,3 +89,4 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Failed to update payout" }, { status: 500 })
   }
 }
+
