@@ -18,8 +18,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: "Status is required" }, { status: 400 })
     }
 
-    // When approving a conversion, set it to PENDING status instead of APPROVED
-    // This ensures it's added to the current balance while still being counted in total earnings
+    // When approving a conversion, set it to PENDING status
+    // This ensures it's added to the current balance
     const finalStatus = status === "APPROVED" ? "PENDING" : status
 
     // Update the conversion

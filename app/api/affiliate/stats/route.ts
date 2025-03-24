@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     })
 
-    // Get pending payouts
+    // Get pending payouts (these amounts are already requested and should not be in current balance)
     const pendingPayouts = await db.affiliatePayout.findMany({
       where: {
         userId: session.user.id,
@@ -48,20 +48,14 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    // Calculate total earnings - ONLY include commissions from referrals
-    // This should ONLY reflect actual commissions earned from referrals
-    // and should NOT change when payout status changes
-    const totalEarnings = conversions.reduce((sum, c) => {
-      // Only count the original commission amount once
-      // Regardless of its current status (except REJECTED)
-      if (c.status !== AffiliateConversionStatus.REJECTED) {
-        return sum + Number(c.commission)
-      }
-      return sum
-    }, 0)
+    // Calculate total earnings - include all non-rejected conversions
+    // This represents the total lifetime earnings from referrals
+    const totalEarnings = conversions
+      .filter((c) => c.status !== AffiliateConversionStatus.REJECTED)
+      .reduce((sum, c) => sum + Number(c.commission), 0)
 
     // Calculate pending earnings - only count PENDING status conversions
-    // This is the amount available for withdrawal
+    // This is the amount available for withdrawal (Current Balance)
     const pendingEarnings = conversions
       .filter((c) => c.status === AffiliateConversionStatus.PENDING)
       .reduce((sum, c) => sum + Number(c.commission), 0)
