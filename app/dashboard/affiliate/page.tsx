@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -37,6 +39,26 @@ import {
   Area,
 } from "recharts"
 import { ChartContainer } from "@/components/ui/chart"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+
+interface PayoutFormData {
+  method: string
+  accountName: string
+  accountNumber: string
+  routingNumber: string
+  bankName: string
+  swiftCode?: string
+  additionalInfo?: string
+}
 
 export default function AffiliateProgramPage() {
   const [copied, setCopied] = useState(false)
@@ -53,6 +75,19 @@ export default function AffiliateProgramPage() {
   const [earningsLoading, setEarningsLoading] = useState(false)
   const [clicksLoading, setClicksLoading] = useState(false)
   const [visibleReferrals, setVisibleReferrals] = useState(4)
+
+  // Payout dialog state
+  const [payoutDialogOpen, setPayoutDialogOpen] = useState(false)
+  const [payoutFormData, setPayoutFormData] = useState<PayoutFormData>({
+    method: "bank",
+    accountName: "",
+    accountNumber: "",
+    routingNumber: "",
+    bankName: "",
+    swiftCode: "",
+    additionalInfo: "",
+  })
+  const [payoutSubmitting, setPayoutSubmitting] = useState(false)
 
   const fetchEarningsChartData = async (period: string) => {
     try {
@@ -165,14 +200,53 @@ export default function AffiliateProgramPage() {
     window.open(url, "_blank", "width=600,height=400")
   }
 
+  const handlePayoutFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setPayoutFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
   const requestPayout = async () => {
     try {
+      setPayoutDialogOpen(true)
+    } catch (error) {
+      console.error("Error opening payout dialog:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const submitPayoutRequest = async () => {
+    try {
+      setPayoutSubmitting(true)
+
+      // Validate form data
+      if (
+        !payoutFormData.accountName ||
+        !payoutFormData.accountNumber ||
+        !payoutFormData.routingNumber ||
+        !payoutFormData.bankName
+      ) {
+        toast({
+          title: "Missing information",
+          description: "Please fill in all required fields.",
+          variant: "destructive",
+        })
+        setPayoutSubmitting(false)
+        return
+      }
+
       const res = await fetch("/api/affiliate/payout/request", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ method: "PayPal" }),
+        body: JSON.stringify(payoutFormData),
       })
 
       const data = await res.json()
@@ -187,6 +261,18 @@ export default function AffiliateProgramPage() {
         const statsRes = await fetch("/api/affiliate/stats")
         const statsData = await statsRes.json()
         setStats(statsData)
+
+        // Close dialog and reset form
+        setPayoutDialogOpen(false)
+        setPayoutFormData({
+          method: "bank",
+          accountName: "",
+          accountNumber: "",
+          routingNumber: "",
+          bankName: "",
+          swiftCode: "",
+          additionalInfo: "",
+        })
       } else {
         toast({
           title: "Error",
@@ -194,6 +280,7 @@ export default function AffiliateProgramPage() {
           variant: "destructive",
         })
       }
+      setPayoutSubmitting(false)
     } catch (error) {
       console.error("Error requesting payout:", error)
       toast({
@@ -201,6 +288,7 @@ export default function AffiliateProgramPage() {
         description: "An unexpected error occurred.",
         variant: "destructive",
       })
+      setPayoutSubmitting(false)
     }
   }
 
@@ -820,10 +908,14 @@ export default function AffiliateProgramPage() {
                                 ? "bg-green-100 text-green-800"
                                 : payout.status === "PENDING"
                                   ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-800"
+                                  : payout.status === "IN_PROGRESS"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-red-100 text-red-800"
                             }`}
                           >
-                            {payout.status.charAt(0) + payout.status.slice(1).toLowerCase()}
+                            {payout.status === "IN_PROGRESS"
+                              ? "In Progress"
+                              : payout.status.charAt(0) + payout.status.slice(1).toLowerCase()}
                           </span>
                         </td>
                       </tr>
@@ -882,6 +974,130 @@ export default function AffiliateProgramPage() {
           </div>
         </div>
       </Card>
+
+      {/* Payout Request Dialog */}
+      <Dialog open={payoutDialogOpen} onOpenChange={setPayoutDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Request Payout</DialogTitle>
+            <DialogDescription>
+              Please provide your bank account details for the payout. This information will be securely stored.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="method">Payment Method</Label>
+              <Select
+                name="method"
+                value={payoutFormData.method}
+                onValueChange={(value) => setPayoutFormData((prev) => ({ ...prev, method: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payment method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bank">Bank Transfer</SelectItem>
+                  <SelectItem value="paypal">PayPal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {payoutFormData.method === "bank" ? (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="accountName">Account Holder Name</Label>
+                  <Input
+                    id="accountName"
+                    name="accountName"
+                    value={payoutFormData.accountName}
+                    onChange={handlePayoutFormChange}
+                    placeholder="John Doe"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="bankName">Bank Name</Label>
+                  <Input
+                    id="bankName"
+                    name="bankName"
+                    value={payoutFormData.bankName}
+                    onChange={handlePayoutFormChange}
+                    placeholder="Bank of America"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="accountNumber">Account Number</Label>
+                    <Input
+                      id="accountNumber"
+                      name="accountNumber"
+                      value={payoutFormData.accountNumber}
+                      onChange={handlePayoutFormChange}
+                      placeholder="123456789"
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="routingNumber">Routing Number</Label>
+                    <Input
+                      id="routingNumber"
+                      name="routingNumber"
+                      value={payoutFormData.routingNumber}
+                      onChange={handlePayoutFormChange}
+                      placeholder="987654321"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="swiftCode">SWIFT/BIC Code (International transfers)</Label>
+                  <Input
+                    id="swiftCode"
+                    name="swiftCode"
+                    value={payoutFormData.swiftCode}
+                    onChange={handlePayoutFormChange}
+                    placeholder="BOFAUS3N"
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="grid gap-2">
+                <Label htmlFor="accountName">PayPal Email</Label>
+                <Input
+                  id="accountName"
+                  name="accountName"
+                  value={payoutFormData.accountName}
+                  onChange={handlePayoutFormChange}
+                  placeholder="your-email@example.com"
+                  type="email"
+                  required
+                />
+              </div>
+            )}
+
+            <div className="grid gap-2">
+              <Label htmlFor="additionalInfo">Additional Information (Optional)</Label>
+              <Textarea
+                id="additionalInfo"
+                name="additionalInfo"
+                value={payoutFormData.additionalInfo}
+                onChange={handlePayoutFormChange}
+                placeholder="Any additional information we should know"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayoutDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submitPayoutRequest} disabled={payoutSubmitting}>
+              {payoutSubmitting ? "Submitting..." : "Submit Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

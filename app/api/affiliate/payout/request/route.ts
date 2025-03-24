@@ -12,10 +12,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { method } = await req.json()
+    const payoutData = await req.json()
+    const { method, accountName, accountNumber, routingNumber, bankName, swiftCode, additionalInfo } = payoutData
 
-    if (!method) {
-      return NextResponse.json({ error: "Payment method is required" }, { status: 400 })
+    if (!method || !accountName) {
+      return NextResponse.json({ error: "Payment method and account details are required" }, { status: 400 })
     }
 
     // Get affiliate link
@@ -49,6 +50,21 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Create payment details JSON
+    const paymentDetails = {
+      method,
+      accountName,
+      ...(method === "bank"
+        ? {
+            accountNumber,
+            routingNumber,
+            bankName,
+            swiftCode: swiftCode || null,
+          }
+        : {}),
+      additionalInfo: additionalInfo || null,
+    }
+
     // Create payout request
     const payout = await db.affiliatePayout.create({
       data: {
@@ -56,6 +72,7 @@ export async function POST(req: NextRequest) {
         amount: availableBalance,
         method,
         status: AffiliatePayoutStatus.PENDING,
+        notes: JSON.stringify(paymentDetails), // Store payment details in notes field
       },
     })
 

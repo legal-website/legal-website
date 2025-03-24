@@ -962,6 +962,7 @@ export default function AdminAffiliatePage() {
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                 <SelectItem value="COMPLETED">Completed</SelectItem>
                 <SelectItem value="REJECTED">Rejected</SelectItem>
               </SelectContent>
@@ -1002,10 +1003,14 @@ export default function AdminAffiliatePage() {
                                 ? "bg-green-100 text-green-800"
                                 : payout.status === "PENDING"
                                   ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-800"
+                                  : payout.status === "IN_PROGRESS"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-red-100 text-red-800"
                             }
                           >
-                            {payout.status.charAt(0) + payout.status.slice(1).toLowerCase()}
+                            {payout.status === "IN_PROGRESS"
+                              ? "In Progress"
+                              : payout.status.charAt(0) + payout.status.slice(1).toLowerCase()}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -1065,7 +1070,7 @@ export default function AdminAffiliatePage() {
 
           {/* Payout Review Dialog */}
           <Dialog open={!!selectedPayout} onOpenChange={(open) => !open && setSelectedPayout(null)}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle>Review Payout</DialogTitle>
                 <DialogDescription>Review and update the status of this payout request</DialogDescription>
@@ -1096,11 +1101,71 @@ export default function AdminAffiliatePage() {
                     </div>
                   </div>
 
+                  {/* Payment Details Section */}
+                  <div className="border rounded-lg p-4 bg-gray-50">
+                    <h3 className="font-medium mb-3">Payment Details</h3>
+                    {selectedPayout.notes && (
+                      <div className="space-y-3">
+                        {(() => {
+                          try {
+                            const paymentDetails = JSON.parse(selectedPayout.notes)
+                            return (
+                              <>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <Label className="text-xs text-gray-500">Payment Method</Label>
+                                    <p className="font-medium">{paymentDetails.method}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs text-gray-500">Account Name</Label>
+                                    <p className="font-medium">{paymentDetails.accountName}</p>
+                                  </div>
+
+                                  {paymentDetails.method === "bank" && (
+                                    <>
+                                      <div>
+                                        <Label className="text-xs text-gray-500">Bank Name</Label>
+                                        <p className="font-medium">{paymentDetails.bankName}</p>
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs text-gray-500">Account Number</Label>
+                                        <p className="font-medium">{paymentDetails.accountNumber}</p>
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs text-gray-500">Routing Number</Label>
+                                        <p className="font-medium">{paymentDetails.routingNumber}</p>
+                                      </div>
+                                      {paymentDetails.swiftCode && (
+                                        <div>
+                                          <Label className="text-xs text-gray-500">SWIFT/BIC Code</Label>
+                                          <p className="font-medium">{paymentDetails.swiftCode}</p>
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+
+                                {paymentDetails.additionalInfo && (
+                                  <div>
+                                    <Label className="text-xs text-gray-500">Additional Information</Label>
+                                    <p className="text-sm">{paymentDetails.additionalInfo}</p>
+                                  </div>
+                                )}
+                              </>
+                            )
+                          } catch (e) {
+                            return <p className="text-sm">{selectedPayout.notes}</p>
+                          }
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
                   <div>
-                    <Label>Notes</Label>
+                    <Label>Admin Notes</Label>
                     <Textarea
                       placeholder="Add notes about this payout"
-                      defaultValue={selectedPayout.notes || ""}
+                      defaultValue={selectedPayout.adminNotes || ""}
                       id="payout-notes"
                     />
                   </div>
@@ -1119,6 +1184,7 @@ export default function AdminAffiliatePage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="PENDING">Pending</SelectItem>
+                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                         <SelectItem value="COMPLETED">Completed</SelectItem>
                         <SelectItem value="REJECTED">Rejected</SelectItem>
                       </SelectContent>
