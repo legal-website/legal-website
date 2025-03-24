@@ -1671,26 +1671,8 @@ export default function AdminAffiliatePage() {
 
       {renderLoadingOverlay()}
 
-      <div className="flex w-full items-center justify-between mb-4">
-        <Tabs defaultValue="active" className="w-auto">
-          <TabsList>
-            <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
-            <TabsTrigger value="completed">Completed</TabsTrigger>
-            <TabsTrigger value="draft">Draft</TabsTrigger>
-          </TabsList>
-        </Tabs>
-
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-muted-foreground">Last updated: {new Date().toLocaleString()}</div>
-          <Button variant="outline" size="icon">
-            <Search className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+      <div className="flex items-center justify-between mb-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-4 sm:mb-0">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
@@ -1698,18 +1680,31 @@ export default function AdminAffiliatePage() {
             <TabsTrigger value="payouts">Payouts</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
+        </Tabs>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground">Last updated: {lastRefreshed.toLocaleTimeString()}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing || backgroundLoading}
+            className={isRefreshing ? "animate-spin" : ""}
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            <span className="sr-only">Refresh</span>
+          </Button>
         </div>
+      </div>
 
-        <TabsContent value="overview">{renderOverviewTab()}</TabsContent>
+      <TabsContent value="overview">{renderOverviewTab()}</TabsContent>
 
-        <TabsContent value="affiliates">{renderAffiliatesTab()}</TabsContent>
+      <TabsContent value="affiliates">{renderAffiliatesTab()}</TabsContent>
 
-        <TabsContent value="conversions">{renderConversionsTab()}</TabsContent>
+      <TabsContent value="conversions">{renderConversionsTab()}</TabsContent>
 
-        <TabsContent value="payouts">{renderPayoutsTab()}</TabsContent>
+      <TabsContent value="payouts">{renderPayoutsTab()}</TabsContent>
 
-        <TabsContent value="settings">{renderSettingsTab()}</TabsContent>
-      </Tabs>
+      <TabsContent value="settings">{renderSettingsTab()}</TabsContent>
     </div>
   )
 }
