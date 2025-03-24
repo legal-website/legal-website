@@ -124,7 +124,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
                   orderId: invoiceId,
                   amount: invoice.amount,
                   commission: commission,
-                  status: "APPROVED", // Set to APPROVED immediately
+                  // Set to PENDING so it appears in current balance
+                  status: "PENDING",
                 },
               })
               console.log("Successfully created conversion record:", conversion.id)
