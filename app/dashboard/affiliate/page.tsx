@@ -16,6 +16,7 @@ import {
   ChevronUp,
   MessageSquare,
   AlertCircle,
+  ChevronRight,
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { generateReferralLink, formatCurrency, formatDate, calculateProgress } from "@/lib/affiliate"
@@ -23,7 +24,8 @@ import { useToast } from "@/components/ui/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
+import { Line, LineChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar } from "recharts"
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart"
 
 export default function AffiliateProgramPage() {
   const [copied, setCopied] = useState(false)
@@ -39,6 +41,7 @@ export default function AffiliateProgramPage() {
   const [clicksPeriod, setClicksPeriod] = useState("30days")
   const [earningsLoading, setEarningsLoading] = useState(false)
   const [clicksLoading, setClicksLoading] = useState(false)
+  const [visibleReferrals, setVisibleReferrals] = useState(4)
 
   const fetchEarningsChartData = async (period: string) => {
     try {
@@ -188,6 +191,10 @@ export default function AffiliateProgramPage() {
         variant: "destructive",
       })
     }
+  }
+
+  const loadMoreReferrals = () => {
+    setVisibleReferrals((prev) => prev + 4)
   }
 
   const faqItems = [
@@ -388,31 +395,73 @@ export default function AffiliateProgramPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="h-64 bg-gray-50 rounded-lg">
+              <div className="h-[350px] bg-gray-50 rounded-lg">
                 {earningsLoading ? (
                   <div className="h-full flex items-center justify-center">
                     <Skeleton className="h-[90%] w-[95%] rounded-lg" />
                   </div>
                 ) : earningsChartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={earningsChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} tickMargin={10} />
-                      <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `$${value}`} tickMargin={10} />
-                      <Tooltip
-                        formatter={(value) => [`$${Number(value).toFixed(2)}`, "Earnings"]}
-                        labelFormatter={(label) => `Month: ${label}`}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="amount"
-                        stroke="#10b981"
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <ChartContainer
+                    config={{
+                      earnings: {
+                        label: "Monthly Earnings",
+                        color: "hsl(142, 76%, 36%)",
+                      },
+                    }}
+                    className="h-full w-full"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={earningsChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="month"
+                          axisLine={false}
+                          tickLine={false}
+                          tickMargin={10}
+                          stroke="hsl(var(--muted-foreground))"
+                        />
+                        <YAxis
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={(value) => `$${value}`}
+                          tickMargin={10}
+                          stroke="hsl(var(--muted-foreground))"
+                        />
+                        <ChartTooltip
+                          content={
+                            <div className="rounded-lg border bg-background p-2 shadow-sm">
+                              <div className="grid gap-2">
+                                <div className="flex flex-col">
+                                  <span className="text-[0.70rem] uppercase text-muted-foreground">Month</span>
+                                  <span className="font-bold text-muted-foreground">{earningsChartData[0]?.month}</span>
+                                </div>
+                                <div className="flex flex-col">
+                                  <span
+                                    className="text-[0.70rem] uppercase text-muted-foreground"
+                                    style={{ color: "var(--color-earnings)" }}
+                                  >
+                                    Earnings
+                                  </span>
+                                  <span className="font-bold" style={{ color: "var(--color-earnings)" }}>
+                                    ${earningsChartData[0]?.amount}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          }
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="amount"
+                          stroke="var(--color-earnings)"
+                          strokeWidth={2}
+                          dot={{ r: 4, fill: "var(--color-earnings)" }}
+                          activeDot={{ r: 6, fill: "var(--color-earnings)" }}
+                          name="earnings"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-500">
                     No earnings data available
@@ -488,7 +537,7 @@ export default function AffiliateProgramPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {stats.recentReferrals.map((referral: any) => (
+                      {stats.recentReferrals.slice(0, visibleReferrals).map((referral: any) => (
                         <tr key={referral.id}>
                           <td className="py-3">
                             <div>
@@ -517,6 +566,15 @@ export default function AffiliateProgramPage() {
                       ))}
                     </tbody>
                   </table>
+
+                  {visibleReferrals < (stats.recentReferrals.length || 0) && (
+                    <div className="mt-4 text-center">
+                      <Button variant="outline" size="sm" onClick={loadMoreReferrals} className="text-sm">
+                        See More
+                        <ChevronRight className="ml-1 h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <Alert>
@@ -544,41 +602,76 @@ export default function AffiliateProgramPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="h-64 bg-gray-50 rounded-lg">
+              <div className="h-[350px] bg-gray-50 rounded-lg">
                 {clicksLoading ? (
                   <div className="h-full flex items-center justify-center">
                     <Skeleton className="h-[90%] w-[95%] rounded-lg" />
                   </div>
                 ) : clicksChartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={clicksChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis
-                        dataKey="date"
-                        axisLine={false}
-                        tickLine={false}
-                        tickFormatter={(value) => {
-                          const date = new Date(value)
-                          return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                        }}
-                        tickMargin={10}
-                      />
-                      <YAxis axisLine={false} tickLine={false} allowDecimals={false} tickMargin={10} />
-                      <Tooltip
-                        formatter={(value) => [`${value}`, "Clicks"]}
-                        labelFormatter={(label) => {
-                          const date = new Date(label)
-                          return date.toLocaleDateString("en-US", {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })
-                        }}
-                      />
-                      <Bar dataKey="clicks" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <ChartContainer
+                    config={{
+                      clicks: {
+                        label: "Daily Clicks",
+                        color: "hsl(226, 70%, 55%)",
+                      },
+                    }}
+                    className="h-full w-full"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={clicksChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="date"
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={(value) => {
+                            const date = new Date(value)
+                            return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                          }}
+                          tickMargin={10}
+                          stroke="hsl(var(--muted-foreground))"
+                        />
+                        <YAxis
+                          axisLine={false}
+                          tickLine={false}
+                          allowDecimals={false}
+                          tickMargin={10}
+                          stroke="hsl(var(--muted-foreground))"
+                        />
+                        <ChartTooltip
+                          content={
+                            <div className="rounded-lg border bg-background p-2 shadow-sm">
+                              <div className="grid gap-2">
+                                <div className="flex flex-col">
+                                  <span className="text-[0.70rem] uppercase text-muted-foreground">Date</span>
+                                  <span className="font-bold text-muted-foreground">
+                                    {new Date(clicksChartData[0]?.date).toLocaleDateString("en-US", {
+                                      weekday: "long",
+                                      year: "numeric",
+                                      month: "long",
+                                      day: "numeric",
+                                    })}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col">
+                                  <span
+                                    className="text-[0.70rem] uppercase text-muted-foreground"
+                                    style={{ color: "var(--color-clicks)" }}
+                                  >
+                                    Clicks
+                                  </span>
+                                  <span className="font-bold" style={{ color: "var(--color-clicks)" }}>
+                                    {clicksChartData[0]?.clicks}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          }
+                        />
+                        <Bar dataKey="clicks" fill="var(--color-clicks)" radius={[4, 4, 0, 0]} name="clicks" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-500">No click data available</div>
                 )}
