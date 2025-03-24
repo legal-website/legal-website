@@ -23,12 +23,12 @@ export async function GET() {
     if (!affiliateLink) {
       return NextResponse.json({
         success: true,
-        clicks: [],
+        conversions: [],
       })
     }
 
-    // Get all clicks for this affiliate link
-    const clicks = await db.affiliateClick.findMany({
+    // Get all conversions for this affiliate link
+    const conversions = await db.affiliateConversion.findMany({
       where: {
         linkId: affiliateLink.id,
       },
@@ -39,11 +39,15 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      clicks,
+      conversions: conversions.map((conversion) => ({
+        ...conversion,
+        amount: Number.parseFloat(conversion.amount.toString()),
+        commission: Number.parseFloat(conversion.commission.toString()),
+      })),
     })
   } catch (error: any) {
-    console.error("Error fetching affiliate clicks:", error)
-    return NextResponse.json({ error: "Failed to fetch clicks", message: error.message }, { status: 500 })
+    console.error("Error fetching affiliate conversions:", error)
+    return NextResponse.json({ error: "Failed to fetch conversions", message: error.message }, { status: 500 })
   }
 }
 

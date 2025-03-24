@@ -22,6 +22,8 @@ import { generateReferralLink, formatCurrency, formatDate, calculateProgress } f
 import { useToast } from "@/components/ui/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { MonthlyEarningsChart } from "@/components/affiliate/monthly-earnings-chart"
+import { LinkClicksChart } from "@/components/affiliate/link-clicks-chart"
 
 export default function AffiliateProgramPage() {
   const [copied, setCopied] = useState(false)
@@ -187,8 +189,13 @@ export default function AffiliateProgramPage() {
   }
 
   return (
-    <div className="p-8 mb-40">
+    <div className="container mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Affiliate Program</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <MonthlyEarningsChart />
+        <LinkClicksChart />
+      </div>
 
       <div className="grid md:grid-cols-3 gap-8 mb-8">
         {/* Earnings Card */}
