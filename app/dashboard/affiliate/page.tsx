@@ -52,7 +52,6 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
 
 interface PayoutFormData {
   method: string
@@ -71,7 +70,6 @@ interface PayoutFormData {
   cnic?: string
   // Common fields
   additionalInfo?: string
-  amount: number
 }
 
 export default function AffiliateProgramPage() {
@@ -94,8 +92,6 @@ export default function AffiliateProgramPage() {
   const [dismissedRejections, setDismissedRejections] = useState<string[]>([])
   const [payoutsPage, setPayoutsPage] = useState(1)
   const [earningsPage, setEarningsPage] = useState(1)
-  const [customPayoutAmount, setCustomPayoutAmount] = useState<string>("")
-  const [showCustomAmount, setShowCustomAmount] = useState(false)
   const ITEMS_PER_PAGE = 5
 
   // Payout dialog state
@@ -113,7 +109,6 @@ export default function AffiliateProgramPage() {
     serviceProvider: "",
     cnic: "",
     additionalInfo: "",
-    amount: stats?.pendingEarnings || 0,
   })
   const [payoutSubmitting, setPayoutSubmitting] = useState(false)
 
@@ -245,15 +240,6 @@ export default function AffiliateProgramPage() {
     }))
   }
 
-  // Add this function to handle custom amount changes
-  const handleCustomAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    // Only allow numbers and decimals
-    if (/^\d*\.?\d*$/.test(value)) {
-      setCustomPayoutAmount(value)
-    }
-  }
-
   const requestPayout = async () => {
     try {
       setPayoutDialogOpen(true)
@@ -319,8 +305,7 @@ export default function AffiliateProgramPage() {
         return
       }
 
-      const payoutAmount =
-        showCustomAmount && customPayoutAmount ? Number.parseFloat(customPayoutAmount) : stats?.pendingEarnings || 0
+      const payoutAmount = stats?.pendingEarnings || 0
 
       if (payoutAmount <= 0) {
         toast({
@@ -347,7 +332,7 @@ export default function AffiliateProgramPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ...payoutFormData, amount: payoutAmount }),
+        body: JSON.stringify({ ...payoutFormData }),
       })
 
       const data = await res.json()
@@ -378,10 +363,7 @@ export default function AffiliateProgramPage() {
           serviceProvider: "",
           cnic: "",
           additionalInfo: "",
-          amount: stats?.pendingEarnings || 0,
         })
-        setCustomPayoutAmount("")
-        setShowCustomAmount(false)
       } else {
         toast({
           title: "Error",
@@ -1205,39 +1187,6 @@ export default function AffiliateProgramPage() {
                 <Label>Available Balance</Label>
                 <span className="font-medium">{formatCurrency(stats?.pendingEarnings || 0)}</span>
               </div>
-
-              <div className="grid gap-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="customAmount"
-                    checked={showCustomAmount}
-                    onCheckedChange={(checked) => {
-                      setShowCustomAmount(checked === true)
-                      if (checked === false) {
-                        setCustomPayoutAmount("")
-                      }
-                    }}
-                  />
-                  <Label htmlFor="customAmount" className="cursor-pointer">
-                    Request specific amount
-                  </Label>
-                </div>
-
-                {showCustomAmount && (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      value={customPayoutAmount}
-                      onChange={handleCustomAmountChange}
-                      placeholder="Enter amount"
-                      className="w-full"
-                    />
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">
-                      Max: {formatCurrency(stats?.pendingEarnings || 0)}
-                    </span>
-                  </div>
-                )}
-              </div>
             </div>
 
             <div className="grid gap-2">
@@ -1417,9 +1366,7 @@ export default function AffiliateProgramPage() {
               Cancel
             </Button>
             <Button onClick={submitPayoutRequest} disabled={payoutSubmitting} className="w-full sm:w-auto">
-              {payoutSubmitting
-                ? "Submitting..."
-                : `Request ${showCustomAmount && customPayoutAmount ? formatCurrency(Number.parseFloat(customPayoutAmount) || 0) : "Payout"}`}
+              {payoutSubmitting ? "Submitting..." : "Request Payout"}
             </Button>
           </DialogFooter>
         </DialogContent>
