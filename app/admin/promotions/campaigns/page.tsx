@@ -52,8 +52,6 @@ export default function AdminAffiliatePage() {
   const [updatedSettings, setUpdatedSettings] = useState<any>(null)
   const [selectedConversion, setSelectedConversion] = useState<any>(null)
   const [selectedPayout, setSelectedPayout] = useState<any>(null)
-  const [payoutNotes, setPayoutNotes] = useState("")
-  const [updatingPayout, setUpdatingPayout] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -257,19 +255,14 @@ export default function AdminAffiliatePage() {
     }
   }
 
-  const updatePayoutStatus = async (id: string, status: string) => {
+  const updatePayoutStatus = async (id: string, status: string, notes?: string) => {
     try {
-      setUpdatingPayout(true)
-
       const res = await fetch(`/api/admin/affiliate/payouts/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          status,
-          notes: payoutNotes,
-        }),
+        body: JSON.stringify({ status, notes }),
       })
 
       const data = await res.json()
@@ -280,7 +273,6 @@ export default function AdminAffiliatePage() {
           description: "Payout status updated successfully",
         })
         setSelectedPayout(null)
-        setPayoutNotes("")
         fetchPayouts()
         fetchStats()
       } else {
@@ -290,7 +282,6 @@ export default function AdminAffiliatePage() {
           variant: "destructive",
         })
       }
-      setUpdatingPayout(false)
     } catch (error) {
       console.error("Error updating payout status:", error)
       toast({
@@ -298,7 +289,6 @@ export default function AdminAffiliatePage() {
         description: "An unexpected error occurred",
         variant: "destructive",
       })
-      setUpdatingPayout(false)
     }
   }
 
@@ -389,11 +379,6 @@ export default function AdminAffiliatePage() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-  }
-
-  const handleOpenPayoutDetails = (payout: any) => {
-    setSelectedPayout(payout)
-    setPayoutNotes(payout.adminNotes || "")
   }
 
   const renderOverviewTab = () => {
@@ -1029,7 +1014,7 @@ export default function AdminAffiliatePage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" variant="outline" onClick={() => handleOpenPayoutDetails(payout)}>
+                          <Button size="sm" variant="outline" onClick={() => setSelectedPayout(payout)}>
                             Review
                           </Button>
                         </TableCell>
@@ -1083,7 +1068,7 @@ export default function AdminAffiliatePage() {
             </div>
           )}
 
-          {/* Payout Review Dialog - Made Responsive */}
+          {/* Payout Review Dialog */}
           <Dialog open={!!selectedPayout} onOpenChange={(open) => !open && setSelectedPayout(null)}>
             <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
@@ -1093,7 +1078,7 @@ export default function AdminAffiliatePage() {
 
               {selectedPayout && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>Affiliate</Label>
                       <p className="font-medium">{selectedPayout.user.name || selectedPayout.user.email}</p>
@@ -1129,11 +1114,21 @@ export default function AdminAffiliatePage() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   <div>
                                     <Label className="text-xs text-gray-500">Payment Method</Label>
-                                    <p className="font-medium">{paymentDetails.method}</p>
+                                    <p className="font-medium">
+                                      {paymentDetails.method === "bank"
+                                        ? "Bank Transfer"
+                                        : paymentDetails.method === "paypal"
+                                          ? "PayPal"
+                                          : paymentDetails.method === "mobile"
+                                            ? "Mobile Payment"
+                                            : paymentDetails.method}
+                                    </p>
                                   </div>
                                   <div>
                                     <Label className="text-xs text-gray-500">Full Name</Label>
-                                    <p className="font-medium">{paymentDetails.fullName}</p>
+                                    <p className="font-medium">
+                                      {paymentDetails.fullName || paymentDetails.accountName}
+                                    </p>
                                   </div>
 
                                   {paymentDetails.method === "bank" && (
@@ -1146,18 +1141,14 @@ export default function AdminAffiliatePage() {
                                         <Label className="text-xs text-gray-500">Account Number</Label>
                                         <p className="font-medium">{paymentDetails.accountNumber}</p>
                                       </div>
-                                      {paymentDetails.iban && (
-                                        <div>
-                                          <Label className="text-xs text-gray-500">IBAN</Label>
-                                          <p className="font-medium">{paymentDetails.iban}</p>
-                                        </div>
-                                      )}
-                                      {paymentDetails.swiftCode && (
-                                        <div>
-                                          <Label className="text-xs text-gray-500">SWIFT/BIC Code</Label>
-                                          <p className="font-medium">{paymentDetails.swiftCode}</p>
-                                        </div>
-                                      )}
+                                      <div>
+                                        <Label className="text-xs text-gray-500">IBAN</Label>
+                                        <p className="font-medium">{paymentDetails.iban || "Not provided"}</p>
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs text-gray-500">SWIFT/BIC Code</Label>
+                                        <p className="font-medium">{paymentDetails.swiftCode || "Not provided"}</p>
+                                      </div>
                                       {paymentDetails.branchAddress && (
                                         <div className="col-span-1 sm:col-span-2">
                                           <Label className="text-xs text-gray-500">Branch Address</Label>
@@ -1170,15 +1161,19 @@ export default function AdminAffiliatePage() {
                                   {paymentDetails.method === "paypal" && (
                                     <div>
                                       <Label className="text-xs text-gray-500">PayPal Email</Label>
-                                      <p className="font-medium">{paymentDetails.paypalEmail}</p>
+                                      <p className="font-medium">{paymentDetails.email}</p>
                                     </div>
                                   )}
 
-                                  {["easypaisa", "jazzcash", "nayapay"].includes(paymentDetails.method) && (
+                                  {paymentDetails.method === "mobile" && (
                                     <>
                                       <div>
                                         <Label className="text-xs text-gray-500">Mobile Number</Label>
                                         <p className="font-medium">{paymentDetails.mobileNumber}</p>
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs text-gray-500">Service Provider</Label>
+                                        <p className="font-medium">{paymentDetails.serviceProvider}</p>
                                       </div>
                                       {paymentDetails.cnic && (
                                         <div>
@@ -1189,13 +1184,6 @@ export default function AdminAffiliatePage() {
                                     </>
                                   )}
                                 </div>
-
-                                {paymentDetails.additionalInfo && (
-                                  <div>
-                                    <Label className="text-xs text-gray-500">Additional Information</Label>
-                                    <p className="text-sm">{paymentDetails.additionalInfo}</p>
-                                  </div>
-                                )}
                               </>
                             )
                           } catch (e) {
@@ -1206,14 +1194,19 @@ export default function AdminAffiliatePage() {
                     )}
                   </div>
 
+                  {selectedPayout.adminNotes && (
+                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <Label className="text-xs text-amber-800">Admin Notes</Label>
+                      <p className="text-sm text-amber-900">{selectedPayout.adminNotes}</p>
+                    </div>
+                  )}
+
                   <div>
-                    <Label htmlFor="payout-notes">Admin Notes</Label>
+                    <Label>Admin Notes</Label>
                     <Textarea
-                      id="payout-notes"
                       placeholder="Add notes about this payout"
-                      value={payoutNotes}
-                      onChange={(e) => setPayoutNotes(e.target.value)}
-                      rows={3}
+                      defaultValue={selectedPayout.adminNotes || ""}
+                      id="payout-notes"
                     />
                   </div>
 
@@ -1221,7 +1214,10 @@ export default function AdminAffiliatePage() {
                     <Label>Update Status</Label>
                     <Select
                       defaultValue={selectedPayout.status}
-                      onValueChange={(value) => updatePayoutStatus(selectedPayout.id, value)}
+                      onValueChange={(value) => {
+                        const notes = (document.getElementById("payout-notes") as HTMLTextAreaElement)?.value
+                        updatePayoutStatus(selectedPayout.id, value, notes)
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select status" />
@@ -1237,15 +1233,9 @@ export default function AdminAffiliatePage() {
                 </div>
               )}
 
-              <DialogFooter className="flex-col sm:flex-row gap-2">
+              <DialogFooter>
                 <Button variant="outline" onClick={() => setSelectedPayout(null)}>
                   Cancel
-                </Button>
-                <Button
-                  onClick={() => updatePayoutStatus(selectedPayout?.id || "", selectedPayout?.status || "")}
-                  disabled={updatingPayout}
-                >
-                  {updatingPayout ? "Updating..." : "Update Status"}
                 </Button>
               </DialogFooter>
             </DialogContent>
