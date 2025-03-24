@@ -459,3 +459,40 @@ enum AffiliatePayoutStatus {
   COMPLETED
   REJECTED
 }
+model Coupon {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  description     String
+  type            CouponType
+  value           Decimal   @db.Decimal(10, 2)
+  startDate       DateTime
+  endDate         DateTime
+  usageLimit      Int
+  usageCount      Int       @default(0)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdBy       String
+  specificClient  Boolean   @default(false)
+  clientIds       String?   @db.Text
+  minimumAmount   Decimal?  @db.Decimal(10, 2)
+  onePerCustomer  Boolean   @default(false)
+  newCustomersOnly Boolean  @default(false)
+  usages          CouponUsage[]
+}
+
+model CouponUsage {
+  id        String   @id @default(cuid())
+  couponId  String
+  userId    String?
+  orderId   String?
+  amount    Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_SERVICE
+}

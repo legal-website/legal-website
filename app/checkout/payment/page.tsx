@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Upload, Copy, CheckCircle, AlertCircle } from "lucide-react"
+import { ArrowLeft, Upload, Copy, CheckCircle, AlertCircle, Tag } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useCart } from "@/context/cart-context"
 import { ErrorBoundary } from "@/components/error-boundary"
@@ -155,11 +155,14 @@ function PaymentPageContent() {
       // Step 3: Create invoice with receipt URL
       console.log("Creating invoice with receipt URL:", receiptUrl)
 
-      // Include affiliate code in the invoice data
+      // Include affiliate code and coupon in the invoice data
       const invoiceData = {
         customer: checkoutData.customer,
         items: checkoutData.items,
         total: checkoutData.total,
+        originalTotal: checkoutData.originalTotal,
+        discount: checkoutData.discount,
+        coupon: checkoutData.coupon,
         paymentReceipt: receiptUrl,
         affiliateCode: affiliateCode, // Include the affiliate code
       }
@@ -196,6 +199,10 @@ function PaymentPageContent() {
       // Step 4: Clear cart and checkout data
       clearCart()
       sessionStorage.removeItem("checkoutData")
+
+      // Clear any applied coupon
+      localStorage.removeItem("appliedCoupon")
+      localStorage.removeItem("couponData")
 
       // Step 5: Show success message
       toast({
@@ -270,6 +277,19 @@ function PaymentPageContent() {
               <div>
                 <p className="text-green-800 font-medium">Referral code applied</p>
                 <p className="text-green-700 text-sm">You're using a referral code: {affiliateCode}</p>
+              </div>
+            </div>
+          )}
+
+          {checkoutData.coupon && (
+            <div className="bg-purple-50 p-4 rounded-md flex items-start mb-6">
+              <Tag className="text-purple-500 mr-2 mt-0.5" size={18} />
+              <div>
+                <p className="text-purple-800 font-medium">Coupon applied</p>
+                <p className="text-purple-700 text-sm">
+                  Coupon code {checkoutData.coupon.code} has been applied to your order.
+                  {checkoutData.discount > 0 && ` You saved $${checkoutData.discount.toFixed(2)}.`}
+                </p>
               </div>
             </div>
           )}
@@ -399,9 +419,21 @@ function PaymentPageContent() {
                 ))}
 
                 <div className="pt-4">
-                  <div className="flex justify-between font-bold">
+                  {checkoutData.originalTotal !== checkoutData.total && (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span>Subtotal</span>
+                        <span>${checkoutData.originalTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-green-600 mt-1">
+                        <span>Discount</span>
+                        <span>-${checkoutData.discount.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between font-bold mt-2 pt-2 border-t">
                     <span>Total</span>
-                    <span>${checkoutData.total}</span>
+                    <span>${checkoutData.total.toFixed(2)}</span>
                   </div>
                 </div>
               </div>

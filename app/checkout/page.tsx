@@ -9,16 +9,27 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, AlertCircle } from "lucide-react"
+import { ArrowLeft, AlertCircle, X, Tag, Loader2 } from "lucide-react"
 import { useCart } from "@/context/cart-context"
 import { useToast } from "@/components/ui/use-toast"
+import type { CouponType } from "@/lib/prisma-types"
 
 export default function CheckoutPage() {
   const router = useRouter()
   const { items, getCartTotal, clearCart } = useCart()
   const [loading, setLoading] = useState(false)
+  const [validatingCoupon, setValidatingCoupon] = useState(false)
   const { toast } = useToast()
   const [affiliateCode, setAffiliateCode] = useState<string | null>(null)
+  const [couponCode, setCouponCode] = useState("")
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    id: string
+    code: string
+    description: string
+    type: CouponType
+    value: number
+    discount: number
+  } | null>(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -46,6 +57,19 @@ export default function CheckoutPage() {
         console.log("Found affiliate code in localStorage:", storedAffiliateCode)
         setAffiliateCode(storedAffiliateCode)
       }
+
+      // Check for applied coupon in localStorage
+      const storedCoupon = localStorage.getItem("appliedCoupon")
+      const storedCouponData = localStorage.getItem("couponData")
+
+      if (storedCoupon && storedCouponData) {
+        try {
+          const couponData = JSON.parse(storedCouponData)
+          validateCoupon(storedCoupon)
+        } catch (error) {
+          console.error("Error parsing stored coupon data:", error)
+        }
+      }
     }
   }, [items, router])
 
@@ -54,6 +78,77 @@ export default function CheckoutPage() {
     setFormData({
       ...formData,
       [name]: value,
+    })
+  }
+
+  const validateCoupon = async (code: string) => {
+    if (!code) return
+
+    try {
+      setValidatingCoupon(true)
+
+      const response = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          code,
+          cartTotal: getCartTotal(),
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Invalid coupon code")
+      }
+
+      if (data.valid && data.coupon) {
+        setAppliedCoupon({
+          ...data.coupon,
+          discount: data.coupon.discount || 0,
+        })
+
+        toast({
+          title: "Coupon applied",
+          description: `${data.coupon.code} has been applied to your order.`,
+        })
+
+        // Store in localStorage
+        localStorage.setItem("appliedCoupon", data.coupon.code)
+        localStorage.setItem("couponData", JSON.stringify(data.coupon))
+      }
+    } catch (error: any) {
+      console.error("Error validating coupon:", error)
+      toast({
+        title: "Invalid coupon",
+        description: error.message || "This coupon code is invalid or cannot be applied to your order.",
+        variant: "destructive",
+      })
+
+      // Clear any previously applied coupon
+      setAppliedCoupon(null)
+      localStorage.removeItem("appliedCoupon")
+      localStorage.removeItem("couponData")
+    } finally {
+      setValidatingCoupon(false)
+    }
+  }
+
+  const handleApplyCoupon = () => {
+    validateCoupon(couponCode)
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponCode("")
+    localStorage.removeItem("appliedCoupon")
+    localStorage.removeItem("couponData")
+
+    toast({
+      title: "Coupon removed",
+      description: "The coupon has been removed from your order.",
     })
   }
 
@@ -73,13 +168,26 @@ export default function CheckoutPage() {
     }
 
     try {
+      // Calculate final total with discount
+      const cartTotal = getCartTotal()
+      const discount = appliedCoupon ? appliedCoupon.discount : 0
+      const finalTotal = Math.max(0, cartTotal - discount)
+
       // Store customer data in session storage for the payment page
       sessionStorage.setItem(
         "checkoutData",
         JSON.stringify({
           customer: formData,
           items: items,
-          total: getCartTotal(),
+          total: finalTotal,
+          originalTotal: cartTotal,
+          discount: discount,
+          coupon: appliedCoupon
+            ? {
+                id: appliedCoupon.id,
+                code: appliedCoupon.code,
+              }
+            : null,
           affiliateCode: affiliateCode, // Store the affiliate code directly
         }),
       )
@@ -105,6 +213,11 @@ export default function CheckoutPage() {
       </div>
     )
   }
+
+  // Calculate totals
+  const cartTotal = getCartTotal()
+  const discount = appliedCoupon ? appliedCoupon.discount : 0
+  const finalTotal = Math.max(0, cartTotal - discount)
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-36 mb-44">
@@ -234,10 +347,54 @@ export default function CheckoutPage() {
                   </div>
                 ))}
 
+                {/* Coupon Code Input */}
+                <div className="pt-4 border-t">
+                  <Label htmlFor="couponCode" className="text-sm font-medium mb-2 block">
+                    Apply Coupon
+                  </Label>
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 p-2 rounded-md">
+                      <div className="flex items-center">
+                        <Tag className="h-4 w-4 mr-2 text-green-600" />
+                        <span className="text-green-700 font-medium">{appliedCoupon.code}</span>
+                        <span className="text-green-600 text-sm ml-2">(-${appliedCoupon.discount.toFixed(2)})</span>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={handleRemoveCoupon} className="h-8 w-8 p-0">
+                        <X className="h-4 w-4 text-green-700" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        id="couponCode"
+                        placeholder="Enter coupon code"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button onClick={handleApplyCoupon} disabled={!couponCode || validatingCoupon} variant="outline">
+                        {validatingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="pt-4">
-                  <div className="flex justify-between font-bold">
+                  <div className="flex justify-between font-medium">
+                    <span>Subtotal</span>
+                    <span>${cartTotal.toFixed(2)}</span>
+                  </div>
+
+                  {appliedCoupon && (
+                    <div className="flex justify-between text-green-600 mt-1">
+                      <span>Discount</span>
+                      <span>-${discount.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between font-bold text-lg mt-2 pt-2 border-t">
                     <span>Total</span>
-                    <span>${getCartTotal()}</span>
+                    <span>${finalTotal.toFixed(2)}</span>
                   </div>
                 </div>
               </div>

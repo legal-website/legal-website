@@ -400,41 +400,6 @@ export interface PricingSettingsDelegate {
 
 // Add these interfaces after the existing interfaces
 
-// Invoice model
-export interface InvoiceModel {
-  id: string
-  invoiceNumber: string
-  customerName: string
-  customerEmail: string
-  customerPhone?: string | null
-  customerCompany?: string | null
-  customerAddress?: string | null
-  customerCity?: string | null
-  customerState?: string | null
-  customerZip?: string | null
-  customerCountry?: string | null
-  amount: number
-  status: string
-  items: string
-  paymentReceipt?: string | null
-  paymentDate?: Date | null
-  createdAt: Date
-  updatedAt: Date
-  userId?: string | null
-  user?: UserModel | null
-}
-
-// Invoice delegate
-export interface InvoiceDelegate {
-  findMany: (args?: any) => Promise<InvoiceModel[]>
-  findUnique: (args: { where: { id: string }; include?: any }) => Promise<InvoiceModel | null>
-  create: (args: { data: any }) => Promise<InvoiceModel>
-  update: (args: { where: { id: string }; data: any }) => Promise<InvoiceModel>
-  delete: (args: { where: { id: string } }) => Promise<InvoiceModel>
-}
-
-// Add these interfaces after the existing interfaces
-
 // Affiliate models
 export interface AffiliateLinkModel {
   id: string
@@ -543,6 +508,62 @@ export interface AffiliateSettingsDelegate {
   upsert: (args: { where: any; create: any; update: any }) => Promise<AffiliateSettingsModel>
 }
 
+// Add these interfaces to your existing prisma-types.ts file
+
+export interface CouponModel {
+  id: string
+  code: string
+  description: string
+  type: CouponType
+  value: Decimal
+  startDate: Date
+  endDate: Date
+  usageLimit: number
+  usageCount: number
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+  createdBy: string
+  specificClient: boolean
+  clientIds: string | null
+  minimumAmount: Decimal | null
+  onePerCustomer: boolean
+  newCustomersOnly: boolean
+  usages?: CouponUsageModel[]
+}
+
+export interface CouponUsageModel {
+  id: string
+  couponId: string
+  userId: string | null
+  orderId: string | null
+  amount: Decimal
+  createdAt: Date
+  coupon?: CouponModel
+}
+
+export enum CouponType {
+  PERCENTAGE = "PERCENTAGE",
+  FIXED_AMOUNT = "FIXED_AMOUNT",
+  FREE_SERVICE = "FREE_SERVICE",
+}
+
+// Add these delegates to your ExtendedPrismaClient interface
+export interface CouponDelegate {
+  findMany: (args?: any) => Promise<CouponModel[]>
+  findUnique: (args: { where: { id: string } | { code: string } }) => Promise<CouponModel | null>
+  create: (args: { data: any }) => Promise<CouponModel>
+  update: (args: { where: { id: string }; data: any }) => Promise<CouponModel>
+  delete: (args: { where: { id: string } }) => Promise<CouponModel>
+  upsert: (args: { where: any; create: any; update: any }) => Promise<CouponModel>
+}
+
+export interface CouponUsageDelegate {
+  create: (args: { data: any }) => Promise<CouponUsageModel>
+  findMany: (args?: any) => Promise<CouponUsageModel[]>
+  count: (args?: any) => Promise<number>
+}
+
 // Then update your ExtendedPrismaClient type to include the user property
 export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   amendment: AmendmentDelegate
@@ -567,8 +588,6 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   systemSettings: SystemSettingsDelegate
   // Add pricing settings model
   pricingSettings: PricingSettingsDelegate
-  // Add invoice model
-  invoice: InvoiceDelegate
 
   // Add affiliate delegates
   affiliateLink: AffiliateLinkDelegate
@@ -576,6 +595,9 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   affiliateConversion: AffiliateConversionDelegate
   affiliatePayout: AffiliatePayoutDelegate
   affiliateSettings: AffiliateSettingsDelegate
+  // ... existing delegates
+  coupon: CouponDelegate
+  couponUsage: CouponUsageDelegate
   // Include raw query methods with proper typing
   $queryRaw: any // Using 'any' to avoid TypeScript errors
   $executeRaw: any // Using 'any' to avoid TypeScript errors
