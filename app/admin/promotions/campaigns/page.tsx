@@ -261,15 +261,20 @@ export default function AdminAffiliatePage() {
       const notesElement = document.getElementById("payout-notes") as HTMLTextAreaElement
       const notes = notesElement ? notesElement.value : ""
 
+      // Prepare the request body
+      const requestBody: any = { status }
+
+      // Only include adminNotes if there's a value
+      if (notes) {
+        requestBody.adminNotes = notes
+      }
+
       const res = await fetch(`/api/admin/affiliate/payouts/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          status,
-          adminNotes: notes, // Keep this as adminNotes for the request
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       const data = await res.json()

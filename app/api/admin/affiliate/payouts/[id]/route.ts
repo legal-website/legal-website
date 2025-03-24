@@ -37,13 +37,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       )
     }
 
-    // Update the payout - use 'notes' field instead of 'adminNotes'
+    // Prepare update data
+    const updateData: any = { status }
+
+    // Only update notes if adminNotes is provided
+    if (adminNotes !== undefined) {
+      updateData.notes = adminNotes
+    }
+
+    // Update the payout
     const payout = await db.affiliatePayout.update({
       where: { id: params.id },
-      data: {
-        status,
-        notes: adminNotes || undefined,
-      },
+      data: updateData,
     })
 
     // If the payout is being rejected, add the amount back to the user's pending earnings
@@ -62,7 +67,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             amount: currentPayout.amount,
             commission: currentPayout.amount,
             status: "PENDING",
-            notes: `Refunded from rejected payout #${payout.id}`,
           },
         })
       }
