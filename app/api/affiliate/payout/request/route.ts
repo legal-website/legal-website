@@ -55,11 +55,16 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Update conversions to APPROVED
+    // Update conversions to mark them as being processed for payout
+    // We'll use a special status "PROCESSING_PAYOUT" to track these
     for (const conversion of pendingConversions) {
       await db.affiliateConversion.update({
         where: { id: conversion.id },
-        data: { status: "APPROVED" },
+        data: {
+          status: "APPROVED",
+          // Add a reference to the payout request
+          orderId: `${conversion.orderId}-PAYOUT-${payout.id}`,
+        },
       })
     }
 

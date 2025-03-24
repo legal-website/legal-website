@@ -64,16 +64,43 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       })
 
       if (affiliateLink) {
-        // Create a new conversion record to credit the user
-        await db.affiliateConversion.create({
-          data: {
+        // Find all conversions that were part of this payout request
+        const payoutConversions = await db.affiliateConversion.findMany({
+          where: {
             linkId: affiliateLink.id,
-            orderId: `REFUND-${payout.id}`,
-            amount: currentPayout.amount,
-            commission: currentPayout.amount,
-            status: "PENDING",
+            orderId: {
+              contains: `-PAYOUT-${payout.id}`,
+            },
           },
         })
+
+        // If we found conversions associated with this payout
+        if (payoutConversions.length > 0) {
+          // Update each conversion back to PENDING status
+          for (const conversion of payoutConversions) {
+            // Extract the original order ID by removing the payout reference
+            const originalOrderId = conversion.orderId.split("-PAYOUT-")[0]
+
+            await db.affiliateConversion.update({
+              where: { id: conversion.id },
+              data: {
+                status: "PENDING",
+                orderId: originalOrderId,
+              },
+            })
+          }
+        } else {
+          // Fallback: If we can't find the specific conversions, create a new conversion record
+          await db.affiliateConversion.create({
+            data: {
+              linkId: affiliateLink.id,
+              orderId: `REFUND-${payout.id}`,
+              amount: currentPayout.amount,
+              commission: currentPayout.amount,
+              status: "PENDING",
+            },
+          })
+        }
       }
     }
 
