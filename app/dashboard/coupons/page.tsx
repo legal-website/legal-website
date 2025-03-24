@@ -167,47 +167,47 @@ export default function DashboardCouponsPage() {
             <TabsTrigger value="available">Available</TabsTrigger>
             <TabsTrigger value="used">Used</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="available" className="mt-0">
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+              </div>
+            ) : filteredCoupons.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                <Tag className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium mb-2">No coupons available</h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto">
+                  You don't have any available coupons at the moment. Check back later for special offers.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCoupons.map((coupon) => (
+                  <CouponCard
+                    key={coupon.id}
+                    coupon={coupon}
+                    onCopy={() => handleCopyCode(coupon.code)}
+                    onApply={() => handleApplyCoupon(coupon)}
+                    isCopied={copiedCode === coupon.code}
+                    isApplied={appliedCoupon === coupon.code}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="used" className="mt-0">
+            <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <XCircle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium mb-2">No used coupons</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto">
+                You haven't used any coupons yet. When you use a coupon, it will appear here.
+              </p>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
-
-      <TabsContent value="available" className="mt-0">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-          </div>
-        ) : filteredCoupons.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-            <Tag className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium mb-2">No coupons available</h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto">
-              You don't have any available coupons at the moment. Check back later for special offers.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCoupons.map((coupon) => (
-              <CouponCard
-                key={coupon.id}
-                coupon={coupon}
-                onCopy={() => handleCopyCode(coupon.code)}
-                onApply={() => handleApplyCoupon(coupon)}
-                isCopied={copiedCode === coupon.code}
-                isApplied={appliedCoupon === coupon.code}
-              />
-            ))}
-          </div>
-        )}
-      </TabsContent>
-
-      <TabsContent value="used" className="mt-0">
-        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-          <XCircle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium mb-2">No used coupons</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto">
-            You haven't used any coupons yet. When you use a coupon, it will appear here.
-          </p>
-        </div>
-      </TabsContent>
     </div>
   )
 }

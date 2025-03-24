@@ -105,6 +105,10 @@ export default function DashboardSidebar() {
 
   const isActive = (href: string) => pathname === href
 
+  const isPathStartingWith = (href: string) => {
+    return pathname ? pathname.startsWith(href) : false
+  }
+
   // Generate initials from business name
   const getInitials = (name: string) => {
     return name
@@ -192,7 +196,7 @@ export default function DashboardSidebar() {
                         : theme === "comfort"
                           ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
                           : "text-gray-600 hover:bg-gray-100",
-                      (expandedItems.includes(item.label) || pathname.startsWith(item.href)) &&
+                      (expandedItems.includes(item.label) || isPathStartingWith(item.href)) &&
                         (theme === "dark" ? "bg-gray-800" : theme === "comfort" ? "bg-[#efe9d8]" : "bg-gray-100"),
                     )}
                   >
@@ -201,12 +205,11 @@ export default function DashboardSidebar() {
                     <ChevronDown
                       className={cn(
                         "w-4 h-4 transition-transform",
-                        (expandedItems.includes(item.label) || pathname.startsWith(item.href)) &&
-                          "transform rotate-180",
+                        (expandedItems.includes(item.label) || isPathStartingWith(item.href)) && "transform rotate-180",
                       )}
                     />
                   </button>
-                  {(expandedItems.includes(item.label) || pathname.startsWith(item.href)) && (
+                  {(expandedItems.includes(item.label) || isPathStartingWith(item.href)) && (
                     <ul className="mt-2 ml-8 space-y-2">
                       {item.subItems.map((subItem) => (
                         <li key={subItem.href}>
