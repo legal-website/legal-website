@@ -18,6 +18,7 @@ import {
   Upload,
   MessageCircle,
   TicketIcon,
+  Tag,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/context/theme-context"
@@ -77,6 +78,11 @@ const menuItems: MenuItem[] = [
     icon: Users,
     label: "Affiliate Program",
     href: "/dashboard/affiliate",
+  },
+  {
+    icon: Tag,
+    label: "Coupons",
+    href: "/dashboard/coupons",
   },
   {
     icon: Settings,
