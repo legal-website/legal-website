@@ -36,7 +36,7 @@ import {
   Bar,
   Area,
 } from "recharts"
-import { ChartContainer, ChartTooltip } from "@/components/ui/chart"
+import { ChartContainer } from "@/components/ui/chart"
 
 export default function AffiliateProgramPage() {
   const [copied, setCopied] = useState(false)
@@ -685,35 +685,41 @@ export default function AffiliateProgramPage() {
                           tickMargin={10}
                           stroke="hsl(var(--muted-foreground))"
                         />
-                        <ChartTooltip
-                          content={
-                            <div className="rounded-lg border bg-background p-2 shadow-sm">
-                              <div className="grid gap-2">
-                                <div className="flex flex-col">
-                                  <span className="text-[0.70rem] uppercase text-muted-foreground">Date</span>
-                                  <span className="font-bold text-muted-foreground">
-                                    {new Date(clicksChartData[0]?.date).toLocaleDateString("en-US", {
-                                      weekday: "long",
-                                      year: "numeric",
-                                      month: "long",
-                                      day: "numeric",
-                                    })}
-                                  </span>
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload
+                              return (
+                                <div className="rounded-lg border bg-background p-3 shadow-md">
+                                  <div className="grid gap-2">
+                                    <div className="flex flex-col">
+                                      <span className="text-[0.70rem] uppercase text-muted-foreground">Date</span>
+                                      <span className="font-bold text-foreground">
+                                        {new Date(data.date).toLocaleDateString("en-US", {
+                                          weekday: "long",
+                                          year: "numeric",
+                                          month: "long",
+                                          day: "numeric",
+                                        })}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span
+                                        className="text-[0.70rem] uppercase"
+                                        style={{ color: "var(--color-clicks)" }}
+                                      >
+                                        Clicks
+                                      </span>
+                                      <span className="font-bold text-lg" style={{ color: "var(--color-clicks)" }}>
+                                        {data.clicks}
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex flex-col">
-                                  <span
-                                    className="text-[0.70rem] uppercase text-muted-foreground"
-                                    style={{ color: "var(--color-clicks)" }}
-                                  >
-                                    Clicks
-                                  </span>
-                                  <span className="font-bold" style={{ color: "var(--color-clicks)" }}>
-                                    {clicksChartData[0]?.clicks}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          }
+                              )
+                            }
+                            return null
+                          }}
                         />
                         <Bar dataKey="clicks" fill="var(--color-clicks)" radius={[4, 4, 0, 0]} name="clicks" />
                       </BarChart>
