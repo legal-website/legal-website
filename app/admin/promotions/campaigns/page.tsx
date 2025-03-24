@@ -466,7 +466,7 @@ export default function AdminAffiliatePage() {
                 <Users className="h-5 w-5 text-blue-600" />
                 <h3 className="font-medium">Total Affiliates</h3>
               </div>
-              <p className="text-2xl font-bold mt-2">{stats?.totalAffiliates || 0}</p>
+              <p className="text-2xl font-bold mt-2">{dashboardData?.stats?.totalAffiliates || 0}</p>
             </CardContent>
           </Card>
 
@@ -476,7 +476,7 @@ export default function AdminAffiliatePage() {
                 <MousePointer className="h-5 w-5 text-purple-600" />
                 <h3 className="font-medium">Total Clicks</h3>
               </div>
-              <p className="text-2xl font-bold mt-2">{stats?.totalClicks || 0}</p>
+              <p className="text-2xl font-bold mt-2">{dashboardData?.stats?.totalClicks || 0}</p>
             </CardContent>
           </Card>
 
@@ -486,7 +486,7 @@ export default function AdminAffiliatePage() {
                 <BarChart3 className="h-5 w-5 text-green-600" />
                 <h3 className="font-medium">Conversion Rate</h3>
               </div>
-              <p className="text-2xl font-bold mt-2">{stats?.conversionRate?.toFixed(1) || 0}%</p>
+              <p className="text-2xl font-bold mt-2">{dashboardData?.stats?.conversionRate?.toFixed(1) || 0}%</p>
             </CardContent>
           </Card>
 
@@ -1612,21 +1612,10 @@ const ClicksChart = ({ data }: { data: any[] }) => {
 }
 
 const AffiliatesChart = ({ data }: { data: any[] }) => {
-  // Calculate cumulative affiliates
-  const chartData = data.map((item, index, array) => {
-    const previousAffiliates = index > 0 ? array.slice(0, index).reduce((sum, prev) => sum + prev.newAffiliates, 0) : 0
-
-    return {
-      month: item.month,
-      affiliates: previousAffiliates + item.newAffiliates,
-      newAffiliates: item.newAffiliates,
-    }
-  })
-
   return (
     <div className="h-full w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+        <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
           <defs>
             <linearGradient id="colorAffiliates" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
@@ -1638,14 +1627,14 @@ const AffiliatesChart = ({ data }: { data: any[] }) => {
           <YAxis />
           <Tooltip
             formatter={(value: number, name: string) => {
-              return [value.toString(), name === "affiliates" ? "Total Affiliates" : "New Affiliates"]
+              return [value.toString(), name === "totalAffiliates" ? "Total Affiliates" : "New Affiliates"]
             }}
             contentStyle={{ backgroundColor: "white", borderRadius: "8px", border: "1px solid #e2e8f0" }}
           />
           <Legend />
           <Line
             type="monotone"
-            dataKey="affiliates"
+            dataKey="totalAffiliates"
             stroke="#f59e0b"
             name="Total Affiliates"
             strokeWidth={2}

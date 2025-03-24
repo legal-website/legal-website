@@ -98,42 +98,106 @@ export async function GET(req: NextRequest) {
     // Calculate average commission
     const avgCommission = totalConversions > 0 ? totalCommission / totalConversions : 0
 
-    // Generate simple monthly data for charts (last 6 months)
+    // Get actual affiliate growth data
+    // For simplicity, we'll get the count of affiliates created in each month
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
+    sixMonthsAgo.setDate(1)
+    sixMonthsAgo.setHours(0, 0, 0, 0)
+
+    const affiliatesByMonth = await db.affiliateLink.findMany({
+      where: {
+        createdAt: {
+          gte: sixMonthsAgo,
+        },
+      },
+      select: {
+        createdAt: true,
+      },
+    })
+
+    // Get actual click data by month
+    const clicksByMonth = await db.affiliateClick.findMany({
+      where: {
+        createdAt: {
+          gte: sixMonthsAgo,
+        },
+      },
+      select: {
+        createdAt: true,
+      },
+    })
+
+    // Get actual conversion data by month
+    const conversionsByMonth = await db.affiliateConversion.findMany({
+      where: {
+        createdAt: {
+          gte: sixMonthsAgo,
+        },
+      },
+      select: {
+        createdAt: true,
+        commission: true,
+      },
+    })
+
+    // Generate monthly stats based on actual data
     const monthlyStats = []
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     const currentMonth = new Date().getMonth()
 
-    // Distribute total clicks and commission over the last 6 months with some variation
-    let remainingClicks = totalClicks
-    let remainingCommission = totalCommission
+    // Initialize cumulative affiliates count
+    let cumulativeAffiliates = affiliateLinks.filter((link) => new Date(link.createdAt) < sixMonthsAgo).length
 
-    for (let i = 5; i >= 0; i--) {
-      const monthIndex = (currentMonth - i + 12) % 12
+    for (let i = 0; i < 6; i++) {
+      const monthIndex = (currentMonth - 5 + i + 12) % 12
       const month = months[monthIndex]
 
-      // Calculate a percentage of the total for this month (with some randomness for variation)
-      const clickPercentage = i === 0 ? 1 : Math.random() * 0.3 + 0.05 // Between 5% and 35%
-      const commissionPercentage = i === 0 ? 1 : Math.random() * 0.3 + 0.05 // Between 5% and 35%
+      const monthStart = new Date()
+      monthStart.setMonth(currentMonth - 5 + i)
+      monthStart.setDate(1)
+      monthStart.setHours(0, 0, 0, 0)
 
-      const monthlyClicks = i === 0 ? remainingClicks : Math.floor(totalClicks * clickPercentage)
-      const monthlyCommission = i === 0 ? remainingCommission : Math.floor(totalCommission * commissionPercentage)
+      const monthEnd = new Date()
+      monthEnd.setMonth(currentMonth - 5 + i + 1)
+      monthEnd.setDate(0)
+      monthEnd.setHours(23, 59, 59, 999)
 
-      remainingClicks -= monthlyClicks
-      remainingCommission -= monthlyCommission
+      // Count new affiliates for this month
+      const newAffiliatesThisMonth = affiliatesByMonth.filter((a) => {
+        const date = new Date(a.createdAt)
+        return date >= monthStart && date <= monthEnd
+      }).length
 
-      // Calculate monthly conversions based on the overall conversion rate
-      const monthlyConversions = Math.floor(monthlyClicks * (conversionRate / 100))
+      // Add to cumulative total
+      cumulativeAffiliates += newAffiliatesThisMonth
 
-      // Calculate monthly average commission
-      const monthlyAvgCommission = monthlyConversions > 0 ? monthlyCommission / monthlyConversions : 0
+      // Count clicks for this month
+      const clicksThisMonth = clicksByMonth.filter((c) => {
+        const date = new Date(c.createdAt)
+        return date >= monthStart && date <= monthEnd
+      }).length
+
+      // Count conversions and commission for this month
+      const conversionsThisMonth = conversionsByMonth.filter((c) => {
+        const date = new Date(c.createdAt)
+        return date >= monthStart && date <= monthEnd
+      })
+
+      const conversionsCount = conversionsThisMonth.length
+      const commissionThisMonth = conversionsThisMonth.reduce((sum, c) => sum + Number(c.commission || 0), 0)
+
+      // Calculate average commission for this month
+      const avgCommissionThisMonth = conversionsCount > 0 ? commissionThisMonth / conversionsCount : 0
 
       monthlyStats.push({
         month,
-        clicks: monthlyClicks,
-        conversions: monthlyConversions,
-        commission: monthlyCommission,
-        avgCommission: monthlyAvgCommission,
-        newAffiliates: Math.floor(Math.random() * 5) + 1, // Random number between 1 and 5
+        clicks: clicksThisMonth,
+        conversions: conversionsCount,
+        commission: commissionThisMonth,
+        avgCommission: avgCommissionThisMonth,
+        newAffiliates: newAffiliatesThisMonth,
+        totalAffiliates: cumulativeAffiliates,
       })
     }
 
