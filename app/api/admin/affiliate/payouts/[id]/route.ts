@@ -12,10 +12,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { status, notes } = await req.json()
+    const { status, adminNotes } = await req.json()
 
     if (!status) {
       return NextResponse.json({ error: "Status is required" }, { status: 400 })
+    }
+
+    // Get the current payout to check if it's being rejected
+    const currentPayout = await db.affiliatePayout.findUnique({
+      where: { id: params.id }
+    })
+
+    if (!currentPayout) {
+      return NextResponse.json({ error: "Payout not found" }, { status: 404 })
     }
 
     // Update the payout
@@ -23,86 +32,35 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       where: { id: params.id },
       data: {
         status,
-        adminNotes: notes || undefined,
+        adminNotes: adminNotes || undefined,
       },
     })
 
     // If the payout is being rejected, add the amount back to the user's pending earnings
-    if (status === "REJECTED") {
-      // Get the user's affiliate link
-      const userLink = await db.affiliateLink.findFirst({
-        where: {
-          userId: payout.userId,
-        },
+    if (status === "REJECTED" && currentPayout.status !== "REJECTED") {
+      // Find the user's affiliate link
+      const affiliateLink = await db.affiliateLink.findFirst({
+        where: { userId: currentPayout.userId },
       })
 
-      if (userLink) {
-        // Get all pending conversions for this user
-        const pendingConversions = await db.affiliateConversion.findMany({
-          where: {
-            linkId: userLink.id,
+      if (affiliateLink) {
+        // Create a new conversion record to credit the user
+        await db.affiliateConversion.create({
+          data: {
+            linkId: affiliateLink.id,
+            orderId: `REFUND-${payout.id}`,
+            amount: currentPayout.amount,
+            commission: currentPayout.amount,
             status: "PENDING",
+            notes: `Refunded from rejected payout #${payout.id}`,
           },
         })
-
-        // Calculate total pending amount
-        const pendingAmount = pendingConversions.reduce((total, conversion) => {
-          return total + Number(conversion.commission)
-        }, 0)
-
-        // Add the rejected payout amount back to the user's pending earnings
-        // This is done by updating the status of some approved conversions back to pending
-        // until we reach the rejected amount
-
-        // First, get approved conversions that aren't paid yet
-        const approvedConversions = await db.affiliateConversion.findMany({
-          where: {
-            linkId: userLink.id,
-            status: "APPROVED",
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        })
-
-        let remainingAmount = Number(payout.amount)
-
-        // Update conversions until we've covered the rejected amount
-        for (const conversion of approvedConversions) {
-          if (remainingAmount <= 0) break
-
-          const conversionAmount = Number(conversion.commission)
-
-          await db.affiliateConversion.update({
-            where: {
-              id: conversion.id,
-            },
-            data: {
-              status: "PENDING",
-            },
-          })
-
-          remainingAmount -= conversionAmount
-        }
-
-        // If we still have remaining amount, create a new pending conversion
-        if (remainingAmount > 0) {
-          await db.affiliateConversion.create({
-            data: {
-              linkId: userLink.id,
-              orderId: `REFUND-${payout.id}`,
-              amount: remainingAmount,
-              commission: remainingAmount,
-              status: "PENDING",
-            },
-          })
-        }
       }
     }
 
     // Fetch user data separately
     const user = await db.user.findUnique({
-      where: { id: payout.userId },
+      where: { id: currentPayout.userId },
       select: {
         id: true,
         name: true,
@@ -121,4 +79,3 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Failed to update payout" }, { status: 500 })
   }
 }
-

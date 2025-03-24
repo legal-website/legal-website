@@ -257,12 +257,19 @@ export default function AdminAffiliatePage() {
 
   const updatePayoutStatus = async (id: string, status: string, notes?: string) => {
     try {
+      // Get the notes from the textarea
+      const notesElement = document.getElementById("payout-notes") as HTMLTextAreaElement
+      const adminNotes = notesElement ? notesElement.value : notes || ""
+
       const res = await fetch(`/api/admin/affiliate/payouts/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status, notes }),
+        body: JSON.stringify({
+          status,
+          adminNotes,
+        }),
       })
 
       const data = await res.json()
@@ -1214,10 +1221,7 @@ export default function AdminAffiliatePage() {
                     <Label>Update Status</Label>
                     <Select
                       defaultValue={selectedPayout.status}
-                      onValueChange={(value) => {
-                        const notes = (document.getElementById("payout-notes") as HTMLTextAreaElement)?.value
-                        updatePayoutStatus(selectedPayout.id, value, notes)
-                      }}
+                      onValueChange={(value) => updatePayoutStatus(selectedPayout.id, value)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select status" />

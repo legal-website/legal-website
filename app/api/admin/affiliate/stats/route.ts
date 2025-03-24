@@ -1,125 +1,91 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { AffiliateConversionStatus } from "@/lib/affiliate-types"
+import { Role } from "@/lib/role"
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session?.user) {
+    if (!session?.user || session.user.role !== Role.ADMIN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get affiliate link
-    const affiliateLink = await db.affiliateLink.findUnique({
-      where: { userId: session.user.id },
-    })
-
-    if (!affiliateLink) {
-      return NextResponse.json({
-        totalEarnings: 0,
-        pendingEarnings: 0,
-        totalReferrals: 0,
-        totalClicks: 0,
-        conversionRate: 0,
-        recentEarnings: [],
-        recentReferrals: [],
-      })
-    }
+    // Get total affiliates
+    const totalAffiliates = await db.affiliateLink.count()
 
     // Get total clicks
-    const totalClicks = await db.$queryRaw`
-      SELECT COUNT(*) as count FROM affiliate_clicks WHERE linkId = ${affiliateLink.id}
-    `.then((result: any) => Number(result[0].count))
+    const totalClicks = await db.affiliateClick.count()
 
-    // Get conversions
-    const conversions = await db.affiliateConversion.findMany({
-      where: { linkId: affiliateLink.id },
-      orderBy: { createdAt: "desc" },
-    })
+    // Get total conversions
+    const totalConversions = await db.affiliateConversion.count()
 
-    // Calculate total earnings
-    const totalEarnings = conversions
-      .filter((c) => c.status === AffiliateConversionStatus.APPROVED || c.status === AffiliateConversionStatus.PAID)
-      .reduce((sum, c) => sum + Number(c.commission), 0)
-
-    // Calculate pending earnings
-    const pendingEarnings = conversions
-      .filter((c) => c.status === AffiliateConversionStatus.PENDING)
-      .reduce((sum, c) => sum + Number(c.commission), 0)
-
-    // Get total successful referrals
-    const totalReferrals = conversions.filter(
-      (c) => c.status === AffiliateConversionStatus.APPROVED || c.status === AffiliateConversionStatus.PAID,
-    ).length
-
-    // Calculate conversion rate
-    const conversionRate = totalClicks > 0 ? (totalReferrals / totalClicks) * 100 : 0
-
-    // Get recent earnings (last 5)
-    const recentEarnings = conversions
-      .filter((c) => c.status === AffiliateConversionStatus.APPROVED || c.status === AffiliateConversionStatus.PAID)
-      .slice(0, 5)
-
-    // Get recent referrals with user info
-    const recentReferrals = await db.affiliateConversion.findMany({
+    // Get approved conversions
+    const approvedConversions = await db.affiliateConversion.count({
       where: {
-        linkId: affiliateLink.id,
         status: {
-          in: [AffiliateConversionStatus.APPROVED, AffiliateConversionStatus.PAID, AffiliateConversionStatus.PENDING],
+          in: ["APPROVED", "PAID"],
         },
       },
-      orderBy: { createdAt: "desc" },
-      take: 5,
     })
 
-    // Get payouts
-    const payouts = await db.affiliatePayout.findMany({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: "desc" },
-    })
-
-    // Get affiliate settings
-    const settings = (await db.affiliateSettings.findFirst()) || {
-      minPayoutAmount: 50,
-      commissionRate: 10,
-      cookieDuration: 30,
-    }
-
-    const responseData = {
-      totalEarnings,
-      pendingEarnings,
-      totalReferrals,
-      totalClicks,
-      conversionRate,
-      recentEarnings,
-      recentReferrals,
-      payouts,
-      settings,
-    }
-
-    // Get rejected payouts
-    const rejectedPayouts = await db.affiliatePayout.findMany({
+    // Calculate total commission
+    const conversions = await db.affiliateConversion.findMany({
       where: {
-        userId: session.user.id,
-        status: "REJECTED",
+        status: {
+          in: ["APPROVED", "PAID"],
+        },
       },
-      orderBy: {
-        updatedAt: "desc",
-      },
-      take: 5,
     })
 
-    // Include rejected payouts in the response
+    const totalCommission = conversions.reduce((sum, c) => sum + Number(c.commission), 0)
+
+    // Get pending payouts - using findMany and calculating length
+    const pendingPayoutsArray = await db.affiliatePayout.findMany({
+      where: { status: "PENDING" },
+    })
+    const pendingPayouts = pendingPayoutsArray.length
+
+    // Calculate pending payout amount
+    const pendingPayoutAmount = pendingPayoutsArray.reduce((sum, p) => sum + Number(p.amount), 0)
+
+    // Get conversion rate
+    const conversionRate = totalClicks > 0 ? (approvedConversions / totalClicks) * 100 : 0
+
+    // Get recent conversions
+    const recentConversions = await db.affiliateConversion.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: {
+        link: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
     return NextResponse.json({
-      ...responseData,
-      rejectedPayouts,
+      totalAffiliates,
+      totalClicks,
+      totalConversions,
+      approvedConversions,
+      totalCommission,
+      pendingPayouts,
+      pendingPayoutAmount,
+      conversionRate,
+      recentConversions,
     })
   } catch (error) {
     console.error("Error fetching affiliate stats:", error)
-    return NextResponse.json({ error: "Failed to fetch affiliate statistics" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 })
   }
 }
 
