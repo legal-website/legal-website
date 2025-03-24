@@ -8,11 +8,21 @@ import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Search, Tag, Copy, CheckCircle2, XCircle, Loader2, AlertCircle } from "lucide-react"
+import { Search, Tag, Copy, CheckCircle2, XCircle, RefreshCw, AlertCircle, SortAsc } from "lucide-react"
 import { formatCouponValue } from "@/lib/coupon"
 import type { CouponType } from "@/lib/prisma-types"
 import { format } from "date-fns"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationEllipsis,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
 interface Coupon {
   id: string
@@ -23,6 +33,8 @@ interface Coupon {
   expiresAt: string
   minimumAmount: number | null
 }
+
+type SortOption = "newest" | "expiringSoon" | "highestValue" | "lowestValue"
 
 export default function DashboardCouponsPage() {
   const { data: session, status } = useSession()
@@ -35,6 +47,11 @@ export default function DashboardCouponsPage() {
   const [activeTab, setActiveTab] = useState("available")
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<SortOption>("expiringSoon")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  const ITEMS_PER_PAGE = 12
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -73,7 +90,13 @@ export default function DashboardCouponsPage() {
       })
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
+  }
+
+  const handleRefresh = () => {
+    setIsRefreshing(true)
+    fetchCoupons()
   }
 
   const handleCopyCode = (code: string) => {
@@ -116,6 +139,21 @@ export default function DashboardCouponsPage() {
     })
   }
 
+  const sortCoupons = (coupons: Coupon[]) => {
+    switch (sortBy) {
+      case "newest":
+        return [...coupons].sort((a, b) => new Date(b.expiresAt).getTime() - new Date(a.expiresAt).getTime())
+      case "expiringSoon":
+        return [...coupons].sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime())
+      case "highestValue":
+        return [...coupons].sort((a, b) => b.value - a.value)
+      case "lowestValue":
+        return [...coupons].sort((a, b) => a.value - b.value)
+      default:
+        return coupons
+    }
+  }
+
   const filteredCoupons = coupons.filter((coupon) => {
     return (
       coupon.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -123,12 +161,19 @@ export default function DashboardCouponsPage() {
     )
   })
 
+  const sortedCoupons = sortCoupons(filteredCoupons)
+
+  // Pagination
+  const totalPages = Math.ceil(sortedCoupons.length / ITEMS_PER_PAGE)
+  const paginatedCoupons = sortedCoupons.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, sortBy, activeTab])
+
   if (status === "loading") {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-      </div>
-    )
+    return <CouponPageLoader />
   }
 
   return (
@@ -168,8 +213,9 @@ export default function DashboardCouponsPage() {
         </Alert>
       )}
 
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div className="relative w-full md:w-auto md:min-w-[300px]">
+      {/* Top Controls */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="Search coupons..."
@@ -179,28 +225,56 @@ export default function DashboardCouponsPage() {
           />
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:w-auto">
-          <TabsList>
-            <TabsTrigger value="available">Available</TabsTrigger>
-            <TabsTrigger value="used">Used</TabsTrigger>
-          </TabsList>
+        <div className="flex gap-2">
+          <div className="w-48">
+            <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+              <SelectTrigger>
+                <SortAsc className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="expiringSoon">Expiring Soon</SelectItem>
+                <SelectItem value="newest">Newest</SelectItem>
+                <SelectItem value="highestValue">Highest Value</SelectItem>
+                <SelectItem value="lowestValue">Lowest Value</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <TabsContent value="available" className="mt-0">
-            {loading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-              </div>
-            ) : filteredCoupons.length === 0 ? (
-              <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                <Tag className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium mb-2">No coupons available</h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto">
-                  You don't have any available coupons at the moment. Check back later for special offers.
-                </p>
-              </div>
-            ) : (
+          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing} className="h-10 w-10">
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="available" className="flex-1 sm:flex-initial">
+            Available
+          </TabsTrigger>
+          <TabsTrigger value="used" className="flex-1 sm:flex-initial">
+            Used
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="available" className="mt-4">
+          {loading ? (
+            <CouponPageLoader />
+          ) : paginatedCoupons.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <Tag className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium mb-2">No coupons available</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto">
+                {searchQuery
+                  ? `No coupons match your search for "${searchQuery}"`
+                  : "You don't have any available coupons at the moment. Check back later for special offers."}
+              </p>
+            </div>
+          ) : (
+            <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredCoupons.map((coupon) => (
+                {paginatedCoupons.map((coupon) => (
                   <CouponCard
                     key={coupon.id}
                     coupon={coupon}
@@ -211,20 +285,26 @@ export default function DashboardCouponsPage() {
                   />
                 ))}
               </div>
-            )}
-          </TabsContent>
 
-          <TabsContent value="used" className="mt-0">
-            <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-              <XCircle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium mb-2">No used coupons</h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto">
-                You haven't used any coupons yet. When you use a coupon, it will appear here.
-              </p>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+              {totalPages > 1 && (
+                <div className="mt-8">
+                  <CustomPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+                </div>
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="used" className="mt-4">
+          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+            <XCircle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium mb-2">No used coupons</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto">
+              You haven't used any coupons yet. When you use a coupon, it will appear here.
+            </p>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
@@ -249,15 +329,15 @@ function CouponCard({
   const isExpiringSoon = daysUntilExpiry <= 7
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="bg-purple-50 dark:bg-purple-900/20 pb-2">
+    <Card className="overflow-hidden hover:shadow-md transition-shadow duration-300">
+      <CardHeader className="bg-green-50 dark:bg-green-900/20 pb-2">
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="text-lg">{coupon.code}</CardTitle>
             <CardDescription>{coupon.description}</CardDescription>
           </div>
           <div className="bg-white dark:bg-gray-800 p-2 rounded-md">
-            <Tag className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            <Tag className="h-5 w-5 text-green-600 dark:text-green-400" />
           </div>
         </div>
       </CardHeader>
@@ -297,11 +377,141 @@ function CouponCard({
             </>
           )}
         </Button>
-        <Button className="flex-1 bg-purple-600 hover:bg-purple-700" onClick={onApply} disabled={isApplied}>
+        <Button
+          className="flex-1 bg-green-600 hover:bg-green-700"
+          style={{ backgroundColor: "#22C984", borderColor: "#22C984" }}
+          onClick={onApply}
+          disabled={isApplied}
+        >
           {isApplied ? "Applied" : "Apply"}
         </Button>
       </CardFooter>
     </Card>
+  )
+}
+
+function CustomPagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+}: {
+  currentPage: number
+  totalPages: number
+  onPageChange: (page: number) => void
+}) {
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages = []
+
+    // Always show first page
+    pages.push(1)
+
+    // Current page and surrounding pages
+    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+      if (pages[pages.length - 1] !== i - 1) {
+        // Add ellipsis if there's a gap
+        pages.push(-1)
+      }
+      pages.push(i)
+    }
+
+    // Add last page if not already included
+    if (totalPages > 1) {
+      if (pages[pages.length - 1] !== totalPages - 1) {
+        // Add ellipsis if there's a gap
+        pages.push(-1)
+      }
+      pages.push(totalPages)
+    }
+
+    return pages
+  }
+
+  const pageNumbers = getPageNumbers()
+
+  return (
+    <Pagination>
+      <PaginationContent>
+        {currentPage > 1 && (
+          <PaginationItem>
+            <PaginationPrevious
+              href="#"
+              onClick={(e) => {
+                e.preventDefault()
+                onPageChange(currentPage - 1)
+              }}
+            />
+          </PaginationItem>
+        )}
+
+        {pageNumbers.map((page, i) =>
+          page === -1 ? (
+            <PaginationItem key={`ellipsis-${i}`}>
+              <PaginationEllipsis />
+            </PaginationItem>
+          ) : (
+            <PaginationItem key={page}>
+              <PaginationLink
+                href="#"
+                isActive={page === currentPage}
+                onClick={(e) => {
+                  e.preventDefault()
+                  onPageChange(page)
+                }}
+              >
+                {page}
+              </PaginationLink>
+            </PaginationItem>
+          ),
+        )}
+
+        {currentPage < totalPages && (
+          <PaginationItem>
+            <PaginationNext
+              href="#"
+              onClick={(e) => {
+                e.preventDefault()
+                onPageChange(currentPage + 1)
+              }}
+            />
+          </PaginationItem>
+        )}
+      </PaginationContent>
+    </Pagination>
+  )
+}
+
+function CouponPageLoader() {
+  return (
+    <div className="container mx-auto py-10 px-4 max-w-6xl">
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="relative">
+          <div className="w-20 h-20 border-4 border-gray-200 rounded-full"></div>
+          <div className="w-20 h-20 border-4 border-t-green-500 animate-spin rounded-full absolute top-0 left-0"></div>
+        </div>
+        <div className="mt-4 flex flex-col items-center">
+          <div className="h-2 w-24 bg-gray-200 rounded animate-pulse mb-2.5"></div>
+          <div className="h-2 w-32 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 animate-pulse">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-4"></div>
+              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-6"></div>
+              <div className="flex justify-between mb-4">
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded flex-1"></div>
+                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded flex-1"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
 
