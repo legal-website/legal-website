@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Line, LineChart, Bar, BarChart, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
 export default function AdminAffiliatePage() {
   const [activeTab, setActiveTab] = useState("overview")
@@ -53,6 +55,9 @@ export default function AdminAffiliatePage() {
   const [selectedConversion, setSelectedConversion] = useState<any>(null)
   const [selectedPayout, setSelectedPayout] = useState<any>(null)
   const { toast } = useToast()
+
+  // State for Overview Tab
+  const [showMoreCount, setShowMoreCount] = useState(10)
 
   useEffect(() => {
     if (activeTab === "overview") {
@@ -409,6 +414,11 @@ export default function AdminAffiliatePage() {
       )
     }
 
+    // Filter pending payments
+    const pendingPayments = stats?.recentConversions?.filter((c: any) => c.status === "PENDING") || []
+    const visiblePendingPayments = pendingPayments.slice(0, showMoreCount)
+    const hasMorePayments = pendingPayments.length > showMoreCount
+
     return (
       <>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
@@ -453,28 +463,27 @@ export default function AdminAffiliatePage() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <Card>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+          <Card className="lg:col-span-8">
             <CardHeader>
-              <CardTitle>Pending Approvals</CardTitle>
-              <CardDescription>Conversions waiting for approval</CardDescription>
+              <CardTitle>Pending Payments</CardTitle>
+              <CardDescription>Conversions waiting for payment</CardDescription>
             </CardHeader>
             <CardContent>
-              {stats?.recentConversions?.filter((c: any) => c.status === "PENDING").length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Affiliate</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Commission</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {stats.recentConversions
-                      .filter((c: any) => c.status === "PENDING")
-                      .map((conversion: any) => (
+              {visiblePendingPayments.length > 0 ? (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Affiliate</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Commission</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {visiblePendingPayments.map((conversion: any) => (
                         <TableRow key={conversion.id}>
                           <TableCell>{formatDate(conversion.createdAt)}</TableCell>
                           <TableCell>{conversion.link.user.name || conversion.link.user.email}</TableCell>
@@ -489,15 +498,23 @@ export default function AdminAffiliatePage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                  </TableBody>
-                </Table>
+                    </TableBody>
+                  </Table>
+                  {hasMorePayments && (
+                    <div className="mt-4 text-center">
+                      <Button variant="outline" onClick={() => setShowMoreCount((prev) => prev + 5)}>
+                        Show More
+                      </Button>
+                    </div>
+                  )}
+                </>
               ) : (
-                <div className="text-center py-4 text-gray-500">No pending conversions</div>
+                <div className="text-center py-4 text-gray-500">No pending payments</div>
               )}
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="lg:col-span-4">
             <CardHeader>
               <CardTitle>Pending Payouts</CardTitle>
               <CardDescription>Payout requests waiting for processing</CardDescription>
@@ -514,6 +531,40 @@ export default function AdminAffiliatePage() {
               ) : (
                 <div className="text-center py-4 text-gray-500">No pending payouts</div>
               )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Commission Charts Section */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Commission Overview</CardTitle>
+            <CardDescription>Total and average commission per conversion</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            <CommissionChart />
+          </CardContent>
+        </Card>
+
+        {/* Clicks and Affiliates Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Clicks Over Time</CardTitle>
+              <CardDescription>Number of affiliate link clicks</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              <ClicksChart />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Affiliate Growth</CardTitle>
+              <CardDescription>Total number of affiliates over time</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              <AffiliatesChart />
             </CardContent>
           </Card>
         </div>
@@ -1416,6 +1467,236 @@ export default function AdminAffiliatePage() {
         <TabsContent value="settings">{renderSettingsTab()}</TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+// Chart Components
+const CommissionChart = () => {
+  const [chartData, setChartData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch("/api/admin/affiliate/dashboard")
+        const data = await res.json()
+
+        if (res.ok) {
+          // Process data for chart
+          const processedData = data.monthlyStats.map((stat: any) => ({
+            month: stat.month,
+            totalCommission: Number(stat.commission),
+            avgCommission: Number(stat.commission) / (stat.conversions || 1),
+          }))
+
+          setChartData(processedData)
+        }
+        setLoading(false)
+      } catch (error) {
+        console.error("Error fetching chart data:", error)
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Skeleton className="h-full w-full" />
+      </div>
+    )
+  }
+
+  return (
+    <ChartContainer
+      config={{
+        totalCommission: {
+          label: "Total Commission",
+          color: "hsl(var(--chart-1))",
+        },
+        avgCommission: {
+          label: "Avg Commission",
+          color: "hsl(var(--chart-2))",
+        },
+      }}
+      className="h-full"
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="month" />
+          <YAxis />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Legend />
+          <Line
+            type="monotone"
+            dataKey="totalCommission"
+            stroke="var(--color-totalCommission)"
+            name="Total Commission"
+            strokeWidth={2}
+            dot={{ r: 4 }}
+            activeDot={{ r: 6 }}
+            animationDuration={1500}
+          />
+          <Line
+            type="monotone"
+            dataKey="avgCommission"
+            stroke="var(--color-avgCommission)"
+            name="Avg Commission"
+            strokeWidth={2}
+            dot={{ r: 4 }}
+            activeDot={{ r: 6 }}
+            animationDuration={1500}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </ChartContainer>
+  )
+}
+
+const ClicksChart = () => {
+  const [chartData, setChartData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch("/api/admin/affiliate/dashboard")
+        const data = await res.json()
+
+        if (res.ok) {
+          // Process data for chart
+          const processedData = data.monthlyStats.map((stat: any) => ({
+            month: stat.month,
+            clicks: stat.clicks,
+          }))
+
+          setChartData(processedData)
+        }
+        setLoading(false)
+      } catch (error) {
+        console.error("Error fetching chart data:", error)
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Skeleton className="h-full w-full" />
+      </div>
+    )
+  }
+
+  return (
+    <ChartContainer
+      config={{
+        clicks: {
+          label: "Clicks",
+          color: "hsl(var(--chart-3))",
+        },
+      }}
+      className="h-full"
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="month" />
+          <YAxis />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Legend />
+          <Bar
+            dataKey="clicks"
+            fill="var(--color-clicks)"
+            name="Clicks"
+            radius={[4, 4, 0, 0]}
+            animationDuration={1500}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartContainer>
+  )
+}
+
+const AffiliatesChart = () => {
+  const [chartData, setChartData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch("/api/admin/affiliate/dashboard")
+        const data = await res.json()
+
+        if (res.ok) {
+          // Process data for chart - accumulate affiliates over time
+          let totalAffiliates = 0
+          const processedData = data.monthlyStats.map((stat: any) => {
+            totalAffiliates += stat.newAffiliates || 0
+            return {
+              month: stat.month,
+              affiliates: totalAffiliates,
+            }
+          })
+
+          setChartData(processedData)
+        }
+        setLoading(false)
+      } catch (error) {
+        console.error("Error fetching chart data:", error)
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Skeleton className="h-full w-full" />
+      </div>
+    )
+  }
+
+  return (
+    <ChartContainer
+      config={{
+        affiliates: {
+          label: "Total Affiliates",
+          color: "hsl(var(--chart-4))",
+        },
+      }}
+      className="h-full"
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="month" />
+          <YAxis />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Legend />
+          <Line
+            type="monotone"
+            dataKey="affiliates"
+            stroke="var(--color-affiliates)"
+            name="Total Affiliates"
+            strokeWidth={2}
+            dot={{ r: 4 }}
+            activeDot={{ r: 6 }}
+            animationDuration={1500}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </ChartContainer>
   )
 }
 
