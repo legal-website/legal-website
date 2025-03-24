@@ -1,6 +1,4 @@
-import type { Decimal } from "@prisma/client/runtime/library"
-
-// Define enums for affiliate statuses
+// Define the affiliate conversion status enum
 export enum AffiliateConversionStatus {
   PENDING = "PENDING",
   APPROVED = "APPROVED",
@@ -8,36 +6,54 @@ export enum AffiliateConversionStatus {
   PAID = "PAID",
 }
 
+// Define the affiliate payout status enum
 export enum AffiliatePayoutStatus {
   PENDING = "PENDING",
   COMPLETED = "COMPLETED",
   REJECTED = "REJECTED",
 }
 
-// Define interfaces for affiliate models
-export interface AffiliateStats {
-  totalClicks: number
-  totalConversions: number
-  conversionRate: number
-  totalEarnings: Decimal | number
-  pendingEarnings: Decimal | number
-  paidEarnings: Decimal | number
-  clicksThisMonth: number
-  conversionsThisMonth: number
-  earningsThisMonth: Decimal | number
+// Define the affiliate link interface
+export interface AffiliateLink {
+  id: string
+  userId: string
+  code: string
+  createdAt: Date
+  updatedAt: Date
 }
 
-export interface AffiliateAdminStats {
-  totalAffiliates: number
-  activeAffiliates: number
-  totalClicks: number
-  totalConversions: number
-  conversionRate: number
-  totalCommissions: Decimal | number
-  pendingCommissions: Decimal | number
-  paidCommissions: Decimal | number
-  clicksThisMonth: number
-  conversionsThisMonth: number
-  commissionsThisMonth: Decimal | number
+// Define the affiliate conversion interface
+export interface AffiliateConversion {
+  id: string
+  linkId: string
+  orderId: string
+  amount: number
+  commission: number
+  status: AffiliateConversionStatus
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Define the affiliate payout interface
+export interface AffiliatePayout {
+  id: string
+  userId: string
+  amount: number
+  method: string
+  status: AffiliatePayoutStatus
+  notes?: string | null
+  adminNotes?: string | null
+  processed?: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Define the affiliate settings interface
+export interface AffiliateSettings {
+  id: number
+  commissionRate: number
+  minPayoutAmount: number
+  cookieDuration: number
+  updatedAt: Date
 }
 

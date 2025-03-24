@@ -19,92 +19,160 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: "Status is required" }, { status: 400 })
     }
 
-    // Get the current payout to check if we're rejecting it
-    const currentPayout = await db.affiliatePayout.findUnique({
-      where: { id: params.id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    } as any) // Use type assertion to avoid TypeScript errors
+    console.log(`Updating payout ${params.id} with status: ${status}`)
 
-    if (!currentPayout) {
-      return NextResponse.json({ error: "Payout not found" }, { status: 404 })
+    // First check if the payout exists
+    try {
+      const payoutExists = await db.affiliatePayout.findUnique({
+        where: { id: params.id },
+        select: { id: true },
+      } as any) // Use type assertion to avoid TypeScript errors
+
+      if (!payoutExists) {
+        return NextResponse.json({ error: "Payout not found" }, { status: 404 })
+      }
+    } catch (error) {
+      console.error("Error checking if payout exists:", error)
+      return NextResponse.json(
+        {
+          error: "Failed to check if payout exists",
+          details: error instanceof Error ? error.message : String(error),
+        },
+        { status: 500 },
+      )
+    }
+
+    // Get the current payout to check if we're rejecting it
+    let currentPayout
+    try {
+      currentPayout = await db.affiliatePayout.findUnique({
+        where: { id: params.id },
+      })
+
+      if (!currentPayout) {
+        return NextResponse.json({ error: "Payout not found" }, { status: 404 })
+      }
+    } catch (error) {
+      console.error("Error fetching current payout:", error)
+      return NextResponse.json(
+        {
+          error: "Failed to fetch current payout",
+          details: error instanceof Error ? error.message : String(error),
+        },
+        { status: 500 },
+      )
     }
 
     // If we're rejecting a payout, we need to handle it specially
     if (status === AffiliatePayoutStatus.REJECTED) {
-      // Find the affiliate link for this user
-      const affiliateLink = await db.affiliateLink.findUnique({
-        where: { userId: currentPayout.userId },
-      })
+      try {
+        // Find the affiliate link for this user
+        const affiliateLink = await db.affiliateLink.findUnique({
+          where: { userId: currentPayout.userId },
+        })
 
-      if (!affiliateLink) {
-        return NextResponse.json({ error: "Affiliate link not found" }, { status: 404 })
-      }
+        if (!affiliateLink) {
+          return NextResponse.json({ error: "Affiliate link not found" }, { status: 404 })
+        }
 
-      // Find all conversions associated with this payout that are in PAID status
-      // We'll set them back to APPROVED so they're available for payout again
-      await db.$executeRaw`
-        UPDATE affiliate_conversions 
-        SET status = ${AffiliateConversionStatus.APPROVED}, updatedAt = NOW() 
-        WHERE linkId = ${affiliateLink.id} AND status = ${AffiliateConversionStatus.PAID}
-      `
+        console.log(`Found affiliate link for user ${currentPayout.userId}: ${affiliateLink.id}`)
 
-      // Update the payout with rejected status and mark as not processed
-      // This will allow the user to see it in their dashboard
-      const payout = await db.affiliatePayout.update({
-        where: { id: params.id },
-        data: {
-          status,
-          adminNotes: notes || undefined,
-          processed: false, // Mark as not processed so it shows up in the dashboard
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+        // Find all conversions associated with this payout that are in PAID status
+        // We'll set them back to APPROVED so they're available for payout again
+        try {
+          await db.$executeRaw`
+            UPDATE affiliate_conversions 
+            SET status = ${AffiliateConversionStatus.APPROVED}, updatedAt = NOW() 
+            WHERE linkId = ${affiliateLink.id} AND status = ${AffiliateConversionStatus.PAID}
+          `
+          console.log(`Reset conversions for link ${affiliateLink.id} from PAID to APPROVED`)
+        } catch (error) {
+          console.error("Error updating conversions:", error)
+          return NextResponse.json(
+            {
+              error: "Failed to update conversions",
+              details: error instanceof Error ? error.message : String(error),
             },
-          },
-        },
-      } as any) // Use type assertion to avoid TypeScript errors
+            { status: 500 },
+          )
+        }
 
-      return NextResponse.json({
-        payout,
-      })
+        // Update the payout with rejected status and mark as not processed
+        try {
+          const updateData = {
+            status,
+            adminNotes: notes || null,
+            processed: false, // Mark as not processed so it shows up in the dashboard
+          }
+
+          console.log(`Updating payout with data:`, updateData)
+
+          const payout = await db.affiliatePayout.update({
+            where: { id: params.id },
+            data: updateData,
+          })
+
+          console.log(`Successfully updated payout: ${payout.id}`)
+
+          return NextResponse.json({ payout })
+        } catch (error) {
+          console.error("Error updating payout:", error)
+          return NextResponse.json(
+            {
+              error: "Failed to update payout",
+              details: error instanceof Error ? error.message : String(error),
+            },
+            { status: 500 },
+          )
+        }
+      } catch (error) {
+        console.error("Error in rejection flow:", error)
+        return NextResponse.json(
+          {
+            error: "Failed in rejection flow",
+            details: error instanceof Error ? error.message : String(error),
+          },
+          { status: 500 },
+        )
+      }
     }
 
     // For other status updates, just update the status and notes
-    const payout = await db.affiliatePayout.update({
-      where: { id: params.id },
-      data: {
+    try {
+      const updateData = {
         status,
-        adminNotes: notes || undefined,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    } as any) // Use type assertion to avoid TypeScript errors
+        adminNotes: notes || null,
+      }
 
-    return NextResponse.json({
-      payout,
-    })
+      console.log(`Updating payout with data:`, updateData)
+
+      const payout = await db.affiliatePayout.update({
+        where: { id: params.id },
+        data: updateData,
+      })
+
+      console.log(`Successfully updated payout: ${payout.id}`)
+
+      return NextResponse.json({ payout })
+    } catch (error) {
+      console.error("Error updating payout:", error)
+      return NextResponse.json(
+        {
+          error: "Failed to update payout",
+          details: error instanceof Error ? error.message : String(error),
+        },
+        { status: 500 },
+      )
+    }
   } catch (error) {
-    console.error("Error updating affiliate payout:", error)
-    return NextResponse.json({ error: "Failed to update payout" }, { status: 500 })
+    console.error("Unhandled error in payout update:", error)
+    return NextResponse.json(
+      {
+        error: "Unhandled error in payout update",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    )
   }
 }
 
