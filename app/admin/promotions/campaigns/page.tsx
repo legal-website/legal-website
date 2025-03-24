@@ -1671,6 +1671,24 @@ export default function AdminAffiliatePage() {
 
       {renderLoadingOverlay()}
 
+      <div className="flex w-full items-center justify-between mb-4">
+        <Tabs defaultValue="active" className="w-auto">
+          <TabsList>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
+            <TabsTrigger value="completed">Completed</TabsTrigger>
+            <TabsTrigger value="draft">Draft</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-muted-foreground">Last updated: {new Date().toLocaleString()}</div>
+          <Button variant="outline" size="icon">
+            <Search className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
           <TabsList className="mb-4 sm:mb-0">
