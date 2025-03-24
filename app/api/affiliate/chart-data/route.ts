@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (chartType === "earnings") {
-      // Get earnings data grouped by month
+      // Get earnings data
       const conversions = await db.affiliateConversion.findMany({
         where: {
           linkId: affiliateLink.id,
@@ -55,27 +55,34 @@ export async function GET(req: NextRequest) {
         },
       })
 
-      // Group by month and calculate total
-      const monthlyData = conversions.reduce((acc: Record<string, number>, conversion) => {
+      // Group by day and calculate total
+      const dailyData = conversions.reduce((acc: Record<string, number>, conversion) => {
         const date = new Date(conversion.createdAt)
-        const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+        const dayKey = date.toISOString().split("T")[0] // YYYY-MM-DD format
 
-        if (!acc[monthYear]) {
-          acc[monthYear] = 0
+        if (!acc[dayKey]) {
+          acc[dayKey] = 0
         }
 
-        acc[monthYear] += Number(conversion.commission)
+        acc[dayKey] += Number(conversion.commission)
         return acc
       }, {})
 
+      // Fill in missing days with zero values
+      const currentDate = new Date(startDate)
+      const endDate = new Date()
+      const filledData: Record<string, number> = {}
+
+      while (currentDate <= endDate) {
+        const dayKey = currentDate.toISOString().split("T")[0]
+        filledData[dayKey] = dailyData[dayKey] || 0
+        currentDate.setDate(currentDate.getDate() + 1)
+      }
+
       // Convert to array format for chart
-      const chartData = Object.entries(monthlyData).map(([month, amount]) => {
-        const [year, monthNum] = month.split("-")
+      const chartData = Object.entries(filledData).map(([day, amount]) => {
         return {
-          month: new Date(Number.parseInt(year), Number.parseInt(monthNum) - 1, 1).toLocaleDateString("en-US", {
-            month: "short",
-            year: "numeric",
-          }),
+          date: day,
           amount: amount,
         }
       })

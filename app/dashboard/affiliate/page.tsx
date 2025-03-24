@@ -24,7 +24,18 @@ import { useToast } from "@/components/ui/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Line, LineChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar } from "recharts"
+import {
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Area,
+} from "recharts"
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart"
 
 export default function AffiliateProgramPage() {
@@ -382,7 +393,7 @@ export default function AffiliateProgramPage() {
           <TabsContent value="earnings" className="p-6">
             <div className="mb-6">
               <div className="flex justify-between items-center mb-2">
-                <h3 className="font-medium">Monthly Earnings</h3>
+                <h3 className="font-medium">Earnings Over Time</h3>
                 <Select value={earningsPeriod} onValueChange={setEarningsPeriod}>
                   <SelectTrigger className="text-sm border rounded-md px-2 py-1 h-8 w-[140px]">
                     <SelectValue placeholder="Last 6 months" />
@@ -395,7 +406,7 @@ export default function AffiliateProgramPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="h-[350px] bg-gray-50 rounded-lg">
+              <div className="h-[350px] bg-gray-50 rounded-lg overflow-hidden">
                 {earningsLoading ? (
                   <div className="h-full flex items-center justify-center">
                     <Skeleton className="h-[90%] w-[95%] rounded-lg" />
@@ -403,8 +414,8 @@ export default function AffiliateProgramPage() {
                 ) : earningsChartData.length > 0 ? (
                   <ChartContainer
                     config={{
-                      earnings: {
-                        label: "Monthly Earnings",
+                      amount: {
+                        label: "Daily Earnings",
                         color: "hsl(142, 76%, 36%)",
                       },
                     }}
@@ -412,13 +423,29 @@ export default function AffiliateProgramPage() {
                   >
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={earningsChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                        <defs>
+                          <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          vertical={false}
+                          stroke="hsl(var(--border))"
+                          opacity={0.3}
+                        />
                         <XAxis
-                          dataKey="month"
+                          dataKey="date"
                           axisLine={false}
                           tickLine={false}
                           tickMargin={10}
                           stroke="hsl(var(--muted-foreground))"
+                          tickFormatter={(value) => {
+                            const date = new Date(value)
+                            return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                          }}
+                          minTickGap={30}
                         />
                         <YAxis
                           axisLine={false}
@@ -427,37 +454,57 @@ export default function AffiliateProgramPage() {
                           tickMargin={10}
                           stroke="hsl(var(--muted-foreground))"
                         />
-                        <ChartTooltip
-                          content={
-                            <div className="rounded-lg border bg-background p-2 shadow-sm">
-                              <div className="grid gap-2">
-                                <div className="flex flex-col">
-                                  <span className="text-[0.70rem] uppercase text-muted-foreground">Month</span>
-                                  <span className="font-bold text-muted-foreground">{earningsChartData[0]?.month}</span>
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload
+                              return (
+                                <div className="rounded-lg border bg-background p-3 shadow-md">
+                                  <div className="grid gap-2">
+                                    <div className="flex flex-col">
+                                      <span className="text-[0.70rem] uppercase text-muted-foreground">Date</span>
+                                      <span className="font-bold text-foreground">
+                                        {new Date(data.date).toLocaleDateString("en-US", {
+                                          weekday: "long",
+                                          year: "numeric",
+                                          month: "long",
+                                          day: "numeric",
+                                        })}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span
+                                        className="text-[0.70rem] uppercase"
+                                        style={{ color: "var(--color-amount)" }}
+                                      >
+                                        Earnings
+                                      </span>
+                                      <span className="font-bold text-lg" style={{ color: "var(--color-amount)" }}>
+                                        ${Number(data.amount).toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex flex-col">
-                                  <span
-                                    className="text-[0.70rem] uppercase text-muted-foreground"
-                                    style={{ color: "var(--color-earnings)" }}
-                                  >
-                                    Earnings
-                                  </span>
-                                  <span className="font-bold" style={{ color: "var(--color-earnings)" }}>
-                                    ${earningsChartData[0]?.amount}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          }
+                              )
+                            }
+                            return null
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="amount"
+                          stroke="var(--color-amount)"
+                          strokeWidth={2}
+                          fillOpacity={1}
+                          fill="url(#colorAmount)"
                         />
                         <Line
                           type="monotone"
                           dataKey="amount"
-                          stroke="var(--color-earnings)"
+                          stroke="var(--color-amount)"
                           strokeWidth={2}
-                          dot={{ r: 4, fill: "var(--color-earnings)" }}
-                          activeDot={{ r: 6, fill: "var(--color-earnings)" }}
-                          name="earnings"
+                          dot={{ r: 3, strokeWidth: 2, fill: "white", stroke: "var(--color-amount)" }}
+                          activeDot={{ r: 6, strokeWidth: 0, fill: "var(--color-amount)" }}
                         />
                       </LineChart>
                     </ResponsiveContainer>
