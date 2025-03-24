@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,10 @@ import {
   ChevronRight,
   Settings,
   Download,
+  RefreshCw,
+  ArrowUpDown,
+  Filter,
+  X,
 } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -46,10 +50,12 @@ import {
   Area,
   AreaChart,
 } from "recharts"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 export default function AdminAffiliatePage() {
   const [activeTab, setActiveTab] = useState("overview")
   const [loading, setLoading] = useState(true)
+  const [backgroundLoading, setBackgroundLoading] = useState(false)
   const [stats, setStats] = useState<any>(null)
   const [dashboardData, setDashboardData] = useState<any>(null)
   const [affiliates, setAffiliates] = useState<any[]>([])
@@ -73,25 +79,111 @@ export default function AdminAffiliatePage() {
   const [showMoreCount, setShowMoreCount] = useState(10)
   const [chartsLoading, setChartsLoading] = useState(true)
 
+  // New states for enhanced features
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null)
+  const [clientFilter, setClientFilter] = useState<string>("")
+  const [availableClients, setAvailableClients] = useState<any[]>([])
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
+
+  // Function to fetch all data based on active tab
+  const fetchData = useCallback(
+    async (showLoadingState = true) => {
+      if (showLoadingState) {
+        setBackgroundLoading(true)
+      } else {
+        setLoading(true)
+      }
+
+      try {
+        if (activeTab === "overview") {
+          await Promise.all([fetchStats(), fetchDashboardData()])
+        } else if (activeTab === "affiliates") {
+          await fetchAffiliates()
+        } else if (activeTab === "conversions") {
+          await fetchConversions()
+        } else if (activeTab === "payouts") {
+          await fetchPayouts()
+        } else if (activeTab === "settings") {
+          await fetchSettings()
+        }
+
+        setLastRefreshed(new Date())
+      } catch (error) {
+        console.error("Error fetching data:", error)
+        toast({
+          title: "Error",
+          description: "Failed to refresh data",
+          variant: "destructive",
+        })
+      } finally {
+        if (showLoadingState) {
+          setBackgroundLoading(false)
+        } else {
+          setLoading(false)
+        }
+        setIsRefreshing(false)
+      }
+    },
+    [
+      activeTab,
+      pagination.affiliates.page,
+      pagination.conversions.page,
+      pagination.payouts.page,
+      statusFilter,
+      clientFilter,
+    ],
+  )
+
+  // Manual refresh function
+  const handleRefresh = () => {
+    setIsRefreshing(true)
+    fetchData(true)
+  }
+
   useEffect(() => {
-    if (activeTab === "overview") {
-      fetchStats()
-      fetchDashboardData()
-    } else if (activeTab === "affiliates") {
-      fetchAffiliates()
-    } else if (activeTab === "conversions") {
-      fetchConversions()
-    } else if (activeTab === "payouts") {
-      fetchPayouts()
-    } else if (activeTab === "settings") {
-      fetchSettings()
+    fetchData(false)
+
+    // Set up auto-refresh every 5 minutes
+    const refreshInterval = setInterval(
+      () => {
+        fetchData(true)
+      },
+      5 * 60 * 1000,
+    )
+
+    return () => clearInterval(refreshInterval)
+  }, [
+    activeTab,
+    pagination.affiliates.page,
+    pagination.conversions.page,
+    pagination.payouts.page,
+    statusFilter,
+    clientFilter,
+    fetchData,
+  ])
+
+  // Fetch available clients for filtering
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const res = await fetch("/api/admin/affiliate/clients")
+        if (res.ok) {
+          const data = await res.json()
+          setAvailableClients(data.clients)
+        }
+      } catch (error) {
+        console.error("Error fetching clients:", error)
+      }
     }
-  }, [activeTab, pagination.affiliates.page, pagination.conversions.page, pagination.payouts.page, statusFilter])
+
+    fetchClients()
+  }, [])
 
   const fetchStats = async () => {
     try {
-      setLoading(true)
-      const res = await fetch("/api/admin/affiliate/stats")
+      const clientParam = clientFilter ? `?clientId=${clientFilter}` : ""
+      const res = await fetch(`/api/admin/affiliate/stats${clientParam}`)
       const data = await res.json()
 
       if (res.ok) {
@@ -103,22 +195,17 @@ export default function AdminAffiliatePage() {
           variant: "destructive",
         })
       }
-      setLoading(false)
     } catch (error) {
       console.error("Error fetching affiliate stats:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
-      setLoading(false)
+      throw error
     }
   }
 
   const fetchDashboardData = async () => {
     try {
       setChartsLoading(true)
-      const res = await fetch("/api/admin/affiliate/dashboard")
+      const clientParam = clientFilter ? `?clientId=${clientFilter}` : ""
+      const res = await fetch(`/api/admin/affiliate/dashboard${clientParam}`)
 
       if (!res.ok) {
         throw new Error(`API error: ${res.status}`)
@@ -133,6 +220,7 @@ export default function AdminAffiliatePage() {
         description: "Failed to load chart data",
         variant: "destructive",
       })
+      throw error
     } finally {
       setChartsLoading(false)
     }
@@ -140,8 +228,11 @@ export default function AdminAffiliatePage() {
 
   const fetchAffiliates = async () => {
     try {
-      setLoading(true)
-      const res = await fetch(`/api/admin/affiliate/affiliates?page=${pagination.affiliates.page}`)
+      const sortParam = sortConfig ? `&sort=${sortConfig.key}&order=${sortConfig.direction}` : ""
+      const clientParam = clientFilter ? `&clientId=${clientFilter}` : ""
+      const res = await fetch(
+        `/api/admin/affiliate/affiliates?page=${pagination.affiliates.page}${sortParam}${clientParam}`,
+      )
       const data = await res.json()
 
       if (res.ok) {
@@ -157,23 +248,20 @@ export default function AdminAffiliatePage() {
           variant: "destructive",
         })
       }
-      setLoading(false)
     } catch (error) {
       console.error("Error fetching affiliates:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
-      setLoading(false)
+      throw error
     }
   }
 
   const fetchConversions = async () => {
     try {
-      setLoading(true)
       const statusParam = statusFilter ? `&status=${statusFilter}` : ""
-      const res = await fetch(`/api/admin/affiliate/conversions?page=${pagination.conversions.page}${statusParam}`)
+      const sortParam = sortConfig ? `&sort=${sortConfig.key}&order=${sortConfig.direction}` : ""
+      const clientParam = clientFilter ? `&clientId=${clientFilter}` : ""
+      const res = await fetch(
+        `/api/admin/affiliate/conversions?page=${pagination.conversions.page}${statusParam}${sortParam}${clientParam}`,
+      )
       const data = await res.json()
 
       if (res.ok) {
@@ -189,23 +277,20 @@ export default function AdminAffiliatePage() {
           variant: "destructive",
         })
       }
-      setLoading(false)
     } catch (error) {
       console.error("Error fetching conversions:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
-      setLoading(false)
+      throw error
     }
   }
 
   const fetchPayouts = async () => {
     try {
-      setLoading(true)
       const statusParam = statusFilter ? `&status=${statusFilter}` : ""
-      const res = await fetch(`/api/admin/affiliate/payouts?page=${pagination.payouts.page}${statusParam}`)
+      const sortParam = sortConfig ? `&sort=${sortConfig.key}&order=${sortConfig.direction}` : ""
+      const clientParam = clientFilter ? `&clientId=${clientFilter}` : ""
+      const res = await fetch(
+        `/api/admin/affiliate/payouts?page=${pagination.payouts.page}${statusParam}${sortParam}${clientParam}`,
+      )
       const data = await res.json()
 
       if (res.ok) {
@@ -221,21 +306,14 @@ export default function AdminAffiliatePage() {
           variant: "destructive",
         })
       }
-      setLoading(false)
     } catch (error) {
       console.error("Error fetching payouts:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
-      setLoading(false)
+      throw error
     }
   }
 
   const fetchSettings = async () => {
     try {
-      setLoading(true)
       const res = await fetch("/api/admin/affiliate/settings")
       const data = await res.json()
 
@@ -249,16 +327,47 @@ export default function AdminAffiliatePage() {
           variant: "destructive",
         })
       }
-      setLoading(false)
     } catch (error) {
       console.error("Error fetching settings:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
-      setLoading(false)
+      throw error
     }
+  }
+
+  // Sort function
+  const requestSort = (key: string) => {
+    let direction: "asc" | "desc" = "asc"
+
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc"
+    }
+
+    setSortConfig({ key, direction })
+
+    // Reset pagination to first page when sorting
+    setPagination((prev) => ({
+      ...prev,
+      [activeTab === "affiliates" ? "affiliates" : activeTab === "conversions" ? "conversions" : "payouts"]: {
+        ...prev[activeTab === "affiliates" ? "affiliates" : activeTab === "conversions" ? "conversions" : "payouts"],
+        page: 1,
+      },
+    }))
+  }
+
+  // Clear all filters
+  const clearFilters = () => {
+    setStatusFilter("")
+    setClientFilter("")
+    setSortConfig(null)
+    setSearchTerm("")
+
+    // Reset pagination to first page
+    setPagination((prev) => ({
+      ...prev,
+      [activeTab === "affiliates" ? "affiliates" : activeTab === "conversions" ? "conversions" : "payouts"]: {
+        ...prev[activeTab === "affiliates" ? "affiliates" : activeTab === "conversions" ? "conversions" : "payouts"],
+        page: 1,
+      },
+    }))
   }
 
   const updateConversionStatus = async (id: string, status: string) => {
@@ -279,8 +388,7 @@ export default function AdminAffiliatePage() {
           description: "Conversion status updated successfully",
         })
         setSelectedConversion(null)
-        fetchConversions()
-        fetchStats()
+        fetchData(true)
       } else {
         toast({
           title: "Error",
@@ -328,8 +436,7 @@ export default function AdminAffiliatePage() {
           description: "Payout status updated successfully",
         })
         setSelectedPayout(null)
-        fetchPayouts()
-        fetchStats()
+        fetchData(true)
       } else {
         toast({
           title: "Error",
@@ -436,6 +543,141 @@ export default function AdminAffiliatePage() {
     document.body.removeChild(link)
   }
 
+  // Render the loading overlay
+  const renderLoadingOverlay = () => {
+    if (!backgroundLoading) return null
+
+    return (
+      <div className="fixed inset-0 bg-black/5 backdrop-blur-[1px] z-50 flex items-center justify-center pointer-events-none">
+        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full mx-4 animate-in fade-in zoom-in duration-300">
+          <div className="flex items-center space-x-4">
+            <div className="relative h-10 w-10 flex-shrink-0">
+              <div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin"></div>
+              <div className="absolute inset-2 rounded-full bg-primary/10"></div>
+            </div>
+            <div>
+              <h3 className="font-medium">Refreshing data</h3>
+              <p className="text-sm text-muted-foreground">Please wait while we update your dashboard</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Render the client filter
+  const renderClientFilter = () => {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className={clientFilter ? "bg-primary/10" : ""}>
+            <Filter className="h-4 w-4 mr-2" />
+            {clientFilter ? "Filtered by client" : "Filter by client"}
+            {clientFilter && (
+              <X
+                className="h-4 w-4 ml-2"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setClientFilter("")
+                }}
+              />
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-0" align="start">
+          <div className="p-4 border-b">
+            <h4 className="font-medium">Filter by client</h4>
+            <p className="text-sm text-muted-foreground">Select a client to view their data</p>
+          </div>
+          <div className="p-4 space-y-4">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search clients..."
+                className="pl-8"
+                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchTerm}
+              />
+            </div>
+            <div className="max-h-60 overflow-y-auto space-y-1">
+              {availableClients
+                .filter(
+                  (client) =>
+                    !searchTerm ||
+                    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    client.email.toLowerCase().includes(searchTerm.toLowerCase()),
+                )
+                .map((client) => (
+                  <Button
+                    key={client.id}
+                    variant="ghost"
+                    className="w-full justify-start font-normal"
+                    onClick={() => {
+                      setClientFilter(client.id)
+                      setSearchTerm("")
+                    }}
+                  >
+                    <div className="flex flex-col items-start">
+                      <span>{client.name}</span>
+                      <span className="text-xs text-muted-foreground">{client.email}</span>
+                    </div>
+                  </Button>
+                ))}
+              {availableClients.length === 0 && (
+                <p className="text-sm text-center text-muted-foreground py-2">No clients found</p>
+              )}
+            </div>
+            <div className="flex justify-between">
+              <Button variant="outline" size="sm" onClick={() => setClientFilter("")}>
+                Clear filter
+              </Button>
+              <Button size="sm" onClick={() => document.body.click()}>
+                Apply
+              </Button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    )
+  }
+
+  // Render the refresh button with last refreshed time
+  const renderRefreshButton = () => {
+    return (
+      <div className="flex items-center gap-2">
+        <p className="text-xs text-muted-foreground">Last updated: {lastRefreshed.toLocaleTimeString()}</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isRefreshing || backgroundLoading}
+          className={isRefreshing ? "animate-spin" : ""}
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          <span className="sr-only">Refresh</span>
+        </Button>
+      </div>
+    )
+  }
+
+  // Render sortable table header
+  const renderSortableHeader = (label: string, key: string) => {
+    const isSorted = sortConfig?.key === key
+    const direction = isSorted ? sortConfig.direction : undefined
+
+    return (
+      <TableHead className="cursor-pointer" onClick={() => requestSort(key)}>
+        <div className="flex items-center space-x-1">
+          <span>{label}</span>
+          <ArrowUpDown className={`h-4 w-4 ${isSorted ? "text-primary" : "text-muted-foreground"}`} />
+          {isSorted && (
+            <span className="sr-only">{direction === "asc" ? "sorted ascending" : "sorted descending"}</span>
+          )}
+        </div>
+      </TableHead>
+    )
+  }
+
   const renderOverviewTab = () => {
     if (loading) {
       return (
@@ -459,6 +701,11 @@ export default function AdminAffiliatePage() {
 
     return (
       <>
+        <div className="flex justify-between items-center mb-6">
+          {renderClientFilter()}
+          {renderRefreshButton()}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
           <Card>
             <CardContent className="pt-6">
@@ -582,7 +829,10 @@ export default function AdminAffiliatePage() {
           <CardContent className="h-[300px]">
             {chartsLoading ? (
               <div className="flex items-center justify-center h-full">
-                <Skeleton className="h-full w-full" />
+                <div className="relative h-16 w-16">
+                  <div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin"></div>
+                  <div className="absolute inset-3 rounded-full bg-primary/10"></div>
+                </div>
               </div>
             ) : (
               <CommissionChart data={dashboardData?.monthlyStats || []} />
@@ -600,7 +850,10 @@ export default function AdminAffiliatePage() {
             <CardContent className="h-[300px]">
               {chartsLoading ? (
                 <div className="flex items-center justify-center h-full">
-                  <Skeleton className="h-full w-full" />
+                  <div className="relative h-16 w-16">
+                    <div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin"></div>
+                    <div className="absolute inset-3 rounded-full bg-primary/10"></div>
+                  </div>
                 </div>
               ) : (
                 <ClicksChart data={dashboardData?.monthlyStats || []} />
@@ -616,7 +869,10 @@ export default function AdminAffiliatePage() {
             <CardContent className="h-[300px]">
               {chartsLoading ? (
                 <div className="flex items-center justify-center h-full">
-                  <Skeleton className="h-full w-full" />
+                  <div className="relative h-16 w-16">
+                    <div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin"></div>
+                    <div className="absolute inset-3 rounded-full bg-primary/10"></div>
+                  </div>
                 </div>
               ) : (
                 <AffiliatesChart data={dashboardData?.monthlyStats || []} />
@@ -705,13 +961,16 @@ export default function AdminAffiliatePage() {
             <CardTitle>Affiliates</CardTitle>
             <CardDescription>Manage your affiliate partners</CardDescription>
           </div>
-          <Button variant="outline" size="sm" className="mt-2 sm:mt-0" onClick={() => exportData("affiliates")}>
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
+          <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
+            <Button variant="outline" size="sm" onClick={() => exportData("affiliates")}>
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+            {renderRefreshButton()}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex items-center">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
               <Input
@@ -721,18 +980,25 @@ export default function AdminAffiliatePage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            {renderClientFilter()}
+            {(sortConfig || statusFilter || clientFilter || searchTerm) && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-auto">
+                <X className="h-4 w-4 mr-2" />
+                Clear filters
+              </Button>
+            )}
           </div>
 
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead>Clicks</TableHead>
-                  <TableHead>Conversions</TableHead>
-                  <TableHead>Earnings</TableHead>
+                  {renderSortableHeader("Name", "name")}
+                  {renderSortableHeader("Email", "email")}
+                  {renderSortableHeader("Joined", "createdAt")}
+                  {renderSortableHeader("Clicks", "clicks")}
+                  {renderSortableHeader("Conversions", "conversions")}
+                  {renderSortableHeader("Earnings", "earnings")}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -833,13 +1099,16 @@ export default function AdminAffiliatePage() {
             <CardTitle>Conversions</CardTitle>
             <CardDescription>Manage affiliate conversions</CardDescription>
           </div>
-          <Button variant="outline" size="sm" className="mt-2 sm:mt-0" onClick={() => exportData("conversions")}>
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
+          <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
+            <Button variant="outline" size="sm" onClick={() => exportData("conversions")}>
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+            {renderRefreshButton()}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
               <Input
@@ -861,18 +1130,25 @@ export default function AdminAffiliatePage() {
                 <SelectItem value="PAID">Paid</SelectItem>
               </SelectContent>
             </Select>
+            {renderClientFilter()}
+            {(sortConfig || statusFilter || clientFilter || searchTerm) && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-auto">
+                <X className="h-4 w-4 mr-2" />
+                Clear filters
+              </Button>
+            )}
           </div>
 
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
+                  {renderSortableHeader("Date", "createdAt")}
                   <TableHead>Affiliate</TableHead>
                   <TableHead>Order ID</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Commission</TableHead>
-                  <TableHead>Status</TableHead>
+                  {renderSortableHeader("Amount", "amount")}
+                  {renderSortableHeader("Commission", "commission")}
+                  {renderSortableHeader("Status", "status")}
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1058,13 +1334,16 @@ export default function AdminAffiliatePage() {
             <CardTitle>Payouts</CardTitle>
             <CardDescription>Manage affiliate payouts</CardDescription>
           </div>
-          <Button variant="outline" size="sm" className="mt-2 sm:mt-0" onClick={() => exportData("payouts")}>
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
+          <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
+            <Button variant="outline" size="sm" onClick={() => exportData("payouts")}>
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+            {renderRefreshButton()}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
               <Input
@@ -1079,24 +1358,31 @@ export default function AdminAffiliatePage() {
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="ALL">All Statuses</SelectItem>
                 <SelectItem value="PENDING">Pending</SelectItem>
                 <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                 <SelectItem value="COMPLETED">Completed</SelectItem>
                 <SelectItem value="REJECTED">Rejected</SelectItem>
               </SelectContent>
             </Select>
+            {renderClientFilter()}
+            {(sortConfig || statusFilter || clientFilter || searchTerm) && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-auto">
+                <X className="h-4 w-4 mr-2" />
+                Clear filters
+              </Button>
+            )}
           </div>
 
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
+                  {renderSortableHeader("Date", "createdAt")}
                   <TableHead>Affiliate</TableHead>
-                  <TableHead>Amount</TableHead>
+                  {renderSortableHeader("Amount", "amount")}
                   <TableHead>Method</TableHead>
-                  <TableHead>Status</TableHead>
+                  {renderSortableHeader("Status", "status")}
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1318,10 +1604,10 @@ export default function AdminAffiliatePage() {
                     )}
                   </div>
 
-                  {selectedPayout.status === "REJECTED" && selectedPayout.notes && (
+                  {selectedPayout.status === "REJECTED" && selectedPayout.adminNotes && (
                     <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                       <Label className="text-xs text-amber-800">Admin Notes</Label>
-                      <p className="text-sm text-amber-900">{selectedPayout.notes}</p>
+                      <p className="text-sm text-amber-900">{selectedPayout.adminNotes}</p>
                     </div>
                   )}
 
@@ -1331,7 +1617,7 @@ export default function AdminAffiliatePage() {
                         <Label>Admin Notes</Label>
                         <Textarea
                           placeholder="Add notes about this payout"
-                          defaultValue={selectedPayout.notes || ""}
+                          defaultValue={selectedPayout.adminNotes || ""}
                           id="payout-notes"
                         />
                       </div>
@@ -1398,10 +1684,13 @@ export default function AdminAffiliatePage() {
             <CardDescription>Configure your affiliate program settings</CardDescription>
           </div>
           {!editingSettings ? (
-            <Button variant="outline" size="sm" className="mt-2 sm:mt-0" onClick={() => setEditingSettings(true)}>
-              <Settings className="mr-2 h-4 w-4" />
-              Edit Settings
-            </Button>
+            <div className="flex gap-2 mt-2 sm:mt-0">
+              <Button variant="outline" size="sm" onClick={() => setEditingSettings(true)}>
+                <Settings className="mr-2 h-4 w-4" />
+                Edit Settings
+              </Button>
+              {renderRefreshButton()}
+            </div>
           ) : (
             <div className="flex gap-2 mt-2 sm:mt-0">
               <Button
@@ -1500,6 +1789,8 @@ export default function AdminAffiliatePage() {
   return (
     <div className="p-8 mb-40">
       <h1 className="text-3xl font-bold mb-6">Affiliate Program Management</h1>
+
+      {renderLoadingOverlay()}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">

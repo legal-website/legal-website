@@ -12,8 +12,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get all affiliate links
+    // Get client filter if provided
+    const url = new URL(req.url)
+    const clientId = url.searchParams.get("clientId")
+
+    // Base where clause
+    const whereClause: any = {}
+
+    // Add client filter if provided
+    if (clientId) {
+      whereClause.userId = clientId
+    }
+
+    // Get all affiliate links with the filter
     const affiliateLinks = await db.affiliateLink.findMany({
+      where: clientId ? { userId: clientId } : {},
       include: {
         user: {
           select: {
@@ -31,8 +44,15 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    // Get all conversions
+    // Get all conversions with the filter
     const conversions = await db.affiliateConversion.findMany({
+      where: clientId
+        ? {
+            link: {
+              userId: clientId,
+            },
+          }
+        : {},
       include: {
         link: {
           include: {
@@ -51,8 +71,9 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    // Get all payouts
+    // Get all payouts with the filter
     const payouts = await db.affiliatePayout.findMany({
+      where: clientId ? { userId: clientId } : {},
       include: {
         user: {
           select: {
@@ -74,15 +95,49 @@ export async function GET(req: NextRequest) {
       cookieDuration: 30,
     }
 
-    // Calculate total stats
-    const totalClicks = await db.affiliateClick.count()
-    const totalConversions = await db.affiliateConversion.count()
-    const totalPendingConversions = await db.affiliateConversion.count({
-      where: { status: "PENDING" },
+    // Calculate total stats with the filter
+    const totalClicks = await db.affiliateClick.count({
+      where: clientId
+        ? {
+            link: {
+              userId: clientId,
+            },
+          }
+        : {},
     })
 
-    // Calculate total commission
+    const totalConversions = await db.affiliateConversion.count({
+      where: clientId
+        ? {
+            link: {
+              userId: clientId,
+            },
+          }
+        : {},
+    })
+
+    const totalPendingConversions = await db.affiliateConversion.count({
+      where: {
+        status: "PENDING",
+        ...(clientId
+          ? {
+              link: {
+                userId: clientId,
+              },
+            }
+          : {}),
+      },
+    })
+
+    // Calculate total commission with the filter
     const allConversions = await db.affiliateConversion.findMany({
+      where: clientId
+        ? {
+            link: {
+              userId: clientId,
+            },
+          }
+        : {},
       select: {
         commission: true,
         amount: true,
@@ -98,7 +153,7 @@ export async function GET(req: NextRequest) {
     // Calculate average commission
     const avgCommission = totalConversions > 0 ? totalCommission / totalConversions : 0
 
-    // Get actual affiliate growth data
+    // Get actual affiliate growth data with the filter
     // For simplicity, we'll get the count of affiliates created in each month
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
@@ -110,30 +165,45 @@ export async function GET(req: NextRequest) {
         createdAt: {
           gte: sixMonthsAgo,
         },
+        ...(clientId ? { userId: clientId } : {}),
       },
       select: {
         createdAt: true,
       },
     })
 
-    // Get actual click data by month
+    // Get actual click data by month with the filter
     const clicksByMonth = await db.affiliateClick.findMany({
       where: {
         createdAt: {
           gte: sixMonthsAgo,
         },
+        ...(clientId
+          ? {
+              link: {
+                userId: clientId,
+              },
+            }
+          : {}),
       },
       select: {
         createdAt: true,
       },
     })
 
-    // Get actual conversion data by month
+    // Get actual conversion data by month with the filter
     const conversionsByMonth = await db.affiliateConversion.findMany({
       where: {
         createdAt: {
           gte: sixMonthsAgo,
         },
+        ...(clientId
+          ? {
+              link: {
+                userId: clientId,
+              },
+            }
+          : {}),
       },
       select: {
         createdAt: true,
@@ -147,7 +217,16 @@ export async function GET(req: NextRequest) {
     const currentMonth = new Date().getMonth()
 
     // Initialize cumulative affiliates count
-    let cumulativeAffiliates = affiliateLinks.filter((link) => new Date(link.createdAt) < sixMonthsAgo).length
+    let cumulativeAffiliates = clientId
+      ? affiliateLinks.filter((link) => new Date(link.createdAt) < sixMonthsAgo).length
+      : await db.affiliateLink.count({
+          where: {
+            createdAt: {
+              lt: sixMonthsAgo,
+            },
+            ...(clientId ? { userId: clientId } : {}),
+          },
+        })
 
     for (let i = 0; i < 6; i++) {
       const monthIndex = (currentMonth - 5 + i + 12) % 12
