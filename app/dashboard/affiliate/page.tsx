@@ -19,6 +19,8 @@ import {
   MessageSquare,
   AlertCircle,
   ChevronRight,
+  X,
+  ChevronLeft,
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { generateReferralLink, formatCurrency, formatDate, calculateProgress } from "@/lib/affiliate"
@@ -68,6 +70,15 @@ interface PayoutFormData {
   cnic?: string
   // Common fields
   additionalInfo?: string
+  // Partial payout
+  amount?: number
+}
+
+interface RejectedPayout {
+  id: string
+  amount: number | string
+  updatedAt: string | Date
+  notes?: string | null
 }
 
 export default function AffiliateProgramPage() {
@@ -86,6 +97,15 @@ export default function AffiliateProgramPage() {
   const [clicksLoading, setClicksLoading] = useState(false)
   const [visibleReferrals, setVisibleReferrals] = useState(4)
 
+  // Pagination state
+  const [earningsPage, setEarningsPage] = useState(1)
+  const [payoutsPage, setPayoutsPage] = useState(1)
+  const [earningsPerPage] = useState(5)
+  const [payoutsPerPage] = useState(5)
+
+  // Dismissed notifications
+  const [dismissedNotifications, setDismissedNotifications] = useState<string[]>([])
+
   // Payout dialog state
   const [payoutDialogOpen, setPayoutDialogOpen] = useState(false)
   const [payoutFormData, setPayoutFormData] = useState<PayoutFormData>({
@@ -101,8 +121,17 @@ export default function AffiliateProgramPage() {
     serviceProvider: "",
     cnic: "",
     additionalInfo: "",
+    amount: 0,
   })
   const [payoutSubmitting, setPayoutSubmitting] = useState(false)
+
+  // Load dismissed notifications from localStorage
+  useEffect(() => {
+    const savedDismissed = localStorage.getItem("dismissedNotifications")
+    if (savedDismissed) {
+      setDismissedNotifications(JSON.parse(savedDismissed))
+    }
+  }, [])
 
   const fetchEarningsChartData = async (period: string) => {
     try {
@@ -225,6 +254,11 @@ export default function AffiliateProgramPage() {
 
   const requestPayout = async () => {
     try {
+      // Initialize amount to full pending balance
+      setPayoutFormData((prev) => ({
+        ...prev,
+        amount: stats?.pendingEarnings || 0,
+      }))
       setPayoutDialogOpen(true)
     } catch (error) {
       console.error("Error opening payout dialog:", error)
@@ -281,6 +315,40 @@ export default function AffiliateProgramPage() {
         return
       }
 
+      // Validate payout amount
+      const amount = Number(payoutFormData.amount)
+      if (isNaN(amount) || amount <= 0) {
+        toast({
+          title: "Invalid amount",
+          description: "Please enter a valid payout amount.",
+          variant: "destructive",
+        })
+        setPayoutSubmitting(false)
+        return
+      }
+
+      if (amount > (stats?.pendingEarnings || 0)) {
+        toast({
+          title: "Invalid amount",
+          description: "Payout amount cannot exceed your current balance.",
+          variant: "destructive",
+        })
+        setPayoutSubmitting(false)
+        return
+      }
+
+      // Get affiliate settings
+      const settings = stats?.settings || { minPayoutAmount: 50 }
+      if (amount < settings.minPayoutAmount) {
+        toast({
+          title: "Invalid amount",
+          description: `Minimum payout amount is $${settings.minPayoutAmount}.`,
+          variant: "destructive",
+        })
+        setPayoutSubmitting(false)
+        return
+      }
+
       const res = await fetch("/api/affiliate/payout/request", {
         method: "POST",
         headers: {
@@ -317,6 +385,7 @@ export default function AffiliateProgramPage() {
           serviceProvider: "",
           cnic: "",
           additionalInfo: "",
+          amount: 0,
         })
       } else {
         toast({
@@ -340,6 +409,40 @@ export default function AffiliateProgramPage() {
   const loadMoreReferrals = () => {
     setVisibleReferrals((prev) => prev + 4)
   }
+
+  const dismissNotification = (id: string) => {
+    const newDismissed = [...dismissedNotifications, id]
+    setDismissedNotifications(newDismissed)
+    localStorage.setItem("dismissedNotifications", JSON.stringify(newDismissed))
+  }
+
+  // Pagination handlers
+  const handleEarningsPageChange = (newPage: number) => {
+    setEarningsPage(newPage)
+  }
+
+  const handlePayoutsPageChange = (newPage: number) => {
+    setPayoutsPage(newPage)
+  }
+
+  // Get paginated data
+  const getPaginatedEarnings = () => {
+    if (!stats?.recentEarnings) return []
+    const startIndex = (earningsPage - 1) * earningsPerPage
+    const endIndex = startIndex + earningsPerPage
+    return stats.recentEarnings.slice(startIndex, endIndex)
+  }
+
+  const getPaginatedPayouts = () => {
+    if (!stats?.payouts) return []
+    const startIndex = (payoutsPage - 1) * payoutsPerPage
+    const endIndex = startIndex + payoutsPerPage
+    return stats.payouts.slice(startIndex, endIndex)
+  }
+
+  // Calculate total pages
+  const totalEarningsPages = stats?.recentEarnings ? Math.ceil(stats.recentEarnings.length / earningsPerPage) : 1
+  const totalPayoutsPages = stats?.payouts ? Math.ceil(stats.payouts.length / payoutsPerPage) : 1
 
   const faqItems = [
     {
@@ -665,7 +768,7 @@ export default function AffiliateProgramPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {stats.recentEarnings.map((earning: any) => (
+                      {getPaginatedEarnings().map((earning: any) => (
                         <tr key={earning.id}>
                           <td className="py-3">{formatDate(earning.createdAt)}</td>
                           <td className="py-3">{earning.orderId}</td>
@@ -690,6 +793,31 @@ export default function AffiliateProgramPage() {
                       ))}
                     </tbody>
                   </table>
+
+                  {/* Pagination */}
+                  {totalEarningsPages > 1 && (
+                    <div className="flex justify-center mt-4 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEarningsPageChange(earningsPage - 1)}
+                        disabled={earningsPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="flex items-center px-2">
+                        Page {earningsPage} of {totalEarningsPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEarningsPageChange(earningsPage + 1)}
+                        disabled={earningsPage === totalEarningsPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <Alert>
@@ -898,25 +1026,37 @@ export default function AffiliateProgramPage() {
           {stats?.rejectedPayouts && stats.rejectedPayouts.length > 0 && (
             <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
               <h4 className="font-medium text-amber-800 mb-2">Rejected Payout Requests</h4>
-              {stats.rejectedPayouts.map((payout: any, index: number) => (
-                <div key={index} className="mb-2 last:mb-0 pb-2 last:pb-0 border-b last:border-b-0 border-amber-200">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm font-medium">{formatCurrency(Number(payout.amount))}</p>
-                      <p className="text-xs text-gray-600">{formatDate(payout.updatedAt)}</p>
+              {stats.rejectedPayouts
+                .filter((payout: RejectedPayout) => !dismissedNotifications.includes(payout.id))
+                .map((payout: RejectedPayout, index: number) => (
+                  <div key={index} className="mb-2 last:mb-0 pb-2 last:pb-0 border-b last:border-b-0 border-amber-200">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-medium">{formatCurrency(Number(payout.amount))}</p>
+                        <p className="text-xs text-gray-600">{formatDate(payout.updatedAt)}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+                          Rejected
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => dismissNotification(payout.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
-                      Rejected
-                    </Badge>
+                    {payout.notes && (
+                      <div className="mt-1 text-xs text-amber-800">
+                        <p className="font-medium">Admin Notes:</p>
+                        <p>{payout.notes}</p>
+                      </div>
+                    )}
                   </div>
-                  {payout.notes && (
-                    <div className="mt-1 text-xs text-amber-800">
-                      <p className="font-medium">Admin Notes:</p>
-                      <p>{payout.notes}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
+                ))}
             </div>
           )}
           <div className="mb-6">
@@ -965,7 +1105,7 @@ export default function AffiliateProgramPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {stats.payouts.map((payout: any) => (
+                    {getPaginatedPayouts().map((payout: any) => (
                       <tr key={payout.id}>
                         <td className="py-3">{formatDate(payout.createdAt)}</td>
                         <td className="py-3 font-medium">{formatCurrency(Number(payout.amount))}</td>
@@ -991,6 +1131,31 @@ export default function AffiliateProgramPage() {
                     ))}
                   </tbody>
                 </table>
+
+                {/* Pagination */}
+                {totalPayoutsPages > 1 && (
+                  <div className="flex justify-center mt-4 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePayoutsPageChange(payoutsPage - 1)}
+                      disabled={payoutsPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="flex items-center px-2">
+                      Page {payoutsPage} of {totalPayoutsPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePayoutsPageChange(payoutsPage + 1)}
+                      disabled={payoutsPage === totalPayoutsPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <Alert>
@@ -1055,6 +1220,51 @@ export default function AffiliateProgramPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="amount">
+                Payout Amount <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                <Input
+                  id="amount"
+                  name="amount"
+                  type="number"
+                  min={1}
+                  max={stats?.pendingEarnings || 0}
+                  step="0.01"
+                  value={payoutFormData.amount}
+                  onChange={(e) =>
+                    setPayoutFormData((prev) => ({
+                      ...prev,
+                      amount: Number.parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                  className="pl-7"
+                  placeholder="Enter amount"
+                  required
+                />
+              </div>
+              <div className="text-xs text-gray-500 flex justify-between">
+                <span>Min: ${stats?.settings?.minPayoutAmount || 50}</span>
+                <span>Available: {formatCurrency(stats?.pendingEarnings || 0)}</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-1"
+                onClick={() =>
+                  setPayoutFormData((prev) => ({
+                    ...prev,
+                    amount: stats?.pendingEarnings || 0,
+                  }))
+                }
+              >
+                Request Full Amount
+              </Button>
+            </div>
+
             <div className="grid gap-2">
               <Label htmlFor="method">
                 Payment Method <span className="text-red-500">*</span>
