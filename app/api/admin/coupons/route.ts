@@ -17,74 +17,78 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams
     const status = searchParams.get("status")
     const search = searchParams.get("search")
-    const timestamp = searchParams.get("timestamp") // Cache busting parameter
 
-    console.log("Fetching coupons with params:", { status, search, timestamp })
+    console.log("Fetching coupons with params:", { status, search })
 
-    // Get all coupons with their usage counts
-    const couponsWithUsage = (await db.$queryRaw`
-      SELECT c.*, COUNT(cu.id) as actualUsageCount
-      FROM Coupon c
-      LEFT JOIN CouponUsage cu ON c.id = cu.couponId
-      GROUP BY c.id
-    `) as any[]
-
-    console.log(`Found ${couponsWithUsage.length} coupons`)
-
-    // Update any coupons where the stored count doesn't match the actual count
-    for (const coupon of couponsWithUsage) {
-      if (coupon.usageCount !== Number(coupon.actualUsageCount)) {
-        console.log(
-          `Updating coupon ${coupon.code}: stored count ${coupon.usageCount} != actual count ${coupon.actualUsageCount}`,
-        )
-
-        await db.$executeRaw`
-          UPDATE Coupon
-          SET usageCount = ${Number(coupon.actualUsageCount)}
-          WHERE id = ${coupon.id}
-        `
-
-        // Update the object for the response
-        coupon.usageCount = Number(coupon.actualUsageCount)
-      }
-    }
-
-    // Apply filters
-    let filteredCoupons = [...couponsWithUsage]
+    // Build the where clause based on filters
+    const where: any = {}
 
     if (status) {
-      const now = new Date()
-
       if (status === "active") {
-        filteredCoupons = filteredCoupons.filter(
-          (coupon) => coupon.isActive && new Date(coupon.startDate) <= now && new Date(coupon.endDate) >= now,
-        )
+        where.isActive = true
+        where.startDate = { lte: new Date() }
+        where.endDate = { gte: new Date() }
       } else if (status === "scheduled") {
-        filteredCoupons = filteredCoupons.filter((coupon) => coupon.isActive && new Date(coupon.startDate) > now)
+        where.isActive = true
+        where.startDate = { gt: new Date() }
       } else if (status === "expired") {
-        filteredCoupons = filteredCoupons.filter((coupon) => !coupon.isActive || new Date(coupon.endDate) < now)
+        where.OR = [{ isActive: false }, { endDate: { lt: new Date() } }]
       }
     }
 
     if (search) {
-      const searchLower = search.toLowerCase()
-      filteredCoupons = filteredCoupons.filter(
-        (coupon) =>
-          coupon.code.toLowerCase().includes(searchLower) || coupon.description.toLowerCase().includes(searchLower),
-      )
+      where.OR = [
+        { code: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ]
     }
 
-    // Format coupons for response
-    const formattedCoupons = filteredCoupons.map((coupon) => {
-      // Calculate status
+    // Fetch coupons from database
+    const coupons = await db.coupon.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    })
+
+    console.log(`Found ${coupons.length} coupons`)
+
+    // Get usage counts for each coupon - using separate queries to avoid SQL errors
+    for (const coupon of coupons) {
+      try {
+        // Count the usage records for this coupon
+        const usageCount = await db.couponUsage.count({
+          where: { couponId: coupon.id },
+        })
+
+        console.log(`Coupon ${coupon.code}: usage count = ${usageCount}, stored count = ${coupon.usageCount}`)
+
+        // If the stored count doesn't match the actual count, update it
+        if (coupon.usageCount !== usageCount) {
+          console.log(`Updating coupon ${coupon.code} usage count from ${coupon.usageCount} to ${usageCount}`)
+
+          await db.coupon.update({
+            where: { id: coupon.id },
+            data: { usageCount },
+          })
+
+          // Update the object for the response
+          coupon.usageCount = usageCount
+        }
+      } catch (error) {
+        console.error(`Error processing usage count for coupon ${coupon.id}:`, error)
+        // Continue with the next coupon
+      }
+    }
+
+    // Calculate status for each coupon
+    const couponsWithStatus = coupons.map((coupon) => {
       let status = "Active"
       const now = new Date()
 
       if (!coupon.isActive) {
         status = "Expired"
-      } else if (new Date(coupon.startDate) > now) {
+      } else if (coupon.startDate > now) {
         status = "Scheduled"
-      } else if (new Date(coupon.endDate) < now) {
+      } else if (coupon.endDate < now) {
         status = "Expired"
       }
 
@@ -92,10 +96,11 @@ export async function GET(req: NextRequest) {
         ...coupon,
         status,
         clientIds: coupon.clientIds ? JSON.parse(coupon.clientIds) : [],
-        startDate: new Date(coupon.startDate).toISOString(),
-        endDate: new Date(coupon.endDate).toISOString(),
-        createdAt: new Date(coupon.createdAt).toISOString(),
-        updatedAt: new Date(coupon.updatedAt).toISOString(),
+        // Format dates for display
+        startDate: coupon.startDate.toISOString(),
+        endDate: coupon.endDate.toISOString(),
+        createdAt: coupon.createdAt.toISOString(),
+        updatedAt: coupon.updatedAt.toISOString(),
       }
     })
 
@@ -104,7 +109,7 @@ export async function GET(req: NextRequest) {
     headers.set("Cache-Control", "no-store, max-age=0")
     headers.set("Pragma", "no-cache")
 
-    return NextResponse.json({ coupons: formattedCoupons }, { headers })
+    return NextResponse.json({ coupons: couponsWithStatus }, { headers })
   } catch (error) {
     console.error("Error fetching coupons:", error)
     return NextResponse.json({ error: "Failed to fetch coupons" }, { status: 500 })
