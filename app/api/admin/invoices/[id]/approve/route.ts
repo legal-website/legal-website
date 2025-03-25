@@ -209,15 +209,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           `) as any[]
 
           if (!existingUsageResult || existingUsageResult.length === 0) {
-            // Create the usage record
             try {
+              // Create a unique ID for the usage record
               const usageId = uuidv4()
+              console.log("Generated usage ID:", usageId)
+
+              // Create the usage record
               await db.$executeRaw`
                 INSERT INTO CouponUsage (id, couponId, userId, orderId, amount, createdAt)
                 VALUES (${usageId}, ${coupon.id}, ${invoice.userId || null}, ${invoiceId}, ${invoice.amount}, NOW())
               `
 
-              console.log("Successfully created coupon usage record:", usageId)
+              console.log("Successfully created coupon usage record with ID:", usageId)
 
               // Update the coupon usage count
               await db.$executeRaw`
@@ -226,9 +229,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
                 WHERE id = ${coupon.id}
               `
 
-              console.log("Updated coupon usage count")
-            } catch (usageError) {
-              console.error("Error creating coupon usage record:", usageError)
+              console.log("Updated coupon usage count for coupon ID:", coupon.id)
+
+              // Verify the update was successful
+              const updatedCoupon = (await db.$queryRaw`
+                SELECT * FROM Coupon WHERE id = ${coupon.id}
+              `) as any[]
+
+              if (updatedCoupon && updatedCoupon.length > 0) {
+                console.log("Coupon usage count after update:", updatedCoupon[0].usageCount)
+              }
+            } catch (error) {
+              console.error("Error updating coupon usage:", error)
             }
           } else {
             console.log("Coupon usage already exists for this invoice:", existingUsageResult[0].id)
