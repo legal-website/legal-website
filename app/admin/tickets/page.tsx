@@ -96,6 +96,7 @@ export default function AdminTicketsPage() {
   const [ticketStats, setTicketStats] = useState<TicketStats | null>(null)
   const [newMessage, setNewMessage] = useState("")
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false)
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
   const [clients, setClients] = useState<Client[]>([])
   const [clientFilter, setClientFilter] = useState("all")
@@ -429,7 +430,15 @@ export default function AdminTicketsPage() {
 
     setIsSubmitting(true)
 
+    // Set uploading files state if there are files
+    if (selectedFiles.length > 0) {
+      setIsUploadingFiles(true)
+    }
+
     const result = await createMessage({ content: newMessage, ticketId: selectedTicket.id }, selectedFiles)
+
+    // Reset uploading files state
+    setIsUploadingFiles(false)
 
     if (result.error) {
       toast({
@@ -1250,6 +1259,12 @@ export default function AdminTicketsPage() {
                     onChange={(e) => setNewMessage(e.target.value)}
                   />
                   <FileUpload onFilesSelected={setSelectedFiles} maxFiles={5} maxSizeMB={10} className="mb-4" />
+                  {isUploadingFiles && (
+                    <div className="flex items-center text-sm text-amber-600 mb-2">
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Uploading attachments...
+                    </div>
+                  )}
                   <div className="flex justify-end">
                     <Button
                       onClick={handleSendMessage}
