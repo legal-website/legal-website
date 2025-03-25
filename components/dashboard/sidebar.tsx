@@ -25,9 +25,10 @@ import { useTheme } from "@/context/theme-context"
 import { signOut } from "next-auth/react"
 import { toast } from "@/components/ui/use-toast"
 
-// Add a new function to handle profile image upload
+// Replace the uploadProfileImage function with this improved version
 async function uploadProfileImage(file: File, userId: string) {
   try {
+    console.log(`Uploading profile image for user ${userId}`)
     const formData = new FormData()
     formData.append("file", file)
     formData.append("userId", userId)
@@ -37,11 +38,14 @@ async function uploadProfileImage(file: File, userId: string) {
       body: formData,
     })
 
+    const data = await response.json()
+
     if (!response.ok) {
-      throw new Error("Failed to upload image")
+      console.error("Upload failed with status:", response.status, data)
+      throw new Error(data.error || "Failed to upload image")
     }
 
-    const data = await response.json()
+    console.log("Upload successful:", data)
     return data.imageUrl
   } catch (error) {
     console.error("Error uploading profile image:", error)
@@ -239,7 +243,7 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
           {profileImage ? (
             <div className="w-16 h-16 rounded-full overflow-hidden relative">
               <Image
-                src={profileImage || "/placeholder.svg"}
+                src={profileImage || "https://via.placeholder.com/80"}
                 alt="Business Logo"
                 className="w-full h-full object-cover"
                 width={80}
