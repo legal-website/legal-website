@@ -27,6 +27,7 @@ declare module "@prisma/client" {
     documentActivity: any
     documentSharing: any
     businessStorage: any
+    notification: any
   }
 
   // Add missing Document properties
@@ -35,6 +36,19 @@ declare module "@prisma/client" {
     isPermanent: boolean
     description?: string | null
     uploadedById: string
+  }
+
+  // Add Notification model
+  interface Notification {
+    id: string
+    title: string
+    message: string
+    type: string
+    read: boolean
+    link?: string | null
+    userId: string
+    createdAt: Date
+    updatedAt: Date
   }
 }
 

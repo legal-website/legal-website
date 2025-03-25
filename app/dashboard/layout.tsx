@@ -5,21 +5,28 @@ import { Toaster } from "@/components/ui/toaster"
 import LiveSupportWidget from "@/components/live-support-widget"
 import { ThemeProvider } from "@/context/theme-context"
 import { OnlineStatusTracker } from "@/components/online-status-tracker"
+import { NotificationProvider } from "@/context/notification-context"
+import { NotificationHeader } from "@/components/notifications/notification-header"
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
-      <CartProvider>
-        <div className="min-h-screen theme-transition">
-          <Toaster />
-          <OnlineStatusTracker />
-          <div className="flex h-screen overflow-hidden">
-            <DashboardSidebar />
-            <main className="flex-1 overflow-y-auto p-0">{children}</main>
+      <NotificationProvider>
+        <CartProvider>
+          <div className="min-h-screen theme-transition">
+            <Toaster />
+            <OnlineStatusTracker />
+            <div className="flex h-screen overflow-hidden flex-col">
+              <NotificationHeader />
+              <div className="flex flex-1 overflow-hidden">
+                <DashboardSidebar />
+                <main className="flex-1 overflow-y-auto p-0">{children}</main>
+              </div>
+            </div>
+            <LiveSupportWidget />
           </div>
-          <LiveSupportWidget />
-        </div>
-      </CartProvider>
+        </CartProvider>
+      </NotificationProvider>
     </ThemeProvider>
   )
 }

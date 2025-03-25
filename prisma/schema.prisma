@@ -526,3 +526,16 @@ model LoginSession {
 
   @@index([userId])
 }
+model Notification {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  type      String   // "info", "success", "warning", "error"
+  read      Boolean  @default(false)
+  link      String?  // Optional link to navigate to when clicked
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
