@@ -130,9 +130,19 @@ export default function CouponsPage() {
       let url = "/api/admin/coupons"
       if (activeTab !== "all") {
         url += `?status=${activeTab}`
+      } else {
+        // Add a timestamp to prevent caching
+        url += `?t=${Date.now()}`
       }
 
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        // Add cache: 'no-store' to prevent caching
+        cache: "no-store",
+        headers: {
+          pragma: "no-cache",
+          "cache-control": "no-cache",
+        },
+      })
 
       if (!response.ok) {
         throw new Error("Failed to fetch coupons")

@@ -1,16 +1,19 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sendPaymentApprovalEmail } from "@/lib/auth-service"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
+import { Role } from "@/lib/prisma-types"
+import { v4 as uuidv4 } from "uuid"
+import { sendPaymentApprovalEmail } from "@/lib/auth-service"
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     console.log("Approving invoice:", params.id)
 
-    // Check authentication
     const session = await getServerSession(authOptions)
-    if (!session || (session.user as any).role !== "ADMIN") {
+
+    // Check if user is authenticated and is an admin
+    if (!session || (session.user as any).role !== Role.ADMIN) {
       console.log("Unauthorized approval attempt")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -18,34 +21,30 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const invoiceId = params.id
 
     // Get the invoice
-    const invoice = await db.$queryRawUnsafe(
-      `
-      SELECT * FROM Invoice WHERE id = ?
-    `,
-      invoiceId,
-    )
+    const invoiceResult = (await db.$queryRaw`
+      SELECT * FROM Invoice WHERE id = ${invoiceId}
+    `) as any[]
 
-    if (!invoice || !Array.isArray(invoice) || invoice.length === 0) {
+    if (!invoiceResult || invoiceResult.length === 0) {
       console.log("Invoice not found:", invoiceId)
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
     }
 
-    // Since the result is an array, get the first item
-    const invoiceData = invoice[0]
+    const invoice = invoiceResult[0]
 
-    console.log("Found invoice:", invoiceData.invoiceNumber)
+    console.log("Found invoice:", invoice.invoiceNumber)
     console.log(
       "Invoice details:",
       JSON.stringify(
         {
-          id: invoiceData.id,
-          customerName: invoiceData.customerName,
-          customerEmail: invoiceData.customerEmail,
-          amount: invoiceData.amount,
-          status: invoiceData.status,
-          customerCompany: invoiceData.customerCompany,
-          customerAddress: invoiceData.customerAddress,
-          customerCity: invoiceData.customerCity,
+          id: invoice.id,
+          customerName: invoice.customerName,
+          customerEmail: invoice.customerEmail,
+          amount: invoice.amount,
+          status: invoice.status,
+          customerCompany: invoice.customerCompany,
+          customerAddress: invoice.customerAddress,
+          customerCity: invoice.customerCity,
         },
         null,
         2,
@@ -53,14 +52,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     )
 
     // Update invoice status to paid
-    await db.$executeRawUnsafe(
-      `
+    await db.$executeRaw`
       UPDATE Invoice 
       SET status = 'paid', paymentDate = NOW() 
-      WHERE id = ?
-    `,
-      invoiceId,
-    )
+      WHERE id = ${invoiceId}
+    `
 
     console.log("Invoice updated successfully")
 
@@ -70,24 +66,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       let affiliateCode = null
 
       // Check company field
-      if (invoiceData.customerCompany && invoiceData.customerCompany.includes("ref:")) {
-        const match = invoiceData.customerCompany.match(/ref:([a-zA-Z0-9]+)/)
+      if (invoice.customerCompany && invoice.customerCompany.includes("ref:")) {
+        const match = invoice.customerCompany.match(/ref:([a-zA-Z0-9]+)/)
         if (match && match[1]) {
           affiliateCode = match[1]
           console.log("Found affiliate code in company field:", affiliateCode)
         }
       }
       // Check address field
-      else if (invoiceData.customerAddress && invoiceData.customerAddress.includes("ref:")) {
-        const match = invoiceData.customerAddress.match(/ref:([a-zA-Z0-9]+)/)
+      else if (invoice.customerAddress && invoice.customerAddress.includes("ref:")) {
+        const match = invoice.customerAddress.match(/ref:([a-zA-Z0-9]+)/)
         if (match && match[1]) {
           affiliateCode = match[1]
           console.log("Found affiliate code in address field:", affiliateCode)
         }
       }
       // Check city field
-      else if (invoiceData.customerCity && invoiceData.customerCity.includes("ref:")) {
-        const match = invoiceData.customerCity.match(/ref:([a-zA-Z0-9]+)/)
+      else if (invoice.customerCity && invoice.customerCity.includes("ref:")) {
+        const match = invoice.customerCity.match(/ref:([a-zA-Z0-9]+)/)
         if (match && match[1]) {
           affiliateCode = match[1]
           console.log("Found affiliate code in city field:", affiliateCode)
@@ -101,46 +97,56 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         console.log("Processing conversion for affiliate code:", affiliateCode)
 
         // Find the affiliate link
-        const affiliateLink = await db.affiliateLink.findFirst({
-          where: { code: affiliateCode },
-        })
+        const affiliateLinkResult = (await db.$queryRaw`
+          SELECT * FROM affiliate_links WHERE code = ${affiliateCode}
+        `) as any[]
 
-        if (affiliateLink) {
+        if (affiliateLinkResult && affiliateLinkResult.length > 0) {
+          const affiliateLink = affiliateLinkResult[0]
           console.log("Found affiliate link ID:", affiliateLink.id)
 
           // Get commission rate from settings (default to 10% if not found)
-          const settings = await db.affiliateSettings.findFirst()
+          const settingsResult = (await db.$queryRaw`
+            SELECT * FROM affiliate_settings LIMIT 1
+          `) as any[]
+
+          const settings = settingsResult && settingsResult.length > 0 ? settingsResult[0] : null
           const commissionRate = settings?.commissionRate ? Number(settings.commissionRate) : 10
           console.log("Commission rate:", commissionRate)
 
           // Calculate commission amount
-          const commission = (invoiceData.amount * commissionRate) / 100
+          const commission = (invoice.amount * commissionRate) / 100
           console.log("Calculated commission:", commission)
 
           // Check if a conversion already exists for this order
-          const existingConversions = await db.affiliateConversion.findMany({
-            where: { orderId: invoiceId },
-          })
+          const existingConversionsResult = (await db.$queryRaw`
+            SELECT * FROM affiliate_conversions WHERE orderId = ${invoiceId}
+          `) as any[]
 
-          if (existingConversions.length === 0) {
+          if (!existingConversionsResult || existingConversionsResult.length === 0) {
             // Create the conversion record
             try {
-              const conversion = await db.affiliateConversion.create({
-                data: {
-                  linkId: affiliateLink.id,
-                  orderId: invoiceId,
-                  amount: invoiceData.amount,
-                  commission: commission,
-                  // Set to PENDING so it appears in current balance
-                  status: "PENDING",
-                },
-              })
-              console.log("Successfully created conversion record:", conversion.id)
+              const conversionId = uuidv4()
+              await db.$executeRaw`
+                INSERT INTO affiliate_conversions (
+                  id, linkId, orderId, amount, commission, status, createdAt, updatedAt
+                ) VALUES (
+                  ${conversionId}, 
+                  ${affiliateLink.id}, 
+                  ${invoiceId}, 
+                  ${invoice.amount}, 
+                  ${commission}, 
+                  'PENDING', 
+                  NOW(), 
+                  NOW()
+                )
+              `
+              console.log("Successfully created conversion record:", conversionId)
             } catch (conversionError) {
               console.error("Error creating conversion record:", conversionError)
             }
           } else {
-            console.log("Conversion already exists for this invoice:", existingConversions[0].id)
+            console.log("Conversion already exists for this invoice:", existingConversionsResult[0].id)
           }
         } else {
           console.log("No affiliate link found for code:", affiliateCode)
@@ -158,24 +164,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       let couponCode = null
 
       // Check company field
-      if (invoiceData.customerCompany && invoiceData.customerCompany.includes("coupon:")) {
-        const match = invoiceData.customerCompany.match(/coupon:([a-zA-Z0-9]+)/)
+      if (invoice.customerCompany && invoice.customerCompany.includes("coupon:")) {
+        const match = invoice.customerCompany.match(/coupon:([a-zA-Z0-9]+)/)
         if (match && match[1]) {
           couponCode = match[1].toUpperCase()
           console.log("Found coupon code in company field:", couponCode)
         }
       }
       // Check address field
-      else if (invoiceData.customerAddress && invoiceData.customerAddress.includes("coupon:")) {
-        const match = invoiceData.customerAddress.match(/coupon:([a-zA-Z0-9]+)/)
+      else if (invoice.customerAddress && invoice.customerAddress.includes("coupon:")) {
+        const match = invoice.customerAddress.match(/coupon:([a-zA-Z0-9]+)/)
         if (match && match[1]) {
           couponCode = match[1].toUpperCase()
           console.log("Found coupon code in address field:", couponCode)
         }
       }
       // Check city field
-      else if (invoiceData.customerCity && invoiceData.customerCity.includes("coupon:")) {
-        const match = invoiceData.customerCity.match(/coupon:([a-zA-Z0-9]+)/)
+      else if (invoice.customerCity && invoice.customerCity.includes("coupon:")) {
+        const match = invoice.customerCity.match(/coupon:([a-zA-Z0-9]+)/)
         if (match && match[1]) {
           couponCode = match[1].toUpperCase()
           console.log("Found coupon code in city field:", couponCode)
@@ -189,46 +195,43 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         console.log("Processing coupon usage for code:", couponCode)
 
         // Find the coupon
-        const coupon = await db.coupon.findUnique({
-          where: { code: couponCode },
-        })
+        const couponResult = (await db.$queryRaw`
+          SELECT * FROM Coupon WHERE code = ${couponCode}
+        `) as any[]
 
-        if (coupon) {
+        if (couponResult && couponResult.length > 0) {
+          const coupon = couponResult[0]
           console.log("Found coupon ID:", coupon.id)
 
           // Check if a usage record already exists for this order
-          const existingUsages = await db.couponUsage.findMany({
-            where: { orderId: invoiceId },
-          })
+          const existingUsageResult = (await db.$queryRaw`
+            SELECT * FROM CouponUsage WHERE orderId = ${invoiceId}
+          `) as any[]
 
-          if (existingUsages.length === 0) {
+          if (!existingUsageResult || existingUsageResult.length === 0) {
             // Create the usage record
             try {
-              const usage = await db.couponUsage.create({
-                data: {
-                  couponId: coupon.id,
-                  userId: invoiceData.userId,
-                  orderId: invoiceId,
-                  amount: invoiceData.amount,
-                },
-              })
-              console.log("Successfully created coupon usage record:", usage.id)
+              const usageId = uuidv4()
+              await db.$executeRaw`
+                INSERT INTO CouponUsage (id, couponId, userId, orderId, amount, createdAt)
+                VALUES (${usageId}, ${coupon.id}, ${invoice.userId || null}, ${invoiceId}, ${invoice.amount}, NOW())
+              `
+
+              console.log("Successfully created coupon usage record:", usageId)
 
               // Update the coupon usage count
-              await db.coupon.update({
-                where: { id: coupon.id },
-                data: {
-                  usageCount: {
-                    increment: 1,
-                  },
-                },
-              })
+              await db.$executeRaw`
+                UPDATE Coupon 
+                SET usageCount = usageCount + 1 
+                WHERE id = ${coupon.id}
+              `
+
               console.log("Updated coupon usage count")
             } catch (usageError) {
               console.error("Error creating coupon usage record:", usageError)
             }
           } else {
-            console.log("Coupon usage already exists for this invoice:", existingUsages[0].id)
+            console.log("Coupon usage already exists for this invoice:", existingUsageResult[0].id)
           }
         } else {
           console.log("No coupon found for code:", couponCode)
@@ -242,23 +245,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     // Send approval email
     try {
-      await sendPaymentApprovalEmail(invoiceData.customerEmail, invoiceData.customerName, invoiceId)
+      await sendPaymentApprovalEmail(invoice.customerEmail, invoice.customerName, invoiceId)
       console.log("Approval email sent")
     } catch (emailError) {
       console.error("Error sending approval email:", emailError)
     }
 
     // Get the updated invoice for the response
-    const updatedInvoice = await db.$queryRawUnsafe(
-      `
-      SELECT * FROM Invoice WHERE id = ?
-    `,
-      invoiceId,
-    )
+    const updatedInvoiceResult = (await db.$queryRaw`
+      SELECT * FROM Invoice WHERE id = ${invoiceId}
+    `) as any[]
 
     return NextResponse.json({
       success: true,
-      invoice: Array.isArray(updatedInvoice) && updatedInvoice.length > 0 ? updatedInvoice[0] : null,
+      invoice: updatedInvoiceResult && updatedInvoiceResult.length > 0 ? updatedInvoiceResult[0] : null,
     })
   } catch (error: any) {
     console.error("Error approving invoice:", error)

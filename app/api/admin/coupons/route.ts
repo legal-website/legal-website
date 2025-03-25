@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams
     const status = searchParams.get("status")
     const search = searchParams.get("search")
+    const timestamp = searchParams.get("timestamp") // Cache busting parameter
 
     // Build the where clause based on filters
     const where: any = {}
@@ -47,6 +48,37 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     })
 
+    // Get usage counts for each coupon
+    const couponIds = coupons.map((coupon) => coupon.id)
+    const usageCounts = (await db.$queryRaw`
+      SELECT couponId, COUNT(*) as count 
+      FROM CouponUsage 
+      WHERE couponId IN (${couponIds.join(",")})
+      GROUP BY couponId
+    `) as Array<{ couponId: string; count: number }>
+
+    // Create a map of coupon ID to usage count
+    const usageCountMap = new Map<string, number>()
+    usageCounts.forEach((item) => {
+      usageCountMap.set(item.couponId, Number(item.count))
+    })
+
+    // Update coupons with the latest usage count
+    for (const coupon of coupons) {
+      const usageCount = usageCountMap.get(coupon.id) || 0
+
+      // If the stored count doesn't match the actual count, update it
+      if (coupon.usageCount !== usageCount) {
+        await db.coupon.update({
+          where: { id: coupon.id },
+          data: { usageCount },
+        })
+
+        // Update the coupon object for the response
+        coupon.usageCount = usageCount
+      }
+    }
+
     // Calculate status for each coupon
     const couponsWithStatus = coupons.map((coupon) => {
       let status = "Active"
@@ -72,7 +104,11 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    return NextResponse.json({ coupons: couponsWithStatus })
+    // Set cache control headers to prevent caching
+    const headers = new Headers()
+    headers.set("Cache-Control", "no-store, max-age=0")
+
+    return NextResponse.json({ coupons: couponsWithStatus }, { headers })
   } catch (error) {
     console.error("Error fetching coupons:", error)
     return NextResponse.json({ error: "Failed to fetch coupons" }, { status: 500 })
