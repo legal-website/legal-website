@@ -24,6 +24,22 @@ import { useCart } from "@/context/cart-context"
 import { signIn, signOut, useSession } from "next-auth/react"
 import { useToast } from "@/components/ui/use-toast"
 
+// Add a function to fetch the latest user data
+async function fetchUserProfile() {
+  try {
+    const response = await fetch("/api/user/profile")
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch user profile")
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error("Error fetching user profile:", error)
+    return null
+  }
+}
+
 export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [signInOpen, setSignInOpen] = useState(false)
@@ -43,6 +59,8 @@ export default function Navbar() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+  const [profileImage, setProfileImage] = useState<string | null>(null)
+  const [timestamp, setTimestamp] = useState(Date.now()) // For cache busting
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -199,6 +217,25 @@ export default function Navbar() {
     }
   }
 
+  // Fetch the user profile when the component mounts
+  useEffect(() => {
+    const getProfileImage = async () => {
+      if (status === "authenticated") {
+        try {
+          const userData = await fetchUserProfile()
+          if (userData && userData.image) {
+            // Add timestamp to prevent caching
+            setProfileImage(`${userData.image}?t=${Date.now()}`)
+          }
+        } catch (error) {
+          console.error("Error fetching profile image:", error)
+        }
+      }
+    }
+
+    getProfileImage()
+  }, [status])
+
   return (
     <nav
       className={`bg-[#f9f6f2] px-6 border-b sticky top-0 z-50 transition-shadow duration-300 ${hasScrolled ? "shadow-md" : "shadow-none"}`}
@@ -276,10 +313,21 @@ export default function Navbar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-full border border-black"
+                  className="rounded-full border border-black overflow-hidden"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                 >
-                  <User className="h-5 w-5" />
+                  {profileImage ? (
+                    <Image
+                      src={profileImage || "/placeholder.svg"}
+                      alt="Profile"
+                      width={24}
+                      height={24}
+                      className="h-5 w-5 rounded-full object-cover"
+                      unoptimized={profileImage.startsWith("data:")}
+                    />
+                  ) : (
+                    <User className="h-5 w-5" />
+                  )}
                   <span className="sr-only">My Account</span>
                 </Button>
 
