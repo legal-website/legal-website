@@ -21,7 +21,7 @@ import {
 } from "@/lib/actions/settings-actions"
 
 export default function SettingsPage() {
-  const { theme, setTheme, accentColor, setAccentColor, layoutDensity, setLayoutDensity } = useTheme()
+  const { theme, setTheme, layoutDensity, setLayoutDensity } = useTheme()
   const { toast } = useToast()
   const [loginNotificationsEnabled, setLoginNotificationsEnabled] = useState(false)
   const [loginSessions, setLoginSessions] = useState<any[]>([])
@@ -36,7 +36,6 @@ export default function SettingsPage() {
       const settings = await getUserSettings()
       if (settings) {
         setTheme((settings.theme as any) || "light")
-        setAccentColor(settings.accentColor || "#22c984")
         setLayoutDensity((settings.layoutDensity as any) || "comfortable")
         setLoginNotificationsEnabled(settings.loginNotificationsEnabled || false)
       }
@@ -51,15 +50,7 @@ export default function SettingsPage() {
     }
 
     loadUserData()
-  }, [setTheme, setAccentColor, setLayoutDensity])
-
-  const colorOptions = [
-    { name: "Green", value: "#22c984" },
-    { name: "Blue", value: "#0066FF" },
-    { name: "Purple", value: "#8A2BE2" },
-    { name: "Orange", value: "#FF7F50" },
-    { name: "Pink", value: "#FF69B4" },
-  ]
+  }, [setTheme, setLayoutDensity])
 
   // Helper function to get theme-specific classes
   const getThemeClasses = (lightClass = "", darkClass = "", comfortClass = "") => {
@@ -76,7 +67,6 @@ export default function SettingsPage() {
     try {
       const formData = new FormData()
       formData.append("theme", theme)
-      formData.append("accentColor", accentColor)
       formData.append("layoutDensity", layoutDensity)
 
       const result = await updateAppearanceSettings(formData)
@@ -172,7 +162,7 @@ export default function SettingsPage() {
   }
 
   // Format date for display
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | Date) => {
     const date = new Date(dateString)
     return new Intl.DateTimeFormat("en-US", {
       dateStyle: "medium",
@@ -235,7 +225,7 @@ export default function SettingsPage() {
                     <h3 className="text-lg font-medium mb-4">Theme</h3>
                     <div className="flex flex-wrap gap-4">
                       <div
-                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${theme === "light" ? `border-[${accentColor}] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
+                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${theme === "light" ? `border-primary ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
                         onClick={() => setTheme("light")}
                       >
                         <div className="w-16 h-16 bg-white border rounded-md flex items-center justify-center">
@@ -245,7 +235,7 @@ export default function SettingsPage() {
                       </div>
 
                       <div
-                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${theme === "dark" ? `border-[${accentColor}] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
+                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${theme === "dark" ? `border-primary ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
                         onClick={() => setTheme("dark")}
                       >
                         <div className="w-16 h-16 bg-gray-900 border rounded-md flex items-center justify-center">
@@ -255,7 +245,7 @@ export default function SettingsPage() {
                       </div>
 
                       <div
-                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${theme === "comfort" ? `border-[${accentColor}] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
+                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${theme === "comfort" ? `border-primary ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
                         onClick={() => setTheme("comfort")}
                       >
                         <div className="w-16 h-16 bg-[#f8f4e3] border rounded-md flex items-center justify-center">
@@ -266,34 +256,12 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* Accent Color */}
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Accent Color</h3>
-                    <div className="flex flex-wrap gap-3">
-                      {colorOptions.map((color) => (
-                        <div
-                          key={color.value}
-                          className={`w-10 h-10 rounded-full cursor-pointer flex items-center justify-center ${accentColor === color.value ? "ring-2 ring-offset-2 ring-gray-400" : ""}`}
-                          style={{ backgroundColor: color.value }}
-                          onClick={() => setAccentColor(color.value)}
-                          title={color.name}
-                        >
-                          {accentColor === color.value && (
-                            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Layout Density */}
                   <div>
                     <h3 className="text-lg font-medium mb-4">Layout Density</h3>
                     <div className="flex gap-4">
                       <div
-                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${layoutDensity === "comfortable" ? `border-[${accentColor}] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
+                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${layoutDensity === "comfortable" ? `border-primary ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
                         onClick={() => setLayoutDensity("comfortable")}
                       >
                         <div
@@ -313,7 +281,7 @@ export default function SettingsPage() {
                       </div>
 
                       <div
-                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${layoutDensity === "compact" ? `border-[${accentColor}] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
+                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${layoutDensity === "compact" ? `border-primary ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
                         onClick={() => setLayoutDensity("compact")}
                       >
                         <div
@@ -337,12 +305,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="bg-primary hover:bg-primary/90 text-white"
-                    style={{ backgroundColor: accentColor }}
-                  >
+                  <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-white">
                     {isSubmitting ? "Saving..." : "Save Appearance Settings"}
                   </Button>
                 </form>
@@ -407,7 +370,6 @@ export default function SettingsPage() {
                           type="submit"
                           disabled={isPasswordSubmitting}
                           className="bg-primary hover:bg-primary/90 text-white"
-                          style={{ backgroundColor: accentColor }}
                         >
                           {isPasswordSubmitting ? "Updating..." : "Update Password"}
                         </Button>

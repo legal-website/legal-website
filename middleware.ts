@@ -1,31 +1,16 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
-import { trackAffiliateClick } from "./lib/middleware/affiliate"
-import { trackLoginMiddleware } from "./lib/middleware/track-login"
 
 // Define Role enum if it's not exported from Prisma
 enum Role {
   USER = "USER",
   ADMIN = "ADMIN",
   SUPPORT = "SUPPORT",
+  CLIENT = "CLIENT",
 }
 
 export async function middleware(request: NextRequest) {
-  // Track login sessions for authentication routes
-  if (
-    request.nextUrl.pathname === "/api/auth/callback/google" ||
-    request.nextUrl.pathname === "/api/auth/callback/credentials" ||
-    request.nextUrl.pathname === "/api/auth/session"
-  ) {
-    return await trackLoginMiddleware(request)
-  }
-
-  // Track affiliate clicks if ref parameter is present
-  if (request.nextUrl.searchParams.has("ref")) {
-    return await trackAffiliateClick(request)
-  }
-
   // Get the pathname
   const path = request.nextUrl.pathname
 
@@ -70,15 +55,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/api/auth/callback/google",
-    "/api/auth/callback/credentials",
-    "/api/auth/session",
-    "/admin/:path*",
-    "/dashboard/:path*",
-    "/api/:path*",
-    // Add matcher for affiliate tracking (all paths except certain ones)
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/admin/:path*", "/dashboard/:path*", "/api/:path*"],
 }
 

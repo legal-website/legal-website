@@ -8,8 +8,6 @@ type LayoutDensityType = "comfortable" | "compact"
 interface ThemeContextType {
   theme: ThemeType
   setTheme: (theme: ThemeType) => void
-  accentColor: string
-  setAccentColor: (color: string) => void
   layoutDensity: LayoutDensityType
   setLayoutDensity: (density: LayoutDensityType) => void
 }
@@ -18,8 +16,6 @@ interface ThemeContextType {
 const defaultThemeContext: ThemeContextType = {
   theme: "light",
   setTheme: () => null, // No-op function
-  accentColor: "#22c984",
-  setAccentColor: () => null, // No-op function
   layoutDensity: "comfortable",
   setLayoutDensity: () => null, // No-op function
 }
@@ -28,7 +24,6 @@ const ThemeContext = createContext<ThemeContextType>(defaultThemeContext)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<ThemeType>("light")
-  const [accentColor, setAccentColor] = useState<string>("#22c984")
   const [layoutDensity, setLayoutDensity] = useState<LayoutDensityType>("comfortable")
   const [mounted, setMounted] = useState(false)
 
@@ -36,17 +31,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setMounted(true)
     const savedTheme = localStorage.getItem("dashboard-theme") as ThemeType | null
-    const savedAccentColor = localStorage.getItem("dashboard-accent-color")
     const savedLayoutDensity = localStorage.getItem("dashboard-layout-density") as LayoutDensityType | null
 
     if (savedTheme) {
       setTheme(savedTheme)
       applyTheme(savedTheme)
-    }
-
-    if (savedAccentColor) {
-      setAccentColor(savedAccentColor)
-      applyAccentColor(savedAccentColor)
     }
 
     if (savedLayoutDensity) {
@@ -73,14 +62,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("dashboard-theme", newTheme)
   }
 
-  const applyAccentColor = (color: string) => {
-    // Set CSS variable for accent color
-    document.documentElement.style.setProperty("--primary-color", color)
-
-    // Store the accent color preference
-    localStorage.setItem("dashboard-accent-color", color)
-  }
-
   const applyLayoutDensity = (density: LayoutDensityType) => {
     // Remove existing density classes
     document.documentElement.classList.remove("density-comfortable", "density-compact")
@@ -95,11 +76,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const handleSetTheme = (newTheme: ThemeType) => {
     setTheme(newTheme)
     applyTheme(newTheme)
-  }
-
-  const handleSetAccentColor = (color: string) => {
-    setAccentColor(color)
-    applyAccentColor(color)
   }
 
   const handleSetLayoutDensity = (density: LayoutDensityType) => {
@@ -117,8 +93,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       value={{
         theme,
         setTheme: handleSetTheme,
-        accentColor,
-        setAccentColor: handleSetAccentColor,
         layoutDensity,
         setLayoutDensity: handleSetLayoutDensity,
       }}

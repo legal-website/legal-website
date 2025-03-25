@@ -2,40 +2,9 @@
 
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
+import prisma from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { revalidatePath } from "next/cache"
-
-// Define interfaces for our database models
-interface User {
-  id: string
-  email: string
-  name?: string | null
-  password?: string | null
-}
-
-interface UserSettings {
-  id: string
-  userId: string
-  theme: string
-  accentColor: string
-  layoutDensity: string
-  loginNotificationsEnabled: boolean
-}
-
-interface LoginSession {
-  id: string
-  userId: string
-  ipAddress?: string | null
-  userAgent: string
-  browser?: string | null
-  os?: string | null
-  device?: string | null
-  location?: string | null
-  isActive: boolean
-  lastActiveAt: Date
-  createdAt: Date
-}
 
 // Function to update user appearance settings
 export async function updateAppearanceSettings(formData: FormData) {
@@ -46,32 +15,47 @@ export async function updateAppearanceSettings(formData: FormData) {
     }
 
     const theme = formData.get("theme") as string
-    const accentColor = formData.get("accentColor") as string
     const layoutDensity = formData.get("layoutDensity") as string
 
-    // Check if user settings exist using raw SQL
-    const existingSettings = await db.$queryRaw<UserSettings[]>`
-      SELECT * FROM UserSettings WHERE userId = ${session.user.id}
-    `
+    // Check if user settings exist
+    const existingSettings = await prisma.$queryRawUnsafe<any[]>(
+      `
+      SELECT * FROM UserSettings WHERE userId = ? LIMIT 1
+    `,
+      session.user.id,
+    )
 
     if (existingSettings.length > 0) {
       // Update existing settings
-      await db.$executeRaw`
+      await prisma.$executeRawUnsafe(
+        `
         UPDATE UserSettings 
-        SET theme = ${theme}, 
-            accentColor = ${accentColor}, 
-            layoutDensity = ${layoutDensity},
+        SET theme = ?, 
+            layoutDensity = ?,
             updatedAt = NOW()
-        WHERE userId = ${session.user.id}
-      `
+        WHERE userId = ?
+      `,
+        theme,
+        layoutDensity,
+        session.user.id,
+      )
     } else {
+      // Generate a UUID for the settings ID
+      const settingsId = crypto.randomUUID()
+
       // Create new settings
-      await db.$executeRaw`
+      await prisma.$executeRawUnsafe(
+        `
         INSERT INTO UserSettings 
-        (id, userId, theme, accentColor, layoutDensity, loginNotificationsEnabled, createdAt, updatedAt) 
+        (id, userId, theme, layoutDensity, loginNotificationsEnabled, createdAt, updatedAt) 
         VALUES 
-        (UUID(), ${session.user.id}, ${theme}, ${accentColor}, ${layoutDensity}, false, NOW(), NOW())
-      `
+        (?, ?, ?, ?, false, NOW(), NOW())
+      `,
+        settingsId,
+        session.user.id,
+        theme,
+        layoutDensity,
+      )
     }
 
     revalidatePath("/dashboard/settings")
@@ -104,9 +88,12 @@ export async function updatePassword(formData: FormData) {
     }
 
     // Get user with password
-    const users = await db.$queryRaw<User[]>`
-      SELECT * FROM User WHERE id = ${session.user.id}
-    `
+    const users = await prisma.$queryRawUnsafe<any[]>(
+      `
+      SELECT * FROM User WHERE id = ? LIMIT 1
+    `,
+      session.user.id,
+    )
 
     const user = users.length > 0 ? users[0] : null
 
@@ -124,11 +111,15 @@ export async function updatePassword(formData: FormData) {
     const hashedPassword = await bcrypt.hash(newPassword, 10)
 
     // Update password
-    await db.$executeRaw`
+    await prisma.$executeRawUnsafe(
+      `
       UPDATE User 
-      SET password = ${hashedPassword} 
-      WHERE id = ${session.user.id}
-    `
+      SET password = ? 
+      WHERE id = ?
+    `,
+      hashedPassword,
+      session.user.id,
+    )
 
     return { success: true, message: "Password updated successfully" }
   } catch (error) {
@@ -146,26 +137,41 @@ export async function toggleLoginNotifications(enabled: boolean) {
     }
 
     // Check if user settings exist
-    const existingSettings = await db.$queryRaw<UserSettings[]>`
-      SELECT * FROM UserSettings WHERE userId = ${session.user.id}
-    `
+    const existingSettings = await prisma.$queryRawUnsafe<any[]>(
+      `
+      SELECT * FROM UserSettings WHERE userId = ? LIMIT 1
+    `,
+      session.user.id,
+    )
 
     if (existingSettings.length > 0) {
       // Update existing settings
-      await db.$executeRaw`
+      await prisma.$executeRawUnsafe(
+        `
         UPDATE UserSettings 
-        SET loginNotificationsEnabled = ${enabled},
+        SET loginNotificationsEnabled = ?,
             updatedAt = NOW()
-        WHERE userId = ${session.user.id}
-      `
+        WHERE userId = ?
+      `,
+        enabled ? 1 : 0,
+        session.user.id,
+      )
     } else {
+      // Generate a UUID for the settings ID
+      const settingsId = crypto.randomUUID()
+
       // Create new settings
-      await db.$executeRaw`
+      await prisma.$executeRawUnsafe(
+        `
         INSERT INTO UserSettings 
-        (id, userId, theme, accentColor, layoutDensity, loginNotificationsEnabled, createdAt, updatedAt) 
+        (id, userId, theme, layoutDensity, loginNotificationsEnabled, createdAt, updatedAt) 
         VALUES 
-        (UUID(), ${session.user.id}, 'light', '#22c984', 'comfortable', ${enabled}, NOW(), NOW())
-      `
+        (?, ?, 'light', 'comfortable', ?, NOW(), NOW())
+      `,
+        settingsId,
+        session.user.id,
+        enabled ? 1 : 0,
+      )
     }
 
     revalidatePath("/dashboard/settings")
@@ -184,17 +190,23 @@ export async function getUserSettings() {
       return null
     }
 
-    const settings = await db.$queryRaw<UserSettings[]>`
-      SELECT * FROM UserSettings WHERE userId = ${session.user.id}
-    `
+    const settings = await prisma.$queryRawUnsafe<any[]>(
+      `
+      SELECT * FROM UserSettings WHERE userId = ? LIMIT 1
+    `,
+      session.user.id,
+    )
 
     if (settings.length > 0) {
-      return settings[0]
+      return {
+        theme: settings[0].theme || "light",
+        layoutDensity: settings[0].layoutDensity || "comfortable",
+        loginNotificationsEnabled: Boolean(settings[0].loginNotificationsEnabled),
+      }
     }
 
     return {
       theme: "light",
-      accentColor: "#22c984",
       layoutDensity: "comfortable",
       loginNotificationsEnabled: false,
     }
@@ -212,13 +224,20 @@ export async function getUserLoginSessions() {
       return []
     }
 
-    const loginSessions = await db.$queryRaw<LoginSession[]>`
+    const loginSessions = await prisma.$queryRawUnsafe<any[]>(
+      `
       SELECT * FROM LoginSession 
-      WHERE userId = ${session.user.id}
+      WHERE userId = ?
       ORDER BY lastActiveAt DESC
-    `
+    `,
+      session.user.id,
+    )
 
-    return loginSessions
+    return loginSessions.map((session: { lastActiveAt: string | number | Date; createdAt: string | number | Date }) => ({
+      ...session,
+      lastActiveAt: new Date(session.lastActiveAt),
+      createdAt: new Date(session.createdAt),
+    }))
   } catch (error) {
     console.error("Error fetching login sessions:", error)
     return []
