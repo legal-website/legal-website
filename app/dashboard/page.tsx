@@ -22,6 +22,7 @@ import {
   DollarSign,
   PenTool,
   FileText,
+  Tag,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
@@ -35,6 +36,10 @@ import { ContactPopup } from "@/components/contact-popup"
 // Add these imports at the top of the file with the other imports
 import { getUserTickets } from "@/lib/actions/ticket-actions"
 import Link from "next/link"
+
+// Add these imports at the top of the file
+import { formatCouponValue } from "@/lib/coupon"
+import type { CouponType } from "@/lib/prisma-types"
 
 interface Invoice {
   id: string
@@ -90,6 +95,17 @@ interface Template {
   status?: string
   usageCount?: number
   downloadCount?: number // User-specific download count
+}
+
+// Add this interface with the other interfaces
+interface Coupon {
+  id: string
+  code: string
+  description: string
+  type: CouponType
+  value: number
+  expiresAt: string
+  minimumAmount: number | null
 }
 
 // Add these interfaces after the other interfaces
@@ -197,6 +213,10 @@ export default function DashboardPage() {
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<Deadline[]>([])
   const [amendmentsLoading, setAmendmentsLoading] = useState(true)
   const [deadlinesLoading, setDeadlinesLoading] = useState(true)
+
+  // Add this state variable with the other state variables in the DashboardPage component
+  const [coupons, setCoupons] = useState<Coupon[]>([])
+  const [couponsLoading, setCouponsLoading] = useState(true)
 
   const fetchAmendments = async () => {
     try {
@@ -323,6 +343,25 @@ export default function DashboardPage() {
     }
   }
 
+  // Add this function to fetch coupons
+  const fetchCoupons = async () => {
+    try {
+      setCouponsLoading(true)
+      const response = await fetch("/api/coupons/user")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch coupons")
+      }
+
+      const data = await response.json()
+      setCoupons(data.coupons || [])
+    } catch (error) {
+      console.error("Error fetching coupons:", error)
+    } finally {
+      setCouponsLoading(false)
+    }
+  }
+
   // Add fetchTickets to the useEffect that runs when session is available
   // Find the useEffect that includes fetchBusinessData and add fetchTickets
   // Modify the useEffect to include fetchTickets:
@@ -337,6 +376,7 @@ export default function DashboardPage() {
       fetchTickets() // Add this line
       fetchAmendments() // Add this line
       fetchDeadlines() // Add this line
+      fetchCoupons() // Add this line
     } else {
       setLoading(false)
     }
@@ -953,6 +993,28 @@ export default function DashboardPage() {
     )
   }
 
+  // Add this function to handle applying a coupon
+  const handleApplyCoupon = (coupon: Coupon) => {
+    // Store the coupon in localStorage
+    localStorage.setItem("appliedCoupon", coupon.code)
+    localStorage.setItem("couponData", JSON.stringify(coupon))
+
+    toast({
+      title: "Coupon applied",
+      description: `${coupon.code} will be applied to your next purchase.`,
+    })
+  }
+
+  // Add this function to handle copying a coupon code
+  const handleCopyCouponCode = (code: string) => {
+    navigator.clipboard.writeText(code)
+
+    toast({
+      title: "Coupon code copied",
+      description: `${code} has been copied to your clipboard.`,
+    })
+  }
+
   // Function to render the account manager button based on request status
   const renderAccountManagerButton = () => {
     if (!accountManagerRequest) {
@@ -1558,31 +1620,123 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      {/* Help Section */}
+      {/* Help Section with Coupons */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
           <SpendingAnalytics />
         </div>
 
-        <Card>
-          <div className="p-6">
-            <h3 className="text-2xl font-bold mb-6">Need help?</h3>
-            <div className="space-y-4">
-              {/* Replace the Contact account manager button with our new dynamic button */}
-              {session?.user?.id && <AccountManagerRequest userId={session.user.id} />}
-
-              <Button variant="outline" className="w-full justify-start h-auto py-4">
-                <MessageSquare className="w-5 h-5 mr-3" />
-                <div className="text-left">
-                  <p className="font-semibold">Create a ticket</p>
-                  <p className="text-sm text-gray-600 font-medium">Our support team is always here for you.</p>
-                </div>
-              </Button>
-
-              <ContactPopup />
+        <div className="space-y-6">
+          {/* Coupons Card */}
+          <Card>
+            <div className="p-6 border-b flex justify-between items-center">
+              <h2 className="text-xl font-semibold">My Top Coupons</h2>
+              <Link href="/dashboard/coupons" passHref>
+                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  <span>View All</span>
+                  <ExternalLink className="w-4 h-4" />
+                </Button>
+              </Link>
             </div>
-          </div>
-        </Card>
+            <div className="p-6">
+              {couponsLoading ? (
+                <div className="flex justify-center items-center py-4">
+                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                </div>
+              ) : coupons.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Show top 2 coupons by value */}
+                  {[...coupons]
+                    .sort((a, b) => b.value - a.value)
+                    .slice(0, 2)
+                    .map((coupon) => {
+                      const daysUntilExpiry = Math.ceil(
+                        (new Date(coupon.expiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
+                      )
+                      const isExpiringSoon = daysUntilExpiry <= 7
+
+                      return (
+                        <div
+                          key={coupon.id}
+                          className="border rounded-lg p-4 hover:shadow-md transition-shadow duration-300"
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <p className="font-semibold text-lg">{coupon.code}</p>
+                              <p className="text-sm text-gray-600">{coupon.description}</p>
+                            </div>
+                            <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded-md">
+                              <Tag className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center mb-3">
+                            <div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Discount</p>
+                              <p className="text-lg font-bold">{formatCouponValue(coupon.type, coupon.value)}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Expires</p>
+                              <p
+                                className={`text-sm font-medium ${isExpiringSoon ? "text-red-600 dark:text-red-400" : ""}`}
+                              >
+                                {new Date(coupon.expiresAt).toLocaleDateString()}
+                                {isExpiringSoon && ` (${daysUntilExpiry} days left)`}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 mt-3">
+                            <Button
+                              variant="outline"
+                              className="flex-1"
+                              onClick={() => handleCopyCouponCode(coupon.code)}
+                            >
+                              <Copy className="mr-2 h-4 w-4" />
+                              Copy
+                            </Button>
+                            <Button
+                              className="flex-1 bg-green-600 hover:bg-green-700"
+                              style={{ backgroundColor: "#22C984", borderColor: "#22C984" }}
+                              onClick={() => handleApplyCoupon(coupon)}
+                            >
+                              Apply
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-gray-500 mb-4">You don't have any available coupons</p>
+                  <Link href="/dashboard/coupons" passHref>
+                    <Button variant="outline">Browse Coupons</Button>
+                  </Link>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Need Help Card */}
+          <Card>
+            <div className="p-6">
+              <h3 className="text-2xl font-bold mb-6">Need help?</h3>
+              <div className="space-y-4">
+                {/* Replace the Contact account manager button with our new dynamic button */}
+                {session?.user?.id && <AccountManagerRequest userId={session.user.id} />}
+
+                <Button variant="outline" className="w-full justify-start h-auto py-4">
+                  <MessageSquare className="w-5 h-5 mr-3" />
+                  <div className="text-left">
+                    <p className="font-semibold">Create a ticket</p>
+                    <p className="text-sm text-gray-600 font-medium">Our support team is always here for you.</p>
+                  </div>
+                </Button>
+
+                <ContactPopup />
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   )
