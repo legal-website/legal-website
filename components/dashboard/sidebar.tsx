@@ -53,6 +53,22 @@ async function uploadProfileImage(file: File, userId: string) {
   }
 }
 
+// Add a function to fetch the latest user data
+async function fetchUserProfile() {
+  try {
+    const response = await fetch("/api/user/profile")
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch user profile")
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error("Error fetching user profile:", error)
+    return null
+  }
+}
+
 interface MenuItem {
   icon: React.ElementType
   label: string
@@ -141,25 +157,53 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
   const [showUploadOption, setShowUploadOption] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const { theme } = useTheme()
+  const [timestamp, setTimestamp] = useState(Date.now()) // For cache busting
 
-  // Use session data directly to ensure we always have the latest data
+  // Fetch the latest user data directly from the API
   useEffect(() => {
-    // First priority: Use the session data (most up-to-date)
-    if (session?.user?.image) {
-      console.log("Setting profile image from session:", session.user.image)
-      setProfileImage(session.user.image)
-    }
-    // Second priority: Use the userData prop (from server component)
-    else if (userData?.image) {
-      console.log("Setting profile image from userData:", userData.image)
-      setProfileImage(userData.image)
+    const getLatestUserData = async () => {
+      try {
+        const latestUserData = await fetchUserProfile()
+        if (latestUserData && latestUserData.image) {
+          console.log("Setting profile image from API:", latestUserData.image)
+          // Add timestamp to prevent caching
+          setProfileImage(`${latestUserData.image}?t=${Date.now()}`)
+        }
+        if (latestUserData && latestUserData.businessName) {
+          setBusinessName(latestUserData.businessName)
+        }
+      } catch (error) {
+        console.error("Error fetching latest user data:", error)
+      }
     }
 
-    // Set business name
-    if (userData?.businessName) {
+    // Only fetch if we're authenticated
+    if (status === "authenticated") {
+      getLatestUserData()
+    }
+  }, [status])
+
+  // Initialize from props and session as fallback
+  useEffect(() => {
+    // Only use these as fallbacks if we don't already have an image from the API
+    if (!profileImage) {
+      // First priority: Use the session data
+      if (session?.user?.image) {
+        console.log("Setting profile image from session:", session.user.image)
+        setProfileImage(`${session.user.image}?t=${Date.now()}`)
+      }
+      // Second priority: Use the userData prop
+      else if (userData?.image) {
+        console.log("Setting profile image from userData:", userData.image)
+        setProfileImage(`${userData.image}?t=${Date.now()}`)
+      }
+    }
+
+    // Set business name if not already set
+    if (!businessName && userData?.businessName) {
       setBusinessName(userData.businessName)
     }
-  }, [session, userData])
+  }, [session, userData, profileImage, businessName])
 
   const toggleExpand = (label: string) => {
     setExpandedItems((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]))
@@ -208,16 +252,21 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
     setIsUploading(true)
     try {
       const imageUrl = await uploadProfileImage(file, userId)
-      setProfileImage(imageUrl)
-
-      // Force a session refresh to update the image in the session
-      await fetch("/api/auth/session?update=true")
+      // Add timestamp to prevent caching
+      setProfileImage(`${imageUrl}?t=${Date.now()}`)
+      setTimestamp(Date.now()) // Update timestamp for cache busting
 
       toast({
         title: "Profile image updated",
         description: "Your profile image has been successfully updated.",
         variant: "default",
       })
+
+      // Refresh the page to ensure all components have the latest data
+      // This is a more direct approach than trying to update the session
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
     } catch (error) {
       toast({
         title: "Upload failed",
@@ -250,8 +299,13 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
     }
   }
 
-  // Determine the image source to use
-  const imageSource = profileImage || "https://via.placeholder.com/80"
+  // Determine the image source to use with cache busting
+  const imageSource = profileImage
+    ? profileImage.includes("?t=")
+      ? profileImage
+      : `${profileImage}?t=${timestamp}`
+    : "https://via.placeholder.com/80"
+
   console.log("Current profile image source:", imageSource)
 
   return (
