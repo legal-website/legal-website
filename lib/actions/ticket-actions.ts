@@ -210,19 +210,39 @@ export async function createMessage(data: CreateMessageInput, files?: File[]) {
 
     // Handle file uploads if any
     if (files && files.length > 0) {
-      for (const file of files) {
-        const fileUrl = await uploadToCloudinary(file)
+      try {
+        for (const file of files) {
+          console.log(`Processing file: ${file.name}, size: ${file.size}, type: ${file.type}`)
 
-        // @ts-ignore - Prisma client type issue
-        await db.attachment.create({
-          data: {
-            name: file.name,
-            fileUrl,
-            size: `${Math.round(file.size / 1024)} KB`,
-            type: file.type,
-            messageId: message.id,
-          },
-        })
+          // Upload to Cloudinary with specific folder for ticket attachments
+          const result = await uploadToCloudinary(file, {
+            folder: `ticket_attachments/${data.ticketId}`,
+            resource_type: "auto",
+          })
+
+          if (!result || !result.secure_url) {
+            console.error("Failed to get secure URL from Cloudinary upload")
+            continue
+          }
+
+          const fileUrl = result.secure_url
+          console.log(`File uploaded successfully: ${fileUrl}`)
+
+          // Create attachment record
+          // @ts-ignore - Prisma client type issue
+          await db.attachment.create({
+            data: {
+              name: file.name,
+              fileUrl,
+              size: `${Math.round(file.size / 1024)} KB`,
+              type: file.type || "application/octet-stream",
+              messageId: message.id,
+            },
+          })
+        }
+      } catch (error) {
+        console.error("Error processing file attachments:", error)
+        // Continue with the message even if attachments fail
       }
     }
 

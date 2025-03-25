@@ -1068,7 +1068,13 @@ export default function AdminTicketsPage() {
       {/* Ticket Details Dialog */}
       {selectedTicket && (
         <Dialog open={showTicketDialog} onOpenChange={setShowTicketDialog}>
-          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+          <DialogContent
+            className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto"
+            aria-describedby="ticket-details-description"
+          >
+            <div id="ticket-details-description" className="sr-only">
+              Ticket details and conversation history
+            </div>
             <DialogHeader>
               <DialogTitle className="text-xl">{selectedTicket.subject}</DialogTitle>
             </DialogHeader>

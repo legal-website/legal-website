@@ -39,27 +39,38 @@ export default function TicketDetailClient({ ticket }: { ticket: Ticket }) {
 
     setIsSubmitting(true)
 
-    const result = await createMessage({ content: message, ticketId: ticket.id }, files.length > 0 ? files : undefined)
+    try {
+      // Create a copy of the files array to avoid issues with the files being modified during upload
+      const filesToUpload = files.length > 0 ? [...files] : undefined
 
-    setIsSubmitting(false)
+      const result = await createMessage({ content: message, ticketId: ticket.id }, filesToUpload)
 
-    if (result.error) {
+      if (result.error) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        })
+      } else {
+        setMessage("")
+        setFiles([])
+        router.refresh()
+
+        toast({
+          title: "Message sent",
+          description: "Your message has been sent successfully",
+        })
+      }
+    } catch (error) {
+      console.error("Error sending message:", error)
       toast({
         title: "Error",
-        description: result.error,
+        description: "Failed to send message. Please try again.",
         variant: "destructive",
       })
-      return
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setMessage("")
-    setFiles([])
-    router.refresh()
-
-    toast({
-      title: "Message sent",
-      description: "Your message has been sent successfully",
-    })
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

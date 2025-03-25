@@ -20,7 +20,9 @@ export function FileUpload({ onFilesSelected, maxFiles = 5, maxSizeMB = 10, clas
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
+    if (!e.target.files || e.target.files.length === 0) return
+
+    const files = Array.from(e.target.files)
     const newErrors: string[] = []
     const validFiles: File[] = []
 
@@ -33,6 +35,8 @@ export function FileUpload({ onFilesSelected, maxFiles = 5, maxSizeMB = 10, clas
         // Check file size
         if (file.size > maxSizeMB * 1024 * 1024) {
           newErrors.push(`${file.name} exceeds the maximum file size of ${maxSizeMB}MB.`)
+        } else if (file.size === 0) {
+          newErrors.push(`${file.name} is empty.`)
         } else {
           validFiles.push(file)
         }
@@ -41,6 +45,8 @@ export function FileUpload({ onFilesSelected, maxFiles = 5, maxSizeMB = 10, clas
 
     if (newErrors.length > 0) {
       setErrors(newErrors)
+    } else {
+      setErrors([])
     }
 
     if (validFiles.length > 0) {
