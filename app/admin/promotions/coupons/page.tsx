@@ -111,10 +111,15 @@ export default function CouponsPage() {
     newCustomersOnly: false,
   })
 
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(15)
+  const [sortBy, setSortBy] = useState("createdAt")
+  const [sortOrder, setSortOrder] = useState("desc")
+
   // Fetch coupons on component mount
   useEffect(() => {
     fetchCoupons()
-  }, [activeTab])
+  }, [activeTab, sortBy, sortOrder])
 
   // Fetch users when specificClient is true
   useEffect(() => {
@@ -464,16 +469,45 @@ export default function CouponsPage() {
     setShowCreateDialog(true)
   }
 
-  const filteredCoupons = coupons.filter((coupon) => {
-    const matchesSearch =
-      coupon.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      coupon.description.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCoupons = coupons
+    .filter((coupon) => {
+      const matchesSearch =
+        coupon.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        coupon.description.toLowerCase().includes(searchQuery.toLowerCase())
 
-    return matchesSearch
-  })
+      return matchesSearch
+    })
+    .sort((a, b) => {
+      if (sortBy === "createdAt") {
+        return sortOrder === "asc"
+          ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      } else if (sortBy === "endDate") {
+        return sortOrder === "asc"
+          ? new Date(a.endDate).getTime() - new Date(b.endDate).getTime()
+          : new Date(b.endDate).getTime() - new Date(a.endDate).getTime()
+      } else if (sortBy === "value") {
+        return sortOrder === "asc" ? a.value - b.value : b.value - a.value
+      } else if (sortBy === "usageCount") {
+        return sortOrder === "asc" ? a.usageCount - b.usageCount : b.usageCount - a.usageCount
+      } else if (sortBy === "code") {
+        return sortOrder === "asc" ? a.code.localeCompare(b.code) : b.code.localeCompare(a.code)
+      } else {
+        // Default fallback for any other string properties
+        const aValue = String(a[sortBy as keyof Coupon] || "")
+        const bValue = String(b[sortBy as keyof Coupon] || "")
+        return sortOrder === "asc" ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue)
+      }
+    })
+
+  // Get current coupons
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentCoupons = filteredCoupons.slice(indexOfFirstItem, indexOfLastItem)
+  const totalPages = Math.ceil(filteredCoupons.length / itemsPerPage)
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+    <div className="p-6 max-w-[1600px] mx-auto mb-32">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
@@ -507,6 +541,31 @@ export default function CouponsPage() {
         </div>
 
         <div className="flex space-x-2">
+          <Select value={sortBy} onValueChange={(value) => setSortBy(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="createdAt">Date Created</SelectItem>
+              <SelectItem value="code">Code</SelectItem>
+              <SelectItem value="value">Value</SelectItem>
+              <SelectItem value="usageCount">Usage</SelectItem>
+              <SelectItem value="endDate">Expiry Date</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sortOrder} onValueChange={(value) => setSortOrder(value)}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Order" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="asc">Ascending</SelectItem>
+              <SelectItem value="desc">Descending</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex space-x-2">
           <Button variant="outline" className="flex-1" onClick={fetchCoupons}>
             <Filter className="mr-2 h-4 w-4" />
             Refresh
@@ -525,8 +584,14 @@ export default function CouponsPage() {
 
         <TabsContent value="all" className="mt-6">
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="relative w-20 h-20">
+                <div className="absolute top-0 left-0 w-full h-full rounded-full border-4 border-t-purple-600 border-b-purple-200 border-l-purple-200 border-r-purple-200 animate-spin"></div>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <Tag className="h-8 w-8 text-purple-600" />
+                </div>
+              </div>
+              <p className="mt-4 text-purple-600 font-medium">Loading coupons...</p>
             </div>
           ) : filteredCoupons.length === 0 ? (
             <div className="text-center py-8">
@@ -537,7 +602,7 @@ export default function CouponsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredCoupons.map((coupon) => (
+              {currentCoupons.map((coupon) => (
                 <CouponCard
                   key={coupon.id}
                   coupon={coupon}
@@ -548,12 +613,66 @@ export default function CouponsPage() {
               ))}
             </div>
           )}
+          {filteredCoupons.length > itemsPerPage && (
+            <div className="mt-6 flex justify-center">
+              <nav className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  // Show pages around current page
+                  let pageNum = i + 1
+                  if (totalPages > 5) {
+                    if (currentPage > 3) {
+                      pageNum = currentPage - 3 + i
+                    }
+                    if (pageNum > totalPages - 4 && currentPage > totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    }
+                  }
+
+                  return pageNum <= totalPages ? (
+                    <Button
+                      key={i}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={currentPage === pageNum ? "bg-purple-600 hover:bg-purple-700" : ""}
+                    >
+                      {pageNum}
+                    </Button>
+                  ) : null
+                })}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </nav>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="active" className="mt-6">
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="relative w-20 h-20">
+                <div className="absolute top-0 left-0 w-full h-full rounded-full border-4 border-t-purple-600 border-b-purple-200 border-l-purple-200 border-r-purple-200 animate-spin"></div>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <Tag className="h-8 w-8 text-purple-600" />
+                </div>
+              </div>
+              <p className="mt-4 text-purple-600 font-medium">Loading coupons...</p>
             </div>
           ) : filteredCoupons.length === 0 ? (
             <div className="text-center py-8">
@@ -564,7 +683,7 @@ export default function CouponsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredCoupons.map((coupon) => (
+              {currentCoupons.map((coupon) => (
                 <CouponCard
                   key={coupon.id}
                   coupon={coupon}
@@ -575,12 +694,66 @@ export default function CouponsPage() {
               ))}
             </div>
           )}
+          {filteredCoupons.length > itemsPerPage && (
+            <div className="mt-6 flex justify-center">
+              <nav className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  // Show pages around current page
+                  let pageNum = i + 1
+                  if (totalPages > 5) {
+                    if (currentPage > 3) {
+                      pageNum = currentPage - 3 + i
+                    }
+                    if (pageNum > totalPages - 4 && currentPage > totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    }
+                  }
+
+                  return pageNum <= totalPages ? (
+                    <Button
+                      key={i}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={currentPage === pageNum ? "bg-purple-600 hover:bg-purple-700" : ""}
+                    >
+                      {pageNum}
+                    </Button>
+                  ) : null
+                })}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </nav>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="scheduled" className="mt-6">
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="relative w-20 h-20">
+                <div className="absolute top-0 left-0 w-full h-full rounded-full border-4 border-t-purple-600 border-b-purple-200 border-l-purple-200 border-r-purple-200 animate-spin"></div>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <Tag className="h-8 w-8 text-purple-600" />
+                </div>
+              </div>
+              <p className="mt-4 text-purple-600 font-medium">Loading coupons...</p>
             </div>
           ) : filteredCoupons.length === 0 ? (
             <div className="text-center py-8">
@@ -591,7 +764,7 @@ export default function CouponsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredCoupons.map((coupon) => (
+              {currentCoupons.map((coupon) => (
                 <CouponCard
                   key={coupon.id}
                   coupon={coupon}
@@ -602,12 +775,66 @@ export default function CouponsPage() {
               ))}
             </div>
           )}
+          {filteredCoupons.length > itemsPerPage && (
+            <div className="mt-6 flex justify-center">
+              <nav className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  // Show pages around current page
+                  let pageNum = i + 1
+                  if (totalPages > 5) {
+                    if (currentPage > 3) {
+                      pageNum = currentPage - 3 + i
+                    }
+                    if (pageNum > totalPages - 4 && currentPage > totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    }
+                  }
+
+                  return pageNum <= totalPages ? (
+                    <Button
+                      key={i}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={currentPage === pageNum ? "bg-purple-600 hover:bg-purple-700" : ""}
+                    >
+                      {pageNum}
+                    </Button>
+                  ) : null
+                })}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </nav>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="expired" className="mt-6">
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="relative w-20 h-20">
+                <div className="absolute top-0 left-0 w-full h-full rounded-full border-4 border-t-purple-600 border-b-purple-200 border-l-purple-200 border-r-purple-200 animate-spin"></div>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <Tag className="h-8 w-8 text-purple-600" />
+                </div>
+              </div>
+              <p className="mt-4 text-purple-600 font-medium">Loading coupons...</p>
             </div>
           ) : filteredCoupons.length === 0 ? (
             <div className="text-center py-8">
@@ -617,7 +844,7 @@ export default function CouponsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredCoupons.map((coupon) => (
+              {currentCoupons.map((coupon) => (
                 <CouponCard
                   key={coupon.id}
                   coupon={coupon}
@@ -626,6 +853,54 @@ export default function CouponsPage() {
                   onDuplicate={() => handleDuplicateCoupon(coupon)}
                 />
               ))}
+            </div>
+          )}
+          {filteredCoupons.length > itemsPerPage && (
+            <div className="mt-6 flex justify-center">
+              <nav className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  // Show pages around current page
+                  let pageNum = i + 1
+                  if (totalPages > 5) {
+                    if (currentPage > 3) {
+                      pageNum = currentPage - 3 + i
+                    }
+                    if (pageNum > totalPages - 4 && currentPage > totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    }
+                  }
+
+                  return pageNum <= totalPages ? (
+                    <Button
+                      key={i}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={currentPage === pageNum ? "bg-purple-600 hover:bg-purple-700" : ""}
+                    >
+                      {pageNum}
+                    </Button>
+                  ) : null
+                })}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </nav>
             </div>
           )}
         </TabsContent>
