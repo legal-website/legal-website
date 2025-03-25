@@ -1630,7 +1630,7 @@ export default function DashboardPage() {
           {/* Coupons Card */}
           <Card>
             <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">My Top Coupons</h2>
+              <h2 className="text-xl font-semibold">My Top Coupon</h2>
               <Link href="/dashboard/coupons" passHref>
                 <Button variant="outline" size="sm" className="flex items-center gap-2">
                   <span>View All</span>
@@ -1648,7 +1648,7 @@ export default function DashboardPage() {
                   {/* Show top 2 coupons by value */}
                   {[...coupons]
                     .sort((a, b) => b.value - a.value)
-                    .slice(0, 2)
+                    .slice(0, 1)
                     .map((coupon) => {
                       const daysUntilExpiry = Math.ceil(
                         (new Date(coupon.expiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
