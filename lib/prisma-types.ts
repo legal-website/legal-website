@@ -564,34 +564,6 @@ export interface CouponUsageDelegate {
   count: (args?: any) => Promise<number>
 }
 
-// Add these interfaces to your existing interfaces in prisma-types.ts
-
-// Notification model
-export interface NotificationModel {
-  id: string
-  title: string
-  message: string
-  type: string // "info", "success", "warning", "error"
-  read: boolean
-  link?: string | null
-  userId: string
-  createdAt: Date
-  updatedAt: Date
-  user?: UserModel
-}
-
-// Notification delegate
-export interface NotificationDelegate {
-  findMany: (args?: any) => Promise<NotificationModel[]>
-  findUnique: (args: { where: { id: string } }) => Promise<NotificationModel | null>
-  create: (args: { data: any }) => Promise<NotificationModel>
-  update: (args: { where: { id: string }; data: any }) => Promise<NotificationModel>
-  delete: (args: { where: { id: string } }) => Promise<NotificationModel>
-  deleteMany: (args: { where: any }) => Promise<{ count: number }>
-  updateMany: (args: { where: any; data: any }) => Promise<{ count: number }>
-  count: (args?: any) => Promise<number>
-}
-
 // Then update your ExtendedPrismaClient type to include the user property
 export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   amendment: AmendmentDelegate
@@ -623,10 +595,6 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   affiliateConversion: AffiliateConversionDelegate
   affiliatePayout: AffiliatePayoutDelegate
   affiliateSettings: AffiliateSettingsDelegate
-
-  // Add notification delegate
-  notification: NotificationDelegate
-
   // ... existing delegates
   coupon: CouponDelegate
   couponUsage: CouponUsageDelegate
