@@ -6,6 +6,15 @@ import { sendLoginNotificationEmail } from "@/lib/email"
 
 export async function POST(req: NextRequest) {
   try {
+    // Improve IP address detection for Vercel
+    const data = await req.json()
+    const ipAddress =
+      req.headers.get("x-real-ip") ||
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("cf-connecting-ip") ||
+      data.ipAddress ||
+      "Unknown"
+
     // Get the session
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
@@ -13,8 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get the request data
-    const data = await req.json()
-    const { ipAddress, userAgent } = data
+    const { userAgent } = data
 
     // Get the user
     const user = await prisma.$queryRawUnsafe<any[]>(
@@ -121,8 +129,14 @@ export async function POST(req: NextRequest) {
       notificationsEnabled: loginNotificationsEnabled,
     })
   } catch (error) {
-    console.error("Error tracking login:", error)
-    return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
+    console.error("Database connection error:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Database connection error",
+      },
+      { status: 500 },
+    )
   }
 }
 

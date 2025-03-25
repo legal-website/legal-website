@@ -11,20 +11,18 @@ export function LoginTracker() {
     if (status === "authenticated" && session) {
       const trackLogin = async () => {
         try {
-          // Get IP address (this is a simple approach, you might want to use a service)
-          const ipResponse = await fetch("https://api.ipify.org?format=json")
-          const ipData = await ipResponse.json()
-          const ipAddress = ipData.ip || "Unknown"
-
-          // Send login data to the API
+          // Don't rely solely on external IP services which might fail
+          // Let the server determine the IP from headers
           await fetch("/api/auth/login-tracking", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              ipAddress,
               userAgent: navigator.userAgent,
+              // Send additional client info that might help with identification
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              language: navigator.language,
             }),
           })
         } catch (error) {

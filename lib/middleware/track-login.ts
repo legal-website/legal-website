@@ -79,7 +79,11 @@ export async function trackLoginMiddleware(req: NextRequest) {
     const userSettings = settingsResults.length > 0 ? settingsResults[0] : null
 
     // Get IP address
-    const ipAddress = req.headers.get("x-forwarded-for") || "Unknown"
+    const ipAddress =
+      req.headers.get("x-real-ip") ||
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("cf-connecting-ip") ||
+      "Unknown"
 
     // Get user agent
     const userAgent = req.headers.get("user-agent") || "Unknown"
