@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
+import { v4 as uuidv4 } from "uuid"
 
 // Define an interface for the invoice item to avoid TypeScript errors
 interface InvoiceItem {
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const { customer, items, total, paymentReceipt, affiliateCode } = body
+    const { customer, items, total, paymentReceipt, affiliateCode, couponCode } = body
 
     // Validate required fields
     if (!paymentReceipt) {
@@ -129,29 +130,111 @@ export async function POST(req: Request) {
       console.log("Affiliate code already present in customer data:", affiliateCode)
     }
 
-    // Create the invoice
-    const invoice = await db.invoice.create({
-      data: {
-        invoiceNumber: isTemplateInvoice ? `TEMPLATE-${invoiceNumber}` : invoiceNumber,
-        customerName: customer.name,
-        customerEmail: customer.email,
-        amount, // Use the correct amount from the request
-        status: "pending",
-        items: JSON.stringify(safeItems), // Store the items with correct prices
-        paymentReceipt: paymentReceipt,
-        // Use our potentially modified fields with affiliate code
-        customerCompany: customerCompany || null,
-        customerAddress: customerAddress || null,
-        customerCity: customerCity || null,
-        // Add remaining optional fields only if they exist
-        ...(customer.phone && { customerPhone: customer.phone }),
-        ...(customer.state && { customerState: customer.state }),
-        ...(customer.zip && { customerZip: customer.zip }),
-        ...(customer.country && { customerCountry: customer.country }),
-      },
-    })
+    // Handle coupon code - store it in a field if provided
+    if (couponCode) {
+      console.log("Adding coupon code to invoice fields:", couponCode)
 
-    console.log("Invoice created successfully:", invoice.id)
+      // Add the coupon code to the first available field or append to an existing one
+      if (!customerCompany) {
+        customerCompany = `coupon:${couponCode}`
+      } else if (!customerAddress) {
+        customerAddress = `coupon:${couponCode}`
+      } else if (!customerCity) {
+        customerCity = `coupon:${couponCode}`
+      } else {
+        // If all fields are filled, append to company
+        customerCompany = `${customerCompany} (coupon:${couponCode})`
+      }
+
+      console.log("Updated fields with coupon code:")
+      console.log("Company:", customerCompany)
+      console.log("Address:", customerAddress)
+      console.log("City:", customerCity)
+    }
+
+    // Create the invoice using raw SQL to avoid TypeScript errors
+    const invoiceId = uuidv4()
+    const now = new Date().toISOString().slice(0, 19).replace("T", " ")
+
+    const invoiceNumber2 = isTemplateInvoice ? `TEMPLATE-${invoiceNumber}` : invoiceNumber
+    const itemsJson = JSON.stringify(safeItems)
+
+    await db.$executeRaw`
+      INSERT INTO Invoice (
+        id, invoiceNumber, customerName, customerEmail, customerPhone, 
+        customerCompany, customerAddress, customerCity, customerState,  customerPhone, 
+        customerCompany, customerAddress, customerCity, customerState,
+        customerZip, customerCountry, amount, status, items, paymentReceipt,
+        createdAt, updatedAt
+      ) VALUES (
+        ${invoiceId}, ${invoiceNumber2}, ${customer.name}, ${customer.email}, ${customer.phone || null},
+        ${customerCompany || null}, ${customerAddress || null}, ${customerCity || null}, ${customer.state || null},
+        ${customer.zip || null}, ${customer.country || null}, ${amount}, 'pending', ${itemsJson}, ${paymentReceipt},
+        NOW(), NOW()
+      )
+    `
+
+    console.log("Invoice created successfully:", invoiceId)
+
+    // If coupon code was provided, track its usage
+    if (couponCode) {
+      try {
+        console.log(`Processing coupon usage for code: ${couponCode}`)
+
+        // Find the coupon
+        const couponResult = (await db.$queryRaw`
+          SELECT * FROM Coupon WHERE code = ${couponCode}
+        `) as any[]
+
+        if (couponResult && couponResult.length > 0) {
+          const coupon = couponResult[0]
+          console.log("Found coupon:", coupon)
+
+          // Check if usage already exists for this invoice
+          const existingUsageResult = (await db.$queryRaw`
+            SELECT * FROM CouponUsage WHERE orderId = ${invoiceId}
+          `) as any[]
+
+          if (!existingUsageResult || existingUsageResult.length === 0) {
+            // Create usage record
+            const usageId = uuidv4()
+            await db.$executeRaw`
+              INSERT INTO CouponUsage (id, couponId, userId, orderId, amount, createdAt)
+              VALUES (${usageId}, ${coupon.id}, ${null}, ${invoiceId}, ${amount || 0}, NOW())
+            `
+
+            console.log("Created coupon usage record:", usageId)
+
+            // Update coupon usage count
+            await db.$executeRaw`
+              UPDATE Coupon 
+              SET usageCount = usageCount + 1 
+              WHERE id = ${coupon.id}
+            `
+
+            console.log("Updated coupon usage count")
+          } else {
+            console.log("Coupon usage already exists for this invoice:", existingUsageResult[0])
+          }
+        } else {
+          console.log(`Coupon with code ${couponCode} not found`)
+        }
+      } catch (error) {
+        console.error("Error tracking coupon usage:", error)
+        // Continue with the process even if coupon tracking fails
+      }
+    }
+
+    // Fetch the created invoice to return it
+    const invoiceResult = (await db.$queryRaw`
+      SELECT * FROM Invoice WHERE id = ${invoiceId}
+    `) as any[]
+
+    if (!invoiceResult || invoiceResult.length === 0) {
+      throw new Error("Failed to retrieve created invoice")
+    }
+
+    const invoice = invoiceResult[0]
 
     return NextResponse.json({
       success: true,

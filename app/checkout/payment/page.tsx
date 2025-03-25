@@ -22,6 +22,7 @@ function PaymentPageContent() {
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [affiliateCode, setAffiliateCode] = useState<string | null>(null)
+  const [couponCode, setCouponCode] = useState<string | null>(null)
 
   // Bank account details
   const bankDetails = {
@@ -56,6 +57,12 @@ function PaymentPageContent() {
           setAffiliateCode(storedAffiliateCode)
           console.log("Found affiliate code in localStorage:", storedAffiliateCode)
         }
+      }
+
+      // Check for coupon code in checkout data
+      if (parsedData.coupon && parsedData.coupon.code) {
+        setCouponCode(parsedData.coupon.code)
+        console.log("Found coupon code in checkout data:", parsedData.coupon.code)
       }
     } catch (error) {
       console.error("Error loading checkout data:", error)
@@ -124,6 +131,13 @@ function PaymentPageContent() {
       const formData = new FormData()
       formData.append("receipt", file)
 
+      // Add coupon code if available (as a hidden field)
+      if (couponCode) {
+        console.log("Adding coupon code to receipt upload:", couponCode)
+        // Store coupon code in a custom field that will be passed to the invoice
+        formData.append("couponCode", couponCode)
+      }
+
       // Step 2: Upload receipt to Cloudinary
       console.log("Uploading receipt file...")
       const uploadResponse = await fetch("/api/upload-receipt", {
@@ -165,6 +179,7 @@ function PaymentPageContent() {
         coupon: checkoutData.coupon,
         paymentReceipt: receiptUrl,
         affiliateCode: affiliateCode, // Include the affiliate code
+        couponCode: couponCode, // Include the coupon code
       }
 
       console.log("Invoice data:", JSON.stringify(invoiceData, null, 2))
@@ -196,7 +211,36 @@ function PaymentPageContent() {
         throw new Error("No invoice ID returned from server")
       }
 
-      // Step 4: Clear cart and checkout data
+      // Step 4: If coupon was used, track its usage
+      if (couponCode) {
+        try {
+          console.log("Tracking coupon usage for:", couponCode)
+          const couponUsageResponse = await fetch("/api/admin/coupons/track-usage", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              couponCode: couponCode,
+              invoiceId: invoiceResult.invoice.id,
+              amount: checkoutData.total,
+              userId: null, // Anonymous user
+            }),
+          })
+
+          if (couponUsageResponse.ok) {
+            console.log("Coupon usage tracked successfully")
+          } else {
+            console.error("Failed to track coupon usage:", await couponUsageResponse.text())
+            // Continue even if coupon tracking fails
+          }
+        } catch (couponError) {
+          console.error("Error tracking coupon usage:", couponError)
+          // Continue even if coupon tracking fails
+        }
+      }
+
+      // Step 5: Clear cart and checkout data
       clearCart()
       sessionStorage.removeItem("checkoutData")
 
@@ -204,13 +248,13 @@ function PaymentPageContent() {
       localStorage.removeItem("appliedCoupon")
       localStorage.removeItem("couponData")
 
-      // Step 5: Show success message
+      // Step 6: Show success message
       toast({
         title: "Payment submitted",
         description: "Your payment receipt has been uploaded successfully. We'll process your order shortly.",
       })
 
-      // Step 6: Redirect to success page
+      // Step 7: Redirect to success page
       router.push(`/invoice/${invoiceResult.invoice.id}`)
     } catch (error: any) {
       console.error("Upload error:", error)
@@ -281,13 +325,13 @@ function PaymentPageContent() {
             </div>
           )}
 
-          {checkoutData.coupon && (
+          {couponCode && (
             <div className="bg-purple-50 p-4 rounded-md flex items-start mb-6">
               <Tag className="text-purple-500 mr-2 mt-0.5" size={18} />
               <div>
                 <p className="text-purple-800 font-medium">Coupon applied</p>
                 <p className="text-purple-700 text-sm">
-                  Coupon code {checkoutData.coupon.code} has been applied to your order.
+                  Coupon code {couponCode} has been applied to your order.
                   {checkoutData.discount > 0 && ` You saved $${checkoutData.discount.toFixed(2)}.`}
                 </p>
               </div>
