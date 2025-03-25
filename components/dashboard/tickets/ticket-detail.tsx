@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
-import { Loader2 } from "lucide-react"
 
 export default function TicketDetail({
   ticket,
@@ -29,7 +28,6 @@ export default function TicketDetail({
   const [message, setMessage] = useState("")
   const [files, setFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isUploadingFiles, setIsUploadingFiles] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
@@ -59,18 +57,10 @@ export default function TicketDetail({
     setIsSubmitting(true)
 
     try {
-      // Set uploading files state if there are files
-      if (files.length > 0) {
-        setIsUploadingFiles(true)
-      }
-
       // Create a copy of the files array to avoid issues with the files being modified during upload
       const filesToUpload = files.length > 0 ? [...files] : undefined
 
       const result = await createMessage({ content: message, ticketId: ticket.id }, filesToUpload)
-
-      // Reset uploading files state
-      setIsUploadingFiles(false)
 
       if (result.error) {
         toast({
@@ -94,7 +84,6 @@ export default function TicketDetail({
         })
       }
     } catch (error) {
-      setIsUploadingFiles(false)
       console.error("Error sending message:", error)
       toast({
         title: "Error",
@@ -329,12 +318,6 @@ export default function TicketDetail({
                         </Button>
                       </div>
                     ))}
-                  </div>
-                )}
-                {isUploadingFiles && (
-                  <div className="flex items-center text-xs text-amber-600 mt-2">
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    Uploading attachments...
                   </div>
                 )}
               </div>
