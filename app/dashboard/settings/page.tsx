@@ -1,39 +1,57 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Bell, Moon, Sun, Palette, Globe, Lock, UserCog, Eye, Check, Key, CreditCard } from "lucide-react"
+import { Palette, Moon, Sun, Lock, Eye, Check, Key } from "lucide-react"
 import { useTheme } from "@/context/theme-context"
+import { useToast } from "@/hooks/use-toast"
+import {
+  updateAppearanceSettings,
+  updatePassword,
+  toggleLoginNotifications,
+  getUserSettings,
+  getUserLoginSessions,
+} from "@/lib/actions/settings-actions"
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useTheme()
-  const [accentColor, setAccentColor] = useState("#22c984")
-  const [layoutDensity, setLayoutDensity] = useState<"comfortable" | "compact">("comfortable")
-  const [language, setLanguage] = useState("english")
-  const [notificationSettings, setNotificationSettings] = useState({
-    emailUpdates: true,
-    orderNotifications: true,
-    marketingEmails: false,
-    securityAlerts: true,
-  })
+  const { theme, setTheme, accentColor, setAccentColor, layoutDensity, setLayoutDensity } = useTheme()
+  const { toast } = useToast()
+  const [loginNotificationsEnabled, setLoginNotificationsEnabled] = useState(false)
+  const [loginSessions, setLoginSessions] = useState<any[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false)
+  const [currentSession, setCurrentSession] = useState<string | null>(null)
 
-  const handleAccentColorChange = (color: string) => {
-    setAccentColor(color)
-    // In a real app, this would update CSS variables
-    document.documentElement.style.setProperty("--primary-color", color)
-  }
+  // Load user settings and login sessions
+  useEffect(() => {
+    const loadUserData = async () => {
+      // Load user settings
+      const settings = await getUserSettings()
+      if (settings) {
+        setTheme((settings.theme as any) || "light")
+        setAccentColor(settings.accentColor || "#22c984")
+        setLayoutDensity((settings.layoutDensity as any) || "comfortable")
+        setLoginNotificationsEnabled(settings.loginNotificationsEnabled || false)
+      }
 
-  const handleNotificationToggle = (key: keyof typeof notificationSettings) => {
-    setNotificationSettings({
-      ...notificationSettings,
-      [key]: !notificationSettings[key],
-    })
-  }
+      // Load login sessions
+      const sessions = await getUserLoginSessions()
+      setLoginSessions(sessions)
+
+      // Set current session
+      // This is a simplified approach - in a real app, you'd use a session ID
+      setCurrentSession(window.navigator.userAgent)
+    }
+
+    loadUserData()
+  }, [setTheme, setAccentColor, setLayoutDensity])
 
   const colorOptions = [
     { name: "Green", value: "#22c984" },
@@ -43,20 +61,128 @@ export default function SettingsPage() {
     { name: "Pink", value: "#FF69B4" },
   ]
 
-  const languageOptions = [
-    { name: "English", value: "english", flag: "🇺🇸" },
-    { name: "Spanish", value: "spanish", flag: "🇪🇸" },
-    { name: "French", value: "french", flag: "🇫🇷" },
-    { name: "German", value: "german", flag: "🇩🇪" },
-    { name: "Chinese", value: "chinese", flag: "🇨🇳" },
-    { name: "Arabic", value: "arabic", flag: "🇦🇪" },
-  ]
-
   // Helper function to get theme-specific classes
   const getThemeClasses = (lightClass = "", darkClass = "", comfortClass = "") => {
     if (theme === "dark") return darkClass
     if (theme === "comfort") return comfortClass
     return lightClass // default to light theme
+  }
+
+  // Handle appearance settings form submission
+  const handleAppearanceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    try {
+      const formData = new FormData()
+      formData.append("theme", theme)
+      formData.append("accentColor", accentColor)
+      formData.append("layoutDensity", layoutDensity)
+
+      const result = await updateAppearanceSettings(formData)
+
+      if (result.success) {
+        toast({
+          title: "Settings updated",
+          description: result.message,
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: result.message,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Handle password change form submission
+  const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setIsPasswordSubmitting(true)
+
+    try {
+      const formData = new FormData(e.currentTarget)
+      const result = await updatePassword(formData)
+
+      if (result.success) {
+        toast({
+          title: "Password updated",
+          description: result.message,
+        })
+        // Reset form
+        e.currentTarget.reset()
+      } else {
+        toast({
+          title: "Error",
+          description: result.message,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    } finally {
+      setIsPasswordSubmitting(false)
+    }
+  }
+
+  // Handle login notifications toggle
+  const handleLoginNotificationsToggle = async () => {
+    const newValue = !loginNotificationsEnabled
+    setLoginNotificationsEnabled(newValue)
+
+    try {
+      const result = await toggleLoginNotifications(newValue)
+
+      if (result.success) {
+        toast({
+          title: "Settings updated",
+          description: result.message,
+        })
+      } else {
+        // Revert state if failed
+        setLoginNotificationsEnabled(!newValue)
+        toast({
+          title: "Error",
+          description: result.message,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      // Revert state if failed
+      setLoginNotificationsEnabled(!newValue)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(date)
+  }
+
+  // Check if a session is the current one
+  const isCurrentSession = (userAgent: string) => {
+    return userAgent === currentSession
   }
 
   return (
@@ -78,32 +204,11 @@ export default function SettingsPage() {
                   Appearance
                 </TabsTrigger>
                 <TabsTrigger
-                  value="notifications"
-                  className={`w-full justify-start ${getThemeClasses("", "data-[state=active]:bg-gray-700 text-white", "data-[state=active]:bg-[#efe9d8] text-[#5c4f3a]")}`}
-                >
-                  <Bell className="h-4 w-4 mr-2" />
-                  Notifications
-                </TabsTrigger>
-                <TabsTrigger
-                  value="account"
-                  className={`w-full justify-start ${getThemeClasses("", "data-[state=active]:bg-gray-700 text-white", "data-[state=active]:bg-[#efe9d8] text-[#5c4f3a]")}`}
-                >
-                  <UserCog className="h-4 w-4 mr-2" />
-                  Account
-                </TabsTrigger>
-                <TabsTrigger
                   value="security"
                   className={`w-full justify-start ${getThemeClasses("", "data-[state=active]:bg-gray-700 text-white", "data-[state=active]:bg-[#efe9d8] text-[#5c4f3a]")}`}
                 >
                   <Lock className="h-4 w-4 mr-2" />
                   Security
-                </TabsTrigger>
-                <TabsTrigger
-                  value="language"
-                  className={`w-full justify-start ${getThemeClasses("", "data-[state=active]:bg-gray-700 text-white", "data-[state=active]:bg-[#efe9d8] text-[#5c4f3a]")}`}
-                >
-                  <Globe className="h-4 w-4 mr-2" />
-                  Language
                 </TabsTrigger>
               </TabsList>
             </Card>
@@ -124,13 +229,13 @@ export default function SettingsPage() {
                     Customize how your dashboard looks
                   </p>
                 </div>
-                <div className="p-6 space-y-6">
+                <form onSubmit={handleAppearanceSubmit} className="p-6 space-y-6">
                   {/* Theme Selection */}
                   <div>
                     <h3 className="text-lg font-medium mb-4">Theme</h3>
                     <div className="flex flex-wrap gap-4">
                       <div
-                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${theme === "light" ? `border-[#22c984] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
+                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${theme === "light" ? `border-[${accentColor}] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
                         onClick={() => setTheme("light")}
                       >
                         <div className="w-16 h-16 bg-white border rounded-md flex items-center justify-center">
@@ -140,7 +245,7 @@ export default function SettingsPage() {
                       </div>
 
                       <div
-                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${theme === "dark" ? `border-[#22c984] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
+                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${theme === "dark" ? `border-[${accentColor}] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
                         onClick={() => setTheme("dark")}
                       >
                         <div className="w-16 h-16 bg-gray-900 border rounded-md flex items-center justify-center">
@@ -150,7 +255,7 @@ export default function SettingsPage() {
                       </div>
 
                       <div
-                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${theme === "comfort" ? `border-[#22c984] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
+                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${theme === "comfort" ? `border-[${accentColor}] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
                         onClick={() => setTheme("comfort")}
                       >
                         <div className="w-16 h-16 bg-[#f8f4e3] border rounded-md flex items-center justify-center">
@@ -170,7 +275,7 @@ export default function SettingsPage() {
                           key={color.value}
                           className={`w-10 h-10 rounded-full cursor-pointer flex items-center justify-center ${accentColor === color.value ? "ring-2 ring-offset-2 ring-gray-400" : ""}`}
                           style={{ backgroundColor: color.value }}
-                          onClick={() => handleAccentColorChange(color.value)}
+                          onClick={() => setAccentColor(color.value)}
                           title={color.name}
                         >
                           {accentColor === color.value && (
@@ -188,7 +293,7 @@ export default function SettingsPage() {
                     <h3 className="text-lg font-medium mb-4">Layout Density</h3>
                     <div className="flex gap-4">
                       <div
-                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${layoutDensity === "comfortable" ? `border-[#22c984] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
+                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${layoutDensity === "comfortable" ? `border-[${accentColor}] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
                         onClick={() => setLayoutDensity("comfortable")}
                       >
                         <div
@@ -208,7 +313,7 @@ export default function SettingsPage() {
                       </div>
 
                       <div
-                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${layoutDensity === "compact" ? `border-[#22c984] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
+                        className={`border rounded-lg p-4 cursor-pointer flex flex-col items-center gap-2 ${layoutDensity === "compact" ? `border-[${accentColor}] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
                         onClick={() => setLayoutDensity("compact")}
                       >
                         <div
@@ -233,232 +338,14 @@ export default function SettingsPage() {
                   </div>
 
                   <Button
-                    className={getThemeClasses(
-                      "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                      "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                      "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                    )}
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="bg-primary hover:bg-primary/90 text-white"
+                    style={{ backgroundColor: accentColor }}
                   >
-                    Save Appearance Settings
+                    {isSubmitting ? "Saving..." : "Save Appearance Settings"}
                   </Button>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="notifications" className="m-0">
-                <div className={`p-6 border-b ${getThemeClasses("", "border-gray-700", "border-[#e8e4d3]")}`}>
-                  <h2 className="text-xl font-semibold">Notifications</h2>
-                  <p className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}>
-                    Manage your notification preferences
-                  </p>
-                </div>
-                <div className="p-6 space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">Email Updates</h3>
-                        <p className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}>
-                          Receive updates about your account via email
-                        </p>
-                      </div>
-                      <Switch
-                        checked={notificationSettings.emailUpdates}
-                        onCheckedChange={() => handleNotificationToggle("emailUpdates")}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">Order Notifications</h3>
-                        <p className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}>
-                          Get notified about order status changes
-                        </p>
-                      </div>
-                      <Switch
-                        checked={notificationSettings.orderNotifications}
-                        onCheckedChange={() => handleNotificationToggle("orderNotifications")}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">Marketing Emails</h3>
-                        <p className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}>
-                          Receive promotional offers and newsletters
-                        </p>
-                      </div>
-                      <Switch
-                        checked={notificationSettings.marketingEmails}
-                        onCheckedChange={() => handleNotificationToggle("marketingEmails")}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">Security Alerts</h3>
-                        <p className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}>
-                          Get notified about important security updates
-                        </p>
-                      </div>
-                      <Switch
-                        checked={notificationSettings.securityAlerts}
-                        onCheckedChange={() => handleNotificationToggle("securityAlerts")}
-                      />
-                    </div>
-                  </div>
-
-                  <div className={`pt-4 border-t ${getThemeClasses("", "border-gray-700", "border-[#e8e4d3]")}`}>
-                    <h3 className="font-medium mb-4">Email Preferences</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="notification-email">Notification Email</Label>
-                        <Input
-                          id="notification-email"
-                          defaultValue="contact@rapidventures.com"
-                          className={getThemeClasses(
-                            "",
-                            "bg-gray-700 border-gray-600",
-                            "bg-[#f8f4e3] border-[#e8e4d3]",
-                          )}
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Switch id="digest-mode" />
-                        <Label htmlFor="digest-mode">Send daily digest instead of individual emails</Label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button
-                    className={getThemeClasses(
-                      "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                      "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                      "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                    )}
-                  >
-                    Save Notification Settings
-                  </Button>
-                </div>
-              </TabsContent>
-
-              {/* Account Tab */}
-              <TabsContent value="account" className="m-0">
-                <div className={`p-6 border-b ${getThemeClasses("", "border-gray-700", "border-[#e8e4d3]")}`}>
-                  <h2 className="text-xl font-semibold">Account Settings</h2>
-                  <p className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}>
-                    Manage your account information
-                  </p>
-                </div>
-                <div className="p-6 space-y-6">
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="account-name">Full Name</Label>
-                      <Input
-                        id="account-name"
-                        defaultValue="John Smith"
-                        className={getThemeClasses("", "bg-gray-700 border-gray-600", "bg-[#f8f4e3] border-[#e8e4d3]")}
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="account-email">Email Address</Label>
-                      <Input
-                        id="account-email"
-                        defaultValue="john@rapidventures.com"
-                        className={getThemeClasses("", "bg-gray-700 border-gray-600", "bg-[#f8f4e3] border-[#e8e4d3]")}
-                        disabled
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="account-phone">Phone Number</Label>
-                      <Input
-                        id="account-phone"
-                        defaultValue="(555) 123-4567"
-                        className={getThemeClasses("", "bg-gray-700 border-gray-600", "bg-[#f8f4e3] border-[#e8e4d3]")}
-                      />
-                    </div>
-                  </div>
-
-                  <div className={`pt-4 border-t ${getThemeClasses("", "border-gray-700", "border-[#e8e4d3]")}`}>
-                    <h3 className="font-medium mb-4">Billing Information</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center p-4 border rounded-lg">
-                        <CreditCard className="h-5 w-5 mr-3 text-gray-400" />
-                        <div>
-                          <p className="font-medium">Visa ending in 4242</p>
-                          <p
-                            className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}
-                          >
-                            Expires 12/2025
-                          </p>
-                        </div>
-                        <Button variant="outline" size="sm" className="ml-auto">
-                          Update
-                        </Button>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="billing-address">Billing Address</Label>
-                        <Input
-                          id="billing-address"
-                          defaultValue="100 Ambition Parkway, New York, NY 10001, USA"
-                          className={getThemeClasses(
-                            "",
-                            "bg-gray-700 border-gray-600",
-                            "bg-[#f8f4e3] border-[#e8e4d3]",
-                          )}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={`pt-4 border-t ${getThemeClasses("", "border-gray-700", "border-[#e8e4d3]")}`}>
-                    <h3 className="font-medium mb-4">Account Preferences</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">Two-Factor Authentication</h4>
-                          <p
-                            className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}
-                          >
-                            Add an extra layer of security to your account
-                          </p>
-                        </div>
-                        <Button variant="outline" size="sm">
-                          Enable
-                        </Button>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">Delete Account</h4>
-                          <p
-                            className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}
-                          >
-                            Permanently delete your account and all data
-                          </p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button
-                    className={getThemeClasses(
-                      "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                      "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                      "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                    )}
-                  >
-                    Save Account Settings
-                  </Button>
-                </div>
+                </form>
               </TabsContent>
 
               {/* Security Tab */}
@@ -473,12 +360,14 @@ export default function SettingsPage() {
                   <div className="space-y-4">
                     <div>
                       <h3 className="font-medium mb-4">Change Password</h3>
-                      <div className="space-y-4">
+                      <form onSubmit={handlePasswordSubmit} className="space-y-4">
                         <div>
-                          <Label htmlFor="current-password">Current Password</Label>
+                          <Label htmlFor="currentPassword">Current Password</Label>
                           <Input
-                            id="current-password"
+                            id="currentPassword"
+                            name="currentPassword"
                             type="password"
+                            required
                             className={getThemeClasses(
                               "",
                               "bg-gray-700 border-gray-600",
@@ -487,10 +376,12 @@ export default function SettingsPage() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="new-password">New Password</Label>
+                          <Label htmlFor="newPassword">New Password</Label>
                           <Input
-                            id="new-password"
+                            id="newPassword"
+                            name="newPassword"
                             type="password"
+                            required
                             className={getThemeClasses(
                               "",
                               "bg-gray-700 border-gray-600",
@@ -499,10 +390,12 @@ export default function SettingsPage() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="confirm-password">Confirm New Password</Label>
+                          <Label htmlFor="confirmPassword">Confirm New Password</Label>
                           <Input
-                            id="confirm-password"
+                            id="confirmPassword"
+                            name="confirmPassword"
                             type="password"
+                            required
                             className={getThemeClasses(
                               "",
                               "bg-gray-700 border-gray-600",
@@ -511,243 +404,97 @@ export default function SettingsPage() {
                           />
                         </div>
                         <Button
-                          className={getThemeClasses(
-                            "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                            "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                            "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                          )}
+                          type="submit"
+                          disabled={isPasswordSubmitting}
+                          className="bg-primary hover:bg-primary/90 text-white"
+                          style={{ backgroundColor: accentColor }}
                         >
-                          Update Password
+                          {isPasswordSubmitting ? "Updating..." : "Update Password"}
                         </Button>
-                      </div>
+                      </form>
                     </div>
 
                     <div className={`pt-4 border-t ${getThemeClasses("", "border-gray-700", "border-[#e8e4d3]")}`}>
-                      <h3 className="font-medium mb-4">Two-Factor Authentication</h3>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-medium">SMS Authentication</h4>
-                            <p
-                              className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}
-                            >
-                              Receive a code via SMS when signing in
-                            </p>
-                          </div>
-                          <Switch />
+                      <h3 className="font-medium mb-4">Login Notifications</h3>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium">Email Login Notifications</h4>
+                          <p
+                            className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}
+                          >
+                            Receive email notifications when someone logs into your account
+                          </p>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-medium">Authenticator App</h4>
-                            <p
-                              className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}
-                            >
-                              Use an authenticator app to generate codes
-                            </p>
-                          </div>
-                          <Button variant="outline" size="sm">
-                            Setup
-                          </Button>
-                        </div>
+                        <Switch checked={loginNotificationsEnabled} onCheckedChange={handleLoginNotificationsToggle} />
                       </div>
                     </div>
 
                     <div className={`pt-4 border-t ${getThemeClasses("", "border-gray-700", "border-[#e8e4d3]")}`}>
                       <h3 className="font-medium mb-4">Login Sessions</h3>
                       <div className="space-y-4">
-                        <div className="p-4 border rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center">
-                              <div
-                                className={`p-2 rounded-full ${getThemeClasses("bg-green-100", "bg-green-900", "bg-green-100")}`}
-                              >
-                                <Check
-                                  className={`h-4 w-4 ${getThemeClasses("text-green-600", "text-green-400", "text-green-600")}`}
-                                />
+                        {loginSessions.length > 0 ? (
+                          loginSessions.map((session, index) => (
+                            <div key={index} className="p-4 border rounded-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center">
+                                  <div
+                                    className={`p-2 rounded-full ${
+                                      isCurrentSession(session.userAgent)
+                                        ? getThemeClasses("bg-green-100", "bg-green-900", "bg-green-100")
+                                        : getThemeClasses("bg-gray-100", "bg-gray-800", "bg-[#e8e4d3]")
+                                    }`}
+                                  >
+                                    {isCurrentSession(session.userAgent) ? (
+                                      <Check
+                                        className={`h-4 w-4 ${getThemeClasses("text-green-600", "text-green-400", "text-green-600")}`}
+                                      />
+                                    ) : (
+                                      <Key
+                                        className={`h-4 w-4 ${getThemeClasses("text-gray-600", "text-gray-400", "text-[#7c6f5a]")}`}
+                                      />
+                                    )}
+                                  </div>
+                                  <span className="ml-2 font-medium">
+                                    {isCurrentSession(session.userAgent) ? "Current Session" : "Other Device"}
+                                  </span>
+                                </div>
+                                <span
+                                  className={`text-xs px-2 py-1 rounded-full ${
+                                    isCurrentSession(session.userAgent)
+                                      ? getThemeClasses(
+                                          "bg-green-100 text-green-800",
+                                          "bg-green-900 text-green-400",
+                                          "bg-green-100 text-green-800",
+                                        )
+                                      : getThemeClasses(
+                                          "bg-gray-100 text-gray-800",
+                                          "bg-gray-800 text-gray-300",
+                                          "bg-[#e8e4d3] text-[#5c4f3a]",
+                                        )
+                                  }`}
+                                >
+                                  {isCurrentSession(session.userAgent) ? "Active" : "Inactive"}
+                                </span>
                               </div>
-                              <span className="ml-2 font-medium">Current Session</span>
-                            </div>
-                            <span
-                              className={`text-xs px-2 py-1 rounded-full ${getThemeClasses("bg-green-100 text-green-800", "bg-green-900 text-green-400", "bg-green-100 text-green-800")}`}
-                            >
-                              Active
-                            </span>
-                          </div>
-                          <div
-                            className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}
-                          >
-                            <p>Chrome on Windows • New York, USA</p>
-                            <p>Last active: Just now</p>
-                          </div>
-                        </div>
-
-                        <div className="p-4 border rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center">
                               <div
-                                className={`p-2 rounded-full ${getThemeClasses("bg-gray-100", "bg-gray-800", "bg-[#e8e4d3]")}`}
+                                className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}
                               >
-                                <Key
-                                  className={`h-4 w-4 ${getThemeClasses("text-gray-600", "text-gray-400", "text-[#7c6f5a]")}`}
-                                />
+                                <p>
+                                  {session.browser} on {session.os} • {session.location || "Unknown location"}
+                                </p>
+                                <p>IP Address: {session.ipAddress || "Unknown"}</p>
+                                <p>Last active: {formatDate(session.lastActiveAt)}</p>
                               </div>
-                              <span className="ml-2 font-medium">Mobile App</span>
                             </div>
-                            <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600">
-                              Logout
-                            </Button>
+                          ))
+                        ) : (
+                          <div className="text-center p-4">
+                            <p className="text-gray-500">No login sessions found</p>
                           </div>
-                          <div
-                            className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}
-                          >
-                            <p>iPhone • San Francisco, USA</p>
-                            <p>Last active: 2 hours ago</p>
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                </div>
-              </TabsContent>
-
-              {/* Language Tab */}
-              <TabsContent value="language" className="m-0">
-                <div className={`p-6 border-b ${getThemeClasses("", "border-gray-700", "border-[#e8e4d3]")}`}>
-                  <h2 className="text-xl font-semibold">Language Settings</h2>
-                  <p className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}>
-                    Manage language and localization preferences
-                  </p>
-                </div>
-                <div className="p-6 space-y-6">
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Display Language</h3>
-                    <p
-                      className={`text-sm mb-4 ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}
-                    >
-                      Select the language you want to use for the dashboard interface
-                    </p>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {languageOptions.map((lang) => (
-                        <div
-                          key={lang.value}
-                          className={`border rounded-lg p-4 cursor-pointer flex items-center gap-3 ${language === lang.value ? `border-[#22c984] ${getThemeClasses("bg-gray-50", "bg-gray-700", "bg-[#efe9d8]")}` : getThemeClasses("border-gray-200", "border-gray-700", "border-[#e8e4d3]")}`}
-                          onClick={() => setLanguage(lang.value)}
-                        >
-                          <div className="text-2xl">{lang.flag}</div>
-                          <div>
-                            <p className="font-medium">{lang.name}</p>
-                            <p
-                              className={`text-xs ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}
-                            >
-                              {lang.value === "english" ? "Default" : ""}
-                            </p>
-                          </div>
-                          {language === lang.value && (
-                            <Check
-                              className={`ml-auto h-5 w-5 ${getThemeClasses("text-[#22c984]", "text-[#22c984]", "text-[#22c984]")}`}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className={`pt-4 border-t ${getThemeClasses("", "border-gray-700", "border-[#e8e4d3]")}`}>
-                    <h3 className="font-medium mb-4">Regional Settings</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="date-format">Date Format</Label>
-                        <select
-                          id="date-format"
-                          className={`flex h-10 w-full rounded-md border px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${getThemeClasses("border-input bg-background", "bg-gray-700 border-gray-600", "bg-[#f8f4e3] border-[#e8e4d3]")}`}
-                        >
-                          <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
-                          <option value="DD/MM/YYYY">DD/MM/YYYY (Europe)</option>
-                          <option value="YYYY-MM-DD">YYYY-MM-DD (ISO)</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="time-format">Time Format</Label>
-                        <select
-                          id="time-format"
-                          className={`flex h-10 w-full rounded-md border px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${getThemeClasses("border-input bg-background", "bg-gray-700 border-gray-600", "bg-[#f8f4e3] border-[#e8e4d3]")}`}
-                        >
-                          <option value="12">12-hour (AM/PM)</option>
-                          <option value="24">24-hour</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="timezone">Timezone</Label>
-                        <select
-                          id="timezone"
-                          className={`flex h-10 w-full rounded-md border px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${getThemeClasses("border-input bg-background", "bg-gray-700 border-gray-600", "bg-[#f8f4e3] border-[#e8e4d3]")}`}
-                        >
-                          <option value="America/New_York">Eastern Time (ET)</option>
-                          <option value="America/Chicago">Central Time (CT)</option>
-                          <option value="America/Denver">Mountain Time (MT)</option>
-                          <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                          <option value="Europe/London">Greenwich Mean Time (GMT)</option>
-                          <option value="Europe/Paris">Central European Time (CET)</option>
-                          <option value="Asia/Tokyo">Japan Standard Time (JST)</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="currency">Currency</Label>
-                        <select
-                          id="currency"
-                          className={`flex h-10 w-full rounded-md border px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${getThemeClasses("border-input bg-background", "bg-gray-700 border-gray-600", "bg-[#f8f4e3] border-[#e8e4d3]")}`}
-                        >
-                          <option value="USD">US Dollar ($)</option>
-                          <option value="EUR">Euro (€)</option>
-                          <option value="GBP">British Pound (£)</option>
-                          <option value="JPY">Japanese Yen (¥)</option>
-                          <option value="CNY">Chinese Yuan (¥)</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={`pt-4 border-t ${getThemeClasses("", "border-gray-700", "border-[#e8e4d3]")}`}>
-                    <h3 className="font-medium mb-4">Translation</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">Auto-translate Documents</h4>
-                          <p
-                            className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}
-                          >
-                            Automatically translate documents to your preferred language
-                          </p>
-                        </div>
-                        <Switch />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">Community Posts Translation</h4>
-                          <p
-                            className={`text-sm ${getThemeClasses("text-gray-500", "text-gray-400", "text-[#7c6f5a]")}`}
-                          >
-                            Show translation options for community posts
-                          </p>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button
-                    className={getThemeClasses(
-                      "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                      "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                      "bg-[#22c984] hover:bg-[#1eac73] text-white",
-                    )}
-                  >
-                    Save Language Settings
-                  </Button>
                 </div>
               </TabsContent>
             </Card>
