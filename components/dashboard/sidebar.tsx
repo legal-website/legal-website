@@ -86,7 +86,7 @@ const menuItems: MenuItem[] = [
   },
   {
     icon: Settings,
-    label: "Settings",
+    label: "Appearance Settings",
     href: "/dashboard/settings",
   },
 ]
