@@ -142,7 +142,7 @@ export default function SpendingAnalytics() {
         </div>
 
         {/* Spending Chart */}
-        <div className="bg-white/10 rounded-lg p-4 mb-4 h-[200px]">
+        <div className="bg-white/10 rounded-lg p-4 mb-4 h-[240px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={spendingData.monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />

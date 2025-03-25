@@ -320,9 +320,9 @@ export default function Navbar() {
                     <Image
                       src={profileImage || "/placeholder.svg"}
                       alt="Profile"
-                      width={40}
+                      width={32}
                       height={40}
-                      className="h-10 w-10 rounded-full object-cover"
+                      className="h-8 w-10 rounded-full object-cover"
                       unoptimized={profileImage.startsWith("data:")}
                     />
                   ) : (
