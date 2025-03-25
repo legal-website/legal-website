@@ -2,136 +2,208 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
+import {
+  Home,
+  FileText,
+  Building,
+  Users,
+  Settings,
+  LogOut,
+  ChevronDown,
+  File,
+  Upload,
+  MessageCircle,
+  TicketIcon,
+  Tag,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/context/theme-context"
-import { Button } from "@/components/ui/button"
-import { signOut } from "next-auth/react"
-import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  Settings,
-  Tag,
-  Bell,
-  BarChart3,
-  Shield,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  Ticket,
-  CreditCard,
-  MessageCircle,
-} from "lucide-react"
+import { signOut, useSession } from "next-auth/react"
+import { toast } from "@/components/ui/use-toast"
+
+// Add a new function to handle profile image upload
+async function uploadProfileImage(file: File, userId: string) {
+  try {
+    console.log(`Uploading profile image for user ${userId}`)
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("userId", userId)
+
+    const response = await fetch("/api/user/profile-image", {
+      method: "POST",
+      body: formData,
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      console.error("Upload failed with status:", response.status, data)
+      throw new Error(data.error || "Failed to upload image")
+    }
+
+    console.log("Upload successful:", data)
+    return data.imageUrl
+  } catch (error) {
+    console.error("Error uploading profile image:", error)
+    throw error
+  }
+}
+
+// Add a function to fetch the latest user data
+async function fetchUserProfile() {
+  try {
+    const response = await fetch("/api/user/profile")
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch user profile")
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error("Error fetching user profile:", error)
+    return null
+  }
+}
 
 interface MenuItem {
   icon: React.ElementType
   label: string
   href: string
-  badge?: number | string
-  subItems?: { label: string; href: string; badge?: number | string }[]
+  subItems?: { label: string; href: string }[]
+}
+
+// Add a new prop for user data
+interface DashboardSidebarProps {
+  userData?: {
+    id: string
+    name?: string | null
+    image?: string | null
+    businessName?: string | null
+  }
 }
 
 const menuItems: MenuItem[] = [
   {
-    icon: LayoutDashboard,
+    icon: Home,
     label: "Dashboard",
-    href: "/admin",
+    href: "/dashboard",
   },
   {
-    icon: Users,
-    label: "User Management",
-    href: "/admin/users",
-    badge: 3,
+    icon: Building,
+    label: "Business Information",
+    href: "/dashboard/business",
     subItems: [
-      { label: "All Users", href: "/admin/users/all" },
-      { label: "Pending Approvals", href: "/admin/users/pending", badge: 3 },
-      { label: "User Roles", href: "/admin/users/roles" },
+      { label: "Business Profile", href: "/dashboard/business/profile" },
+      { label: "Order History", href: "/dashboard/business/orders" },
     ],
   },
   {
     icon: FileText,
-    label: "Document Management",
-    href: "/admin/documents",
+    label: "Compliance",
+    href: "/dashboard/compliance",
     subItems: [
-      { label: "Templates", href: "/admin/documents/templates" },
-      { label: "Client Documents", href: "/admin/documents/client" },
-      { label: "Bulk Upload", href: "/admin/documents/upload" },
+      { label: "Amendments", href: "/dashboard/compliance/amendments" },
+      { label: "Annual Reports", href: "/dashboard/compliance/annual-reports" },
+      { label: "Beneficial Ownership", href: "/dashboard/compliance/beneficial-ownership" },
     ],
   },
   {
-    icon: Tag,
-    label: "Promotions",
-    href: "/admin/promotions",
-    badge: "New",
+    icon: File,
+    label: "Documents",
+    href: "/dashboard/documents",
     subItems: [
-      { label: "Deals", href: "/admin/promotions/deals" },
-      { label: "Coupons", href: "/admin/promotions/coupons" },
-      { label: "Campaigns", href: "/admin/promotions/campaigns" },
+      { label: "Business Documents", href: "/dashboard/documents/business" },
+      { label: "Document Templates", href: "/dashboard/documents/templates" },
     ],
   },
   {
-    icon: Bell,
-    label: "Notifications",
-    href: "/admin/notifications",
+    icon: TicketIcon,
+    label: "Support Tickets",
+    href: "/dashboard/tickets",
   },
   {
     icon: MessageCircle,
     label: "Community",
-    href: "/admin/community",
-    badge: "New",
-    subItems: [
-      { label: "Manage Posts", href: "/admin/community" },
-      { label: "Moderation", href: "/admin/community/moderation" },
-      { label: "Reports", href: "/admin/community/reports" },
-    ],
+    href: "/dashboard/community",
   },
   {
-    icon: BarChart3,
-    label: "Analytics",
-    href: "/admin/analytics",
+    icon: Users,
+    label: "Affiliate Program",
+    href: "/dashboard/affiliate",
   },
   {
-    icon: CreditCard,
-    label: "Billing",
-    href: "/admin/billing",
-    subItems: [
-      { label: "Invoices", href: "/admin/billing/invoices" },
-      { label: "Subscriptions", href: "/admin/billing/subscriptions" },
-      { label: "Payment Methods", href: "/admin/billing/payment-methods" },
-    ],
-  },
-  {
-    icon: Ticket,
-    label: "Support Tickets",
-    href: "/admin/tickets",
-    badge: 12,
-  },
-  {
-    icon: Shield,
-    label: "Compliance",
-    href: "/admin/compliance",
-    subItems: [
-      { label: "Amendments", href: "/admin/compliance/amendments", badge: "New" },
-      { label: "Annual Reports", href: "/admin/compliance/annual-reports" },
-      { label: "Beneficial Ownership", href: "/admin/compliance/beneficial-ownership" },
-    ],
+    icon: Tag,
+    label: "Coupons",
+    href: "/dashboard/coupons",
   },
   {
     icon: Settings,
-    label: "System Settings",
-    href: "/admin/settings",
+    label: "Appearance Settings",
+    href: "/dashboard/settings",
   },
 ]
 
-export default function AdminSidebar() {
-  const pathname = usePathname() || "" // Provide default empty string if null
+export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
+  const pathname = usePathname()
   const router = useRouter()
-  const [collapsed, setCollapsed] = useState(false)
+  const { data: session, status } = useSession()
   const [expandedItems, setExpandedItems] = useState<string[]>([])
+  const [businessName, setBusinessName] = useState("Rapid Ventures LLC")
+  const [profileImage, setProfileImage] = useState<string | null>(null)
+  const [showUploadOption, setShowUploadOption] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   const { theme } = useTheme()
+  const [timestamp, setTimestamp] = useState(Date.now()) // For cache busting
+
+  // Fetch the latest user data directly from the API
+  useEffect(() => {
+    const getLatestUserData = async () => {
+      try {
+        const latestUserData = await fetchUserProfile()
+        if (latestUserData && latestUserData.image) {
+          console.log("Setting profile image from API:", latestUserData.image)
+          // Add timestamp to prevent caching
+          setProfileImage(`${latestUserData.image}?t=${Date.now()}`)
+        }
+        if (latestUserData && latestUserData.businessName) {
+          setBusinessName(latestUserData.businessName)
+        }
+      } catch (error) {
+        console.error("Error fetching latest user data:", error)
+      }
+    }
+
+    // Only fetch if we're authenticated
+    if (status === "authenticated") {
+      getLatestUserData()
+    }
+  }, [status])
+
+  // Initialize from props and session as fallback
+  useEffect(() => {
+    // Only use these as fallbacks if we don't already have an image from the API
+    if (!profileImage) {
+      // First priority: Use the session data
+      if (session?.user?.image) {
+        console.log("Setting profile image from session:", session.user.image)
+        setProfileImage(`${session.user.image}?t=${Date.now()}`)
+      }
+      // Second priority: Use the userData prop
+      else if (userData?.image) {
+        console.log("Setting profile image from userData:", userData.image)
+        setProfileImage(`${userData.image}?t=${Date.now()}`)
+      }
+    }
+
+    // Set business name if not already set
+    if (!businessName && userData?.businessName) {
+      setBusinessName(userData.businessName)
+    }
+  }, [session, userData, profileImage, businessName])
 
   const toggleExpand = (label: string) => {
     setExpandedItems((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]))
@@ -139,53 +211,168 @@ export default function AdminSidebar() {
 
   const isActive = (href: string) => pathname === href
 
-  const handleLogout = async () => {
-    await signOut({
-      redirect: true,
-      callbackUrl: "https://legal-website-five.vercel.app/login?callbackUrl=/admin",
-    })
+  const isPathStartingWith = (href: string) => {
+    return pathname ? pathname.startsWith(href) : false
   }
+
+  // Generate initials from business name
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase()
+  }
+
+  // Handle file upload with actual functionality
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Get the user ID from session or userData
+    const userId = (session?.user as any)?.id || userData?.id
+    if (!userId) {
+      toast({
+        title: "Upload failed",
+        description: "User ID not found. Please try again after logging in.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Show local preview immediately
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setProfileImage(e.target?.result as string)
+    }
+    reader.readAsDataURL(file)
+
+    // Upload to server
+    setIsUploading(true)
+    try {
+      const imageUrl = await uploadProfileImage(file, userId)
+      // Add timestamp to prevent caching
+      setProfileImage(`${imageUrl}?t=${Date.now()}`)
+      setTimestamp(Date.now()) // Update timestamp for cache busting
+
+      toast({
+        title: "Profile image updated",
+        description: "Your profile image has been successfully updated.",
+        variant: "default",
+      })
+
+      // Refresh the page to ensure all components have the latest data
+      // This is a more direct approach than trying to update the session
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "There was a problem uploading your profile image.",
+        variant: "destructive",
+      })
+      console.error(error)
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await signOut({ redirect: false })
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+        variant: "default",
+      })
+      router.push("/auth/login")
+    } catch (error) {
+      console.error("Logout error:", error)
+      toast({
+        title: "Logout failed",
+        description: "There was a problem logging you out.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Determine the image source to use with cache busting
+  const imageSource = profileImage
+    ? profileImage.includes("?t=")
+      ? profileImage
+      : `${profileImage}?t=${timestamp}`
+    : "https://via.placeholder.com/80"
+
+  console.log("Current profile image source:", imageSource)
 
   return (
     <div
-      className={cn(
-        "border-r transition-all duration-300 h-screen flex flex-col",
-        collapsed ? "w-20" : "w-64",
-        theme === "dark"
-          ? "bg-gray-900 border-gray-800 text-white"
-          : theme === "comfort"
-            ? "bg-[#f8f4e3] border-[#e8e4d3] text-[#5c4f3a]"
-            : "bg-white border-gray-200",
-      )}
+      className={`w-64 border-r h-screen flex flex-col ${theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : theme === "comfort" ? "bg-[#f8f4e3] border-[#e8e4d3] text-[#5c4f3a]" : "bg-white border-gray-200"}`}
     >
-      {/* Logo */}
+      {/* Profile Picture and Business Name */}
       <div
-        className={cn(
-          "p-4 border-b flex items-center justify-between",
-          theme === "dark" ? "border-gray-800" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200",
-        )}
+        className={`p-6 border-b ${theme === "dark" ? "border-gray-700" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200"} flex flex-col items-center`}
       >
-        {!collapsed && (
-          <div className="flex items-center">
-            <div className="w-8 h-8 rounded-md bg-purple-600 flex items-center justify-center text-white font-bold mr-2">
-              SA
+        <div
+          className="relative mb-3"
+          onMouseEnter={() => setShowUploadOption(true)}
+          onMouseLeave={() => setShowUploadOption(false)}
+        >
+          {profileImage ? (
+            <div className="w-16 h-16 rounded-full overflow-hidden relative">
+              <Image
+                src={imageSource || "/placeholder.svg"}
+                alt="Business Logo"
+                className="w-full h-full object-cover"
+                width={80}
+                height={80}
+                priority
+                unoptimized={imageSource.startsWith("data:")} // For data URLs
+              />
+              {showUploadOption && (
+                <label className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center cursor-pointer rounded-full">
+                  <Upload className={`w-5 h-5 text-white ${isUploading ? "animate-spin" : ""}`} />
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                    disabled={isUploading}
+                  />
+                </label>
+              )}
             </div>
-            <h1 className="text-lg font-bold">Super Admin</h1>
-          </div>
-        )}
-        {collapsed && (
-          <div className="w-10 h-10 rounded-md bg-purple-600 flex items-center justify-center text-white font-bold mx-auto">
-            SA
-          </div>
-        )}
-        <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)} className="ml-auto">
-          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-        </Button>
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-[#22c984] flex items-center justify-center text-white font-bold relative">
+              {getInitials(businessName)}
+              {showUploadOption && (
+                <label className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center cursor-pointer rounded-full">
+                  <Upload className={`w-5 h-5 text-white ${isUploading ? "animate-spin" : ""}`} />
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                    disabled={isUploading}
+                  />
+                </label>
+              )}
+            </div>
+          )}
+        </div>
+        <h2
+          className={`text-sm font-medium ${theme === "dark" ? "text-white" : theme === "comfort" ? "text-[#5c4f3a]" : "text-gray-800"}`}
+        >
+          {businessName}
+        </h2>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4">
-        <ul className="space-y-1 px-3">
+      <nav className="flex-1 overflow-y-auto p-4">
+        <ul className="space-y-2">
           {menuItems.map((item) => (
             <li key={item.label}>
               {item.subItems ? (
@@ -193,64 +380,47 @@ export default function AdminSidebar() {
                   <button
                     onClick={() => toggleExpand(item.label)}
                     className={cn(
-                      "flex items-center w-full p-2 rounded-lg transition-colors",
-                      collapsed ? "justify-center" : "justify-between",
+                      "flex items-center w-full p-3 rounded-lg transition-colors",
                       theme === "dark"
                         ? "text-gray-300 hover:bg-gray-800"
                         : theme === "comfort"
                           ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
-                          : "text-gray-700 hover:bg-gray-100",
-                      (expandedItems.includes(item.label) || pathname.startsWith(item.href)) &&
+                          : "text-gray-600 hover:bg-gray-100",
+                      (expandedItems.includes(item.label) || isPathStartingWith(item.href)) &&
                         (theme === "dark" ? "bg-gray-800" : theme === "comfort" ? "bg-[#efe9d8]" : "bg-gray-100"),
                     )}
                   >
-                    <div className="flex items-center">
-                      <item.icon className={cn("w-5 h-5", collapsed ? "" : "mr-3")} />
-                      {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
-                    </div>
-                    {!collapsed && (
-                      <>
-                        {item.badge && (
-                          <span className="px-2 py-0.5 ml-2 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                            {item.badge}
-                          </span>
-                        )}
-                        <ChevronRight
-                          className={cn(
-                            "w-4 h-4 ml-2 transition-transform",
-                            expandedItems.includes(item.label) && "transform rotate-90",
-                          )}
-                        />
-                      </>
-                    )}
+                    <item.icon className="w-5 h-5 mr-3" />
+                    <span className="flex-1 text-left">{item.label}</span>
+                    <ChevronDown
+                      className={cn(
+                        "w-4 h-4 transition-transform",
+                        (expandedItems.includes(item.label) || isPathStartingWith(item.href)) && "transform rotate-180",
+                      )}
+                    />
                   </button>
-                  {!collapsed && expandedItems.includes(item.label) && (
-                    <ul className="mt-1 ml-6 space-y-1">
+                  {(expandedItems.includes(item.label) || isPathStartingWith(item.href)) && (
+                    <ul className="mt-2 ml-8 space-y-2">
                       {item.subItems.map((subItem) => (
                         <li key={subItem.href}>
                           <Link
                             href={subItem.href}
                             className={cn(
-                              "flex items-center justify-between p-2 rounded-lg transition-colors",
+                              "block p-2 rounded-lg transition-colors",
                               theme === "dark"
                                 ? "text-gray-300 hover:bg-gray-800"
                                 : theme === "comfort"
                                   ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
-                                  : "text-gray-700 hover:bg-gray-100",
+                                  : "text-gray-600 hover:bg-gray-100",
                               isActive(subItem.href) &&
                                 (theme === "dark"
-                                  ? "bg-gray-800 text-purple-400"
+                                  ? "bg-gray-800 text-[#22c984]"
                                   : theme === "comfort"
-                                    ? "bg-[#efe9d8] text-purple-600"
-                                    : "bg-gray-100 text-purple-600"),
+                                    ? "bg-[#efe9d8] text-[#22c984]"
+                                    : "bg-gray-100 text-[#22c984]"),
                             )}
                           >
-                            <span>{subItem.label}</span>
-                            {subItem.badge && (
-                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                {subItem.badge}
-                              </span>
-                            )}
+                            {subItem.label}
                           </Link>
                         </li>
                       ))}
@@ -261,30 +431,22 @@ export default function AdminSidebar() {
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex items-center p-2 rounded-lg transition-colors",
-                    collapsed ? "justify-center" : "justify-between",
+                    "flex items-center p-3 rounded-lg transition-colors",
                     theme === "dark"
                       ? "text-gray-300 hover:bg-gray-800"
                       : theme === "comfort"
                         ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
-                        : "text-gray-700 hover:bg-gray-100",
+                        : "text-gray-600 hover:bg-gray-100",
                     isActive(item.href) &&
                       (theme === "dark"
-                        ? "bg-gray-800 text-purple-400"
+                        ? "bg-gray-800 text-[#22c984]"
                         : theme === "comfort"
-                          ? "bg-[#efe9d8] text-purple-600"
-                          : "bg-gray-100 text-purple-600"),
+                          ? "bg-[#efe9d8] text-[#22c984]"
+                          : "bg-gray-100 text-[#22c984]"),
                   )}
                 >
-                  <div className="flex items-center">
-                    <item.icon className={cn("w-5 h-5", collapsed ? "" : "mr-3")} />
-                    {!collapsed && <span>{item.label}</span>}
-                  </div>
-                  {!collapsed && item.badge && (
-                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                      {item.badge}
-                    </span>
-                  )}
+                  <item.icon className="w-5 h-5 mr-3" />
+                  <span>{item.label}</span>
                 </Link>
               )}
             </li>
@@ -292,35 +454,24 @@ export default function AdminSidebar() {
         </ul>
       </nav>
 
-      {/* Footer */}
+      {/* Logout Button */}
       <div
-        className={cn(
-          "p-4 border-t",
-          theme === "dark" ? "border-gray-800" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200",
-        )}
+        className={`p-4 border-t ${theme === "dark" ? "border-gray-700" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200"}`}
       >
-        <div className="flex items-center justify-between">
-          {!collapsed && (
-            <div className="flex items-center">
-              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                <span className="text-purple-600 font-medium">JD</span>
-              </div>
-              <div className="ml-2">
-                <p className="text-sm font-medium">John Doe</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Super Admin</p>
-              </div>
-            </div>
+        <button
+          onClick={handleLogout}
+          className={cn(
+            "flex items-center w-full p-3 rounded-lg transition-colors",
+            theme === "dark"
+              ? "text-gray-300 hover:bg-gray-800"
+              : theme === "comfort"
+                ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
+                : "text-gray-600 hover:bg-gray-100",
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(collapsed && "mx-auto")}
-            title="Logout"
-            onClick={handleLogout}
-          >
-            <LogOut className="w-5 h-5" />
-          </Button>
-        </div>
+        >
+          <LogOut className="w-5 h-5 mr-3" />
+          <span>Log Out</span>
+        </button>
       </div>
     </div>
   )
