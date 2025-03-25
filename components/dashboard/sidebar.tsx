@@ -22,10 +22,10 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/context/theme-context"
-import { signOut } from "next-auth/react"
+import { signOut, useSession } from "next-auth/react"
 import { toast } from "@/components/ui/use-toast"
 
-// Replace the uploadProfileImage function with this improved version
+// Add a new function to handle profile image upload
 async function uploadProfileImage(file: File, userId: string) {
   try {
     console.log(`Uploading profile image for user ${userId}`)
@@ -134,6 +134,7 @@ const menuItems: MenuItem[] = [
 export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { data: session, status } = useSession()
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const [businessName, setBusinessName] = useState("Rapid Ventures LLC")
   const [profileImage, setProfileImage] = useState<string | null>(null)
@@ -141,17 +142,24 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
   const [isUploading, setIsUploading] = useState(false)
   const { theme } = useTheme()
 
-  // Initialize state from user data
+  // Use session data directly to ensure we always have the latest data
   useEffect(() => {
-    if (userData) {
-      if (userData.image) {
-        setProfileImage(userData.image)
-      }
-      if (userData.businessName) {
-        setBusinessName(userData.businessName)
-      }
+    // First priority: Use the session data (most up-to-date)
+    if (session?.user?.image) {
+      console.log("Setting profile image from session:", session.user.image)
+      setProfileImage(session.user.image)
     }
-  }, [userData])
+    // Second priority: Use the userData prop (from server component)
+    else if (userData?.image) {
+      console.log("Setting profile image from userData:", userData.image)
+      setProfileImage(userData.image)
+    }
+
+    // Set business name
+    if (userData?.businessName) {
+      setBusinessName(userData.businessName)
+    }
+  }, [session, userData])
 
   const toggleExpand = (label: string) => {
     setExpandedItems((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]))
@@ -176,34 +184,49 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
   // Handle file upload with actual functionality
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file && userData?.id) {
-      // Show local preview immediately
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setProfileImage(e.target?.result as string)
-      }
-      reader.readAsDataURL(file)
+    if (!file) return
 
-      // Upload to server
-      setIsUploading(true)
-      try {
-        const imageUrl = await uploadProfileImage(file, userData.id)
-        setProfileImage(imageUrl)
-        toast({
-          title: "Profile image updated",
-          description: "Your profile image has been successfully updated.",
-          variant: "default",
-        })
-      } catch (error) {
-        toast({
-          title: "Upload failed",
-          description: "There was a problem uploading your profile image.",
-          variant: "destructive",
-        })
-        console.error(error)
-      } finally {
-        setIsUploading(false)
-      }
+    // Get the user ID from session or userData
+    const userId = (session?.user as any)?.id || userData?.id
+    if (!userId) {
+      toast({
+        title: "Upload failed",
+        description: "User ID not found. Please try again after logging in.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Show local preview immediately
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setProfileImage(e.target?.result as string)
+    }
+    reader.readAsDataURL(file)
+
+    // Upload to server
+    setIsUploading(true)
+    try {
+      const imageUrl = await uploadProfileImage(file, userId)
+      setProfileImage(imageUrl)
+
+      // Force a session refresh to update the image in the session
+      await fetch("/api/auth/session?update=true")
+
+      toast({
+        title: "Profile image updated",
+        description: "Your profile image has been successfully updated.",
+        variant: "default",
+      })
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "There was a problem uploading your profile image.",
+        variant: "destructive",
+      })
+      console.error(error)
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -227,6 +250,10 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
     }
   }
 
+  // Determine the image source to use
+  const imageSource = profileImage || "https://via.placeholder.com/80"
+  console.log("Current profile image source:", imageSource)
+
   return (
     <div
       className={`w-64 border-r h-screen flex flex-col ${theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : theme === "comfort" ? "bg-[#f8f4e3] border-[#e8e4d3] text-[#5c4f3a]" : "bg-white border-gray-200"}`}
@@ -243,12 +270,13 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
           {profileImage ? (
             <div className="w-16 h-16 rounded-full overflow-hidden relative">
               <Image
-                src={profileImage || "https://via.placeholder.com/80"}
+                src={imageSource || "/placeholder.svg"}
                 alt="Business Logo"
                 className="w-full h-full object-cover"
                 width={80}
                 height={80}
                 priority
+                unoptimized={imageSource.startsWith("data:")} // For data URLs
               />
               {showUploadOption && (
                 <label className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center cursor-pointer rounded-full">
