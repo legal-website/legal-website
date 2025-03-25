@@ -77,7 +77,7 @@ export default function SpendingAnalytics() {
     return (
       <Card className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
         <CardContent className="p-6">
-          <div className="flex justify-center items-center h-[240px]">
+          <div className="flex justify-center items-center h-[250px]">
             <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
           </div>
         </CardContent>
@@ -142,7 +142,7 @@ export default function SpendingAnalytics() {
         </div>
 
         {/* Spending Chart */}
-        <div className="bg-white/10 rounded-lg p-4 mb-4 h-[240px]">
+        <div className="bg-white/10 rounded-lg p-4 mb-4 h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={spendingData.monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
