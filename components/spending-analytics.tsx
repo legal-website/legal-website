@@ -77,7 +77,7 @@ export default function SpendingAnalytics() {
     return (
       <Card className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
         <CardContent className="p-6">
-          <div className="flex justify-center items-center h-[200px]">
+          <div className="flex justify-center items-center h-[240px]">
             <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
           </div>
         </CardContent>

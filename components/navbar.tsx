@@ -313,20 +313,20 @@ export default function Navbar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-full border border-black overflow-hidden"
+                  className="rounded-full overflow-hidden p-0"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                 >
                   {profileImage ? (
                     <Image
                       src={profileImage || "/placeholder.svg"}
                       alt="Profile"
-                      width={24}
-                      height={24}
-                      className="h-5 w-5 rounded-full object-cover"
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 rounded-full object-cover"
                       unoptimized={profileImage.startsWith("data:")}
                     />
                   ) : (
-                    <User className="h-5 w-5" />
+                    <User className="h-10 w-10 p-2" />
                   )}
                   <span className="sr-only">My Account</span>
                 </Button>
