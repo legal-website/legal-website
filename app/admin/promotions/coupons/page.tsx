@@ -71,7 +71,6 @@ interface Coupon {
   minimumAmount: number | null
   onePerCustomer: boolean
   newCustomersOnly: boolean
-  status?: "Active" | "Scheduled" | "Expired"
 }
 
 interface User {
@@ -81,14 +80,19 @@ interface User {
   role: string
 }
 
+// Update the main component to include pagination, sorting, and loading state
 export default function CouponsPage() {
+  const [coupons, setCoupons] = useState<Coupon[]>([])
+  const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [sortBy, setSortBy] = useState("createdAt")
+  const [sortOrder, setSortOrder] = useState("desc")
+  const itemsPerPage = 15
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [coupons, setCoupons] = useState<Coupon[]>([])
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
@@ -111,7 +115,23 @@ export default function CouponsPage() {
     newCustomersOnly: false,
   })
 
-  // Fetch coupons on component mount
+  async function fetchCoupons() {
+    setLoading(true)
+    try {
+      const response = await fetch("/api/admin/coupons")
+      if (response.ok) {
+        const data = await response.json()
+        setCoupons(data.coupons || [])
+      } else {
+        console.error("Failed to fetch coupons")
+      }
+    } catch (error) {
+      console.error("Error fetching coupons:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchCoupons()
   }, [activeTab])
@@ -122,45 +142,6 @@ export default function CouponsPage() {
       fetchUsers()
     }
   }, [formData.specificClient, users.length])
-
-  const fetchCoupons = async () => {
-    try {
-      setLoading(true)
-
-      let url = "/api/admin/coupons"
-      if (activeTab !== "all") {
-        url += `?status=${activeTab}`
-      } else {
-        // Add a timestamp to prevent caching
-        url += `?t=${Date.now()}`
-      }
-
-      const response = await fetch(url, {
-        // Add cache: 'no-store' to prevent caching
-        cache: "no-store",
-        headers: {
-          pragma: "no-cache",
-          "cache-control": "no-cache",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch coupons")
-      }
-
-      const data = await response.json()
-      setCoupons(data.coupons || [])
-    } catch (error) {
-      console.error("Error fetching coupons:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load coupons. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const fetchUsers = async () => {
     try {
@@ -472,12 +453,72 @@ export default function CouponsPage() {
     return matchesSearch
   })
 
+  // Sort coupons based on current sort settings
+  const sortedCoupons = [...filteredCoupons].sort((a, b) => {
+    if (sortBy === "code") {
+      return sortOrder === "asc" ? a.code.localeCompare(b.code) : b.code.localeCompare(a.code)
+    } else if (sortBy === "discount") {
+      return sortOrder === "asc" ? a.value - b.value : b.value - a.value
+    } else if (sortBy === "usage") {
+      return sortOrder === "asc" ? a.usageCount - b.usageCount : b.usageCount - a.usageCount
+    } else {
+      // Default sort by createdAt
+      return sortOrder === "asc"
+        ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    }
+  })
+
+  // Paginate coupons
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentCoupons = sortedCoupons.slice(indexOfFirstItem, indexOfLastItem)
+  const totalPages = Math.ceil(sortedCoupons.length / itemsPerPage)
+
+  // Helper function to get coupon status
+  const getCouponStatusDisplay = (coupon: Coupon): "Active" | "Scheduled" | "Expired" => {
+    return getCouponStatus(coupon.isActive, new Date(coupon.startDate), new Date(coupon.endDate))
+  }
+
+  // Add the mb-32 class to the main container and keep all existing content
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+    <div className="p-6 max-w-[1600px] mx-auto mb-32">
+      <h1 className="text-2xl font-bold mb-6">Coupon Management</h1>
+
+      {/* Add sorting controls */}
+      <div className="flex flex-wrap gap-4 mb-6">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">Sort by:</span>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="createdAt">Date Created</SelectItem>
+              <SelectItem value="code">Coupon Code</SelectItem>
+              <SelectItem value="discount">Discount Amount</SelectItem>
+              <SelectItem value="usage">Usage Count</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">Order:</span>
+          <Select value={sortOrder} onValueChange={setSortOrder}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Order" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="desc">Descending</SelectItem>
+              <SelectItem value="asc">Ascending</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Coupon Management</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Create and manage discount coupons for your clients</p>
         </div>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
@@ -536,17 +577,106 @@ export default function CouponsPage() {
               <Button onClick={() => setShowCreateDialog(true)}>Create Coupon</Button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredCoupons.map((coupon) => (
-                <CouponCard
-                  key={coupon.id}
-                  coupon={coupon}
-                  onEdit={() => handleEditCoupon(coupon)}
-                  onDelete={() => handleDeleteClick(coupon)}
-                  onDuplicate={() => handleDuplicateCoupon(coupon)}
-                />
-              ))}
-            </div>
+            <>
+              {/* Keep the existing table but use currentCoupons instead of coupons */}
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Code
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Discount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Usage
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Max Usage
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Created
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {currentCoupons.map((coupon) => (
+                      <tr key={coupon.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{coupon.code}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatCouponValue(coupon.type, coupon.value)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{coupon.usageCount || 0}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {coupon.usageLimit || "Unlimited"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(coupon.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <Button variant="outline" size="sm" onClick={() => handleEditCoupon(coupon)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleDuplicateCoupon(coupon)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplicate
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+                            onClick={() => handleDeleteClick(coupon)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Add pagination controls */}
+              {totalPages > 1 && (
+                <div className="flex justify-center mt-6">
+                  <nav className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 rounded border bg-white text-sm disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-1 rounded text-sm ${
+                          currentPage === page ? "bg-primary text-white" : "bg-white border"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 rounded border bg-white text-sm disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </nav>
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -563,17 +693,106 @@ export default function CouponsPage() {
               <Button onClick={() => setShowCreateDialog(true)}>Create Coupon</Button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredCoupons.map((coupon) => (
-                <CouponCard
-                  key={coupon.id}
-                  coupon={coupon}
-                  onEdit={() => handleEditCoupon(coupon)}
-                  onDelete={() => handleDeleteClick(coupon)}
-                  onDuplicate={() => handleDuplicateCoupon(coupon)}
-                />
-              ))}
-            </div>
+            <>
+              {/* Keep the existing table but use currentCoupons instead of coupons */}
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Code
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Discount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Usage
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Max Usage
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Created
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {currentCoupons.map((coupon) => (
+                      <tr key={coupon.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{coupon.code}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatCouponValue(coupon.type, coupon.value)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{coupon.usageCount || 0}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {coupon.usageLimit || "Unlimited"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(coupon.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <Button variant="outline" size="sm" onClick={() => handleEditCoupon(coupon)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleDuplicateCoupon(coupon)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplicate
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+                            onClick={() => handleDeleteClick(coupon)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Add pagination controls */}
+              {totalPages > 1 && (
+                <div className="flex justify-center mt-6">
+                  <nav className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 rounded border bg-white text-sm disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-1 rounded text-sm ${
+                          currentPage === page ? "bg-primary text-white" : "bg-white border"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 rounded border bg-white text-sm disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </nav>
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -590,17 +809,106 @@ export default function CouponsPage() {
               <Button onClick={() => setShowCreateDialog(true)}>Create Scheduled Coupon</Button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredCoupons.map((coupon) => (
-                <CouponCard
-                  key={coupon.id}
-                  coupon={coupon}
-                  onEdit={() => handleEditCoupon(coupon)}
-                  onDelete={() => handleDeleteClick(coupon)}
-                  onDuplicate={() => handleDuplicateCoupon(coupon)}
-                />
-              ))}
-            </div>
+            <>
+              {/* Keep the existing table but use currentCoupons instead of coupons */}
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Code
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Discount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Usage
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Max Usage
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Created
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {currentCoupons.map((coupon) => (
+                      <tr key={coupon.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{coupon.code}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatCouponValue(coupon.type, coupon.value)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{coupon.usageCount || 0}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {coupon.usageLimit || "Unlimited"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(coupon.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <Button variant="outline" size="sm" onClick={() => handleEditCoupon(coupon)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleDuplicateCoupon(coupon)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplicate
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+                            onClick={() => handleDeleteClick(coupon)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Add pagination controls */}
+              {totalPages > 1 && (
+                <div className="flex justify-center mt-6">
+                  <nav className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 rounded border bg-white text-sm disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-1 rounded text-sm ${
+                          currentPage === page ? "bg-primary text-white" : "bg-white border"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 rounded border bg-white text-sm disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </nav>
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -616,17 +924,106 @@ export default function CouponsPage() {
               <p className="text-gray-500 dark:text-gray-400 mb-4">Expired coupons will appear here.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredCoupons.map((coupon) => (
-                <CouponCard
-                  key={coupon.id}
-                  coupon={coupon}
-                  onEdit={() => handleEditCoupon(coupon)}
-                  onDelete={() => handleDeleteClick(coupon)}
-                  onDuplicate={() => handleDuplicateCoupon(coupon)}
-                />
-              ))}
-            </div>
+            <>
+              {/* Keep the existing table but use currentCoupons instead of coupons */}
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Code
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Discount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Usage
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Max Usage
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Created
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {currentCoupons.map((coupon) => (
+                      <tr key={coupon.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{coupon.code}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatCouponValue(coupon.type, coupon.value)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{coupon.usageCount || 0}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {coupon.usageLimit || "Unlimited"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(coupon.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <Button variant="outline" size="sm" onClick={() => handleEditCoupon(coupon)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleDuplicateCoupon(coupon)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplicate
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+                            onClick={() => handleDeleteClick(coupon)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Add pagination controls */}
+              {totalPages > 1 && (
+                <div className="flex justify-center mt-6">
+                  <nav className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 rounded border bg-white text-sm disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-1 rounded text-sm ${
+                          currentPage === page ? "bg-primary text-white" : "bg-white border"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 rounded border bg-white text-sm disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </nav>
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
       </Tabs>
@@ -1157,7 +1554,7 @@ function CouponCard({
   }
 
   // Calculate status if not provided
-  const status = coupon.status || getCouponStatus(coupon.isActive, new Date(coupon.startDate), new Date(coupon.endDate))
+  const status = getCouponStatus(coupon.isActive, new Date(coupon.startDate), new Date(coupon.endDate))
 
   return (
     <Card className="p-4">
