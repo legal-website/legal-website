@@ -43,8 +43,6 @@ import {
 } from "@/lib/actions/admin-ticket-actions"
 import { getTicketDetails, createMessage, updateTicket, deleteTicket } from "@/lib/actions/ticket-actions"
 import type { Ticket, TicketStatus, TicketPriority } from "@/types/ticket"
-import { useNotifications } from "@/components/admin/header"
-import { ticketEvents, getLastSeenTickets, updateLastSeenTickets } from "@/lib/ticket-notifications"
 
 interface SupportUser {
   id: string
@@ -117,15 +115,6 @@ export default function AdminTicketsPage() {
   const [sortField, setSortField] = useState<string>("updatedAt")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
 
-  // State for tickets with new messages
-  const [ticketsWithNewMessages, setTicketsWithNewMessages] = useState<string[]>([])
-
-  // Previous message counts for comparison
-  const prevMessageCountsRef = useRef<Record<string, number>>({})
-
-  // Get the notification context
-  const { addNotification } = useNotifications()
-
   // Fetch tickets, support users, and stats on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -140,55 +129,10 @@ export default function AdminTicketsPage() {
           variant: "destructive",
         })
       } else if (ticketsResult.tickets) {
-        const fetchedTickets = ticketsResult.tickets as Ticket[]
-
-        // Check for new messages by comparing message counts
-        const newTicketsWithMessages: string[] = []
-
-        fetchedTickets.forEach((ticket) => {
-          const currentCount = ticket.messages?.length || 0
-          const prevCount = prevMessageCountsRef.current[ticket.id] || 0
-
-          // If message count increased, add to new messages list
-          if (currentCount > prevCount) {
-            newTicketsWithMessages.push(ticket.id)
-            console.log(`Ticket ${ticket.id} has new messages: ${currentCount} > ${prevCount}`)
-          }
-
-          // Update the stored count
-          prevMessageCountsRef.current[ticket.id] = currentCount
-        })
-
-        // Update tickets with new messages
-        if (newTicketsWithMessages.length > 0) {
-          setTicketsWithNewMessages((prev) => [...new Set([...prev, ...newTicketsWithMessages])])
-          setHasNewMessages(true)
-        }
-
-        setTickets(fetchedTickets)
-
-        // Check if pagination exists before accessing it
-        if ("pagination" in ticketsResult && ticketsResult.pagination) {
+        setTickets(ticketsResult.tickets as Ticket[])
+        if (ticketsResult.pagination) {
           setPagination(ticketsResult.pagination as PaginationData)
         }
-
-        // Check for new tickets
-        const lastSeenTickets = getLastSeenTickets()
-        const currentTicketIds = fetchedTickets.map((ticket) => ticket.id)
-
-        // Find new tickets (those not in lastSeenTickets)
-        const newTickets = fetchedTickets.filter((ticket) => !lastSeenTickets.includes(ticket.id))
-
-        // Notify about new tickets
-        if (newTickets.length > 0 && lastSeenTickets.length > 0) {
-          // Only notify if we've loaded tickets before (to avoid notifications on first load)
-          newTickets.forEach((ticket) => {
-            addNotification(ticketEvents.ticketCreated(ticket.id, ticket.subject))
-          })
-        }
-
-        // Update the last seen tickets
-        updateLastSeenTickets(currentTicketIds)
       }
 
       // Fetch support users
@@ -236,7 +180,7 @@ export default function AdminTicketsPage() {
     fetchData()
 
     // Set up auto-refresh timer
-    refreshTimerRef.current = setInterval(refreshData, 30000) // Refresh every 30 seconds
+    refreshTimerRef.current = setInterval(refreshData, 10000) // Refresh every 30 seconds
 
     return () => {
       if (refreshTimerRef.current) {
@@ -279,33 +223,44 @@ export default function AdminTicketsPage() {
     const ticketsResult = await getAllTickets(currentPage, itemsPerPage)
     if (!ticketsResult.error && ticketsResult.tickets) {
       const newTickets = ticketsResult.tickets as Ticket[]
-
-      // Check for new messages by comparing message counts
-      const newTicketsWithMessages: string[] = []
-
-      newTickets.forEach((ticket) => {
-        const currentCount = ticket.messages?.length || 0
-        const prevCount = prevMessageCountsRef.current[ticket.id] || 0
-
-        // If message count increased, add to new messages list
-        if (currentCount > prevCount) {
-          newTicketsWithMessages.push(ticket.id)
-          console.log(`Ticket ${ticket.id} has new messages: ${currentCount} > ${prevCount}`)
-        }
-
-        // Update the stored count
-        prevMessageCountsRef.current[ticket.id] = currentCount
-      })
-
-      // Update tickets with new messages
-      if (newTicketsWithMessages.length > 0) {
-        setTicketsWithNewMessages((prev) => [...new Set([...prev, ...newTicketsWithMessages])])
-        setHasNewMessages(true)
+      if (ticketsResult.pagination) {
+        setPagination(ticketsResult.pagination as PaginationData)
       }
 
-      // Check if pagination exists before accessing it
-      if ("pagination" in ticketsResult && ticketsResult.pagination) {
-        setPagination(ticketsResult.pagination as PaginationData)
+      // Check if there are new messages by comparing with current tickets
+      const hasNewMessages = newTickets.some((newTicket) => {
+        const currentTicket = tickets.find((t) => t.id === newTicket.id)
+        if (!currentTicket) return true // New ticket
+
+        // Check if the latest message is newer
+        if (
+          newTicket.messages &&
+          newTicket.messages.length > 0 &&
+          (!currentTicket.messages || currentTicket.messages.length === 0)
+        ) {
+          return true
+        }
+
+        if (
+          newTicket.messages &&
+          newTicket.messages.length > 0 &&
+          currentTicket.messages &&
+          currentTicket.messages.length > 0
+        ) {
+          const newLatestMessage = newTicket.messages[0]
+          const currentLatestMessage = currentTicket.messages[0]
+          return new Date(newLatestMessage.createdAt) > new Date(currentLatestMessage.createdAt)
+        }
+
+        return false
+      })
+
+      if (hasNewMessages) {
+        setHasNewMessages(true)
+        // If the ticket dialog is open, refresh the selected ticket
+        if (showTicketDialog && selectedTicket) {
+          await refreshSelectedTicket()
+        }
       }
 
       setTickets(newTickets)
@@ -316,6 +271,9 @@ export default function AdminTicketsPage() {
     if (!statsResult.error) {
       setTicketStats(statsResult as TicketStats)
     }
+
+    // Fetch unread counts
+    await fetchUnreadCounts()
 
     setIsRefreshing(false)
   }
@@ -396,7 +354,6 @@ export default function AdminTicketsPage() {
       (activeTab === "in-progress" && ticket.status === "in-progress") ||
       (activeTab === "resolved" && ticket.status === "resolved") ||
       (activeTab === "closed" && ticket.status === "closed") ||
-      (activeTab === "new-messages" && ticketsWithNewMessages.includes(ticket.id)) ||
       activeTab === "all"
 
     const matchesPriority = priorityFilter === "all" || ticket.priority === priorityFilter
@@ -415,9 +372,6 @@ export default function AdminTicketsPage() {
   })
 
   const viewTicketDetails = (ticket: Ticket) => {
-    // Mark this ticket as read (no new messages)
-    setTicketsWithNewMessages((prev) => prev.filter((id) => id !== ticket.id))
-
     setSelectedTicket(ticket)
     setShowTicketDialog(true)
     setHasNewMessages(false) // Reset new message indicator when viewing a ticket
@@ -438,9 +392,6 @@ export default function AdminTicketsPage() {
         variant: "destructive",
       })
     } else {
-      // Add notification for message sent
-      addNotification(ticketEvents.messageSent(selectedTicket.id, selectedTicket.subject))
-
       // Refresh ticket details
       const ticketResult = await getTicketDetails(selectedTicket.id)
       if (ticketResult.ticket) {
@@ -482,9 +433,6 @@ export default function AdminTicketsPage() {
         description: `Ticket status updated to ${status}`,
       })
 
-      // Add notification for status change
-      addNotification(ticketEvents.statusChanged(selectedTicket.id, selectedTicket.subject, status))
-
       // Refresh ticket details
       const ticketResult = await getTicketDetails(selectedTicket.id)
       if (ticketResult.ticket) {
@@ -520,9 +468,6 @@ export default function AdminTicketsPage() {
         title: "Success",
         description: `Ticket priority updated to ${priority}`,
       })
-
-      // Add notification for priority change
-      addNotification(ticketEvents.priorityChanged(selectedTicket.id, selectedTicket.subject, priority))
 
       // Refresh ticket details
       const ticketResult = await getTicketDetails(selectedTicket.id)
@@ -560,20 +505,6 @@ export default function AdminTicketsPage() {
         description: userId ? "Ticket assigned successfully" : "Ticket unassigned",
       })
 
-      // Find assignee name if available
-      if (userId) {
-        const assignee = supportUsers.find((user) => user.id === userId)
-        if (assignee) {
-          // Add notification for assignment
-          addNotification(
-            ticketEvents.assigneeChanged(selectedTicket.id, selectedTicket.subject, assignee.name || assignee.email),
-          )
-        }
-      } else {
-        // Add notification for unassignment
-        addNotification(ticketEvents.unassigned(selectedTicket.id, selectedTicket.subject))
-      }
-
       // Refresh ticket details
       const ticketResult = await getTicketDetails(selectedTicket.id)
       if (ticketResult.ticket) {
@@ -606,9 +537,6 @@ export default function AdminTicketsPage() {
         title: "Success",
         description: "Ticket deleted successfully",
       })
-
-      // Add notification for ticket deletion
-      addNotification(ticketEvents.ticketDeleted(ticketToDelete))
 
       // Reset selected ticket if it was deleted
       if (selectedTicket && selectedTicket.id === ticketToDelete) {
@@ -848,16 +776,6 @@ export default function AdminTicketsPage() {
           <TabsTrigger value="in-progress">In Progress</TabsTrigger>
           <TabsTrigger value="resolved">Resolved</TabsTrigger>
           <TabsTrigger value="closed">Closed</TabsTrigger>
-          <TabsTrigger
-            value="new-messages"
-            className={
-              ticketsWithNewMessages.length > 0
-                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                : ""
-            }
-          >
-            New Messages {ticketsWithNewMessages.length > 0 && `(${ticketsWithNewMessages.length})`}
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab}>
@@ -919,12 +837,7 @@ export default function AdminTicketsPage() {
                   </thead>
                   <tbody>
                     {filteredTickets.map((ticket) => (
-                      <tr
-                        key={ticket.id}
-                        className={`border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer ${
-                          ticketsWithNewMessages.includes(ticket.id) ? "bg-green-100 dark:bg-green-900/20" : ""
-                        }`}
-                      >
+                      <tr key={ticket.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
                         <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
                           <span className="font-mono text-sm">{ticket.id.substring(0, 8)}</span>
                         </td>
@@ -934,11 +847,6 @@ export default function AdminTicketsPage() {
                             {unreadCounts[ticket.id] > 0 && (
                               <Badge className="ml-2 bg-red-500" variant="secondary">
                                 {unreadCounts[ticket.id]}
-                              </Badge>
-                            )}
-                            {ticketsWithNewMessages.includes(ticket.id) && (
-                              <Badge className="ml-2 bg-green-500" variant="secondary">
-                                New
                               </Badge>
                             )}
                           </div>
