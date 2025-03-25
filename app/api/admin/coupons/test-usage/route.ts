@@ -4,7 +4,8 @@ import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { v4 as uuidv4 } from "uuid"
 
-export async function POST(req: NextRequest) {
+// Helper function to process coupon usage
+async function processCouponUsage(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -13,10 +14,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { couponCode, invoiceId, userId, amount } = await req.json()
+    // Get parameters from request
+    let couponCode, invoiceId, userId, amount
+
+    // Handle both GET and POST requests
+    if (req.method === "GET") {
+      const { searchParams } = new URL(req.url)
+      couponCode = searchParams.get("couponCode")
+      invoiceId = searchParams.get("invoiceId")
+      userId = searchParams.get("userId")
+      amount = searchParams.get("amount") ? Number.parseFloat(searchParams.get("amount")!) : 0
+    } else {
+      const body = await req.json()
+      couponCode = body.couponCode
+      invoiceId = body.invoiceId
+      userId = body.userId
+      amount = body.amount || 0
+    }
 
     if (!couponCode || !invoiceId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+      return NextResponse.json({ error: "Missing required parameters: couponCode and invoiceId" }, { status: 400 })
     }
 
     console.log(`Testing coupon usage for code: ${couponCode}, invoice: ${invoiceId}`)
@@ -82,5 +99,14 @@ export async function POST(req: NextRequest) {
     console.error("Error testing coupon usage:", error)
     return NextResponse.json({ error: error.message || "Something went wrong" }, { status: 500 })
   }
+}
+
+// Support both GET and POST methods
+export async function GET(req: NextRequest) {
+  return processCouponUsage(req)
+}
+
+export async function POST(req: NextRequest) {
+  return processCouponUsage(req)
 }
 
