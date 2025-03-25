@@ -2,10 +2,10 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   Home,
   FileText,
@@ -22,12 +22,48 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/context/theme-context"
+import { signOut } from "next-auth/react"
+import { toast } from "@/components/ui/use-toast"
+
+// Add a new function to handle profile image upload
+async function uploadProfileImage(file: File, userId: string) {
+  try {
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("userId", userId)
+
+    const response = await fetch("/api/user/profile-image", {
+      method: "POST",
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error("Failed to upload image")
+    }
+
+    const data = await response.json()
+    return data.imageUrl
+  } catch (error) {
+    console.error("Error uploading profile image:", error)
+    throw error
+  }
+}
 
 interface MenuItem {
   icon: React.ElementType
   label: string
   href: string
   subItems?: { label: string; href: string }[]
+}
+
+// Add a new prop for user data
+interface DashboardSidebarProps {
+  userData?: {
+    id: string
+    name?: string | null
+    image?: string | null
+    businessName?: string | null
+  }
 }
 
 const menuItems: MenuItem[] = [
@@ -91,13 +127,27 @@ const menuItems: MenuItem[] = [
   },
 ]
 
-export default function DashboardSidebar() {
+export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const [expandedItems, setExpandedItems] = useState<string[]>([])
-  const [businessName] = useState("Rapid Ventures LLC")
+  const [businessName, setBusinessName] = useState("Rapid Ventures LLC")
   const [profileImage, setProfileImage] = useState<string | null>(null)
   const [showUploadOption, setShowUploadOption] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   const { theme } = useTheme()
+
+  // Initialize state from user data
+  useEffect(() => {
+    if (userData) {
+      if (userData.image) {
+        setProfileImage(userData.image)
+      }
+      if (userData.businessName) {
+        setBusinessName(userData.businessName)
+      }
+    }
+  }, [userData])
 
   const toggleExpand = (label: string) => {
     setExpandedItems((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]))
@@ -119,15 +169,57 @@ export default function DashboardSidebar() {
       .toUpperCase()
   }
 
-  // Handle file upload
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle file upload with actual functionality
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
+    if (file && userData?.id) {
+      // Show local preview immediately
       const reader = new FileReader()
       reader.onload = (e) => {
         setProfileImage(e.target?.result as string)
       }
       reader.readAsDataURL(file)
+
+      // Upload to server
+      setIsUploading(true)
+      try {
+        const imageUrl = await uploadProfileImage(file, userData.id)
+        setProfileImage(imageUrl)
+        toast({
+          title: "Profile image updated",
+          description: "Your profile image has been successfully updated.",
+          variant: "default",
+        })
+      } catch (error) {
+        toast({
+          title: "Upload failed",
+          description: "There was a problem uploading your profile image.",
+          variant: "destructive",
+        })
+        console.error(error)
+      } finally {
+        setIsUploading(false)
+      }
+    }
+  }
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await signOut({ redirect: false })
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+        variant: "default",
+      })
+      router.push("/auth/login")
+    } catch (error) {
+      console.error("Logout error:", error)
+      toast({
+        title: "Logout failed",
+        description: "There was a problem logging you out.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -156,8 +248,14 @@ export default function DashboardSidebar() {
               />
               {showUploadOption && (
                 <label className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center cursor-pointer rounded-full">
-                  <Upload className="w-5 h-5 text-white" />
-                  <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
+                  <Upload className={`w-5 h-5 text-white ${isUploading ? "animate-spin" : ""}`} />
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                    disabled={isUploading}
+                  />
                 </label>
               )}
             </div>
@@ -166,8 +264,14 @@ export default function DashboardSidebar() {
               {getInitials(businessName)}
               {showUploadOption && (
                 <label className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center cursor-pointer rounded-full">
-                  <Upload className="w-5 h-5 text-white" />
-                  <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
+                  <Upload className={`w-5 h-5 text-white ${isUploading ? "animate-spin" : ""}`} />
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                    disabled={isUploading}
+                  />
                 </label>
               )}
             </div>
@@ -269,6 +373,7 @@ export default function DashboardSidebar() {
         className={`p-4 border-t ${theme === "dark" ? "border-gray-700" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200"}`}
       >
         <button
+          onClick={handleLogout}
           className={cn(
             "flex items-center w-full p-3 rounded-lg transition-colors",
             theme === "dark"
