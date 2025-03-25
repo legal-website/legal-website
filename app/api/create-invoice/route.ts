@@ -162,7 +162,6 @@ export async function POST(req: Request) {
     await db.$executeRaw`
       INSERT INTO Invoice (
         id, invoiceNumber, customerName, customerEmail, customerPhone, 
-        customerCompany, customerAddress, customerCity, customerState,  customerPhone, 
         customerCompany, customerAddress, customerCity, customerState,
         customerZip, customerCountry, amount, status, items, paymentReceipt,
         createdAt, updatedAt
