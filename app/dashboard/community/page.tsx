@@ -31,6 +31,7 @@ import {
   ChevronDown,
   ChevronUp,
   Heart,
+  Award,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useToast } from "@/components/ui/use-toast"
@@ -1299,7 +1300,7 @@ export default function CommunityPage() {
               <div className="mt-4">
                 <div className="flex items-start gap-3 mb-6">
                   <Image
-                    src={selectedPost.author.avatar || "/placeholder.svg"}
+                    src={selectedPost.author.avatar || "/placeholder.svg?height=40&width=40"}
                     alt={selectedPost.author.name}
                     width={40}
                     height={40}
@@ -1346,7 +1347,7 @@ export default function CommunityPage() {
                   {sessionStatus === "authenticated" && (
                     <div className="flex gap-3 mb-6">
                       <Image
-                        src={session?.user?.image || "/placeholder.svg"}
+                        src={session?.user?.image || "/placeholder.svg?height=40&width=40"}
                         alt={session?.user?.name || "You"}
                         width={40}
                         height={40}
@@ -1388,27 +1389,37 @@ export default function CommunityPage() {
                       {postComments.map((comment) => (
                         <div key={comment.id} className="flex gap-3">
                           <Image
-                            src={comment.author.avatar || "/placeholder.svg"}
+                            src={comment.author.avatar || "/placeholder.svg?height=32&width=32"}
                             alt={comment.author.name}
                             width={32}
                             height={32}
-                            className="rounded-full"
+                            className="rounded-full flex-shrink-0"
                           />
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <p className="font-medium">{comment.author.name}</p>
                               <span className="text-xs text-gray-500">{formatDate(comment.date)}</span>
                               {comment.isBestAnswer && (
-                                <Badge className="bg-yellow-100 text-yellow-800 hover:bg-green-200">Best Answer</Badge>
+                                <Badge className="bg-yellow-100 text-yellow-800 flex items-center gap-1">
+                                  <Award className="h-3 w-3" />
+                                  <span>Best Answer</span>
+                                </Badge>
                               )}
                             </div>
-                            <p className="text-gray-700 mb-2">{comment.content}</p>
+
+                            {/* Moderator notes ABOVE the comment content */}
                             {comment.moderationNotes && (
-                              <div className="bg-blue-50 p-2 rounded-md mb-2 text-sm">
-                                <p className="font-medium text-blue-800">Moderator Note:</p>
-                                <p className="text-blue-700">{comment.moderationNotes}</p>
+                              <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
+                                <p className="text-xs font-medium text-blue-800 dark:text-blue-300 flex items-center gap-1">
+                                  <AlertCircle className="h-3 w-3" />
+                                  Moderator Note:
+                                </p>
+                                <p className="text-sm text-blue-700 dark:text-blue-400">{comment.moderationNotes}</p>
                               </div>
                             )}
+
+                            <p className="text-gray-700 mb-2">{comment.content}</p>
+
                             <button
                               className={`flex items-center gap-1 text-xs ${comment.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
                               onClick={() => handleLikeComment(comment.id)}
