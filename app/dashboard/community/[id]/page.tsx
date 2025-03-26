@@ -6,10 +6,10 @@ import { formatDistanceToNow } from "date-fns"
 import { ArrowLeft, ThumbsUp, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/use-toast"
 import CommentItem from "../components/comment-item"
-import TagBadge from "../components/tag-badge"
 
 interface Author {
   id: string
@@ -74,8 +74,11 @@ export default function PostDetail({ params }: { params: { id: string } }) {
 
     const fetchComments = async () => {
       try {
+        console.log("Fetching comments for post:", params.id)
         const response = await fetch(`/api/community/posts/${params.id}/comments`)
         const data = await response.json()
+        console.log("Comments API response:", data)
+
         if (data.success) {
           setComments(data.comments)
         } else {
@@ -252,7 +255,7 @@ export default function PostDetail({ params }: { params: { id: string } }) {
       <div className="bg-card rounded-lg shadow-sm p-6 mb-8">
         <div className="flex items-center gap-3 mb-4">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={post.author.avatar || "/placeholder.svg?height=40&width=40"} alt={post.author.name} />
+            <AvatarImage src={post.author.avatar || "/api/placeholder?height=40&width=40"} alt={post.author.name} />
             <AvatarFallback>{post.author.name.substring(0, 2)}</AvatarFallback>
           </Avatar>
           <div>
@@ -264,7 +267,9 @@ export default function PostDetail({ params }: { params: { id: string } }) {
         {post.tags && post.tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
             {post.tags.map((tag) => (
-              <TagBadge key={tag.id} tag={tag} />
+              <Badge key={tag.id} variant="outline">
+                {tag.name}
+              </Badge>
             ))}
           </div>
         )}

@@ -5,59 +5,53 @@ import { db } from "@/lib/db"
 import { Role } from "@/lib/enums"
 import { v4 as uuidv4 } from "uuid"
 
-// Add GET function to handle fetching post details
+// Add the GET function to fetch a post by ID
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const postId = params.id
+    console.log("Fetching post:", postId)
 
     // Get the post with author, tags, and counts
-    const postResult = await db.$queryRawUnsafe(
-      `
-      SELECT 
-        p.*,
-        u.id as authorId,
-        u.name as authorName,
-        u.image as authorImage,
-        (SELECT COUNT(*) FROM "Like" WHERE postId = p.id) as likeCount,
-        (SELECT COUNT(*) FROM "Comment" WHERE postId = p.id) as commentCount
-      FROM "Post" p
-      LEFT JOIN "User" u ON p.authorId = u.id
-      WHERE p.id = ?
-    `,
-      postId,
-    )
+    const post = await db.post.findUnique({
+      where: { id: postId },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
+        },
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+        _count: {
+          select: {
+            comments: true,
+            likes: true,
+          },
+        },
+      },
+    })
 
-    if (!postResult || postResult.length === 0) {
+    if (!post) {
       return NextResponse.json({ success: false, error: "Post not found" }, { status: 404 })
     }
-
-    const post = postResult[0]
-
-    // Get tags for the post
-    const tagsResult = await db.$queryRawUnsafe(
-      `
-      SELECT t.id, t.name
-      FROM "Tag" t
-      JOIN "PostTag" pt ON t.id = pt.tagId
-      WHERE pt.postId = ?
-    `,
-      postId,
-    )
 
     // Check if current user has liked the post
     const session = await getServerSession(authOptions)
     let isLiked = false
 
     if (session?.user) {
-      const likeResult = await db.$queryRawUnsafe(
-        `
-        SELECT * FROM "Like"
-        WHERE postId = ? AND authorId = ?
-      `,
-        postId,
-        (session.user as any).id,
-      )
-      isLiked = likeResult && likeResult.length > 0
+      const like = await db.like.findFirst({
+        where: {
+          postId: postId,
+          authorId: (session.user as any).id,
+        },
+      })
+      isLiked = !!like
     }
 
     // Format the post for response
@@ -66,15 +60,19 @@ export async function GET(request: Request, { params }: { params: { id: string }
       title: post.title,
       content: post.content,
       author: {
-        id: post.authorId || "",
-        name: post.authorName || "Unknown",
-        avatar: post.authorImage || `/placeholder.svg?height=40&width=40`,
+        id: post.author?.id || "",
+        name: post.author?.name || "Unknown",
+        avatar: post.author?.image || `/api/placeholder?height=40&width=40`,
       },
-      date: post.createdAt,
-      likes: Number.parseInt(post.likeCount) || 0,
-      comments: Number.parseInt(post.commentCount) || 0,
+      date: post.createdAt.toISOString(),
+      likes: post._count?.likes || 0,
+      comments: post._count?.comments || 0,
       isLiked,
-      tags: tagsResult || [],
+      tags:
+        post.tags?.map((postTag) => ({
+          id: postTag.tag?.id || "",
+          name: postTag.tag?.name || "Unknown",
+        })) || [],
     }
 
     return NextResponse.json({

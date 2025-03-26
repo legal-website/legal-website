@@ -38,35 +38,37 @@ export default function CommentItem({ comment, onLike }: CommentItemProps) {
   }
 
   return (
-    <div className="p-4">
-      <div className="flex items-start gap-3">
-        <Avatar className="h-8 w-8">
-          <AvatarImage src={comment.author.avatar || "/placeholder.svg?height=32&width=32"} alt={comment.author.name} />
-          <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
-        </Avatar>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-medium">{comment.author.name}</span>
-            <span className="text-xs text-muted-foreground">{formatDate(comment.date)}</span>
+    <div className="flex gap-4 py-4 px-6">
+      <Avatar className="h-10 w-10">
+        <AvatarImage src={comment.author.avatar || "/api/placeholder?height=40&width=40"} alt={comment.author.name} />
+        <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
+      </Avatar>
+      <div className="flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{comment.author.name}</span>
+          <span className="text-xs text-muted-foreground">•</span>
+          <span className="text-xs text-muted-foreground">{formatDate(comment.date)}</span>
 
-            {comment.isBestAnswer && (
-              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 flex items-center gap-1">
-                <Award className="h-3 w-3" />
-                <span>Best Answer</span>
-              </Badge>
-            )}
-          </div>
-
-          <div className="mb-2">{comment.content}</div>
-
-          {comment.moderationNotes && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-2 mb-2">
-              <p className="text-blue-800 dark:text-blue-300 text-sm">
-                <span className="font-medium">Moderator note:</span> {comment.moderationNotes}
-              </p>
-            </div>
+          {/* Display best answer badge */}
+          {comment.isBestAnswer && (
+            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 ml-auto flex items-center gap-1">
+              <Award className="h-3 w-3" />
+              Best Answer
+            </Badge>
           )}
+        </div>
 
+        <p className="mt-2 text-sm">{comment.content}</p>
+
+        {/* Display moderation notes if they exist */}
+        {comment.moderationNotes && (
+          <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
+            <p className="text-xs font-medium text-blue-800 dark:text-blue-300">Moderator Note:</p>
+            <p className="text-sm text-blue-700 dark:text-blue-400">{comment.moderationNotes}</p>
+          </div>
+        )}
+
+        <div className="mt-2 flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
