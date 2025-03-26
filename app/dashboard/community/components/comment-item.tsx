@@ -39,12 +39,21 @@ export default function CommentItem({ comment, onLike, showDebug = false }: Comm
     }
   }
 
-  // Log the comment to check if isBestAnswer and moderationNotes are present
-  console.log("Comment in CommentItem:", {
-    id: comment.id,
+  // Debug logging to see what we're receiving
+  console.log(`Comment ${comment.id} details:`, {
     isBestAnswer: comment.isBestAnswer,
+    isBestAnswerType: typeof comment.isBestAnswer,
     moderationNotes: comment.moderationNotes,
+    moderationNotesType: typeof comment.moderationNotes,
   })
+
+  // Safely check if isBestAnswer is truthy
+  const isBestAnswer = Boolean(comment.isBestAnswer)
+
+  // Safely check if moderationNotes exists and is not empty
+  const hasModeratorNotes = Boolean(
+    comment.moderationNotes && comment.moderationNotes !== "null" && comment.moderationNotes !== "",
+  )
 
   return (
     <div className="flex gap-4 py-4 px-6 border-b last:border-0">
@@ -60,8 +69,8 @@ export default function CommentItem({ comment, onLike, showDebug = false }: Comm
             <span className="text-xs text-muted-foreground">{formatDate(comment.date)}</span>
           </div>
 
-          {/* Display best answer badge */}
-          {Boolean(comment.isBestAnswer) && (
+          {/* Display best answer badge - using the boolean variable */}
+          {isBestAnswer && (
             <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 flex items-center gap-1">
               <Award className="h-3 w-3" />
               <span>Best Answer</span>
@@ -71,8 +80,8 @@ export default function CommentItem({ comment, onLike, showDebug = false }: Comm
 
         <p className="mt-2 text-sm">{comment.content}</p>
 
-        {/* Display moderation notes if they exist */}
-        {Boolean(comment.moderationNotes) && (
+        {/* Display moderation notes if they exist - using the boolean variable */}
+        {hasModeratorNotes && (
           <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
             <p className="text-xs font-medium text-blue-800 dark:text-blue-300">Moderator Note:</p>
             <p className="text-sm text-blue-700 dark:text-blue-400">{comment.moderationNotes}</p>

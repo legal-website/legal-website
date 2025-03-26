@@ -98,13 +98,18 @@ export default function PostDetail({ params }: { params: { id: string } }) {
         console.log("Comments API response:", data)
 
         if (data.success) {
-          // Ensure isBestAnswer and moderationNotes are properly preserved
-          const processedComments = data.comments.map((comment: any) => ({
-            ...comment,
-            isBestAnswer: comment.isBestAnswer === true,
-            moderationNotes: comment.moderationNotes || null,
-          }))
-          setComments(processedComments)
+          // Log each comment to debug isBestAnswer and moderationNotes
+          data.comments.forEach((comment: any) => {
+            console.log(`Comment ${comment.id} from API:`, {
+              isBestAnswer: comment.isBestAnswer,
+              isBestAnswerType: typeof comment.isBestAnswer,
+              moderationNotes: comment.moderationNotes,
+              moderationNotesType: typeof comment.moderationNotes,
+            })
+          })
+
+          // Don't transform the data - use it as is
+          setComments(data.comments)
         } else {
           toast({
             title: "Error",
@@ -264,8 +269,8 @@ export default function PostDetail({ params }: { params: { id: string } }) {
     )
   }
 
-  // Check if there's a best answer among the comments
-  const hasBestAnswer = comments.some((comment) => comment.isBestAnswer === true)
+  // Check if there's a best answer among the comments - using Boolean for type safety
+  const hasBestAnswer = comments.some((comment) => Boolean(comment.isBestAnswer))
 
   // Log if we have any best answers
   console.log("Has best answer:", hasBestAnswer)

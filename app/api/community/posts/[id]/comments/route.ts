@@ -70,7 +70,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       likes: comment._count?.likes || 0,
       isLiked: likedCommentIds.includes(comment.id),
       // Explicitly include these fields
-      isBestAnswer: comment.isBestAnswer === true,
+      isBestAnswer: Boolean(comment.isBestAnswer),
       moderationNotes: comment.moderationNotes || null,
     }))
 
