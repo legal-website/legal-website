@@ -51,4 +51,9 @@ declare module "@prisma/client" {
     updatedAt: Date
   }
 }
-
+declare module "@/lib/prisma-types" {
+  interface CommentModel {
+    isBestAnswer?: boolean
+    moderationNotes?: string | null
+  }
+}

@@ -33,6 +33,7 @@ import {
   CheckCircle,
   XCircle,
   MoreHorizontal,
+  PencilIcon,
 } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
@@ -82,6 +83,7 @@ interface Comment {
   isBestAnswer?: boolean
   flagged?: boolean
   flagCount?: number
+  moderationNotes?: string
 }
 
 interface CommunityTag {
@@ -130,7 +132,9 @@ export default function AdminCommunityModerationPage() {
   const [showCommentsDialog, setShowCommentsDialog] = useState(false)
   const [isLoadingComments, setIsLoadingComments] = useState(false)
   const [selectedPostForComments, setSelectedPostForComments] = useState<Post | null>(null)
+  // Update the state to include a map of comment IDs to moderation notes
   const [moderationNote, setModerationNote] = useState("")
+  const [commentModerationNotes, setCommentModerationNotes] = useState<Record<string, string>>({})
   const [flaggedContent, setFlaggedContent] = useState<{
     posts: Post[]
     comments: Comment[]
@@ -215,6 +219,7 @@ export default function AdminCommunityModerationPage() {
     }
   }
 
+  // Add a function to fetch moderation notes when loading comments
   const fetchComments = async (postId: string) => {
     try {
       setIsLoadingComments(true)
@@ -237,6 +242,15 @@ export default function AdminCommunityModerationPage() {
         }))
 
         setSelectedPostComments(commentsWithBestAnswer || [])
+
+        // Initialize the comment moderation notes map
+        const notesMap: Record<string, string> = {}
+        commentsWithBestAnswer.forEach((comment: Comment) => {
+          if (comment.moderationNotes) {
+            notesMap[comment.id] = comment.moderationNotes
+          }
+        })
+        setCommentModerationNotes(notesMap)
       } else {
         throw new Error(data.error || "Failed to fetch comments")
       }
@@ -517,8 +531,8 @@ export default function AdminCommunityModerationPage() {
     }
   }
 
-  // Handle adding a moderation note
-  const handleAddModerationNote = () => {
+  // Update the handleAddModerationNote function to save notes to the selected comment
+  const handleAddModerationNote = async (commentId?: string) => {
     if (!moderationNote.trim()) {
       toast({
         title: "Error",
@@ -528,12 +542,69 @@ export default function AdminCommunityModerationPage() {
       return
     }
 
-    // In a real implementation, you would save this note to the database
-    toast({
-      title: "Success",
-      description: "Moderation note added",
-    })
-    setModerationNote("")
+    try {
+      if (commentId) {
+        // Save moderation note for a specific comment
+        const response = await fetch(`/api/community/comments/${commentId}/moderation-notes`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            moderationNotes: moderationNote,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to save moderation note")
+        }
+
+        const data = await response.json()
+
+        if (data.success) {
+          // Update the comment in the list with the new moderation note
+          setSelectedPostComments((prevComments) =>
+            prevComments.map((comment) => {
+              if (comment.id === commentId) {
+                return {
+                  ...comment,
+                  moderationNotes: moderationNote,
+                }
+              }
+              return comment
+            }),
+          )
+
+          // Update the notes map
+          setCommentModerationNotes((prev) => ({
+            ...prev,
+            [commentId]: moderationNote,
+          }))
+
+          toast({
+            title: "Success",
+            description: "Moderation note added",
+          })
+        } else {
+          throw new Error(data.error || "Failed to save moderation note")
+        }
+      } else {
+        // For post-level notes (not implemented in the database yet)
+        toast({
+          title: "Success",
+          description: "Moderation note added",
+        })
+      }
+
+      setModerationNote("")
+    } catch (error) {
+      console.error("Error adding moderation note:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add moderation note. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   // Handle resolving a flagged item
@@ -1239,6 +1310,16 @@ export default function AdminCommunityModerationPage() {
                                 )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
+                                  onClick={() => {
+                                    setModerationNote(comment.moderationNotes || "")
+                                    document.getElementById(`moderation-note-${comment.id}`)?.focus()
+                                  }}
+                                >
+                                  <PencilIcon className="h-4 w-4 mr-2" />
+                                  Edit Moderation Note
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
                                   className="text-red-600"
                                   onClick={() => handleDeleteComment(comment.id)}
                                 >
@@ -1249,6 +1330,14 @@ export default function AdminCommunityModerationPage() {
                             </DropdownMenu>
                           </div>
                           <p className="text-gray-700 mb-2">{comment.content}</p>
+                          {comment.moderationNotes && (
+                            <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/10 rounded border border-yellow-200 dark:border-yellow-800">
+                              <p className="text-xs font-medium text-yellow-800 dark:text-yellow-300">
+                                Moderation Note:
+                              </p>
+                              <p className="text-sm text-yellow-700 dark:text-yellow-400">{comment.moderationNotes}</p>
+                            </div>
+                          )}
                           <div className="flex items-center gap-4 text-sm text-gray-500">
                             <div className="flex items-center gap-1">
                               <ThumbsUp className="h-4 w-4" />
@@ -1268,13 +1357,45 @@ export default function AdminCommunityModerationPage() {
 
                 <div className="mt-6 space-y-2">
                   <h4 className="font-medium">Moderation Notes</h4>
-                  <Textarea
-                    placeholder="Add moderation notes about this post..."
-                    value={moderationNote}
-                    onChange={(e) => setModerationNote(e.target.value)}
-                  />
-                  <div className="flex justify-end">
-                    <Button onClick={handleAddModerationNote}>Add Note</Button>
+                  <div className="space-y-4">
+                    {selectedPostComments.map((comment) => (
+                      <div key={comment.id} className="border rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage
+                              src={comment.author.avatar || "/placeholder.svg?height=30&width=30"}
+                              alt={comment.author.name}
+                            />
+                            <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
+                          </Avatar>
+                          <p className="text-sm font-medium">{comment.author.name}</p>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2 line-clamp-1">{comment.content}</p>
+                        <div className="flex gap-2">
+                          <Textarea
+                            id={`moderation-note-${comment.id}`}
+                            placeholder="Add moderation note for this comment..."
+                            className="text-sm"
+                            value={commentModerationNotes[comment.id] || ""}
+                            onChange={(e) =>
+                              setCommentModerationNotes((prev) => ({
+                                ...prev,
+                                [comment.id]: e.target.value,
+                              }))
+                            }
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setModerationNote(commentModerationNotes[comment.id] || "")
+                              handleAddModerationNote(comment.id)
+                            }}
+                          >
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>

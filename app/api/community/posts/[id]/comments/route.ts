@@ -57,6 +57,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
       date: comment.createdAt.toISOString(),
       likes: comment._count?.likes || 0,
       isLiked: likedCommentIds.includes(comment.id),
+      isBestAnswer: (comment as any).isBestAnswer || false,
+      moderationNotes: (comment as any).moderationNotes || null,
     }))
 
     return NextResponse.json({
@@ -124,6 +126,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
       date: comment.createdAt.toISOString(),
       likes: 0,
       isLiked: false,
+      isBestAnswer: (comment as any).isBestAnswer || false,
+      moderationNotes: (comment as any).moderationNotes || null,
     }
 
     return NextResponse.json({

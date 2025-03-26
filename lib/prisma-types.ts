@@ -194,6 +194,8 @@ export interface CommentModel {
   authorId: string
   createdAt: Date
   updatedAt: Date
+  isBestAnswer?: boolean // Add this field
+  moderationNotes?: string | null // Add this field
   post?: PostModel
   author?: UserModel
   likes?: LikeModel[]
