@@ -2,11 +2,12 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { Role } from "@/lib/role"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || (session.user as any).role !== "ADMIN") {
+    if (!session?.user || (session.user as any).role !== Role.ADMIN) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 

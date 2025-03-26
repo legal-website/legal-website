@@ -61,7 +61,7 @@ export default function CommentItem({ comment, onLike, showDebug = false }: Comm
           </div>
 
           {/* Display best answer badge */}
-          {comment.isBestAnswer === true && (
+          {Boolean(comment.isBestAnswer) && (
             <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 flex items-center gap-1">
               <Award className="h-3 w-3" />
               <span>Best Answer</span>
@@ -72,7 +72,7 @@ export default function CommentItem({ comment, onLike, showDebug = false }: Comm
         <p className="mt-2 text-sm">{comment.content}</p>
 
         {/* Display moderation notes if they exist */}
-        {comment.moderationNotes && (
+        {Boolean(comment.moderationNotes) && (
           <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
             <p className="text-xs font-medium text-blue-800 dark:text-blue-300">Moderator Note:</p>
             <p className="text-sm text-blue-700 dark:text-blue-400">{comment.moderationNotes}</p>

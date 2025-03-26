@@ -98,17 +98,13 @@ export default function PostDetail({ params }: { params: { id: string } }) {
         console.log("Comments API response:", data)
 
         if (data.success) {
-          // Log the comments to check if isBestAnswer and moderationNotes are present
-          console.log(
-            "Comments from API:",
-            data.comments.map((c: any) => ({
-              id: c.id,
-              isBestAnswer: c.isBestAnswer,
-              moderationNotes: c.moderationNotes,
-            })),
-          )
-
-          setComments(data.comments)
+          // Ensure isBestAnswer and moderationNotes are properly preserved
+          const processedComments = data.comments.map((comment: any) => ({
+            ...comment,
+            isBestAnswer: comment.isBestAnswer === true,
+            moderationNotes: comment.moderationNotes || null,
+          }))
+          setComments(processedComments)
         } else {
           toast({
             title: "Error",
@@ -357,17 +353,7 @@ export default function PostDetail({ params }: { params: { id: string } }) {
         {comments.length > 0 ? (
           <div className="bg-card rounded-lg shadow-sm divide-y">
             {comments.map((comment) => (
-              <CommentItem
-                key={comment.id}
-                comment={{
-                  ...comment,
-                  // Ensure these fields are explicitly passed
-                  isBestAnswer: comment.isBestAnswer === true,
-                  moderationNotes: comment.moderationNotes || null,
-                }}
-                onLike={handleLikeComment}
-                showDebug={showDebug}
-              />
+              <CommentItem key={comment.id} comment={comment} onLike={handleLikeComment} showDebug={showDebug} />
             ))}
           </div>
         ) : (
