@@ -1162,66 +1162,6 @@ export default function AdminCommunityModerationPage() {
                         </div>
                       </div>
                     )}
-
-                    {flaggedContent.comments.length > 0 && (
-                      <div>
-                        <h3 className="text-lg font-medium mb-3">Flagged Comments</h3>
-                        <div className="space-y-4">
-                          {flaggedContent.comments.map((comment) => (
-                            <div key={comment.id} className="border rounded-lg p-4 bg-red-50 dark:bg-red-900/10">
-                              <div className="flex gap-3">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={comment.author.avatar} alt={comment.author.name} />
-                                  <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <p className="font-medium">{comment.author.name}</p>
-                                      <span className="text-xs text-muted-foreground">{formatDate(comment.date)}</span>
-                                      <Badge variant="destructive" className="flex items-center gap-1">
-                                        <Flag className="h-3 w-3" />
-                                        Flagged ({comment.flagCount})
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                  <p className="text-sm mt-1">{comment.content}</p>
-                                </div>
-                              </div>
-
-                              <div className="mt-4 space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <Textarea
-                                    placeholder="Add moderation note..."
-                                    className="text-sm"
-                                    value={moderationNote}
-                                    onChange={(e) => setModerationNote(e.target.value)}
-                                  />
-                                </div>
-                                <div className="flex items-center justify-end gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleResolveFlagged(comment.id, "comment")}
-                                  >
-                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                    Approve
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={() => handleDeleteComment(comment.id)}
-                                  >
-                                    <XCircle className="h-4 w-4 mr-1" />
-                                    Delete
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </>
                 )}
               </div>
