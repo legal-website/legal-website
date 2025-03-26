@@ -31,7 +31,6 @@ import {
   ChevronDown,
   ChevronUp,
   Heart,
-  Award,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useToast } from "@/components/ui/use-toast"
@@ -48,6 +47,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { CommentItem } from "@/components/comment-item"
 
 interface Author {
   id: string
@@ -883,13 +883,15 @@ export default function CommunityPage() {
                       {posts.map((post) => (
                         <div key={post.id} className="p-6">
                           <div className="flex items-start gap-3">
-                            <Image
-                              src={post.author.avatar || "/placeholder.svg?height=40&width=40"}
-                              alt={post.author.name}
-                              width={40}
-                              height={40}
-                              className="rounded-full"
-                            />
+                            <div className="w-10 h-10 flex-shrink-0">
+                              <Image
+                                src={post.author.avatar || "/placeholder.svg?height=40&width=40"}
+                                alt={post.author.name}
+                                width={40}
+                                height={40}
+                                className="rounded-full w-full h-full object-cover"
+                              />
+                            </div>
                             <div className="flex-1">
                               <h3
                                 className="font-medium text-lg mb-1 cursor-pointer hover:text-primary"
@@ -1299,13 +1301,15 @@ export default function CommunityPage() {
               </DialogHeader>
               <div className="mt-4">
                 <div className="flex items-start gap-3 mb-6">
-                  <Image
-                    src={selectedPost.author.avatar || "/placeholder.svg?height=40&width=40"}
-                    alt={selectedPost.author.name}
-                    width={40}
-                    height={40}
-                    className="rounded-full"
-                  />
+                  <div className="w-10 h-10 flex-shrink-0">
+                    <Image
+                      src={selectedPost.author.avatar || "/placeholder.svg?height=40&width=40"}
+                      alt={selectedPost.author.name}
+                      width={40}
+                      height={40}
+                      className="rounded-full w-full h-full object-cover"
+                    />
+                  </div>
                   <div>
                     <p className="font-medium">{selectedPost.author.name}</p>
                     <p className="text-sm text-gray-500">{formatDate(selectedPost.date)}</p>
@@ -1346,13 +1350,15 @@ export default function CommunityPage() {
 
                   {sessionStatus === "authenticated" && (
                     <div className="flex gap-3 mb-6">
-                      <Image
-                        src={session?.user?.image || "/placeholder.svg?height=40&width=40"}
-                        alt={session?.user?.name || "You"}
-                        width={40}
-                        height={40}
-                        className="rounded-full"
-                      />
+                      <div className="w-10 h-10 flex-shrink-0">
+                        <Image
+                          src={session?.user?.image || "/placeholder.svg?height=40&width=40"}
+                          alt={session?.user?.name || "You"}
+                          width={40}
+                          height={40}
+                          className="rounded-full w-full h-full object-cover"
+                        />
+                      </div>
                       <div className="flex-1">
                         <Textarea
                           placeholder="Add a comment..."
@@ -1387,48 +1393,18 @@ export default function CommunityPage() {
                   ) : postComments.length > 0 ? (
                     <div className="space-y-6">
                       {postComments.map((comment) => (
-                        <div key={comment.id} className="flex gap-3">
-                          <Image
-                            src={comment.author.avatar || "/placeholder.svg?height=32&width=32"}
-                            alt={comment.author.name}
-                            width={32}
-                            height={32}
-                            className="rounded-full flex-shrink-0"
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-medium">{comment.author.name}</p>
-                              <span className="text-xs text-gray-500">{formatDate(comment.date)}</span>
-                              {comment.isBestAnswer && (
-                                <Badge className="bg-yellow-100 text-yellow-800 flex items-center gap-1">
-                                  <Award className="h-3 w-3" />
-                                  <span>Best Answer</span>
-                                </Badge>
-                              )}
-                            </div>
-
-                            {/* Moderator notes ABOVE the comment content */}
-                            {comment.moderationNotes && (
-                              <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
-                                <p className="text-xs font-medium text-blue-800 dark:text-blue-300 flex items-center gap-1">
-                                  <AlertCircle className="h-3 w-3" />
-                                  Moderator Note:
-                                </p>
-                                <p className="text-sm text-blue-700 dark:text-blue-400">{comment.moderationNotes}</p>
-                              </div>
-                            )}
-
-                            <p className="text-gray-700 mb-2">{comment.content}</p>
-
-                            <button
-                              className={`flex items-center gap-1 text-xs ${comment.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
-                              onClick={() => handleLikeComment(comment.id)}
-                            >
-                              <ThumbsUp className="h-3 w-3" />
-                              <span>{comment.likes} Likes</span>
-                            </button>
-                          </div>
-                        </div>
+                        <CommentItem
+                          key={comment.id}
+                          id={comment.id}
+                          content={comment.content}
+                          author={comment.author}
+                          date={comment.date}
+                          likes={comment.likes}
+                          isLiked={comment.isLiked}
+                          isBestAnswer={comment.isBestAnswer}
+                          moderationNotes={comment.moderationNotes}
+                          onLike={handleLikeComment}
+                        />
                       ))}
                     </div>
                   ) : (
