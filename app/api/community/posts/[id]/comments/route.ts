@@ -2,67 +2,67 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { v4 as uuidv4 } from "uuid"
 
-// Update the GET function to handle possibly undefined values
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const postId = params.id
 
-    // Get the comments with author and like count
-    const comments = await db.comment.findMany({
-      where: { postId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
-        },
-        _count: {
-          select: { likes: true },
-        },
-      },
-    })
+    // Get all comments for the post with author info
+    const commentsResult = await db.$queryRawUnsafe(
+      `
+      SELECT 
+        c.*,
+        u.id as authorId,
+        u.name as authorName,
+        u.image as authorImage,
+        (SELECT COUNT(*) FROM "Like" WHERE commentId = c.id) as likeCount
+      FROM "Comment" c
+      LEFT JOIN "User" u ON c.authorId = u.id
+      WHERE c.postId = ?
+      ORDER BY c.createdAt DESC
+    `,
+      postId,
+    )
 
-    // Check if current user has liked any comments
+    // Check if current user has liked any of the comments
     const session = await getServerSession(authOptions)
-    let likedCommentIds: string[] = []
+    let userLikes: Record<string, boolean> = {}
 
-    if (session?.user && comments.length > 0) {
-      const commentLikes = await db.like.findMany({
-        where: {
-          commentId: {
-            in: comments.map((comment) => comment.id),
-          },
-          authorId: (session.user as any).id,
-        },
-        select: {
-          commentId: true,
-        },
-      })
-      likedCommentIds = commentLikes.map((like) => like.commentId).filter(Boolean) as string[]
+    if (session?.user) {
+      const likesResult = await db.$queryRawUnsafe(
+        `
+        SELECT commentId FROM "Like"
+        WHERE authorId = ? AND commentId IS NOT NULL
+      `,
+        (session.user as any).id,
+      )
+
+      if (likesResult && likesResult.length > 0) {
+        userLikes = likesResult.reduce((acc: Record<string, boolean>, like: any) => {
+          acc[like.commentId] = true
+          return acc
+        }, {})
+      }
     }
 
-    // Format the comments for response
-    const formattedComments = comments.map((comment) => ({
+    // Format comments for response
+    const formattedComments = commentsResult.map((comment: any) => ({
       id: comment.id,
       content: comment.content,
       author: {
-        id: comment.author?.id || "",
-        name: comment.author?.name || "Unknown",
-        avatar: comment.author?.image || `/placeholder.svg?height=40&width=40`,
+        id: comment.authorId || "",
+        name: comment.authorName || "Unknown",
+        avatar: comment.authorImage || `/placeholder.svg?height=40&width=40`,
       },
-      date: comment.createdAt.toISOString(),
-      likes: comment._count?.likes || 0,
-      isLiked: likedCommentIds.includes(comment.id),
-      // Include these fields from the database
+      date: comment.createdAt,
+      likes: Number.parseInt(comment.likeCount) || 0,
+      isLiked: userLikes[comment.id] || false,
       isBestAnswer: comment.isBestAnswer || false,
       moderationNotes: comment.moderationNotes || null,
     }))
 
-    console.log("Formatted comments with best answer status:", formattedComments)
+    console.log("Formatted comments:", formattedComments)
 
     return NextResponse.json({
       success: true,
@@ -74,7 +74,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-// Update the POST function to handle possibly undefined values
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
@@ -83,50 +82,53 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
 
     const postId = params.id
-    const body = await request.json()
-    const { content } = body
+    const { content } = await request.json()
 
-    if (!content) {
+    if (!content || content.trim() === "") {
       return NextResponse.json({ success: false, error: "Comment content is required" }, { status: 400 })
     }
 
     // Check if post exists
-    const post = await db.post.findUnique({
-      where: { id: postId },
-    })
+    const postResult = await db.$queryRawUnsafe(
+      `
+      SELECT * FROM "Post" WHERE id = ?
+    `,
+      postId,
+    )
 
-    if (!post) {
+    if (!postResult || postResult.length === 0) {
       return NextResponse.json({ success: false, error: "Post not found" }, { status: 404 })
     }
 
     // Create the comment
-    const comment = await db.comment.create({
-      data: {
-        content,
-        postId,
-        authorId: (session.user as any).id,
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
-        },
-      },
-    })
+    const commentId = uuidv4()
+    const now = new Date().toISOString()
 
-    // Format the comment for response
-    const formattedComment = {
-      id: comment.id,
-      content: comment.content,
+    await db.$executeRawUnsafe(
+      `
+      INSERT INTO "Comment" (id, content, authorId, postId, createdAt, updatedAt, isBestAnswer, moderationNotes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+      commentId,
+      content,
+      (session.user as any).id,
+      postId,
+      now,
+      now,
+      false, // Initialize isBestAnswer as false
+      null, // Initialize moderationNotes as null
+    )
+
+    // Format the new comment for response
+    const comment = {
+      id: commentId,
+      content,
       author: {
-        id: comment.author?.id || "",
-        name: comment.author?.name || "Unknown",
-        avatar: comment.author?.image || `/placeholder.svg?height=40&width=40`,
+        id: (session.user as any).id,
+        name: session.user.name || "Unknown",
+        avatar: session.user.image || `/placeholder.svg?height=40&width=40`,
       },
-      date: comment.createdAt.toISOString(),
+      date: now,
       likes: 0,
       isLiked: false,
       isBestAnswer: false,
@@ -135,7 +137,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     return NextResponse.json({
       success: true,
-      comment: formattedComment,
+      comment,
     })
   } catch (error) {
     console.error("Error creating comment:", error)
