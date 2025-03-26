@@ -47,6 +47,24 @@ export default function PostDetail({ params }: { params: { id: string } }) {
   const [newComment, setNewComment] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [showDebug, setShowDebug] = useState(false)
+
+  useEffect(() => {
+    // Check if user is admin (this is a simple check, you might want to improve it)
+    const checkIfAdmin = async () => {
+      try {
+        const response = await fetch("/api/auth/me")
+        const data = await response.json()
+        if (data.success && data.user && data.user.role === "ADMIN") {
+          setShowDebug(true)
+        }
+      } catch (error) {
+        console.error("Error checking user role:", error)
+      }
+    }
+
+    checkIfAdmin()
+  }, [])
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -80,6 +98,16 @@ export default function PostDetail({ params }: { params: { id: string } }) {
         console.log("Comments API response:", data)
 
         if (data.success) {
+          // Log the comments to check if isBestAnswer and moderationNotes are present
+          console.log(
+            "Comments from API:",
+            data.comments.map((c: any) => ({
+              id: c.id,
+              isBestAnswer: c.isBestAnswer,
+              moderationNotes: c.moderationNotes,
+            })),
+          )
+
           setComments(data.comments)
         } else {
           toast({
@@ -241,7 +269,16 @@ export default function PostDetail({ params }: { params: { id: string } }) {
   }
 
   // Check if there's a best answer among the comments
-  const hasBestAnswer = comments.some((comment) => comment.isBestAnswer)
+  const hasBestAnswer = comments.some((comment) => comment.isBestAnswer === true)
+
+  // Log if we have any best answers
+  console.log("Has best answer:", hasBestAnswer)
+  if (hasBestAnswer) {
+    console.log(
+      "Best answer comments:",
+      comments.filter((c) => c.isBestAnswer === true),
+    )
+  }
 
   return (
     <div className="container max-w-4xl py-8">
@@ -320,7 +357,17 @@ export default function PostDetail({ params }: { params: { id: string } }) {
         {comments.length > 0 ? (
           <div className="bg-card rounded-lg shadow-sm divide-y">
             {comments.map((comment) => (
-              <CommentItem key={comment.id} comment={comment} onLike={handleLikeComment} />
+              <CommentItem
+                key={comment.id}
+                comment={{
+                  ...comment,
+                  // Ensure these fields are explicitly passed
+                  isBestAnswer: comment.isBestAnswer === true,
+                  moderationNotes: comment.moderationNotes || null,
+                }}
+                onLike={handleLikeComment}
+                showDebug={showDebug}
+              />
             ))}
           </div>
         ) : (

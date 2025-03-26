@@ -5,6 +5,7 @@ import { ThumbsUp, Award } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import DebugButton from "./debug-button"
 
 interface Author {
   id: string
@@ -26,9 +27,10 @@ interface Comment {
 interface CommentItemProps {
   comment: Comment
   onLike: (commentId: string) => void
+  showDebug?: boolean
 }
 
-export default function CommentItem({ comment, onLike }: CommentItemProps) {
+export default function CommentItem({ comment, onLike, showDebug = false }: CommentItemProps) {
   const formatDate = (dateString: string) => {
     try {
       return formatDistanceToNow(new Date(dateString), { addSuffix: true })
@@ -37,23 +39,32 @@ export default function CommentItem({ comment, onLike }: CommentItemProps) {
     }
   }
 
+  // Log the comment to check if isBestAnswer and moderationNotes are present
+  console.log("Comment in CommentItem:", {
+    id: comment.id,
+    isBestAnswer: comment.isBestAnswer,
+    moderationNotes: comment.moderationNotes,
+  })
+
   return (
-    <div className="flex gap-4 py-4 px-6">
+    <div className="flex gap-4 py-4 px-6 border-b last:border-0">
       <Avatar className="h-10 w-10">
         <AvatarImage src={comment.author.avatar || "/api/placeholder?height=40&width=40"} alt={comment.author.name} />
         <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
       </Avatar>
       <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{comment.author.name}</span>
-          <span className="text-xs text-muted-foreground">•</span>
-          <span className="text-xs text-muted-foreground">{formatDate(comment.date)}</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{comment.author.name}</span>
+            <span className="text-xs text-muted-foreground">•</span>
+            <span className="text-xs text-muted-foreground">{formatDate(comment.date)}</span>
+          </div>
 
           {/* Display best answer badge */}
-          {comment.isBestAnswer && (
-            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 ml-auto flex items-center gap-1">
+          {comment.isBestAnswer === true && (
+            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 flex items-center gap-1">
               <Award className="h-3 w-3" />
-              Best Answer
+              <span>Best Answer</span>
             </Badge>
           )}
         </div>
@@ -78,6 +89,8 @@ export default function CommentItem({ comment, onLike }: CommentItemProps) {
             <ThumbsUp className="h-4 w-4" />
             <span>{comment.likes}</span>
           </Button>
+
+          {showDebug && <DebugButton commentId={comment.id} />}
         </div>
       </div>
     </div>

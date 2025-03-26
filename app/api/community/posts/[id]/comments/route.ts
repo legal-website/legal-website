@@ -8,7 +8,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const postId = params.id
     console.log("Fetching comments for post:", postId)
 
-    // Use Prisma instead of raw SQL to avoid potential SQL errors
+    // Use Prisma to get comments with all fields
     const comments = await db.comment.findMany({
       where: { postId },
       orderBy: { createdAt: "desc" },
@@ -27,6 +27,16 @@ export async function GET(request: Request, { params }: { params: { id: string }
     })
 
     console.log(`Found ${comments.length} comments`)
+
+    // Log the raw comments to check if isBestAnswer and moderationNotes are present
+    console.log(
+      "Raw comments data:",
+      comments.map((c) => ({
+        id: c.id,
+        isBestAnswer: c.isBestAnswer,
+        moderationNotes: c.moderationNotes,
+      })),
+    )
 
     // Check if current user has liked any comments
     const session = await getServerSession(authOptions)
@@ -54,18 +64,25 @@ export async function GET(request: Request, { params }: { params: { id: string }
       author: {
         id: comment.author?.id || "",
         name: comment.author?.name || "Unknown",
-        // Use relative path for placeholder image
         avatar: comment.author?.image || `/api/placeholder?height=40&width=40`,
       },
       date: comment.createdAt.toISOString(),
       likes: comment._count?.likes || 0,
       isLiked: likedCommentIds.includes(comment.id),
-      // Include these fields from the database
-      isBestAnswer: comment.isBestAnswer || false,
+      // Explicitly include these fields
+      isBestAnswer: comment.isBestAnswer === true,
       moderationNotes: comment.moderationNotes || null,
     }))
 
-    console.log("Formatted comments:", formattedComments.length)
+    // Log the formatted comments to check if isBestAnswer and moderationNotes are included
+    console.log(
+      "Formatted comments:",
+      formattedComments.map((c) => ({
+        id: c.id,
+        isBestAnswer: c.isBestAnswer,
+        moderationNotes: c.moderationNotes,
+      })),
+    )
 
     return NextResponse.json({
       success: true,
@@ -128,7 +145,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       author: {
         id: comment.author?.id || "",
         name: comment.author?.name || "Unknown",
-        // Use relative path for placeholder image
         avatar: comment.author?.image || `/api/placeholder?height=40&width=40`,
       },
       date: comment.createdAt.toISOString(),
