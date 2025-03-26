@@ -68,6 +68,7 @@ interface Post {
   isOwnPost?: boolean
 }
 
+// Update the Comment interface to include isBestAnswer and moderationNotes
 interface Comment {
   id: string
   content: string
@@ -75,6 +76,8 @@ interface Comment {
   date: string
   likes: number
   isLiked: boolean
+  isBestAnswer?: boolean
+  moderationNotes?: string | null
 }
 
 interface TagWithCount {
@@ -340,8 +343,10 @@ export default function CommunityPage() {
         }
 
         const data = await response.json()
+        console.log("Fetched comments data:", data)
 
         if (data.success) {
+          // Ensure we're preserving all properties from the API response
           setPostComments(data.comments || [])
         } else {
           throw new Error(data.error || "Failed to fetch comments")
@@ -1393,8 +1398,17 @@ export default function CommunityPage() {
                             <div className="flex items-center gap-2 mb-1">
                               <p className="font-medium">{comment.author.name}</p>
                               <span className="text-xs text-gray-500">{formatDate(comment.date)}</span>
+                              {comment.isBestAnswer && (
+                                <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Best Answer</Badge>
+                              )}
                             </div>
                             <p className="text-gray-700 mb-2">{comment.content}</p>
+                            {comment.moderationNotes && (
+                              <div className="bg-blue-50 p-2 rounded-md mb-2 text-sm">
+                                <p className="font-medium text-blue-800">Moderator Note:</p>
+                                <p className="text-blue-700">{comment.moderationNotes}</p>
+                              </div>
+                            )}
                             <button
                               className={`flex items-center gap-1 text-xs ${comment.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
                               onClick={() => handleLikeComment(comment.id)}

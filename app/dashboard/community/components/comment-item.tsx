@@ -13,6 +13,7 @@ interface Author {
   avatar: string | null
 }
 
+// Update the comment interface to ensure proper typing
 interface Comment {
   id: string
   content: string
@@ -55,6 +56,7 @@ export default function CommentItem({ comment, onLike, showDebug = false }: Comm
     comment.moderationNotes && comment.moderationNotes !== "null" && comment.moderationNotes !== "",
   )
 
+  // Replace the existing return statement with this updated version that properly handles the values
   return (
     <div className="flex gap-4 py-4 px-6 border-b last:border-0">
       <Avatar className="h-10 w-10">
@@ -69,8 +71,7 @@ export default function CommentItem({ comment, onLike, showDebug = false }: Comm
             <span className="text-xs text-muted-foreground">{formatDate(comment.date)}</span>
           </div>
 
-          {/* Display best answer badge - using the boolean variable */}
-          {isBestAnswer && (
+          {comment.isBestAnswer && (
             <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 flex items-center gap-1">
               <Award className="h-3 w-3" />
               <span>Best Answer</span>
@@ -80,8 +81,7 @@ export default function CommentItem({ comment, onLike, showDebug = false }: Comm
 
         <p className="mt-2 text-sm">{comment.content}</p>
 
-        {/* Display moderation notes if they exist - using the boolean variable */}
-        {hasModeratorNotes && (
+        {comment.moderationNotes && (
           <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
             <p className="text-xs font-medium text-blue-800 dark:text-blue-300">Moderator Note:</p>
             <p className="text-sm text-blue-700 dark:text-blue-400">{comment.moderationNotes}</p>
