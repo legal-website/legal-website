@@ -11,10 +11,14 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if user is admin or support
-    const isAdmin = (session.user as any).role === Role.ADMIN || (session.user as any).role === Role.SUPPORT
-    if (!isAdmin) {
-      return NextResponse.json({ success: false, error: "Only admins can add moderation notes" }, { status: 403 })
+    // Check if user is an admin or support
+    const userRole = (session.user as any).role
+    const isAuthorized = userRole === Role.ADMIN || userRole === Role.SUPPORT
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { success: false, error: "Only admins and support staff can add moderation notes" },
+        { status: 403 },
+      )
     }
 
     const commentId = params.id
@@ -25,28 +29,53 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ success: false, error: "Moderation notes are required" }, { status: 400 })
     }
 
-    console.log(`Updating moderation notes for comment ${commentId}:`, moderationNotes)
+    // Get the existing comment
+    const existingComment = await db.comment.findUnique({
+      where: { id: commentId },
+    })
+
+    if (!existingComment) {
+      return NextResponse.json({ success: false, error: "Comment not found" }, { status: 404 })
+    }
 
     // Update the comment with moderation notes
     const updatedComment = await db.comment.update({
       where: { id: commentId },
       data: {
-        moderationNotes: moderationNotes,
+        moderationNotes,
       },
     })
 
-    console.log("Comment updated successfully:", updatedComment)
-
     return NextResponse.json({
       success: true,
-      comment: {
-        id: updatedComment.id,
-        moderationNotes: updatedComment.moderationNotes,
-      },
+      comment: updatedComment,
     })
   } catch (error) {
     console.error("Error updating moderation notes:", error)
     return NextResponse.json({ success: false, error: "Failed to update moderation notes" }, { status: 500 })
+  }
+}
+
+export async function GET(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const commentId = params.id
+
+    // Get the comment with moderation notes
+    const comment = await db.comment.findUnique({
+      where: { id: commentId },
+    })
+
+    if (!comment) {
+      return NextResponse.json({ success: false, error: "Comment not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      moderationNotes: comment.moderationNotes,
+    })
+  } catch (error) {
+    console.error("Error fetching moderation notes:", error)
+    return NextResponse.json({ success: false, error: "Failed to fetch moderation notes" }, { status: 500 })
   }
 }
 

@@ -86,6 +86,7 @@ interface Comment {
   flagged?: boolean
   flagCount?: number
   moderationNotes?: string
+  postId?: string
 }
 
 interface CommunityTag {
@@ -145,6 +146,9 @@ export default function AdminCommunityModerationPage() {
     comments: [],
   })
   const [activeTab, setActiveTab] = useState("all")
+  // Add this state at the top with other state variables
+  const [bestAnswers, setBestAnswers] = useState<Comment[]>([])
+  const [loadingBestAnswers, setLoadingBestAnswers] = useState(false)
 
   // Fetch posts
   const fetchPosts = async (searchQuery = searchTerm) => {
@@ -233,21 +237,23 @@ export default function AdminCommunityModerationPage() {
       }
 
       const data = await response.json()
+      console.log("Fetched comments data:", data)
 
       if (data.success) {
-        // Add mock best answer data for demonstration
-        const commentsWithBestAnswer = data.comments.map((comment: Comment, index: number) => ({
+        // Use the isBestAnswer and moderationNotes from the API response
+        // instead of mocking them
+        const commentsWithFlags = data.comments.map((comment: Comment, index: number) => ({
           ...comment,
-          isBestAnswer: index === 1, // Make the second comment the best answer for demo
+          // Only add flagged status for demo, keep the real isBestAnswer and moderationNotes
           flagged: index === 3, // Flag the 4th comment for demo
           flagCount: index === 3 ? 2 : 0,
         }))
 
-        setSelectedPostComments(commentsWithBestAnswer || [])
+        setSelectedPostComments(commentsWithFlags || [])
 
         // Initialize the comment moderation notes map
         const notesMap: Record<string, string> = {}
-        commentsWithBestAnswer.forEach((comment: Comment) => {
+        commentsWithFlags.forEach((comment: Comment) => {
           if (comment.moderationNotes) {
             notesMap[comment.id] = comment.moderationNotes
           }
@@ -280,6 +286,37 @@ export default function AdminCommunityModerationPage() {
       }
     } catch (error) {
       console.error("Error fetching tags:", error)
+    }
+  }
+
+  // Add this function to fetch best answers
+  const fetchBestAnswers = async () => {
+    if (activeTab !== "best-answers") return
+
+    try {
+      setLoadingBestAnswers(true)
+      const response = await fetch("/api/community/best-answers")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch best answers")
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        setBestAnswers(data.bestAnswers)
+      } else {
+        throw new Error(data.error || "Failed to fetch best answers")
+      }
+    } catch (error) {
+      console.error("Error fetching best answers:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load best answers. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingBestAnswers(false)
     }
   }
 
@@ -663,6 +700,13 @@ export default function AdminCommunityModerationPage() {
 
     return () => clearInterval(refreshInterval)
   }, [searchParams])
+
+  // Add this effect to fetch best answers when the tab changes
+  useEffect(() => {
+    if (activeTab === "best-answers") {
+      fetchBestAnswers()
+    }
+  }, [activeTab])
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -1192,17 +1236,74 @@ export default function AdminCommunityModerationPage() {
               <CardDescription>Manage and review best answers across the community</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {/* This would be populated with actual best answers from your database */}
+              {loadingBestAnswers ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : bestAnswers.length > 0 ? (
+                <div className="space-y-6">
+                  {bestAnswers.map((comment) => (
+                    <div key={comment.id} className="border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/10">
+                      <div className="flex items-start gap-4">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage
+                            src={comment.author.avatar || "/placeholder.svg?height=40&width=40"}
+                            alt={comment.author.name}
+                          />
+                          <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{comment.author.name}</p>
+                              <p className="text-xs text-muted-foreground">{formatDate(comment.date)}</p>
+                            </div>
+                            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                              <Award className="h-3 w-3 mr-1" />
+                              Best Answer
+                            </Badge>
+                          </div>
+                          <div className="mt-2">
+                            <p className="text-sm">{comment.content}</p>
+                          </div>
+                          {comment.moderationNotes && (
+                            <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
+                              <p className="text-xs font-medium text-blue-800 dark:text-blue-300">Moderation Note:</p>
+                              <p className="text-sm text-blue-700 dark:text-blue-400">{comment.moderationNotes}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-4 flex justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (comment.postId) {
+                              // Find the post and open the comments dialog
+                              const post = posts.find((p) => p.id === comment.postId)
+                              if (post) {
+                                handleViewComments(post)
+                              }
+                            }
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View Post
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
                 <div className="text-center py-8">
                   <Award className="h-12 w-12 mx-auto mb-3 text-yellow-500" />
-                  <p className="text-lg font-medium">Best Answers Management</p>
-                  <p className="text-muted-foreground mb-4">View and manage best answers from the community</p>
-                  <p className="text-sm text-muted-foreground">
-                    To mark a comment as a best answer, view a post and select the best answer from the comments.
+                  <p className="text-lg font-medium">No Best Answers Yet</p>
+                  <p className="text-muted-foreground mb-4">
+                    Mark helpful comments as best answers to help other users find solutions quickly.
                   </p>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

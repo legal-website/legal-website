@@ -57,9 +57,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
       date: comment.createdAt.toISOString(),
       likes: comment._count?.likes || 0,
       isLiked: likedCommentIds.includes(comment.id),
-      isBestAnswer: (comment as any).isBestAnswer || false,
-      moderationNotes: (comment as any).moderationNotes || null,
+      // Include these fields from the database
+      isBestAnswer: comment.isBestAnswer || false,
+      moderationNotes: comment.moderationNotes || null,
     }))
+
+    console.log("Formatted comments with best answer status:", formattedComments)
 
     return NextResponse.json({
       success: true,
@@ -126,8 +129,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
       date: comment.createdAt.toISOString(),
       likes: 0,
       isLiked: false,
-      isBestAnswer: (comment as any).isBestAnswer || false,
-      moderationNotes: (comment as any).moderationNotes || null,
+      isBestAnswer: false,
+      moderationNotes: null,
     }
 
     return NextResponse.json({

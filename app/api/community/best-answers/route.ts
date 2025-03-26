@@ -22,48 +22,50 @@ export async function GET(request: Request) {
         isBestAnswer: true,
       },
       include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
+        },
         post: {
           select: {
+            id: true,
             title: true,
           },
         },
-        author: {
-          select: {
-            name: true,
-          },
-        },
+      },
+      orderBy: {
+        updatedAt: "desc",
       },
     })
 
-    // Get all comments with moderation notes
-    const moderatedComments = await db.comment.findMany({
-      where: {
-        NOT: {
-          moderationNotes: null,
-        },
+    // Format the best answers for response
+    const formattedBestAnswers = bestAnswers.map((comment) => ({
+      id: comment.id,
+      content: comment.content,
+      postId: comment.postId,
+      author: {
+        id: comment.author?.id || "",
+        name: comment.author?.name || "Unknown",
+        avatar: comment.author?.image || `/placeholder.svg?height=40&width=40`,
       },
-      include: {
-        post: {
-          select: {
-            title: true,
-          },
-        },
-        author: {
-          select: {
-            name: true,
-          },
-        },
+      post: {
+        id: comment.post?.id || "",
+        title: comment.post?.title || "Unknown Post",
       },
-    })
+      date: comment.createdAt.toISOString(),
+      moderationNotes: comment.moderationNotes || null,
+    }))
 
     return NextResponse.json({
       success: true,
-      bestAnswers,
-      moderatedComments,
+      bestAnswers: formattedBestAnswers,
     })
   } catch (error) {
-    console.error("Error fetching debug data:", error)
-    return NextResponse.json({ success: false, error: "Failed to fetch debug data" }, { status: 500 })
+    console.error("Error fetching best answers:", error)
+    return NextResponse.json({ success: false, error: "Failed to fetch best answers" }, { status: 500 })
   }
 }
 
