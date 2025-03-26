@@ -1399,7 +1399,7 @@ export default function CommunityPage() {
                               <p className="font-medium">{comment.author.name}</p>
                               <span className="text-xs text-gray-500">{formatDate(comment.date)}</span>
                               {comment.isBestAnswer && (
-                                <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Best Answer</Badge>
+                                <Badge className="bg-yellow-100 text-yellow-800 hover:bg-green-200">Best Answer</Badge>
                               )}
                             </div>
                             <p className="text-gray-700 mb-2">{comment.content}</p>
