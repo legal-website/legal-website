@@ -1,7 +1,7 @@
 "use client"
 
 import { formatDistanceToNow } from "date-fns"
-import { ThumbsUp, Award } from "lucide-react"
+import { ThumbsUp, Award, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -64,14 +64,14 @@ export default function CommentItem({ comment, onLike, showDebug = false }: Comm
         <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
       </Avatar>
       <div className="flex-1">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <span className="font-medium">{comment.author.name}</span>
             <span className="text-xs text-muted-foreground">•</span>
             <span className="text-xs text-muted-foreground">{formatDate(comment.date)}</span>
           </div>
 
-          {comment.isBestAnswer && (
+          {isBestAnswer && (
             <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 flex items-center gap-1">
               <Award className="h-3 w-3" />
               <span>Best Answer</span>
@@ -79,14 +79,18 @@ export default function CommentItem({ comment, onLike, showDebug = false }: Comm
           )}
         </div>
 
-        <p className="mt-2 text-sm">{comment.content}</p>
-
-        {comment.moderationNotes && (
-          <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
-            <p className="text-xs font-medium text-blue-800 dark:text-blue-300">Moderator Note:</p>
+        {/* Moderator notes ABOVE the comment content */}
+        {hasModeratorNotes && (
+          <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
+            <p className="text-xs font-medium text-blue-800 dark:text-blue-300 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              Moderator Note:
+            </p>
             <p className="text-sm text-blue-700 dark:text-blue-400">{comment.moderationNotes}</p>
           </div>
         )}
+
+        <p className="text-sm">{comment.content}</p>
 
         <div className="mt-2 flex items-center gap-2">
           <Button
