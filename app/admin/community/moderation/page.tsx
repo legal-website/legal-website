@@ -50,6 +50,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+// Add this import at the top
+import { DebugButton } from "./debug-button"
 
 interface Post {
   id: string
@@ -440,25 +442,26 @@ export default function AdminCommunityModerationPage() {
     if (!selectedPostForComments) return
 
     try {
-      // In a real implementation, you would call your API to update the comment
-      // For now, we'll simulate the API call and update the UI
+      // Make the actual API call to mark as best answer
+      const response = await fetch(`/api/community/comments/${commentId}/best-answer`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          postId: selectedPostForComments.id,
+          isBestAnswer: true,
+        }),
+      })
 
-      // This would be your actual API call:
-      // const response = await fetch(`/api/community/comments/${commentId}/best-answer`, {
-      //   method: "PUT",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify({
-      //     postId: selectedPostForComments.id,
-      //     isBestAnswer: true
-      //   }),
-      // })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to mark best answer")
+      }
 
-      // Simulate successful API response
-      const success = true
+      const data = await response.json()
 
-      if (success) {
+      if (data.success) {
         // Update the comments list to mark this comment as best answer and unmark others
         setSelectedPostComments((prevComments) =>
           prevComments.map((comment) => ({
@@ -472,13 +475,13 @@ export default function AdminCommunityModerationPage() {
           description: "Comment marked as best answer",
         })
       } else {
-        throw new Error("Failed to mark best answer")
+        throw new Error(data.error || "Failed to mark best answer")
       }
     } catch (error) {
       console.error("Error marking best answer:", error)
       toast({
         title: "Error",
-        description: "Failed to mark best answer. Please try again.",
+        description: typeof error === "string" ? error : "Failed to mark best answer. Please try again.",
         variant: "destructive",
       })
     }
@@ -486,26 +489,29 @@ export default function AdminCommunityModerationPage() {
 
   // Handle removing best answer status
   const handleRemoveBestAnswer = async (commentId: string) => {
+    if (!selectedPostForComments) return
+
     try {
-      // In a real implementation, you would call your API to update the comment
-      // For now, we'll simulate the API call and update the UI
+      // Make the actual API call to unmark as best answer
+      const response = await fetch(`/api/community/comments/${commentId}/best-answer`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          postId: selectedPostForComments.id,
+          isBestAnswer: false,
+        }),
+      })
 
-      // This would be your actual API call:
-      // const response = await fetch(`/api/community/comments/${commentId}/best-answer`, {
-      //   method: "PUT",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify({
-      //     postId: selectedPostForComments?.id,
-      //     isBestAnswer: false
-      //   }),
-      // })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to remove best answer status")
+      }
 
-      // Simulate successful API response
-      const success = true
+      const data = await response.json()
 
-      if (success) {
+      if (data.success) {
         // Update the comments list to unmark this comment as best answer
         setSelectedPostComments((prevComments) =>
           prevComments.map((comment) => ({
@@ -519,13 +525,13 @@ export default function AdminCommunityModerationPage() {
           description: "Best answer status removed",
         })
       } else {
-        throw new Error("Failed to remove best answer status")
+        throw new Error(data.error || "Failed to remove best answer status")
       }
     } catch (error) {
       console.error("Error removing best answer status:", error)
       toast({
         title: "Error",
-        description: "Failed to remove best answer status. Please try again.",
+        description: typeof error === "string" ? error : "Failed to remove best answer status. Please try again.",
         variant: "destructive",
       })
     }
@@ -544,6 +550,8 @@ export default function AdminCommunityModerationPage() {
 
     try {
       if (commentId) {
+        console.log(`Saving moderation note for comment ${commentId}:`, moderationNote)
+
         // Save moderation note for a specific comment
         const response = await fetch(`/api/community/comments/${commentId}/moderation-notes`, {
           method: "PUT",
@@ -556,12 +564,15 @@ export default function AdminCommunityModerationPage() {
         })
 
         if (!response.ok) {
-          throw new Error("Failed to save moderation note")
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to save moderation note")
         }
 
         const data = await response.json()
 
         if (data.success) {
+          console.log("Moderation note saved successfully:", data)
+
           // Update the comment in the list with the new moderation note
           setSelectedPostComments((prevComments) =>
             prevComments.map((comment) => {
@@ -601,7 +612,7 @@ export default function AdminCommunityModerationPage() {
       console.error("Error adding moderation note:", error)
       toast({
         title: "Error",
-        description: "Failed to add moderation note. Please try again.",
+        description: typeof error === "string" ? error : "Failed to add moderation note. Please try again.",
         variant: "destructive",
       })
     }
@@ -744,9 +755,11 @@ export default function AdminCommunityModerationPage() {
 
   return (
     <div className="container mx-auto py-6 px-4 md:px-6 mb-20">
+      {/* Then in the header section of the page: */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <h1 className="text-3xl font-bold">Community Moderation</h1>
         <div className="flex flex-wrap gap-2">
+          <DebugButton />
           <Button
             onClick={backgroundRefresh}
             variant="outline"
