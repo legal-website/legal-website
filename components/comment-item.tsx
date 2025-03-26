@@ -45,20 +45,20 @@ export function CommentItem({
 
   return (
     <div className="relative">
-      {/* Best Answer Badge - Positioned at the very top */}
-      {isBestAnswer && (
-        <div className="mb-2 py-1 px-2 bg-yellow-50 border border-yellow-200 rounded-md flex items-center gap-1 w-fit">
-          <Award className="h-3.5 w-3.5 text-yellow-600" />
-          <span className="text-xs font-medium text-yellow-800">Best Answer</span>
-        </div>
-      )}
-
       {/* Moderator Notes - Positioned as a header */}
       {moderationNotes && (
         <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/10 rounded-md border border-blue-200 dark:border-blue-800">
-          <div className="flex items-center gap-1 mb-1">
-            <AlertCircle className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-            <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Moderator Note:</p>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1">
+              <AlertCircle className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Moderator Note:</p>
+            </div>
+            {isBestAnswer && (
+              <div className="py-1 px-2 bg-yellow-50 border border-yellow-200 rounded-md flex items-center gap-1 w-fit">
+                <Award className="h-3.5 w-3.5 text-yellow-600" />
+                <span className="text-xs font-medium text-yellow-800">Best Answer</span>
+              </div>
+            )}
           </div>
           <p className="text-sm text-blue-700 dark:text-blue-400">{moderationNotes}</p>
         </div>

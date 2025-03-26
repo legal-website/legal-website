@@ -1350,14 +1350,20 @@ export default function CommunityPage() {
 
                   {sessionStatus === "authenticated" && (
                     <div className="flex gap-3 mb-6">
-                      <div className="w-10 h-10 flex-shrink-0">
-                        <Image
-                          src={session?.user?.image || "/placeholder.svg?height=40&width=40"}
-                          alt={session?.user?.name || "You"}
-                          width={40}
-                          height={40}
-                          className="rounded-full w-full h-full object-cover"
-                        />
+                      <div className="w-10 h-10 flex-shrink-0 overflow-hidden rounded-full">
+                        {session?.user?.image ? (
+                          <Image
+                            src={session.user.image || "/placeholder.svg"}
+                            alt={session?.user?.name || "You"}
+                            width={40}
+                            height={40}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">
+                            {session?.user?.name?.charAt(0) || "U"}
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1">
                         <Textarea
