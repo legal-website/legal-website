@@ -44,7 +44,7 @@ export function CommentItem({
   }
 
   return (
-    <div className="relative">
+    <div className={`relative ${isBestAnswer ? "bg-yellow-50/30 p-3 rounded-lg border border-yellow-100" : ""}`}>
       {/* Moderator Notes - Positioned as a header */}
       {moderationNotes && (
         <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/10 rounded-md border border-blue-200 dark:border-blue-800">
@@ -61,6 +61,14 @@ export function CommentItem({
             )}
           </div>
           <p className="text-sm text-blue-700 dark:text-blue-400">{moderationNotes}</p>
+        </div>
+      )}
+
+      {/* Best Answer Badge (when no moderator notes) */}
+      {isBestAnswer && !moderationNotes && (
+        <div className="mb-3 py-1 px-2 bg-yellow-50 border border-yellow-200 rounded-md flex items-center gap-1 w-fit">
+          <Award className="h-3.5 w-3.5 text-yellow-600" />
+          <span className="text-xs font-medium text-yellow-800">Best Answer</span>
         </div>
       )}
 

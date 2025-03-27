@@ -134,6 +134,18 @@ export default function CommunityPage() {
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Helper function to sort comments (Best Answer first)
+  const sortComments = (comments: Comment[]) => {
+    return [...comments].sort((a, b) => {
+      // Best Answer comments come first
+      if (a.isBestAnswer && !b.isBestAnswer) return -1
+      if (!a.isBestAnswer && b.isBestAnswer) return 1
+
+      // If both are best answers or neither are, sort by date (newest first)
+      return new Date(b.date).getTime() - new Date(a.date).getTime()
+    })
+  }
+
   // Debug log fetch results
   useEffect(() => {
     const logFetchResults = async () => {
@@ -348,15 +360,7 @@ export default function CommunityPage() {
 
         if (data.success) {
           // Sort comments to show "Best Answer" at the top
-          const sortedComments = [...(data.comments || [])].sort((a, b) => {
-            // Best Answer comments come first
-            if (a.isBestAnswer && !b.isBestAnswer) return -1
-            if (!a.isBestAnswer && b.isBestAnswer) return 1
-
-            // If both are best answers or neither are, sort by date (newest first)
-            return new Date(b.date).getTime() - new Date(a.date).getTime()
-          })
-
+          const sortedComments = sortComments(data.comments || [])
           setPostComments(sortedComments)
         } else {
           throw new Error(data.error || "Failed to fetch comments")
@@ -474,8 +478,8 @@ export default function CommunityPage() {
       const data = await response.json()
 
       // Update comments state
-      setPostComments((prevComments) =>
-        prevComments.map((comment) => {
+      setPostComments((prevComments) => {
+        const updatedComments = prevComments.map((comment) => {
           if (comment.id === commentId) {
             return {
               ...comment,
@@ -484,8 +488,11 @@ export default function CommunityPage() {
             }
           }
           return comment
-        }),
-      )
+        })
+
+        // Re-sort to maintain best answer at top
+        return sortComments(updatedComments)
+      })
 
       // Refresh activities after liking a comment
       setTimeout(() => fetchRecentActivities(), 500)
@@ -617,14 +624,7 @@ export default function CommunityPage() {
         // Add new comment to the list and maintain sorting (best answers first)
         setPostComments((prev) => {
           const newComments = [data.comment, ...prev]
-          return newComments.sort((a, b) => {
-            // Best Answer comments come first
-            if (a.isBestAnswer && !b.isBestAnswer) return -1
-            if (!a.isBestAnswer && b.isBestAnswer) return 1
-
-            // If both are best answers or neither are, sort by date (newest first)
-            return new Date(b.date).getTime() - new Date(a.date).getTime()
-          })
+          return sortComments(newComments)
         })
 
         // Update post reply count
