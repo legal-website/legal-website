@@ -19,8 +19,12 @@ export const safeSlice = <T>(arr: T[] | undefined | null, start: number, end?: n
 // Initialize the auth client
 export const getAuthClient = () => {
   try {
+    const email = process.env.GOOGLE_CLIENT_EMAIL;
+    if (!email) {
+      throw new Error('GOOGLE_CLIENT_EMAIL is not configured');
+    }
     return new google.auth.JWT({
-      email: process.env.GOOGLE_CLIENT_EMAIL,
+      email: email,
       key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
       scopes: ['https://www.googleapis.com/auth/analytics.readonly']
     });
@@ -30,28 +34,54 @@ export const getAuthClient = () => {
   }
 };
 
+// Get the numeric property ID from the measurement ID or property ID
+export const getNumericPropertyId = (propertyId: string | undefined): string => {
+  if (!propertyId) {
+    throw new Error('Google Analytics Property ID not configured');
+  }
+  
+  // If it's already a numeric ID, return it
+  if (/^\d+$/.test(propertyId)) {
+    return propertyId;
+  }
+  
+  // If it's a measurement ID (G-XXXXXXXX), extract the numeric part
+  // Note: This is a simplification. In reality, you need to use the Admin API to get the property ID
+  // from a measurement ID, or store both values in your environment variables
+  if (propertyId.startsWith('G-')) {
+    // This is just a placeholder - you need to provide the actual numeric property ID
+    throw new Error('Please provide the numeric property ID instead of the measurement ID (G-XXXXXXXX)');
+  }
+  
+  // If it's in another format, try to extract numeric characters
+  const numericPart = propertyId.replace(/\D/g, '');
+  if (numericPart) {
+    return numericPart;
+  }
+  
+  throw new Error(`Invalid property ID: ${propertyId}. A numeric Property ID is required.`);
+};
+
 // Test the GA4 connection
 export const testGA4Connection = async () => {
   try {
-    const propertyId = process.env.GOOGLE_ANALYTICS_VIEW_ID; // This should be your GA4 property ID (G-XXXXXXXX)
-    
+    const propertyId = process.env.GOOGLE_ANALYTICS_PROPERTY_ID || process.env.GOOGLE_ANALYTICS_VIEW_ID;
     if (!propertyId) {
-      throw new Error('Google Analytics Property ID not configured');
+      throw new Error('GOOGLE_ANALYTICS_PROPERTY_ID or GOOGLE_ANALYTICS_VIEW_ID is not configured');
     }
-    
-    // Remove the 'G-' prefix if present
-    const formattedPropertyId = propertyId.replace(/^G-/, '');
+    const numericPropertyId = getNumericPropertyId(propertyId);
     
     const auth = getAuthClient();
-    
+    const version = 'v1beta';
+
     const analyticsData = google.analyticsdata({
-      version: 'v1beta',
+      version: version,
       auth
     });
     
     // Run a simple report to test the connection
     const response = await analyticsData.properties.runReport({
-      property: `properties/${formattedPropertyId}`,
+      property: `properties/${numericPropertyId}`,
       requestBody: {
         dateRanges: [
           {
@@ -91,24 +121,22 @@ export const testGA4Connection = async () => {
 // Get page views over time
 export const getPageViewsOverTime = async (startDate: string, endDate: string) => {
   try {
-    const propertyId = process.env.GOOGLE_ANALYTICS_VIEW_ID;
-    
+    const propertyId = process.env.GOOGLE_ANALYTICS_PROPERTY_ID || process.env.GOOGLE_ANALYTICS_VIEW_ID;
     if (!propertyId) {
-      throw new Error('Google Analytics Property ID not configured');
+      throw new Error('GOOGLE_ANALYTICS_PROPERTY_ID or GOOGLE_ANALYTICS_VIEW_ID is not configured');
     }
-    
-    // Remove the 'G-' prefix if present
-    const formattedPropertyId = propertyId.replace(/^G-/, '');
+    const numericPropertyId = getNumericPropertyId(propertyId);
     
     const auth = getAuthClient();
+    const version = 'v1beta';
     
     const analyticsData = google.analyticsdata({
-      version: 'v1beta',
+      version: version,
       auth
     });
     
     const response = await analyticsData.properties.runReport({
-      property: `properties/${formattedPropertyId}`,
+      property: `properties/${numericPropertyId}`,
       requestBody: {
         dateRanges: [
           {
@@ -144,24 +172,22 @@ export const getPageViewsOverTime = async (startDate: string, endDate: string) =
 // Get summary metrics
 export const getSummaryMetrics = async (startDate: string, endDate: string) => {
   try {
-    const propertyId = process.env.GOOGLE_ANALYTICS_VIEW_ID;
-    
-    if (!propertyId) {
-      throw new Error('Google Analytics Property ID not configured');
+    const propertyId = process.env.GOOGLE_ANALYTICS_PROPERTY_ID || process.env.GOOGLE_ANALYTICS_VIEW_ID;
+        if (!propertyId) {
+      throw new Error('GOOGLE_ANALYTICS_PROPERTY_ID or GOOGLE_ANALYTICS_VIEW_ID is not configured');
     }
-    
-    // Remove the 'G-' prefix if present
-    const formattedPropertyId = propertyId.replace(/^G-/, '');
+    const numericPropertyId = getNumericPropertyId(propertyId);
     
     const auth = getAuthClient();
+    const version = 'v1beta';
     
     const analyticsData = google.analyticsdata({
-      version: 'v1beta',
+      version: version,
       auth
     });
     
     const response = await analyticsData.properties.runReport({
-      property: `properties/${formattedPropertyId}`,
+      property: `properties/${numericPropertyId}`,
       requestBody: {
         dateRanges: [
           {
@@ -218,24 +244,22 @@ export const getSummaryMetrics = async (startDate: string, endDate: string) => {
 // Get top pages
 export const getTopPages = async (startDate: string, endDate: string, limit = 10) => {
   try {
-    const propertyId = process.env.GOOGLE_ANALYTICS_VIEW_ID;
-    
-    if (!propertyId) {
-      throw new Error('Google Analytics Property ID not configured');
+    const propertyId = process.env.GOOGLE_ANALYTICS_PROPERTY_ID || process.env.GOOGLE_ANALYTICS_VIEW_ID;
+        if (!propertyId) {
+      throw new Error('GOOGLE_ANALYTICS_PROPERTY_ID or GOOGLE_ANALYTICS_VIEW_ID is not configured');
     }
-    
-    // Remove the 'G-' prefix if present
-    const formattedPropertyId = propertyId.replace(/^G-/, '');
+    const numericPropertyId = getNumericPropertyId(propertyId);
     
     const auth = getAuthClient();
+    const version = 'v1beta';
     
     const analyticsData = google.analyticsdata({
-      version: 'v1beta',
+      version: version,
       auth
     });
     
     const response = await analyticsData.properties.runReport({
-      property: `properties/${formattedPropertyId}`,
+      property: `properties/${numericPropertyId}`,
       requestBody: {
         dateRanges: [
           {
@@ -287,24 +311,22 @@ export const getTopPages = async (startDate: string, endDate: string, limit = 10
 // Get traffic sources
 export const getTrafficSources = async (startDate: string, endDate: string) => {
   try {
-    const propertyId = process.env.GOOGLE_ANALYTICS_VIEW_ID;
-    
-    if (!propertyId) {
-      throw new Error('Google Analytics Property ID not configured');
+    const propertyId = process.env.GOOGLE_ANALYTICS_PROPERTY_ID || process.env.GOOGLE_ANALYTICS_VIEW_ID;
+        if (!propertyId) {
+      throw new Error('GOOGLE_ANALYTICS_PROPERTY_ID or GOOGLE_ANALYTICS_VIEW_ID is not configured');
     }
-    
-    // Remove the 'G-' prefix if present
-    const formattedPropertyId = propertyId.replace(/^G-/, '');
+    const numericPropertyId = getNumericPropertyId(propertyId);
     
     const auth = getAuthClient();
+    const version = 'v1beta';
     
     const analyticsData = google.analyticsdata({
-      version: 'v1beta',
+      version: version,
       auth
     });
     
     const response = await analyticsData.properties.runReport({
-      property: `properties/${formattedPropertyId}`,
+      property: `properties/${numericPropertyId}`,
       requestBody: {
         dateRanges: [
           {
@@ -352,24 +374,22 @@ export const getTrafficSources = async (startDate: string, endDate: string) => {
 // Get device categories
 export const getDeviceCategories = async (startDate: string, endDate: string) => {
   try {
-    const propertyId = process.env.GOOGLE_ANALYTICS_VIEW_ID;
-    
-    if (!propertyId) {
-      throw new Error('Google Analytics Property ID not configured');
+    const propertyId = process.env.GOOGLE_ANALYTICS_PROPERTY_ID || process.env.GOOGLE_ANALYTICS_VIEW_ID;
+        if (!propertyId) {
+      throw new Error('GOOGLE_ANALYTICS_PROPERTY_ID or GOOGLE_ANALYTICS_VIEW_ID is not configured');
     }
-    
-    // Remove the 'G-' prefix if present
-    const formattedPropertyId = propertyId.replace(/^G-/, '');
+    const numericPropertyId = getNumericPropertyId(propertyId);
     
     const auth = getAuthClient();
+    const version = 'v1beta';
     
     const analyticsData = google.analyticsdata({
-      version: 'v1beta',
+      version: version,
       auth
     });
     
     const response = await analyticsData.properties.runReport({
-      property: `properties/${formattedPropertyId}`,
+      property: `properties/${numericPropertyId}`,
       requestBody: {
         dateRanges: [
           {
@@ -405,24 +425,22 @@ export const getDeviceCategories = async (startDate: string, endDate: string) =>
 // Get countries
 export const getCountries = async (startDate: string, endDate: string) => {
   try {
-    const propertyId = process.env.GOOGLE_ANALYTICS_VIEW_ID;
-    
-    if (!propertyId) {
-      throw new Error('Google Analytics Property ID not configured');
+    const propertyId = process.env.GOOGLE_ANALYTICS_PROPERTY_ID || process.env.GOOGLE_ANALYTICS_VIEW_ID;
+        if (!propertyId) {
+      throw new Error('GOOGLE_ANALYTICS_PROPERTY_ID or GOOGLE_ANALYTICS_VIEW_ID is not configured');
     }
-    
-    // Remove the 'G-' prefix if present
-    const formattedPropertyId = propertyId.replace(/^G-/, '');
+    const numericPropertyId = getNumericPropertyId(propertyId);
     
     const auth = getAuthClient();
+    const version = 'v1beta';
     
     const analyticsData = google.analyticsdata({
-      version: 'v1beta',
+      version: version,
       auth
     });
     
     const response = await analyticsData.properties.runReport({
-      property: `properties/${formattedPropertyId}`,
+      property: `properties/${numericPropertyId}`,
       requestBody: {
         dateRanges: [
           {
