@@ -1,4 +1,10 @@
-import { google } from "googleapis"
+import * as googleapis from "googleapis"
+const { google } = googleapis
+import type { analyticsreporting_v4 } from "googleapis"
+
+// Use the proper types from the googleapis library
+type Report = analyticsreporting_v4.Schema$Report
+type Row = analyticsreporting_v4.Schema$ReportRow
 
 // Initialize the Analytics Reporting API v4
 export const analyticsReporting = google.analyticsreporting({
@@ -213,93 +219,93 @@ export async function getSummaryMetrics(viewId: string, startDate?: string, endD
 }
 
 // Process report data for time series
-function processReportData(report: any) {
+function processReportData(report: Report | undefined) {
   if (!report || !report.data || !report.data.rows) {
     return []
   }
 
-  return report.data.rows.map((row: any) => {
-    const date = row.dimensions[0]
+  return report.data.rows.map((row: Row) => {
+    const date = row.dimensions?.[0] || ""
     const formattedDate = `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`
     return {
       date: formattedDate,
-      value: Number.parseInt(row.metrics[0].values[0], 10),
+      value: Number.parseInt(row.metrics?.[0]?.values?.[0] || "0", 10),
     }
   })
 }
 
 // Process top pages data
-function processTopPagesData(report: any) {
+function processTopPagesData(report: Report | undefined) {
   if (!report || !report.data || !report.data.rows) {
     return []
   }
 
-  return report.data.rows.map((row: any) => {
+  return report.data.rows.map((row: Row) => {
     return {
-      page: row.dimensions[0],
-      pageviews: Number.parseInt(row.metrics[0].values[0], 10),
-      avgTimeOnPage: Number.parseFloat(row.metrics[0].values[1]),
+      page: row.dimensions?.[0] || "",
+      pageviews: Number.parseInt(row.metrics?.[0]?.values?.[0] || "0", 10),
+      avgTimeOnPage: Number.parseFloat(row.metrics?.[0]?.values?.[1] || "0"),
     }
   })
 }
 
 // Process country data
-function processCountryData(report: any) {
+function processCountryData(report: Report | undefined) {
   if (!report || !report.data || !report.data.rows) {
     return []
   }
 
-  return report.data.rows.map((row: any) => {
+  return report.data.rows.map((row: Row) => {
     return {
-      country: row.dimensions[0],
-      users: Number.parseInt(row.metrics[0].values[0], 10),
+      country: row.dimensions?.[0] || "",
+      users: Number.parseInt(row.metrics?.[0]?.values?.[0] || "0", 10),
     }
   })
 }
 
 // Process source data
-function processSourceData(report: any) {
+function processSourceData(report: Report | undefined) {
   if (!report || !report.data || !report.data.rows) {
     return []
   }
 
-  return report.data.rows.map((row: any) => {
+  return report.data.rows.map((row: Row) => {
     return {
-      source: row.dimensions[0],
-      sessions: Number.parseInt(row.metrics[0].values[0], 10),
+      source: row.dimensions?.[0] || "",
+      sessions: Number.parseInt(row.metrics?.[0]?.values?.[0] || "0", 10),
     }
   })
 }
 
 // Process device data
-function processDeviceData(report: any) {
+function processDeviceData(report: Report | undefined) {
   if (!report || !report.data || !report.data.rows) {
     return []
   }
 
-  return report.data.rows.map((row: any) => {
+  return report.data.rows.map((row: Row) => {
     return {
-      device: row.dimensions[0],
-      sessions: Number.parseInt(row.metrics[0].values[0], 10),
+      device: row.dimensions?.[0] || "",
+      sessions: Number.parseInt(row.metrics?.[0]?.values?.[0] || "0", 10),
     }
   })
 }
 
 // Process summary data
-function processSummaryData(report: any) {
+function processSummaryData(report: Report | undefined) {
   if (!report || !report.data || !report.data.rows) {
     return null
   }
 
-  const values = report.data.rows[0].metrics[0].values
+  const values = report.data.rows[0]?.metrics?.[0]?.values || []
 
   return {
-    users: Number.parseInt(values[0], 10),
-    newUsers: Number.parseInt(values[1], 10),
-    sessions: Number.parseInt(values[2], 10),
-    pageviews: Number.parseInt(values[3], 10),
-    avgSessionDuration: Number.parseFloat(values[4]),
-    bounceRate: Number.parseFloat(values[5]),
+    users: Number.parseInt(values[0] || "0", 10),
+    newUsers: Number.parseInt(values[1] || "0", 10),
+    sessions: Number.parseInt(values[2] || "0", 10),
+    pageviews: Number.parseInt(values[3] || "0", 10),
+    avgSessionDuration: Number.parseFloat(values[4] || "0"),
+    bounceRate: Number.parseFloat(values[5] || "0"),
   }
 }
 
