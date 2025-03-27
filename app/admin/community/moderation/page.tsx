@@ -347,14 +347,13 @@ export default function CommunityPage() {
         console.log("Fetched comments data:", data)
 
         if (data.success) {
-          // Ensure we're preserving all properties from the API response
-          // ADD SORTING HERE - Sort comments to put best answers at the top
+          // Sort comments to show "Best Answer" at the top
           const sortedComments = [...(data.comments || [])].sort((a, b) => {
-            // Best answers first
+            // Best Answer comments come first
             if (a.isBestAnswer && !b.isBestAnswer) return -1
             if (!a.isBestAnswer && b.isBestAnswer) return 1
 
-            // If both are best answers or neither are, sort by newest first (default behavior)
+            // If both are best answers or neither are, sort by date (newest first)
             return new Date(b.date).getTime() - new Date(a.date).getTime()
           })
 
@@ -615,8 +614,18 @@ export default function CommunityPage() {
       const data = await response.json()
 
       if (data.success) {
-        // Add new comment to the list
-        setPostComments((prev) => [data.comment, ...prev])
+        // Add new comment to the list and maintain sorting (best answers first)
+        setPostComments((prev) => {
+          const newComments = [data.comment, ...prev]
+          return newComments.sort((a, b) => {
+            // Best Answer comments come first
+            if (a.isBestAnswer && !b.isBestAnswer) return -1
+            if (!a.isBestAnswer && b.isBestAnswer) return 1
+
+            // If both are best answers or neither are, sort by date (newest first)
+            return new Date(b.date).getTime() - new Date(a.date).getTime()
+          })
+        })
 
         // Update post reply count
         setPosts((prevPosts) =>
