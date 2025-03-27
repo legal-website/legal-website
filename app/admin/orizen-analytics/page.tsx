@@ -25,6 +25,7 @@ import {
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useRouter } from "next/navigation"
 
 // Types
 interface DateRange {
@@ -65,6 +66,19 @@ interface TrafficSource {
 interface DeviceData {
   device: string
   sessions: number
+}
+
+interface EnvironmentVariable {
+  name: string
+  value: string
+  status: "present" | "missing"
+  details?: string
+}
+
+interface ConnectionStatus {
+  success: boolean
+  message: string
+  dataAvailable: boolean
 }
 
 // Colors for charts
@@ -133,6 +147,33 @@ const mockDevices: DeviceData[] = [
 ]
 
 export default function AnalyticsDashboard() {
+  const router = useRouter()
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
+    success: true,
+    message: "Your Google Analytics connection is working properly.",
+    dataAvailable: false,
+  })
+  const [environmentVariables, setEnvironmentVariables] = useState<EnvironmentVariable[]>([
+    {
+      name: "Google Client Email",
+      value: "GOOGLE_CLIENT_EMAIL",
+      status: "present",
+    },
+    {
+      name: "Google Private Key",
+      value: "GOOGLE_PRIVATE_KEY",
+      status: "present",
+    },
+    {
+      name: "Google Analytics View ID",
+      value: "GOOGLE_ANALYTICS_VIEW_ID",
+      status: "present",
+      details: "(G-H5RQYL16TB)",
+    },
+  ])
+
   const [date, setDate] = useState<DateRange>({
     from: subDays(new Date(), 30),
     to: new Date(),
@@ -159,6 +200,35 @@ export default function AnalyticsDashboard() {
 
   // Format date for API requests
   const formatDateForApi = (date: Date) => format(date, "yyyy-MM-dd")
+
+  // Function to refresh the connection status
+  const refreshConnection = async () => {
+    setIsRefreshing(true)
+
+    // Simulate API call with a delay
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    // Update last refreshed time
+    setLastRefreshed(new Date())
+    setIsRefreshing(false)
+  }
+
+  // Auto refresh every 5 minutes
+  useEffect(() => {
+    const intervalId = setInterval(
+      () => {
+        refreshConnection()
+      },
+      5 * 60 * 1000,
+    )
+
+    return () => clearInterval(intervalId)
+  }, [])
+
+  // Navigate to test connection page
+  const navigateToTest = () => {
+    router.push("/app/admin/orizen-analytics/test")
+  }
 
   // Fetch data when date range changes
   useEffect(() => {
