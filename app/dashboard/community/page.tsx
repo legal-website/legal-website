@@ -8,7 +8,6 @@ import Image from "next/image"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -48,6 +47,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { CommentItem } from "@/components/comment-item"
+import { Textarea } from "@/components/ui/textarea"
 
 interface Author {
   id: string
@@ -133,6 +133,21 @@ export default function CommunityPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Helper function to sort comments (Best Answer first)
+  const sortComments = useCallback((comments: Comment[]) => {
+    console.log("Sorting comments, before:", comments)
+    const sorted = [...comments].sort((a, b) => {
+      // Best Answer comments come first (highest priority)
+      if (a.isBestAnswer && !b.isBestAnswer) return -1
+      if (!a.isBestAnswer && b.isBestAnswer) return 1
+
+      // If both are best answers or neither are, sort by date (newest first)
+      return new Date(b.date).getTime() - new Date(a.date).getTime()
+    })
+    console.log("After sorting:", sorted)
+    return sorted
+  }, [])
 
   // Debug log fetch results
   useEffect(() => {
@@ -347,8 +362,10 @@ export default function CommunityPage() {
         console.log("Fetched comments data:", data)
 
         if (data.success) {
-          // Ensure we're preserving all properties from the API response
-          setPostComments(data.comments || [])
+          // Make sure to sort comments before setting state
+          const sortedComments = sortComments(data.comments || [])
+          console.log("Sorted comments:", sortedComments)
+          setPostComments(sortedComments)
         } else {
           throw new Error(data.error || "Failed to fetch comments")
         }
@@ -363,7 +380,7 @@ export default function CommunityPage() {
         setIsLoadingComments(false)
       }
     },
-    [toast],
+    [toast, sortComments],
   )
 
   // Initial data fetch
@@ -465,8 +482,8 @@ export default function CommunityPage() {
       const data = await response.json()
 
       // Update comments state
-      setPostComments((prevComments) =>
-        prevComments.map((comment) => {
+      setPostComments((prevComments) => {
+        const updatedComments = prevComments.map((comment) => {
           if (comment.id === commentId) {
             return {
               ...comment,
@@ -475,8 +492,11 @@ export default function CommunityPage() {
             }
           }
           return comment
-        }),
-      )
+        })
+
+        // Re-sort to maintain best answer at top
+        return sortComments(updatedComments)
+      })
 
       // Refresh activities after liking a comment
       setTimeout(() => fetchRecentActivities(), 500)
@@ -605,8 +625,10 @@ export default function CommunityPage() {
       const data = await response.json()
 
       if (data.success) {
-        // Add new comment to the list
-        setPostComments((prev) => [data.comment, ...prev])
+        // Add new comment to the list and maintain sorting (best answers first)
+        setPostComments((prev) => {
+          return sortComments([data.comment, ...prev])
+        })
 
         // Update post reply count
         setPosts((prevPosts) =>

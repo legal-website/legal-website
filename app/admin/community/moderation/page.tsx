@@ -2,706 +2,789 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { Label } from "@/components/ui/label"
-import Image from "next/image"
-import { Card } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import { Badge } from "@/components/ui/badge"
+import {
+  Trash2,
+  MessageSquare,
+  ThumbsUp,
+  Search,
+  RefreshCw,
+  Award,
+  Shield,
+  Loader2,
+  Eye,
+  MessageCircle,
+  Flag,
+  CheckCircle,
+  XCircle,
+  MoreHorizontal,
+  PencilIcon,
+} from "lucide-react"
+import { toast } from "@/components/ui/use-toast"
+import { cn } from "@/lib/utils"
+import { formatDistanceToNow } from "date-fns"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
-  MessageCircle,
-  Search,
-  ThumbsUp,
-  MessageSquare,
-  Clock,
-  Tag,
-  Filter,
-  PlusCircle,
-  Share2,
-  Facebook,
-  Twitter,
-  Linkedin,
-  Send,
-  Loader2,
-  RefreshCw,
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
-  Heart,
-} from "lucide-react"
-import { useSession } from "next-auth/react"
-import { useToast } from "@/components/ui/use-toast"
-import { Badge } from "@/components/ui/badge"
-import { formatDistanceToNow } from "date-fns"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { CommentItem } from "@/components/comment-item"
-
-interface Author {
-  id: string
-  name: string
-  avatar: string
-}
+// Add this import at the top
+import { DebugButton } from "./debug-button"
 
 interface Post {
   id: string
   title: string
   content: string
-  author: Author
+  author: {
+    id: string
+    name: string
+    avatar: string
+  }
+  status: string
   date: string
   tags: string[]
   likes: number
   replies: number
-  isLiked: boolean
-  status?: string
-  isOwnPost?: boolean
+  flagged?: boolean
+  flagCount?: number
 }
 
-// Update the Comment interface to include isBestAnswer and moderationNotes
 interface Comment {
   id: string
   content: string
-  author: Author
+  author: {
+    id: string
+    name: string
+    avatar: string
+  }
   date: string
   likes: number
-  isLiked: boolean
+  isLiked?: boolean
   isBestAnswer?: boolean
-  moderationNotes?: string | null
+  flagged?: boolean
+  flagCount?: number
+  moderationNotes?: string
+  postId?: string
 }
 
-interface TagWithCount {
+interface CommunityTag {
   id: string
   name: string
   count: number
 }
 
-interface Activity {
-  id: string
-  type: string
-  user: {
-    id: string
-    name: string
-    avatar: string
-  }
-  content: string
-  target?: string
-  date: string
+interface StatCard {
+  title: string
+  value: number
+  change: number
+  icon: React.ReactNode
+  color: string
 }
 
-export default function CommunityPage() {
-  const { data: session, status: sessionStatus } = useSession()
-  const { toast } = useToast()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedTag, setSelectedTag] = useState<string | null>(null)
-  const [newPostTitle, setNewPostTitle] = useState("")
-  const [newPostContent, setNewPostContent] = useState("")
-  const [newPostTags, setNewPostTags] = useState("")
+export default function AdminCommunityModerationPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Get query params with null checks
+  const currentTag = searchParams?.get("tag") || ""
+  const currentStatus = searchParams?.get("status") || "all"
+  const currentPage = Number.parseInt(searchParams?.get("page") || "1")
+  const currentSearch = searchParams?.get("search") || ""
+  const currentFilter = searchParams?.get("filter") || "all"
+
+  // State
   const [posts, setPosts] = useState<Post[]>([])
-  const [allTags, setAllTags] = useState<TagWithCount[]>([])
-  const [activeTab, setActiveTab] = useState("latest")
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showNewPostDialog, setShowNewPostDialog] = useState(false)
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null)
-  const [postComments, setPostComments] = useState<Comment[]>([])
-  const [showPostDialog, setShowPostDialog] = useState(false)
-  const [newComment, setNewComment] = useState("")
+  const [tags, setTags] = useState<CommunityTag[]>([])
+  const [loading, setLoading] = useState(true)
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: currentPage,
+    limit: 10,
+    totalPages: 0,
+  })
+  const [searchTerm, setSearchTerm] = useState(currentSearch)
+  const [selectedStatus, setSelectedStatus] = useState(currentStatus)
+  const [selectedTag, setSelectedTag] = useState(currentTag)
+  const [selectedFilter, setSelectedFilter] = useState(currentFilter)
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "most_likes" | "most_comments">("newest")
+  const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false)
+  const [selectedPostComments, setSelectedPostComments] = useState<Comment[]>([])
+  const [showCommentsDialog, setShowCommentsDialog] = useState(false)
   const [isLoadingComments, setIsLoadingComments] = useState(false)
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false)
-  const [showShareDialog, setShowShareDialog] = useState(false)
-  const [shareUrl, setShareUrl] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [myPosts, setMyPosts] = useState<Post[]>([])
-  const [isMyPostsOpen, setIsMyPostsOpen] = useState(false)
-  const [recentActivities, setRecentActivities] = useState<Activity[]>([])
-  const [isLoadingActivities, setIsLoadingActivities] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
-  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const [selectedPostForComments, setSelectedPostForComments] = useState<Post | null>(null)
+  // Update the state to include a map of comment IDs to moderation notes
+  const [moderationNote, setModerationNote] = useState("")
+  const [commentModerationNotes, setCommentModerationNotes] = useState<Record<string, string>>({})
+  const [flaggedContent, setFlaggedContent] = useState<{
+    posts: Post[]
+    comments: Comment[]
+  }>({
+    posts: [],
+    comments: [],
+  })
+  const [activeTab, setActiveTab] = useState("all")
+  // Add this state at the top with other state variables
+  const [bestAnswers, setBestAnswers] = useState<Comment[]>([])
+  const [loadingBestAnswers, setLoadingBestAnswers] = useState(false)
 
-  // Helper function to sort comments (Best Answer first)
-  const sortComments = useCallback((comments: Comment[]) => {
-    console.log("Sorting comments, before:", comments)
-
-    // Check if any comments have isBestAnswer set to true
-    const hasBestAnswer = comments.some((comment) => comment.isBestAnswer === true)
-    console.log("Has best answer:", hasBestAnswer)
-
-    const sorted = [...comments].sort((a, b) => {
-      // Best Answer comments come first (highest priority)
-      if (a.isBestAnswer === true && b.isBestAnswer !== true) return -1
-      if (a.isBestAnswer !== true && b.isBestAnswer === true) return 1
-
-      // If both are best answers or neither are, sort by date (newest first)
-      return new Date(b.date).getTime() - new Date(a.date).getTime()
-    })
-
-    console.log("After sorting:", sorted)
-    return sorted
-  }, [])
-
-  // Debug log fetch results
-  useEffect(() => {
-    const logFetchResults = async () => {
-      try {
-        const response = await fetch("/api/community/posts?status=published")
-        const data = await response.json()
-        console.log("Debug fetch posts response:", data)
-      } catch (error) {
-        console.error("Error logging fetch results:", error)
-      }
-    }
-
-    logFetchResults()
-  }, [])
-
-  // Set up background refresh
-  useEffect(() => {
-    // Refresh data every 2 minutes
-    refreshTimerRef.current = setInterval(
-      () => {
-        refreshAllData(false)
-      },
-      2 * 60 * 1000,
-    )
-
-    return () => {
-      if (refreshTimerRef.current) {
-        clearInterval(refreshTimerRef.current)
-      }
-    }
-  }, [])
-
-  // Function to refresh all data
-  const refreshAllData = async (showToast = true) => {
-    setIsRefreshing(true)
+  // Fetch posts
+  const fetchPosts = async (searchQuery = searchTerm) => {
     try {
-      await Promise.all([
-        fetchPosts(),
-        fetchTags(),
-        fetchRecentActivities(),
-        sessionStatus === "authenticated" ? fetchMyPosts() : Promise.resolve(),
-      ])
+      setLoading(true)
 
-      setLastRefreshed(new Date())
+      // Build query params
+      const params = new URLSearchParams()
+      if (selectedStatus !== "all") params.append("status", selectedStatus)
+      if (selectedTag) params.append("tag", selectedTag)
+      if (searchQuery) params.append("search", searchQuery)
+      params.append("page", pagination.page.toString())
+      params.append("limit", pagination.limit.toString())
+      params.append("sort", sortOrder)
+      if (selectedFilter !== "all") params.append("filter", selectedFilter)
 
-      if (showToast) {
-        toast({
-          title: "Refreshed",
-          description: "Content has been refreshed successfully.",
+      console.log("Fetching posts with params:", params.toString())
+
+      const response = await fetch(`/api/community/posts?${params.toString()}`)
+      if (!response.ok) throw new Error("Failed to fetch posts")
+
+      const data = await response.json()
+      console.log("Posts data:", data)
+
+      if (data.success) {
+        // Add mock flagged data for demonstration
+        const postsWithFlags = data.posts.map((post: Post, index: number) => ({
+          ...post,
+          flagged: index % 7 === 0, // Every 7th post is flagged
+          flagCount: index % 7 === 0 ? Math.floor(Math.random() * 5) + 1 : 0,
+        }))
+
+        setPosts(postsWithFlags)
+        setPagination(data.pagination)
+
+        // Mock flagged content for the flagged tab
+        setFlaggedContent({
+          posts: postsWithFlags.filter((post: Post) => post.flagged),
+          comments: Array(Math.floor(Math.random() * 5) + 3)
+            .fill(null)
+            .map((_, i) => ({
+              id: `flagged-comment-${i}`,
+              content:
+                i % 2 === 0
+                  ? "This comment contains potentially inappropriate content that needs review."
+                  : "This user has been reported multiple times for posting spam links.",
+              author: {
+                id: `author-${i}`,
+                name: `User${i + 1}`,
+                avatar: "/placeholder.svg?height=40&width=40",
+              },
+              date: new Date(Date.now() - 1000 * 60 * 60 * (i + 1)).toISOString(),
+              likes: Math.floor(Math.random() * 10),
+              flagged: true,
+              flagCount: Math.floor(Math.random() * 3) + 1,
+            })),
         })
-      }
-    } catch (error) {
-      console.error("Error refreshing data:", error)
-      if (showToast) {
+      } else {
         toast({
           title: "Error",
-          description: "Failed to refresh content. Please try again.",
+          description: data.error || "Failed to fetch posts",
           variant: "destructive",
         })
       }
-    } finally {
-      setIsRefreshing(false)
-    }
-  }
-
-  // Update the fetchPosts function to only fetch published posts
-  const fetchPosts = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      // Build query params
-      const queryParams = new URLSearchParams()
-      if (searchQuery) queryParams.set("search", searchQuery)
-      if (selectedTag) queryParams.set("tag", selectedTag)
-      queryParams.set("sort", activeTab)
-      queryParams.set("page", currentPage.toString())
-      queryParams.set("limit", "10")
-
-      // Explicitly set status to published for Discussion Forum
-      queryParams.set("status", "published")
-
-      // Never include all user posts in the main Discussion Forum
-      // queryParams.set("includeAllUserPosts", "true") // This line is removed
-
-      console.log(`Fetching posts with params: ${queryParams.toString()}`)
-
-      const response = await fetch(`/api/community/published-posts?${queryParams.toString()}`)
-
-      if (!response.ok) {
-        let errorText = "Unknown error"
-        try {
-          const errorData = await response.json()
-          errorText = errorData.error || "Unknown error"
-        } catch (e) {
-          errorText = await response.text()
-        }
-
-        console.error(`Error response: ${response.status}`, errorText)
-        throw new Error(`Failed to fetch posts: ${errorText}`)
-      }
-
-      const data = await response.json()
-      console.log("Fetch posts response:", data)
-
-      if (data.success) {
-        setPosts(data.posts || [])
-        setTotalPages(data.pagination?.totalPages || 1)
-      } else {
-        throw new Error(data.error || "Failed to fetch posts")
-      }
     } catch (error) {
       console.error("Error fetching posts:", error)
-      setError(`Failed to load posts: ${error instanceof Error ? error.message : String(error)}`)
       toast({
         title: "Error",
-        description: `Failed to load posts: ${error instanceof Error ? error.message : String(error)}`,
+        description: "Failed to fetch posts. Please try again.",
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
-  }, [searchQuery, selectedTag, activeTab, currentPage, toast])
+  }
 
-  // Update the fetchMyPosts function to fetch all user posts regardless of status
-  const fetchMyPosts = useCallback(async () => {
+  // Add a function to fetch moderation notes when loading comments
+  const fetchComments = async (postId: string) => {
     try {
-      if (sessionStatus !== "authenticated") return
+      setIsLoadingComments(true)
 
-      const queryParams = new URLSearchParams()
-      // Don't apply search to My Posts section
-      // if (searchQuery) queryParams.set("search", searchQuery)
-      queryParams.set("includeAllUserPosts", "true") // Include all user posts here
-
-      const response = await fetch(`/api/community/published-posts?${queryParams.toString()}`)
+      const response = await fetch(`/api/community/posts/${postId}/comments`)
 
       if (!response.ok) {
-        throw new Error("Failed to fetch your posts")
+        throw new Error("Failed to fetch comments")
       }
 
       const data = await response.json()
+      console.log("Fetched comments data:", data)
 
       if (data.success) {
-        // Filter to only show the user's own posts
-        const userPosts = data.posts.filter((post: Post) => post.isOwnPost === true)
+        // Use the isBestAnswer and moderationNotes from the API response
+        // instead of mocking them
+        const commentsWithFlags = data.comments.map((comment: Comment, index: number) => ({
+          ...comment,
+          // Only add flagged status for demo, keep the real isBestAnswer and moderationNotes
+          flagged: index === 3, // Flag the 4th comment for demo
+          flagCount: index === 3 ? 2 : 0,
+        }))
 
-        // Store user posts separately instead of merging with main posts
-        setMyPosts(userPosts)
-      }
-    } catch (error) {
-      console.error("Error fetching your posts:", error)
-    }
-  }, [sessionStatus])
+        setSelectedPostComments(commentsWithFlags || [])
 
-  // Fetch recent activities
-  const fetchRecentActivities = useCallback(async () => {
-    try {
-      setIsLoadingActivities(true)
-      const response = await fetch("/api/community/dashboard-activities")
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch recent activities")
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        setRecentActivities(data.activities || [])
+        // Initialize the comment moderation notes map
+        const notesMap: Record<string, string> = {}
+        commentsWithFlags.forEach((comment: Comment) => {
+          if (comment.moderationNotes) {
+            notesMap[comment.id] = comment.moderationNotes
+          }
+        })
+        setCommentModerationNotes(notesMap)
       } else {
-        throw new Error(data.error || "Failed to fetch recent activities")
+        throw new Error(data.error || "Failed to fetch comments")
       }
     } catch (error) {
-      console.error("Error fetching recent activities:", error)
+      console.error("Error fetching comments:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load comments. Please try again.",
+        variant: "destructive",
+      })
     } finally {
-      setIsLoadingActivities(false)
+      setIsLoadingComments(false)
     }
-  }, [])
+  }
 
   // Fetch tags
-  const fetchTags = useCallback(async () => {
+  const fetchTags = async () => {
     try {
       const response = await fetch("/api/community/tags")
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch tags")
-      }
+      if (!response.ok) throw new Error("Failed to fetch tags")
 
       const data = await response.json()
-
       if (data.success) {
-        setAllTags(data.tags || [])
+        setTags(data.tags)
       }
     } catch (error) {
       console.error("Error fetching tags:", error)
     }
-  }, [])
+  }
 
-  // Fetch post comments
-  const fetchComments = useCallback(
-    async (postId: string) => {
-      try {
-        setIsLoadingComments(true)
+  // Add this function to fetch best answers
+  const fetchBestAnswers = async () => {
+    if (activeTab !== "best-answers") return
 
-        const response = await fetch(`/api/community/posts/${postId}/comments`)
+    try {
+      setLoadingBestAnswers(true)
+      const response = await fetch("/api/community/best-answers")
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch comments")
-        }
+      if (!response.ok) {
+        throw new Error("Failed to fetch best answers")
+      }
 
-        const data = await response.json()
-        console.log("Fetched comments data:", data)
+      const data = await response.json()
 
-        if (data.success) {
-          // Make sure to sort comments before setting state
-          const sortedComments = sortComments(data.comments || [])
-          console.log("Sorted comments:", sortedComments)
-          setPostComments(sortedComments)
-        } else {
-          throw new Error(data.error || "Failed to fetch comments")
-        }
-      } catch (error) {
-        console.error("Error fetching comments:", error)
+      if (data.success) {
+        setBestAnswers(data.bestAnswers)
+      } else {
+        throw new Error(data.error || "Failed to fetch best answers")
+      }
+    } catch (error) {
+      console.error("Error fetching best answers:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load best answers. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingBestAnswers(false)
+    }
+  }
+
+  // Handle search with debounce for live search
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchTerm(value)
+
+    // Clear any existing timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
+
+    // Set a new timeout
+    const timeout = setTimeout(() => {
+      fetchPosts(value)
+    }, 500) // 500ms debounce
+
+    setSearchTimeout(timeout)
+  }
+
+  // Handle status change
+  const handleStatusChange = (value: string) => {
+    setSelectedStatus(value)
+    router.push(
+      `/admin/community/moderation?status=${value}&tag=${selectedTag}&search=${searchTerm}&page=1&filter=${selectedFilter}`,
+    )
+  }
+
+  // Handle tag change
+  const handleTagChange = (value: string) => {
+    setSelectedTag(value)
+    router.push(
+      `/admin/community/moderation?status=${selectedStatus}&tag=${value}&search=${searchTerm}&page=1&filter=${selectedFilter}`,
+    )
+  }
+
+  // Handle filter change
+  const handleFilterChange = (value: string) => {
+    setSelectedFilter(value)
+    router.push(
+      `/admin/community/moderation?status=${selectedStatus}&tag=${selectedTag}&search=${searchTerm}&page=1&filter=${value}`,
+    )
+  }
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    router.push(
+      `/admin/community/moderation?status=${selectedStatus}&tag=${selectedTag}&search=${searchTerm}&page=${page}&filter=${selectedFilter}`,
+    )
+  }
+
+  // Define valid status values
+  const VALID_STATUSES = {
+    PENDING: "pending",
+    PUBLISHED: "published",
+    DRAFT: "draft",
+    ALL: "all",
+  }
+
+  // Handle post deletion
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm("Are you sure you want to delete this post?")) return
+
+    try {
+      const response = await fetch(`/api/community/posts/${postId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) throw new Error("Failed to delete post")
+
+      const data = await response.json()
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Post deleted successfully",
+        })
+        fetchPosts()
+      } else {
         toast({
           title: "Error",
-          description: "Failed to load comments. Please try again.",
+          description: data.error || "Failed to delete post",
           variant: "destructive",
         })
-      } finally {
-        setIsLoadingComments(false)
       }
-    },
-    [toast, sortComments],
-  )
-
-  // Initial data fetch
-  useEffect(() => {
-    fetchPosts()
-    fetchTags()
-    fetchRecentActivities()
-  }, [fetchPosts, fetchTags, fetchRecentActivities])
-
-  // Call this function when the component mounts and when relevant state changes
-  useEffect(() => {
-    if (sessionStatus === "authenticated") {
-      fetchMyPosts()
-    }
-  }, [fetchMyPosts, sessionStatus])
-
-  // Handle like post
-  const handleLikePost = async (postId: string) => {
-    if (sessionStatus !== "authenticated") {
-      setShowLoginPrompt(true)
-      return
-    }
-
-    try {
-      const response = await fetch("/api/community/likes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ postId }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to like post")
-      }
-
-      const data = await response.json()
-
-      // Update posts state
-      setPosts((prevPosts) =>
-        prevPosts.map((post) => {
-          if (post.id === postId) {
-            return {
-              ...post,
-              likes: data.liked ? post.likes + 1 : post.likes - 1,
-              isLiked: data.liked,
-            }
-          }
-          return post
-        }),
-      )
-
-      // If the post is currently selected, update it too
-      if (selectedPost?.id === postId) {
-        setSelectedPost((prev) => {
-          if (prev) {
-            return {
-              ...prev,
-              likes: data.liked ? prev.likes + 1 : prev.likes - 1,
-              isLiked: data.liked,
-            }
-          }
-          return prev
-        })
-      }
-
-      // Refresh activities after liking
-      setTimeout(() => fetchRecentActivities(), 500)
     } catch (error) {
-      console.error("Error liking post:", error)
+      console.error("Error deleting post:", error)
       toast({
         title: "Error",
-        description: "Failed to like post. Please try again.",
+        description: "Failed to delete post. Please try again.",
         variant: "destructive",
       })
     }
   }
 
-  // Handle like comment
-  const handleLikeComment = async (commentId: string) => {
-    if (sessionStatus !== "authenticated") {
-      setShowLoginPrompt(true)
-      return
-    }
-
-    try {
-      const response = await fetch("/api/community/likes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ commentId }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to like comment")
-      }
-
-      const data = await response.json()
-
-      // Update comments state
-      setPostComments((prevComments) => {
-        const updatedComments = prevComments.map((comment) => {
-          if (comment.id === commentId) {
-            return {
-              ...comment,
-              likes: data.liked ? comment.likes + 1 : comment.likes - 1,
-              isLiked: data.liked,
-            }
-          }
-          return comment
-        })
-
-        // Re-sort to maintain best answer at top
-        return sortComments(updatedComments)
-      })
-
-      // Refresh activities after liking a comment
-      setTimeout(() => fetchRecentActivities(), 500)
-    } catch (error) {
-      console.error("Error liking comment:", error)
-      toast({
-        title: "Error",
-        description: "Failed to like comment. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Handle create post
-  const handleCreatePost = async () => {
-    if (sessionStatus !== "authenticated") {
-      setShowLoginPrompt(true)
-      return
-    }
-
-    if (!newPostTitle.trim() || !newPostContent.trim()) {
-      toast({
-        title: "Error",
-        description: "Title and content are required.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      setIsSubmitting(true)
-
-      // Process tags
-      const tags = newPostTags
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter((tag) => tag.length > 0)
-
-      const response = await fetch("/api/community/posts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: newPostTitle,
-          content: newPostContent,
-          tags,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to create post")
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "Your post has been submitted successfully.",
-        })
-
-        // Reset form
-        setNewPostTitle("")
-        setNewPostContent("")
-        setNewPostTags("")
-        setShowNewPostDialog(false)
-
-        // Refresh posts and activities
-        fetchPosts()
-        fetchTags()
-        fetchRecentActivities()
-        if (sessionStatus === "authenticated") {
-          fetchMyPosts()
-        }
-      } else {
-        throw new Error(data.error || "Failed to create post")
-      }
-    } catch (error) {
-      console.error("Error creating post:", error)
-      toast({
-        title: "Error",
-        description: "Failed to create post. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  // Handle submit comment
-  const handleSubmitComment = async () => {
-    if (!selectedPost) return
-
-    if (sessionStatus !== "authenticated") {
-      setShowLoginPrompt(true)
-      return
-    }
-
-    if (!newComment.trim()) {
-      toast({
-        title: "Error",
-        description: "Comment cannot be empty.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      setIsSubmittingComment(true)
-
-      const response = await fetch(`/api/community/posts/${selectedPost.id}/comments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          content: newComment,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to submit comment")
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        // Add new comment to the list and maintain sorting (best answers first)
-        setPostComments((prev) => {
-          return sortComments([data.comment, ...prev])
-        })
-
-        // Update post reply count
-        setPosts((prevPosts) =>
-          prevPosts.map((post) => {
-            if (post.id === selectedPost.id) {
-              return {
-                ...post,
-                replies: post.replies + 1,
-              }
-            }
-            return post
-          }),
-        )
-
-        if (selectedPost) {
-          setSelectedPost({
-            ...selectedPost,
-            replies: selectedPost.replies + 1,
-          })
-        }
-
-        // Reset form
-        setNewComment("")
-
-        toast({
-          title: "Success",
-          description: "Your comment has been posted.",
-        })
-
-        // Refresh activities after commenting
-        setTimeout(() => fetchRecentActivities(), 500)
-      } else {
-        throw new Error(data.error || "Failed to submit comment")
-      }
-    } catch (error) {
-      console.error("Error submitting comment:", error)
-      toast({
-        title: "Error",
-        description: "Failed to submit comment. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSubmittingComment(false)
-    }
-  }
-
-  // Handle view post
-  const handleViewPost = async (post: Post) => {
-    if (!post || !post.id) {
-      toast({
-        title: "Error",
-        description: "Invalid post data",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setSelectedPost(post)
-    setShowPostDialog(true)
+  const handleViewComments = async (post: Post) => {
+    setSelectedPostForComments(post)
+    setShowCommentsDialog(true)
     await fetchComments(post.id)
   }
 
-  // Handle share post
-  const handleSharePost = (post: Post) => {
-    const url = `${window.location.origin}/community/post/${post.id}`
-    setShareUrl(url)
-    setShowShareDialog(true)
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm("Are you sure you want to delete this comment?")) return
+
+    try {
+      const response = await fetch(`/api/community/comments/${commentId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete comment")
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Remove the deleted comment from the list
+        setSelectedPostComments((prevComments) => prevComments.filter((comment) => comment.id !== commentId))
+
+        // Update the reply count for the post
+        if (selectedPostForComments) {
+          setSelectedPostForComments({
+            ...selectedPostForComments,
+            replies: selectedPostForComments.replies - 1,
+          })
+
+          // Also update in the main posts list
+          setPosts((prevPosts) =>
+            prevPosts.map((post) => {
+              if (post.id === selectedPostForComments.id) {
+                return {
+                  ...post,
+                  replies: post.replies - 1,
+                }
+              }
+              return post
+            }),
+          )
+        }
+
+        toast({
+          title: "Success",
+          description: "Comment deleted successfully",
+        })
+      } else {
+        throw new Error(data.error || "Failed to delete comment")
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete comment. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Handle marking a comment as the best answer
+  const handleMarkBestAnswer = async (commentId: string) => {
+    if (!selectedPostForComments) return
+
+    try {
+      // Make the actual API call to mark as best answer
+      const response = await fetch(`/api/community/comments/${commentId}/best-answer`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          postId: selectedPostForComments.id,
+          isBestAnswer: true,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to mark best answer")
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Update the comments list to mark this comment as best answer and unmark others
+        setSelectedPostComments((prevComments) =>
+          prevComments.map((comment) => ({
+            ...comment,
+            isBestAnswer: comment.id === commentId,
+          })),
+        )
+
+        toast({
+          title: "Success",
+          description: "Comment marked as best answer",
+        })
+      } else {
+        throw new Error(data.error || "Failed to mark best answer")
+      }
+    } catch (error) {
+      console.error("Error marking best answer:", error)
+      toast({
+        title: "Error",
+        description: typeof error === "string" ? error : "Failed to mark best answer. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Handle removing best answer status
+  const handleRemoveBestAnswer = async (commentId: string) => {
+    if (!selectedPostForComments) return
+
+    try {
+      // Make the actual API call to unmark as best answer
+      const response = await fetch(`/api/community/comments/${commentId}/best-answer`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          postId: selectedPostForComments.id,
+          isBestAnswer: false,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to remove best answer status")
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Update the comments list to unmark this comment as best answer
+        setSelectedPostComments((prevComments) =>
+          prevComments.map((comment) => ({
+            ...comment,
+            isBestAnswer: comment.id === commentId ? false : comment.isBestAnswer,
+          })),
+        )
+
+        toast({
+          title: "Success",
+          description: "Best answer status removed",
+        })
+      } else {
+        throw new Error(data.error || "Failed to remove best answer status")
+      }
+    } catch (error) {
+      console.error("Error removing best answer status:", error)
+      toast({
+        title: "Error",
+        description: typeof error === "string" ? error : "Failed to remove best answer status. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Update the handleAddModerationNote function to save notes to the selected comment
+  const handleAddModerationNote = async (commentId?: string) => {
+    if (!moderationNote.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a moderation note",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      if (commentId) {
+        console.log(`Saving moderation note for comment ${commentId}:`, moderationNote)
+
+        // Save moderation note for a specific comment
+        const response = await fetch(`/api/community/comments/${commentId}/moderation-notes`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            moderationNotes: moderationNote,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to save moderation note")
+        }
+
+        const data = await response.json()
+
+        if (data.success) {
+          console.log("Moderation note saved successfully:", data)
+
+          // Update the comment in the list with the new moderation note
+          setSelectedPostComments((prevComments) =>
+            prevComments.map((comment) => {
+              if (comment.id === commentId) {
+                return {
+                  ...comment,
+                  moderationNotes: moderationNote,
+                }
+              }
+              return comment
+            }),
+          )
+
+          // Update the notes map
+          setCommentModerationNotes((prev) => ({
+            ...prev,
+            [commentId]: moderationNote,
+          }))
+
+          toast({
+            title: "Success",
+            description: "Moderation note added",
+          })
+        } else {
+          throw new Error(data.error || "Failed to save moderation note")
+        }
+      } else {
+        // For post-level notes (not implemented in the database yet)
+        toast({
+          title: "Success",
+          description: "Moderation note added",
+        })
+      }
+
+      setModerationNote("")
+    } catch (error) {
+      console.error("Error adding moderation note:", error)
+      toast({
+        title: "Error",
+        description: typeof error === "string" ? error : "Failed to add moderation note. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Handle resolving a flagged item
+  const handleResolveFlagged = (id: string, type: "post" | "comment") => {
+    if (type === "post") {
+      setFlaggedContent((prev) => ({
+        ...prev,
+        posts: prev.posts.filter((post) => post.id !== id),
+      }))
+    } else {
+      setFlaggedContent((prev) => ({
+        ...prev,
+        comments: prev.comments.filter((comment) => comment.id !== id),
+      }))
+    }
+
+    toast({
+      title: "Success",
+      description: `Flagged ${type} resolved successfully`,
+    })
+  }
+
+  const backgroundRefresh = async () => {
+    if (isBackgroundRefreshing) return
+
+    setIsBackgroundRefreshing(true)
+    try {
+      await Promise.all([fetchPosts(), fetchTags()])
+    } catch (error) {
+      console.error("Background refresh error:", error)
+    } finally {
+      setIsBackgroundRefreshing(false)
+    }
+  }
+
+  // Load data on mount and when params change
+  useEffect(() => {
+    fetchPosts()
+    fetchTags()
+
+    // Set up background refresh every 60 seconds
+    const refreshInterval = setInterval(() => {
+      backgroundRefresh()
+    }, 60000)
+
+    return () => clearInterval(refreshInterval)
+  }, [searchParams])
+
+  // Add this effect to fetch best answers when the tab changes
+  useEffect(() => {
+    if (activeTab === "best-answers") {
+      fetchBestAnswers()
+    }
+  }, [activeTab])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout)
+      }
+    }
+  }, [searchTimeout])
+
+  // Render pagination
+  const renderPagination = () => {
+    if (pagination.totalPages <= 1) return null
+
+    return (
+      <Pagination>
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              onClick={() => pagination.page > 1 && handlePageChange(pagination.page - 1)}
+              className={pagination.page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              href="#"
+            />
+          </PaginationItem>
+
+          {Array.from({ length: pagination.totalPages }).map((_, i) => {
+            const page = i + 1
+            // Show first page, last page, and pages around current page
+            if (
+              page === 1 ||
+              page === pagination.totalPages ||
+              (page >= pagination.page - 1 && page <= pagination.page + 1)
+            ) {
+              return (
+                <PaginationItem key={page}>
+                  <PaginationLink href="#" onClick={() => handlePageChange(page)} isActive={page === pagination.page}>
+                    {page}
+                  </PaginationLink>
+                </PaginationItem>
+              )
+            }
+
+            // Show ellipsis for gaps
+            if (page === 2 || page === pagination.totalPages - 1) {
+              return (
+                <PaginationItem key={page}>
+                  <PaginationEllipsis />
+                </PaginationItem>
+              )
+            }
+
+            return null
+          })}
+
+          <PaginationItem>
+            <PaginationNext
+              onClick={() => pagination.page < pagination.totalPages && handlePageChange(pagination.page + 1)}
+              className={pagination.page >= pagination.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              href="#"
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    )
+  }
+
+  // Helper function to get badge variant based on status
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case "published":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+      case "draft":
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+    }
   }
 
   // Format date
@@ -714,846 +797,664 @@ export default function CommunityPage() {
     }
   }
 
-  // Share on social media
-  const shareOnSocialMedia = (platform: string) => {
-    let shareLink = ""
-    const text = "Check out this interesting discussion!"
-
-    switch (platform) {
-      case "facebook":
-        shareLink = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`
-        break
-      case "twitter":
-        shareLink = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`
-        break
-      case "linkedin":
-        shareLink = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`
-        break
-      case "whatsapp":
-        shareLink = `https://wa.me/?text=${encodeURIComponent(text + " " + shareUrl)}`
-        break
-      default:
-        break
-    }
-
-    if (shareLink) {
-      window.open(shareLink, "_blank")
-    }
-
-    setShowShareDialog(false)
-  }
-
-  // Copy link to clipboard
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(shareUrl)
-    toast({
-      title: "Link Copied",
-      description: "The link has been copied to your clipboard.",
-    })
-    setShowShareDialog(false)
-  }
-
-  // Handle page change
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage)
-  }
-
-  // Add this function to format the status for display
-  const formatStatus = (status: string | undefined) => {
-    switch (status) {
-      case "published":
-        return "Published"
-      case "pending":
-        return "Pending Review"
-      case "draft":
-        return "Draft"
-      default:
-        return status || "Unknown"
-    }
-  }
-
-  // Handle search submit
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setCurrentPage(1)
-    fetchPosts()
-  }
-
-  // Get activity icon based on type
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case "post":
-        return <MessageCircle className="h-4 w-4 text-blue-500" />
-      case "comment":
-        return <MessageSquare className="h-4 w-4 text-green-500" />
-      case "like":
-        return <Heart className="h-4 w-4 text-red-500" />
-      default:
-        return <Clock className="h-4 w-4 text-gray-500" />
-    }
-  }
-
-  // Separate best answer from other comments for rendering
-  const bestAnswerComment = postComments.find((comment) => comment.isBestAnswer === true)
-  const otherComments = postComments.filter((comment) => comment.isBestAnswer !== true)
-
   return (
-    <div className="p-8 mb-40">
-      <h1 className="text-3xl font-bold mb-6">Community</h1>
-
-      <div className="grid md:grid-cols-3 gap-8">
-        <div className="md:col-span-2">
-          <Card className="mb-6">
-            <div className="p-6 border-b">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <h2 className="text-xl font-semibold flex items-center">
-                  <MessageCircle className="h-5 w-5 mr-2" />
-                  Discussion Forum
-                </h2>
-                <Button
-                  onClick={() => {
-                    if (sessionStatus === "authenticated") {
-                      setShowNewPostDialog(true)
-                    } else {
-                      setShowLoginPrompt(true)
-                    }
-                  }}
-                >
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  New Post
-                </Button>
-              </div>
-            </div>
-
-            <div className="p-6 border-b">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <form onSubmit={handleSearchSubmit}>
-                      <Input
-                        placeholder="Search discussions..."
-                        className="pl-9"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                    </form>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <select
-                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    value={selectedTag || ""}
-                    onChange={(e) => {
-                      setSelectedTag(e.target.value || null)
-                      setCurrentPage(1)
-                      // Trigger fetch when tag changes
-                      setTimeout(() => fetchPosts(), 0)
-                    }}
-                  >
-                    <option value="">All Tags</option>
-                    {allTags.map((tag) => (
-                      <option key={tag.id} value={tag.name}>
-                        {tag.name} ({tag.count})
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      setSearchQuery("")
-                      setSelectedTag(null)
-                      setActiveTab("latest")
-                      setCurrentPage(1)
-                      setTimeout(() => fetchPosts(), 0)
-                    }}
-                    title="Clear filters"
-                  >
-                    <Filter className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <Tabs
-              value={activeTab}
-              onValueChange={(value) => {
-                setActiveTab(value)
-                setCurrentPage(1)
-                // Trigger fetch when tab changes
-                setTimeout(() => fetchPosts(), 0)
-              }}
-            >
-              <div className="px-6 pt-4">
-                <TabsList>
-                  <TabsTrigger value="latest">Latest</TabsTrigger>
-                  <TabsTrigger value="popular">Popular</TabsTrigger>
-                  <TabsTrigger value="unanswered">Unanswered</TabsTrigger>
-                </TabsList>
-              </div>
-
-              <TabsContent value={activeTab} className="p-0 m-0">
-                <div className="divide-y">
-                  {isLoading ? (
-                    <div className="p-12 text-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-                      <p className="text-muted-foreground">Loading discussions...</p>
-                    </div>
-                  ) : error ? (
-                    <div className="p-12 text-center">
-                      <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Error loading discussions</h3>
-                      <p className="text-muted-foreground mb-4">{error}</p>
-                      <Button onClick={fetchPosts} variant="outline">
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Try Again
-                      </Button>
-                    </div>
-                  ) : posts.length > 0 ? (
-                    <>
-                      {posts.map((post) => (
-                        <div key={post.id} className="p-6">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 flex-shrink-0">
-                              <Image
-                                src={post.author.avatar || "/placeholder.svg?height=40&width=40"}
-                                alt={post.author.name}
-                                width={40}
-                                height={40}
-                                className="rounded-full w-full h-full object-cover"
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <h3
-                                className="font-medium text-lg mb-1 cursor-pointer hover:text-primary"
-                                onClick={() => handleViewPost(post)}
-                              >
-                                {post.title}
-                              </h3>
-                              <p className="text-gray-600 mb-3">{post.content}</p>
-                              <div className="flex flex-wrap gap-2 mb-3">
-                                {post.tags.map((tag) => (
-                                  <Badge
-                                    key={tag}
-                                    variant="outline"
-                                    className="cursor-pointer hover:bg-secondary"
-                                    onClick={() => {
-                                      setSelectedTag(tag)
-                                      setCurrentPage(1)
-                                      setTimeout(() => fetchPosts(), 0)
-                                    }}
-                                  >
-                                    {tag}
-                                  </Badge>
-                                ))}
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                  <button
-                                    className={`flex items-center gap-1 text-sm ${post.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
-                                    onClick={() => handleLikePost(post.id)}
-                                  >
-                                    <ThumbsUp className="h-4 w-4" />
-                                    <span>{post.likes}</span>
-                                  </button>
-                                  <button
-                                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
-                                    onClick={() => handleViewPost(post)}
-                                  >
-                                    <MessageSquare className="h-4 w-4" />
-                                    <span>{post.replies}</span>
-                                  </button>
-                                  <button
-                                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
-                                    onClick={() => handleSharePost(post)}
-                                  >
-                                    <Share2 className="h-4 w-4" />
-                                    <span>Share</span>
-                                  </button>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-gray-500">
-                                  <span>{post.author.name}</span>
-                                  <span>•</span>
-                                  <span>{formatDate(post.date)}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Pagination */}
-                      {totalPages > 1 && (
-                        <div className="flex justify-center p-4">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handlePageChange(currentPage - 1)}
-                              disabled={currentPage === 1}
-                            >
-                              Previous
-                            </Button>
-
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                              <Button
-                                key={page}
-                                variant={currentPage === page ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => handlePageChange(page)}
-                              >
-                                {page}
-                              </Button>
-                            ))}
-
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handlePageChange(currentPage + 1)}
-                              disabled={currentPage === totalPages}
-                            >
-                              Next
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="p-12 text-center">
-                      <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                      <h3 className="text-lg font-medium text-gray-900">No discussions found</h3>
-                      <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </Card>
-        </div>
-
-        <div>
-          <Card className="mb-6">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Community Guidelines</h3>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => refreshAllData(true)}
-                disabled={isRefreshing}
-                title="Refresh data"
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-              </Button>
-            </div>
-            <div className="p-6">
-              <ul className="space-y-3 text-sm">
-                <li className="flex items-start gap-2">
-                  <div className="rounded-full bg-green-100 p-1 mt-0.5">
-                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <span>Be respectful and courteous to other community members</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="rounded-full bg-green-100 p-1 mt-0.5">
-                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <span>Stay on topic and keep discussions relevant to business</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="rounded-full bg-green-100 p-1 mt-0.5">
-                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <span>No promotional content or spam</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="rounded-full bg-green-100 p-1 mt-0.5">
-                    <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <span>Protect your privacy - don&apos;t share sensitive information</span>
-                </li>
-              </ul>
-            </div>
-          </Card>
-
-          <Card className="mb-6">
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">Popular Tags</h3>
-            </div>
-            <div className="p-6">
-              <div className="flex flex-wrap gap-2">
-                {allTags.slice(0, 10).map((tag) => (
-                  <button
-                    key={tag.id}
-                    className={`text-sm px-3 py-1.5 rounded-full ${selectedTag === tag.name ? "bg-[#22c984] text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-                    onClick={() => {
-                      setSelectedTag(selectedTag === tag.name ? null : tag.name)
-                      setCurrentPage(1)
-                      setTimeout(() => fetchPosts(), 0)
-                    }}
-                  >
-                    <Tag className="h-3.5 w-3.5 inline mr-1" />
-                    {tag.name} ({tag.count})
-                  </button>
-                ))}
-              </div>
-            </div>
-          </Card>
-
-          <Card>
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">Recent Activity</h3>
-            </div>
-            <div className="p-6">
-              {isLoadingActivities ? (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                </div>
-              ) : recentActivities.length > 0 ? (
-                <div className="space-y-4">
-                  {recentActivities.map((activity) => (
-                    <div key={activity.id} className="flex items-start gap-3">
-                      <div className="p-2 bg-gray-100 rounded-full">{getActivityIcon(activity.type)}</div>
-                      <div>
-                        <p className="text-sm">
-                          <span className="font-medium">{activity.user.name}</span> {activity.content}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">{formatDate(activity.date)}</p>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="text-xs text-gray-500 text-center pt-2">
-                    Last refreshed {formatDate(lastRefreshed.toISOString())}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-gray-500">No recent activity</p>
-                </div>
-              )}
-            </div>
-          </Card>
+    <div className="container mx-auto py-6 px-4 md:px-6 mb-20">
+      {/* Then in the header section of the page: */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        <h1 className="text-3xl font-bold">Community Moderation</h1>
+        <div className="flex flex-wrap gap-2">
+          <DebugButton />
+          <Button
+            onClick={backgroundRefresh}
+            variant="outline"
+            className="flex items-center gap-2"
+            disabled={isBackgroundRefreshing}
+          >
+            <RefreshCw className={`h-4 w-4 ${isBackgroundRefreshing ? "animate-spin" : ""}`} />
+            {isBackgroundRefreshing ? "Refreshing..." : "Refresh"}
+          </Button>
         </div>
       </div>
 
-      {sessionStatus === "authenticated" && (
-        <Collapsible open={isMyPostsOpen} onOpenChange={setIsMyPostsOpen} className="mt-6">
-          <Card>
-            <CollapsibleTrigger asChild>
-              <div className="p-6 border-b cursor-pointer hover:bg-gray-50 transition-colors flex justify-between items-center">
-                <h2 className="text-xl font-semibold">My Posts</h2>
-                {isMyPostsOpen ? (
-                  <ChevronUp className="h-5 w-5 text-gray-500" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-gray-500" />
-                )}
-              </div>
-            </CollapsibleTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
+          <TabsTrigger value="all" className="flex items-center gap-2">
+            <MessageCircle className="h-4 w-4" />
+            All Content
+          </TabsTrigger>
+          <TabsTrigger value="flagged" className="flex items-center gap-2">
+            <Flag className="h-4 w-4" />
+            Flagged Content
+            <Badge variant="destructive" className="ml-1">
+              {flaggedContent.posts.length + flaggedContent.comments.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="best-answers" className="flex items-center gap-2">
+            <Award className="h-4 w-4" />
+            Best Answers
+          </TabsTrigger>
+        </TabsList>
 
-            <CollapsibleContent>
-              <div className="divide-y">
-                {myPosts.length > 0 ? (
-                  myPosts.map((post: Post) => (
-                    <div key={post.id} className="p-6">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start">
-                            <h3
-                              className="font-medium text-lg mb-1 cursor-pointer hover:text-primary"
-                              onClick={() => handleViewPost(post)}
-                            >
-                              {post.title}
-                            </h3>
-                            <Badge
-                              variant={
-                                post.status === "published"
-                                  ? "default"
-                                  : post.status === "pending"
-                                    ? "outline"
-                                    : "secondary"
-                              }
-                              className={
-                                post.status === "pending"
-                                  ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-                                  : post.status === "draft"
-                                    ? "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                                    : ""
-                              }
-                            >
-                              {formatStatus(post.status)}
-                            </Badge>
+        <TabsContent value="all">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
+            <div className="md:col-span-3">
+              <Select value={selectedFilter} onValueChange={handleFilterChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Filter content" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Content</SelectItem>
+                  <SelectItem value="questions">Questions Only</SelectItem>
+                  <SelectItem value="discussions">Discussions Only</SelectItem>
+                  <SelectItem value="needs_answer">Needs Answer</SelectItem>
+                  <SelectItem value="has_best_answer">Has Best Answer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="md:col-span-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search discussions..."
+                  className="pl-9"
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                />
+              </div>
+            </div>
+
+            <div className="md:col-span-3">
+              <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as any)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="oldest">Oldest First</SelectItem>
+                  <SelectItem value="most_likes">Most Likes</SelectItem>
+                  <SelectItem value="most_comments">Most Comments</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {/* Filters */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle>Filters</CardTitle>
+                  <CardDescription>Filter posts by status and tags</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Status</label>
+                    <Select value={selectedStatus} onValueChange={handleStatusChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={VALID_STATUSES.ALL}>All</SelectItem>
+                        <SelectItem value={VALID_STATUSES.PENDING}>Pending</SelectItem>
+                        <SelectItem value={VALID_STATUSES.PUBLISHED}>Published</SelectItem>
+                        <SelectItem value={VALID_STATUSES.DRAFT}>Draft</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Tag</label>
+                    <Select value={selectedTag} onValueChange={handleTagChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select tag" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all_tags">All Tags</SelectItem>
+                        {tags.map((tag) => (
+                          <SelectItem key={tag.id} value={tag.name}>
+                            {tag.name} ({tag.count})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Moderation Guidelines */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle>Moderation Guidelines</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm">
+                  <Collapsible className="space-y-2">
+                    <CollapsibleTrigger className="flex items-center justify-between w-full font-medium">
+                      <span>Content Standards</span>
+                      <Shield className="h-4 w-4" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="text-muted-foreground pl-4 border-l-2 border-muted">
+                      <ul className="list-disc pl-4 space-y-1">
+                        <li>No offensive language or personal attacks</li>
+                        <li>No spam or promotional content</li>
+                        <li>Content must be relevant to the community</li>
+                      </ul>
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  <Collapsible className="space-y-2">
+                    <CollapsibleTrigger className="flex items-center justify-between w-full font-medium">
+                      <span>Best Answer Guidelines</span>
+                      <Award className="h-4 w-4" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="text-muted-foreground pl-4 border-l-2 border-muted">
+                      <ul className="list-disc pl-4 space-y-1">
+                        <li>Mark answers that are accurate and helpful</li>
+                        <li>Best answers should be comprehensive</li>
+                        <li>Consider community upvotes when selecting</li>
+                      </ul>
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  <Collapsible className="space-y-2">
+                    <CollapsibleTrigger className="flex items-center justify-between w-full font-medium">
+                      <span>Flagged Content Process</span>
+                      <Flag className="h-4 w-4" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="text-muted-foreground pl-4 border-l-2 border-muted">
+                      <ul className="list-disc pl-4 space-y-1">
+                        <li>Review all flagged content within 24 hours</li>
+                        <li>Add moderation notes for context</li>
+                        <li>Take appropriate action (approve/delete)</li>
+                      </ul>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Main Content */}
+            <div className="lg:col-span-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {selectedStatus === "all"
+                      ? "All Posts"
+                      : selectedStatus === "pending"
+                        ? "Pending Posts"
+                        : selectedStatus === "published"
+                          ? "Published Posts"
+                          : "Draft Posts"}
+                  </CardTitle>
+                  <CardDescription>
+                    {pagination.total} posts found
+                    {selectedTag && selectedTag !== "all_tags" && ` with tag "${selectedTag}"`}
+                    {searchTerm && ` matching "${searchTerm}"`}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="space-y-4">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="border rounded-lg p-4 animate-pulse">
+                          <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                          <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                          <div className="flex gap-2">
+                            <div className="h-6 bg-gray-200 rounded w-20"></div>
+                            <div className="h-6 bg-gray-200 rounded w-20"></div>
                           </div>
-                          <p className="text-gray-600 mb-3">{post.content}</p>
-                          <div className="flex flex-wrap gap-2 mb-3">
+                        </div>
+                      ))}
+                    </div>
+                  ) : posts.length > 0 ? (
+                    <div className="space-y-4">
+                      {posts.map((post) => (
+                        <div key={post.id} className="border rounded-lg p-4">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-lg">{post.title}</h3>
+                                {post.flagged && (
+                                  <Badge variant="destructive" className="flex items-center gap-1">
+                                    <Flag className="h-3 w-3" />
+                                    Flagged ({post.flagCount})
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                                <span>By {post.author.name}</span>
+                                <span>•</span>
+                                <span>{formatDate(post.date)}</span>
+                              </div>
+                            </div>
+                            <Badge className={cn(getStatusBadgeClass(post.status))}>{post.status}</Badge>
+                          </div>
+
+                          <p className="mt-2 text-sm line-clamp-2">{post.content}</p>
+
+                          <div className="flex flex-wrap gap-2 mt-3">
                             {post.tags.map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="outline"
-                                className="cursor-pointer hover:bg-secondary"
-                                onClick={() => {
-                                  setSelectedTag(tag)
-                                  setCurrentPage(1)
-                                  setTimeout(() => fetchPosts(), 0)
-                                }}
-                              >
+                              <Badge key={tag} variant="outline" className="text-xs">
                                 {tag}
                               </Badge>
                             ))}
                           </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <button
-                                className={`flex items-center gap-1 text-sm ${post.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
-                                onClick={() => handleLikePost(post.id)}
-                              >
+
+                          <div className="flex items-center justify-between mt-4">
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-1">
                                 <ThumbsUp className="h-4 w-4" />
-                                <span>{post.likes}</span>
-                              </button>
-                              <button
-                                className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
-                                onClick={() => handleViewPost(post)}
-                              >
+                                {post.likes}
+                              </div>
+                              <div className="flex items-center gap-1">
                                 <MessageSquare className="h-4 w-4" />
-                                <span>{post.replies}</span>
-                              </button>
+                                {post.replies}
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-500">{formatDate(post.date)}</div>
+
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" variant="secondary" onClick={() => handleViewComments(post)}>
+                                <Eye className="h-4 w-4 mr-1" />
+                                View & Moderate
+                              </Button>
+                              <Button size="sm" variant="destructive" onClick={() => handleDeletePost(post.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {renderPagination()}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No posts found</p>
+                      {(selectedTag || searchTerm || selectedStatus !== "all") && (
+                        <Button
+                          variant="link"
+                          onClick={() => {
+                            router.push("/admin/community/moderation")
+                            setSelectedTag("")
+                            setSearchTerm("")
+                            setSelectedStatus("all")
+                          }}
+                        >
+                          Clear filters
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="flagged">
+          <Card>
+            <CardHeader>
+              <CardTitle>Flagged Content</CardTitle>
+              <CardDescription>Content that has been flagged by users or the system for review</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {flaggedContent.posts.length === 0 && flaggedContent.comments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CheckCircle className="h-12 w-12 mx-auto mb-3 text-green-500" />
+                    <p className="text-lg font-medium">No flagged content to review</p>
+                    <p className="text-muted-foreground">All content has been moderated</p>
+                  </div>
+                ) : (
+                  <>
+                    {flaggedContent.posts.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-medium mb-3">Flagged Posts</h3>
+                        <div className="space-y-4">
+                          {flaggedContent.posts.map((post) => (
+                            <div key={post.id} className="border rounded-lg p-4 bg-red-50 dark:bg-red-900/10">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="font-semibold text-lg">{post.title}</h3>
+                                    <Badge variant="destructive" className="flex items-center gap-1">
+                                      <Flag className="h-3 w-3" />
+                                      Flagged ({post.flagCount})
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                                    <span>By {post.author.name}</span>
+                                    <span>•</span>
+                                    <span>{formatDate(post.date)}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <p className="mt-2 text-sm">{post.content}</p>
+
+                              <div className="mt-4 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Textarea
+                                    placeholder="Add moderation note..."
+                                    className="text-sm"
+                                    value={moderationNote}
+                                    onChange={(e) => setModerationNote(e.target.value)}
+                                  />
+                                </div>
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleResolveFlagged(post.id, "post")}
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    Approve
+                                  </Button>
+                                  <Button size="sm" variant="destructive" onClick={() => handleDeletePost(post.id)}>
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    Delete
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="best-answers">
+          <Card>
+            <CardHeader>
+              <CardTitle>Best Answers</CardTitle>
+              <CardDescription>Manage and review best answers across the community</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingBestAnswers ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : bestAnswers.length > 0 ? (
+                <div className="space-y-6">
+                  {bestAnswers.map((comment) => (
+                    <div key={comment.id} className="border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/10">
+                      <div className="flex items-start gap-4">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage
+                            src={comment.author.avatar || "/placeholder.svg?height=40&width=40"}
+                            alt={comment.author.name}
+                          />
+                          <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{comment.author.name}</p>
+                              <p className="text-xs text-muted-foreground">{formatDate(comment.date)}</p>
+                            </div>
+                            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                              <Award className="h-3 w-3 mr-1" />
+                              Best Answer
+                            </Badge>
+                          </div>
+                          <div className="mt-2">
+                            <p className="text-sm">{comment.content}</p>
+                          </div>
+                          {comment.moderationNotes && (
+                            <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
+                              <p className="text-xs font-medium text-blue-800 dark:text-blue-300">Moderation Note:</p>
+                              <p className="text-sm text-blue-700 dark:text-blue-400">{comment.moderationNotes}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-4 flex justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (comment.postId) {
+                              // Find the post and open the comments dialog
+                              const post = posts.find((p) => p.id === comment.postId)
+                              if (post) {
+                                handleViewComments(post)
+                              }
+                            }
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View Post
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Award className="h-12 w-12 mx-auto mb-3 text-yellow-500" />
+                  <p className="text-lg font-medium">No Best Answers Yet</p>
+                  <p className="text-muted-foreground mb-4">
+                    Mark helpful comments as best answers to help other users find solutions quickly.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Comments Dialog */}
+      <Dialog open={showCommentsDialog} onOpenChange={setShowCommentsDialog}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          {selectedPostForComments && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Moderate: "{selectedPostForComments.title}"</DialogTitle>
+              </DialogHeader>
+
+              <div className="mt-4">
+                <div className="border rounded-lg p-4 mb-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Avatar>
+                      <AvatarImage
+                        src={selectedPostForComments.author.avatar || "/placeholder.svg?height=40&width=40"}
+                        alt={selectedPostForComments.author.name}
+                      />
+                      <AvatarFallback>{selectedPostForComments.author.name.substring(0, 2)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{selectedPostForComments.author.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(selectedPostForComments.date)}</p>
+                    </div>
+                    {selectedPostForComments.flagged && (
+                      <Badge variant="destructive" className="ml-auto flex items-center gap-1">
+                        <Flag className="h-3 w-3" />
+                        Flagged
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm mb-3">{selectedPostForComments.content}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPostForComments.tags.map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium">Comments ({selectedPostComments.length})</h3>
+                  <div className="flex items-center gap-2">
+                    <Select defaultValue="all">
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter comments" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Comments</SelectItem>
+                        <SelectItem value="flagged">Flagged Only</SelectItem>
+                        <SelectItem value="recent">Most Recent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {isLoadingComments ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : selectedPostComments.length > 0 ? (
+                  <div className="space-y-6">
+                    {selectedPostComments.map((comment) => (
+                      <div
+                        key={comment.id}
+                        className={cn(
+                          "flex gap-3 border-b pb-4",
+                          comment.isBestAnswer && "bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-lg border-yellow-200",
+                        )}
+                      >
+                        <Avatar>
+                          <AvatarImage
+                            src={comment.author.avatar || "/placeholder.svg?height=40&width=40"}
+                            alt={comment.author.name}
+                          />
+                          <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{comment.author.name}</p>
+                              <span className="text-xs text-muted-foreground">{formatDate(comment.date)}</span>
+                              {comment.isBestAnswer && (
+                                <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                                  <Award className="h-3 w-3 mr-1" />
+                                  Best Answer
+                                </Badge>
+                              )}
+                              {comment.flagged && (
+                                <Badge variant="destructive" className="flex items-center gap-1">
+                                  <Flag className="h-3 w-3" />
+                                  Flagged ({comment.flagCount})
+                                </Badge>
+                              )}
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {!comment.isBestAnswer ? (
+                                  <DropdownMenuItem onClick={() => handleMarkBestAnswer(comment.id)}>
+                                    <Award className="h-4 w-4 mr-2" />
+                                    Mark as Best Answer
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem onClick={() => handleRemoveBestAnswer(comment.id)}>
+                                    <Award className="h-4 w-4 mr-2" />
+                                    Remove Best Answer
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setModerationNote(comment.moderationNotes || "")
+                                    document.getElementById(`moderation-note-${comment.id}`)?.focus()
+                                  }}
+                                >
+                                  <PencilIcon className="h-4 w-4 mr-2" />
+                                  Edit Moderation Note
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete Comment
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                          <p className="text-gray-700 mb-2">{comment.content}</p>
+                          {comment.moderationNotes && (
+                            <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/10 rounded border border-yellow-200 dark:border-yellow-800">
+                              <p className="text-xs font-medium text-yellow-800 dark:text-yellow-300">
+                                Moderation Note:
+                              </p>
+                              <p className="text-sm text-yellow-700 dark:text-yellow-400">{comment.moderationNotes}</p>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                            <div className="flex items-center gap-1">
+                              <ThumbsUp className="h-4 w-4" />
+                              <span>{comment.likes} Likes</span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 ) : (
-                  <div className="p-6 text-center">
-                    <p className="text-gray-500">You haven't created any posts yet.</p>
-                    <Button variant="outline" className="mt-2" onClick={() => setShowNewPostDialog(true)}>
-                      Create Your First Post
-                    </Button>
+                  <div className="text-center py-8 text-gray-500">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p>No comments yet for this post.</p>
                   </div>
                 )}
-              </div>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-      )}
 
-      {/* New Post Dialog */}
-      <Dialog open={showNewPostDialog} onOpenChange={setShowNewPostDialog}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Create New Post</DialogTitle>
-          </DialogHeader>
-          <div className="mt-4 space-y-4">
-            <div>
-              <Label htmlFor="post-title">Title</Label>
-              <Input
-                id="post-title"
-                placeholder="Enter a descriptive title"
-                value={newPostTitle}
-                onChange={(e) => setNewPostTitle(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="post-content">Content</Label>
-              <Textarea
-                id="post-content"
-                placeholder="What would you like to discuss?"
-                rows={5}
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="post-tags">Tags (separated by commas)</Label>
-              <Input
-                id="post-tags"
-                placeholder="e.g. Business, Tax, Legal"
-                value={newPostTags}
-                onChange={(e) => setNewPostTags(e.target.value)}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowNewPostDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreatePost} disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Posting...
-                  </>
-                ) : (
-                  "Post to Community"
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Login Prompt Dialog */}
-      <AlertDialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Login Required</AlertDialogTitle>
-            <AlertDialogDescription>
-              You need to be logged in to perform this action. Would you like to log in now?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction asChild>
-              <Button
-                onClick={() => {
-                  window.location.href = "/login?callbackUrl=/dashboard/community"
-                }}
-              >
-                Log In
-              </Button>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Post Detail Dialog */}
-      <Dialog open={showPostDialog} onOpenChange={setShowPostDialog}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-          {selectedPost && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{selectedPost.title}</DialogTitle>
-              </DialogHeader>
-              <div className="mt-4">
-                <div className="flex items-start gap-3 mb-6">
-                  <div className="w-10 h-10 flex-shrink-0">
-                    <Image
-                      src={selectedPost.author.avatar || "/placeholder.svg?height=40&width=40"}
-                      alt={selectedPost.author.name}
-                      width={40}
-                      height={40}
-                      className="rounded-full w-full h-full object-cover"
-                    />
-                  </div>
-                  <div>
-                    <p className="font-medium">{selectedPost.author.name}</p>
-                    <p className="text-sm text-gray-500">{formatDate(selectedPost.date)}</p>
-                  </div>
-                </div>
-
-                <div className="mb-6">
-                  <p className="text-gray-700 whitespace-pre-line">{selectedPost.content}</p>
-                </div>
-
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {selectedPost.tags.map((tag) => (
-                    <Badge key={tag} variant="outline">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-
-                <div className="flex items-center gap-4 mb-8 border-t border-b py-3">
-                  <button
-                    className={`flex items-center gap-1 text-sm ${selectedPost.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
-                    onClick={() => handleLikePost(selectedPost.id)}
-                  >
-                    <ThumbsUp className="h-4 w-4" />
-                    <span>{selectedPost.likes} Likes</span>
-                  </button>
-                  <button
-                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors"
-                    onClick={() => handleSharePost(selectedPost)}
-                  >
-                    <Share2 className="h-4 w-4" />
-                    <span>Share</span>
-                  </button>
-                </div>
-
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium mb-4">Comments ({selectedPost.replies})</h3>
-
-                  {sessionStatus === "authenticated" && (
-                    <div className="flex gap-3 mb-6">
-                      <div className="w-10 h-10 flex-shrink-0 overflow-hidden rounded-full">
-                        {session?.user?.image ? (
-                          <Image
-                            src={session.user.image || "/placeholder.svg"}
-                            alt={session?.user?.name || "You"}
-                            width={40}
-                            height={40}
-                            className="w-full h-full object-cover"
+                <div className="mt-6 space-y-2">
+                  <h4 className="font-medium">Moderation Notes</h4>
+                  <div className="space-y-4">
+                    {selectedPostComments.map((comment) => (
+                      <div key={comment.id} className="border rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage
+                              src={comment.author.avatar || "/placeholder.svg?height=30&width=30"}
+                              alt={comment.author.name}
+                            />
+                            <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
+                          </Avatar>
+                          <p className="text-sm font-medium">{comment.author.name}</p>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2 line-clamp-1">{comment.content}</p>
+                        <div className="flex gap-2">
+                          <Textarea
+                            id={`moderation-note-${comment.id}`}
+                            placeholder="Add moderation note for this comment..."
+                            className="text-sm"
+                            value={commentModerationNotes[comment.id] || ""}
+                            onChange={(e) =>
+                              setCommentModerationNotes((prev) => ({
+                                ...prev,
+                                [comment.id]: e.target.value,
+                              }))
+                            }
                           />
-                        ) : (
-                          <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">
-                            {session?.user?.name?.charAt(0) || "U"}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <Textarea
-                          placeholder="Add a comment..."
-                          value={newComment}
-                          onChange={(e) => setNewComment(e.target.value)}
-                          rows={2}
-                          className="mb-2"
-                        />
-                        <div className="flex justify-end">
-                          <Button onClick={handleSubmitComment} disabled={isSubmittingComment} size="sm">
-                            {isSubmittingComment ? (
-                              <>
-                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                Posting...
-                              </>
-                            ) : (
-                              <>
-                                <Send className="mr-2 h-3 w-3" />
-                                Post Comment
-                              </>
-                            )}
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setModerationNote(commentModerationNotes[comment.id] || "")
+                              handleAddModerationNote(comment.id)
+                            }}
+                          >
+                            Save
                           </Button>
                         </div>
                       </div>
-                    </div>
-                  )}
-
-                  {isLoadingComments ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                  ) : postComments.length > 0 ? (
-                    <div className="space-y-6">
-                      {/* Render Best Answer first if it exists */}
-                      {bestAnswerComment && (
-                        <div className="mb-4">
-                          <CommentItem
-                            key={bestAnswerComment.id}
-                            id={bestAnswerComment.id}
-                            content={bestAnswerComment.content}
-                            author={bestAnswerComment.author}
-                            date={bestAnswerComment.date}
-                            likes={bestAnswerComment.likes}
-                            isLiked={bestAnswerComment.isLiked}
-                            isBestAnswer={true}
-                            moderationNotes={bestAnswerComment.moderationNotes}
-                            onLike={handleLikeComment}
-                          />
-                        </div>
-                      )}
-
-                      {/* Then render other comments */}
-                      {otherComments.map((comment) => (
-                        <CommentItem
-                          key={comment.id}
-                          id={comment.id}
-                          content={comment.content}
-                          author={comment.author}
-                          date={comment.date}
-                          likes={comment.likes}
-                          isLiked={comment.isLiked}
-                          isBestAnswer={false}
-                          moderationNotes={comment.moderationNotes}
-                          onLike={handleLikeComment}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                      <p>No comments yet. Be the first to comment!</p>
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
               </div>
             </>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Share Dialog */}
-      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Share Post</DialogTitle>
-          </DialogHeader>
-          <div className="mt-4 space-y-4">
-            <div className="flex justify-center gap-4">
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-full h-12 w-12"
-                onClick={() => shareOnSocialMedia("facebook")}
-              >
-                <Facebook className="h-5 w-5 text-blue-600" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-full h-12 w-12"
-                onClick={() => shareOnSocialMedia("twitter")}
-              >
-                <Twitter className="h-5 w-5 text-sky-500" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-full h-12 w-12"
-                onClick={() => shareOnSocialMedia("linkedin")}
-              >
-                <Linkedin className="h-5 w-5 text-blue-700" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-full h-12 w-12"
-                onClick={() => shareOnSocialMedia("whatsapp")}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-green-500"
-                >
-                  <path d="M17.498 14.382c-.301-.15-1.767-.867-2.04-.966-.273-.101-.473-.15-.673.15-.2.3-.767.966-.94 1.164-.173.199-.347.223-.647.075-.3-.15-1.269-.467-2.416-1.483-.893-.795-1.484-1.77-1.66-2.07-.174-.3-.019-.462.13-.61.136-.137.301-.354.451-.531.15-.178.2-.301.3-.502.099-.2.05-.374-.025-.524-.075-.15-.672-1.62-.922-2.206-.24-.584-.487-.51-.672-.51-.172-.007-.371-.01-.571-.01-.2 0-.523.074-.797.372-.273.297-1.045 1.02-1.045 2.475 0 1.455 1.064 2.862 1.213 3.063.15.2 2.105 3.21 5.1 4.495.713.308 1.27.492 1.705.626.714.227 1.365.195 1.88.118.574-.078 1.767-.72 2.016-1.413.255-.694.255-1.29.18-1.414-.074-.124-.272-.198-.57-.347z" />
-                  <path d="M13.507 8.4a1 1 0 0 0-1.414 0l-2.293 2.293a1 1 0 0 0 0 1.414l2.293 2.293a1 1 0 0 0 1.414 0l2.293-2.293a1 1 0 0 0 0-1.414L13.507 8.4z" />
-                  <path d="M12 2C6.486 2 2 6.486 2 12c0 1.572.37 3.07 1.023 4.389L2 22l5.611-1.023A9.959 9.959 0 0 0 12 22c5.514 0 10-4.486 10-10S17.514 2 12 2z" />
-                </svg>
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Input value={shareUrl} readOnly />
-              <Button variant="outline" size="icon" onClick={copyToClipboard}>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </svg>
-              </Button>
-            </div>
-          </div>
         </DialogContent>
       </Dialog>
     </div>
