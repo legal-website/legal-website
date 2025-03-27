@@ -1,8 +1,10 @@
-// Define the Role enum to match your Prisma schema
 export enum Role {
-    ADMIN = "ADMIN",
-    SUPPORT = "SUPPORT",
-    CLIENT = "CLIENT",
-  }
-  
-  
+  ADMIN = "ADMIN",
+  SUPPORT = "SUPPORT",
+  CLIENT = "CLIENT",
+}
+
+export const isAdmin = (role?: string): boolean => {
+  return role === Role.ADMIN
+}
+
