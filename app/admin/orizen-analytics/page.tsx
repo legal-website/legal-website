@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
-import { CalendarIcon, Users, Eye, Clock, MousePointerClick } from "lucide-react"
+import { CalendarIcon, Users, Eye, Clock, MousePointerClick, AlertTriangle } from "lucide-react"
 import { format, subDays } from "date-fns"
 import {
   Line,
@@ -24,9 +24,9 @@ import {
 } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // Types
-// Update the DateRange interface to match react-day-picker's type
 interface DateRange {
   from: Date | undefined
   to: Date | undefined
@@ -81,8 +81,58 @@ const COLORS = [
   "#d0ed57",
 ]
 
+// Mock data for when API fails
+const mockSummaryMetrics: SummaryMetrics = {
+  users: 1250,
+  newUsers: 487,
+  sessions: 1893,
+  pageviews: 5721,
+  avgSessionDuration: 185,
+  bounceRate: 42.7,
+}
+
+const mockPageViews: PageViewData[] = Array.from({ length: 30 }, (_, i) => ({
+  date: format(subDays(new Date(), 30 - i), "yyyy-MM-dd"),
+  value: Math.floor(Math.random() * 300) + 100,
+}))
+
+const mockTopPages: TopPage[] = [
+  { page: "/", pageviews: 1245, avgTimeOnPage: 120 },
+  { page: "/about", pageviews: 876, avgTimeOnPage: 95 },
+  { page: "/services", pageviews: 654, avgTimeOnPage: 85 },
+  { page: "/contact", pageviews: 432, avgTimeOnPage: 65 },
+  { page: "/blog", pageviews: 321, avgTimeOnPage: 110 },
+  { page: "/pricing", pageviews: 234, avgTimeOnPage: 75 },
+  { page: "/faq", pageviews: 198, avgTimeOnPage: 90 },
+]
+
+const mockDemographics: DemographicData[] = [
+  { country: "United States", users: 450 },
+  { country: "United Kingdom", users: 320 },
+  { country: "Canada", users: 280 },
+  { country: "Australia", users: 190 },
+  { country: "Germany", users: 150 },
+  { country: "France", users: 120 },
+  { country: "India", users: 90 },
+]
+
+const mockTrafficSources: TrafficSource[] = [
+  { source: "Google", sessions: 780 },
+  { source: "Direct", sessions: 540 },
+  { source: "Facebook", sessions: 320 },
+  { source: "Twitter", sessions: 210 },
+  { source: "LinkedIn", sessions: 180 },
+  { source: "Bing", sessions: 120 },
+  { source: "Instagram", sessions: 90 },
+]
+
+const mockDevices: DeviceData[] = [
+  { device: "Desktop", sessions: 980 },
+  { device: "Mobile", sessions: 720 },
+  { device: "Tablet", sessions: 190 },
+]
+
 export default function AnalyticsDashboard() {
-  // Update the useState initialization to handle undefined values
   const [date, setDate] = useState<DateRange>({
     from: subDays(new Date(), 30),
     to: new Date(),
@@ -94,6 +144,7 @@ export default function AnalyticsDashboard() {
   const [demographics, setDemographics] = useState<DemographicData[]>([])
   const [trafficSources, setTrafficSources] = useState<TrafficSource[]>([])
   const [devices, setDevices] = useState<DeviceData[]>([])
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [loading, setLoading] = useState({
     summary: true,
@@ -103,6 +154,8 @@ export default function AnalyticsDashboard() {
     trafficSources: true,
     devices: true,
   })
+
+  const [useMockData, setUseMockData] = useState(false)
 
   // Format date for API requests
   const formatDateForApi = (date: Date) => format(date, "yyyy-MM-dd")
@@ -117,20 +170,28 @@ export default function AnalyticsDashboard() {
     // Fetch summary metrics
     setLoading((prev) => ({ ...prev, summary: true }))
     fetch(`/api/admin/analytics/summary?startDate=${startDate}&endDate=${endDate}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+        return res.json()
+      })
       .then((data) => {
         setSummaryMetrics(data)
         setLoading((prev) => ({ ...prev, summary: false }))
       })
       .catch((err) => {
         console.error("Error fetching summary metrics:", err)
+        setErrors((prev) => ({ ...prev, summary: err.message }))
         setLoading((prev) => ({ ...prev, summary: false }))
+        if (useMockData) setSummaryMetrics(mockSummaryMetrics)
       })
 
     // Fetch page views
     setLoading((prev) => ({ ...prev, pageViews: true }))
     fetch(`/api/admin/analytics/pageviews?startDate=${startDate}&endDate=${endDate}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+        return res.json()
+      })
       .then((data) => {
         // Ensure data is an array before setting state
         setPageViews(Array.isArray(data) ? data : [])
@@ -138,13 +199,18 @@ export default function AnalyticsDashboard() {
       })
       .catch((err) => {
         console.error("Error fetching page views:", err)
+        setErrors((prev) => ({ ...prev, pageViews: err.message }))
         setLoading((prev) => ({ ...prev, pageViews: false }))
+        if (useMockData) setPageViews(mockPageViews)
       })
 
     // Fetch top pages
     setLoading((prev) => ({ ...prev, topPages: true }))
     fetch(`/api/admin/analytics/top-pages?startDate=${startDate}&endDate=${endDate}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+        return res.json()
+      })
       .then((data) => {
         // Ensure data is an array before setting state
         setTopPages(Array.isArray(data) ? data : [])
@@ -152,13 +218,18 @@ export default function AnalyticsDashboard() {
       })
       .catch((err) => {
         console.error("Error fetching top pages:", err)
+        setErrors((prev) => ({ ...prev, topPages: err.message }))
         setLoading((prev) => ({ ...prev, topPages: false }))
+        if (useMockData) setTopPages(mockTopPages)
       })
 
     // Fetch demographics
     setLoading((prev) => ({ ...prev, demographics: true }))
     fetch(`/api/admin/analytics/demographics?startDate=${startDate}&endDate=${endDate}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+        return res.json()
+      })
       .then((data) => {
         // Ensure data is an array before setting state
         setDemographics(Array.isArray(data) ? data : [])
@@ -166,13 +237,18 @@ export default function AnalyticsDashboard() {
       })
       .catch((err) => {
         console.error("Error fetching demographics:", err)
+        setErrors((prev) => ({ ...prev, demographics: err.message }))
         setLoading((prev) => ({ ...prev, demographics: false }))
+        if (useMockData) setDemographics(mockDemographics)
       })
 
     // Fetch traffic sources
     setLoading((prev) => ({ ...prev, trafficSources: true }))
     fetch(`/api/admin/analytics/traffic-sources?startDate=${startDate}&endDate=${endDate}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+        return res.json()
+      })
       .then((data) => {
         // Ensure data is an array before setting state
         setTrafficSources(Array.isArray(data) ? data : [])
@@ -180,13 +256,18 @@ export default function AnalyticsDashboard() {
       })
       .catch((err) => {
         console.error("Error fetching traffic sources:", err)
+        setErrors((prev) => ({ ...prev, trafficSources: err.message }))
         setLoading((prev) => ({ ...prev, trafficSources: false }))
+        if (useMockData) setTrafficSources(mockTrafficSources)
       })
 
     // Fetch device categories
     setLoading((prev) => ({ ...prev, devices: true }))
     fetch(`/api/admin/analytics/devices?startDate=${startDate}&endDate=${endDate}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+        return res.json()
+      })
       .then((data) => {
         // Ensure data is an array before setting state
         setDevices(Array.isArray(data) ? data : [])
@@ -194,9 +275,11 @@ export default function AnalyticsDashboard() {
       })
       .catch((err) => {
         console.error("Error fetching device categories:", err)
+        setErrors((prev) => ({ ...prev, devices: err.message }))
         setLoading((prev) => ({ ...prev, devices: false }))
+        if (useMockData) setDevices(mockDevices)
       })
-  }, [date])
+  }, [date, useMockData])
 
   // Format time duration (seconds to minutes and seconds)
   const formatDuration = (seconds: number) => {
@@ -218,6 +301,9 @@ export default function AnalyticsDashboard() {
     if (!Array.isArray(arr)) return []
     return arr.slice(start, end)
   }
+
+  // Check if there are any errors
+  const hasErrors = Object.keys(errors).length > 0
 
   return (
     <div className="container mx-auto py-6 space-y-8">
@@ -253,7 +339,6 @@ export default function AnalyticsDashboard() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
-              {/* Fix the onSelect handler to handle undefined values */}
               <Calendar
                 initialFocus
                 mode="range"
@@ -267,6 +352,29 @@ export default function AnalyticsDashboard() {
         </div>
       </div>
 
+      {hasErrors && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Connection Issues</AlertTitle>
+          <AlertDescription>
+            <p>There were issues connecting to Google Analytics. Using fallback data.</p>
+            <div className="mt-2">
+              <Button variant="outline" size="sm" onClick={() => setUseMockData(!useMockData)}>
+                {useMockData ? "Try Real Data" : "Use Mock Data"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-2"
+                onClick={() => (window.location.href = "/admin/orizen-analytics/test")}
+              >
+                Test Connection
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
@@ -278,10 +386,10 @@ export default function AnalyticsDashboard() {
               <Skeleton className="h-8 w-20 mb-2" />
             ) : (
               <>
-                <div className="text-2xl font-bold">{summaryMetrics?.users.toLocaleString() || 0}</div>
+                <div className="text-2xl font-bold">{summaryMetrics?.users?.toLocaleString() || 0}</div>
                 <p className="text-xs text-muted-foreground flex items-center">
                   <Users className="h-3 w-3 mr-1" />
-                  {summaryMetrics?.newUsers.toLocaleString() || 0} new users
+                  {summaryMetrics?.newUsers?.toLocaleString() || 0} new users
                 </p>
               </>
             )}
@@ -297,8 +405,7 @@ export default function AnalyticsDashboard() {
               <Skeleton className="h-8 w-20 mb-2" />
             ) : (
               <>
-                <div className="text-2xl font-bold">{summaryMetrics?.pageviews.toLocaleString() || 0}</div>
-                {/* Fix the pageviews per session calculation to handle undefined */}
+                <div className="text-2xl font-bold">{summaryMetrics?.pageviews?.toLocaleString() || 0}</div>
                 <p className="text-xs text-muted-foreground flex items-center">
                   <Eye className="h-3 w-3 mr-1" />
                   {((summaryMetrics?.pageviews || 0) / (summaryMetrics?.sessions || 1)).toFixed(2)} per session
@@ -408,7 +515,6 @@ export default function AnalyticsDashboard() {
               </div>
             ) : (
               <div className="space-y-4">
-                {/* Use the safe slice function */}
                 {safeSlice(topPages, 0, 7).map((page, index) => (
                   <div key={index} className="flex justify-between items-center">
                     <div className="flex items-center">
@@ -445,7 +551,6 @@ export default function AnalyticsDashboard() {
                 className="h-[300px]"
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  {/* Use the safe slice function */}
                   <BarChart data={safeSlice(demographics, 0, 7)}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="country" />
@@ -481,7 +586,6 @@ export default function AnalyticsDashboard() {
                 className="h-[300px]"
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  {/* Use the safe slice function */}
                   <BarChart data={safeSlice(trafficSources, 0, 7)} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" />
