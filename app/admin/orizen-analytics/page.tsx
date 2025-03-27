@@ -376,11 +376,19 @@ export default function AnalyticsDashboard() {
   const hasErrors = Object.keys(errors).length > 0
 
   return (
-    <div className="container mx-auto py-6 space-y-8">
+    <div className="container mx-auto py-6 space-y-8 mb-40 px-[3%]">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold">Orizen Analytics Dashboard</h1>
 
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={refreshConnection} disabled={isRefreshing}>
+            {isRefreshing ? "Refreshing..." : "Refresh Data"}
+          </Button>
+
+          <Button variant="outline" size="sm" onClick={() => router.push("/admin/orizen-analytics/test")}>
+            Test API Connection
+          </Button>
+
           <Button variant="outline" size="sm" onClick={() => selectDateRange(7)}>
             Last 7 days
           </Button>
