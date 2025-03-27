@@ -2,36 +2,30 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/context/theme-context"
 import { Button } from "@/components/ui/button"
 import { signOut } from "next-auth/react"
-import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  Settings,
-  Tag,
-  Bell,
-  BarChart3,
-  Shield,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  Ticket,
-  CreditCard,
-  MessageCircle,
-} from "lucide-react"
+import { LayoutDashboard, Users, FileText, Settings, Tag, Bell, BarChart3, Shield, LogOut, ChevronLeft, ChevronRight, Ticket, CreditCard, MessageCircle } from 'lucide-react'
+
+// Define the SubMenuItem type separately
+interface SubMenuItem {
+  label: string
+  href: string
+  badge?: number | string
+  badgeKey?: string
+}
 
 interface MenuItem {
   icon: React.ElementType
   label: string
   href: string
   badge?: number | string
-  subItems?: { label: string; href: string; badge?: number | string }[]
+  badgeKey?: string
+  subItems?: SubMenuItem[]
 }
 
 const menuItems: MenuItem[] = [
@@ -45,9 +39,10 @@ const menuItems: MenuItem[] = [
     label: "User Management",
     href: "/admin/users",
     badge: 3,
+    badgeKey: "userManagement",
     subItems: [
       { label: "All Users", href: "/admin/users/all" },
-      { label: "Pending Approvals", href: "/admin/users/pending", badge: 3 },
+      { label: "Pending Approvals", href: "/admin/users/pending", badge: 3, badgeKey: "pendingApprovals" },
       { label: "User Roles", href: "/admin/users/roles" },
     ],
   },
@@ -55,10 +50,11 @@ const menuItems: MenuItem[] = [
     icon: FileText,
     label: "Document Management",
     href: "/admin/documents",
+    badgeKey: "documents",
     subItems: [
-      { label: "Templates", href: "/admin/documents/templates" },
-      { label: "Client Documents", href: "/admin/documents/client" },
-      { label: "Bulk Upload", href: "/admin/documents/upload" },
+      { label: "Templates", href: "/admin/documents/templates", badgeKey: "templates" },
+      { label: "Client Documents", href: "/admin/documents/client", badgeKey: "clientDocuments" },
+      { label: "Bulk Upload", href: "/admin/documents/upload", badgeKey: "bulkUpload" },
     ],
   },
   {
@@ -66,41 +62,46 @@ const menuItems: MenuItem[] = [
     label: "Promotions",
     href: "/admin/promotions",
     badge: "New",
+    badgeKey: "promotions",
     subItems: [
-      { label: "Deals", href: "/admin/promotions/deals" },
-      { label: "Coupons", href: "/admin/promotions/coupons" },
-      { label: "Campaigns", href: "/admin/promotions/campaigns" },
+      { label: "Deals", href: "/admin/promotions/deals", badgeKey: "deals" },
+      { label: "Coupons", href: "/admin/promotions/coupons", badgeKey: "coupons" },
+      { label: "Campaigns", href: "/admin/promotions/campaigns", badgeKey: "campaigns" },
     ],
   },
   {
     icon: Bell,
     label: "Notifications",
     href: "/admin/notifications",
+    badgeKey: "notifications",
   },
   {
     icon: MessageCircle,
     label: "Community",
     href: "/admin/community",
     badge: "New",
+    badgeKey: "community",
     subItems: [
-      { label: "Manage Posts", href: "/admin/community" },
-      { label: "Moderation", href: "/admin/community/moderation" },
-      { label: "Reports", href: "/admin/community/reports" },
+      { label: "Manage Posts", href: "/admin/community", badgeKey: "managePosts" },
+      { label: "Moderation", href: "/admin/community/moderation", badgeKey: "moderation" },
+      { label: "Reports", href: "/admin/community/reports", badgeKey: "reports" },
     ],
   },
   {
     icon: BarChart3,
     label: "Analytics",
     href: "/admin/analytics",
+    badgeKey: "analytics",
   },
   {
     icon: CreditCard,
     label: "Billing",
     href: "/admin/billing",
+    badgeKey: "billing",
     subItems: [
-      { label: "Invoices", href: "/admin/billing/invoices" },
-      { label: "Subscriptions", href: "/admin/billing/subscriptions" },
-      { label: "Payment Methods", href: "/admin/billing/payment-methods" },
+      { label: "Invoices", href: "/admin/billing/invoices", badgeKey: "invoices" },
+      { label: "Subscriptions", href: "/admin/billing/subscriptions", badgeKey: "subscriptions" },
+      { label: "Payment Methods", href: "/admin/billing/payment-methods", badgeKey: "paymentMethods" },
     ],
   },
   {
@@ -108,21 +109,28 @@ const menuItems: MenuItem[] = [
     label: "Support Tickets",
     href: "/admin/tickets",
     badge: 12,
+    badgeKey: "tickets",
   },
   {
     icon: Shield,
     label: "Compliance",
     href: "/admin/compliance",
+    badgeKey: "compliance",
     subItems: [
-      { label: "Amendments", href: "/admin/compliance/amendments", badge: "New" },
-      { label: "Annual Reports", href: "/admin/compliance/annual-reports" },
-      { label: "Beneficial Ownership", href: "/admin/compliance/beneficial-ownership" },
+      { label: "Amendments", href: "/admin/compliance/amendments", badge: "New", badgeKey: "amendments" },
+      { label: "Annual Reports", href: "/admin/compliance/annual-reports", badgeKey: "annualReports" },
+      {
+        label: "Beneficial Ownership",
+        href: "/admin/compliance/beneficial-ownership",
+        badgeKey: "beneficialOwnership",
+      },
     ],
   },
   {
     icon: Settings,
     label: "System Settings",
     href: "/admin/settings",
+    badgeKey: "settings",
   },
 ]
 
@@ -132,6 +140,64 @@ export default function AdminSidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const { theme } = useTheme()
+
+  // Add state for counters
+  const [counters, setCounters] = useState<Record<string, number | string | null>>({
+    userManagement: 3,
+    pendingApprovals: 3,
+    promotions: "New",
+    community: "New",
+    tickets: 12,
+    amendments: "New",
+  })
+
+  // Function to update a counter
+  const updateCounter = (key: string, value: number | string | null) => {
+    setCounters((prev) => ({
+      ...prev,
+      [key]: value,
+    }))
+  }
+
+  // Function to increment a counter
+  const incrementCounter = (key: string) => {
+    setCounters((prev) => {
+      const currentValue = prev[key]
+      if (typeof currentValue === "number") {
+        return {
+          ...prev,
+          [key]: currentValue + 1,
+        }
+      }
+      return prev
+    })
+  }
+
+  // Example effect to listen for events that should update counters
+  useEffect(() => {
+    // This is where you would set up event listeners or fetch initial counter values
+
+    // Example: Listen for a custom event that updates counters
+    const handleCounterUpdate = (event: CustomEvent) => {
+      const { key, value } = event.detail
+      updateCounter(key, value)
+    }
+
+    // Add event listener
+    window.addEventListener("admin:counter-update" as any, handleCounterUpdate as EventListener)
+
+    // Clean up
+    return () => {
+      window.removeEventListener("admin:counter-update" as any, handleCounterUpdate as EventListener)
+    }
+  }, [])
+
+  // Helper function to get the current badge value for an item
+  const getBadgeValue = (item: MenuItem | SubMenuItem) => {
+    if (!item.badgeKey) return item.badge;
+    const counterValue = counters[item.badgeKey];
+    return counterValue !== undefined ? counterValue : item.badge;
+  }
 
   const toggleExpand = (label: string) => {
     setExpandedItems((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]))
@@ -210,9 +276,9 @@ export default function AdminSidebar() {
                     </div>
                     {!collapsed && (
                       <>
-                        {item.badge && (
+                        {getBadgeValue(item) && (
                           <span className="px-2 py-0.5 ml-2 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                            {item.badge}
+                            {getBadgeValue(item)}
                           </span>
                         )}
                         <ChevronRight
@@ -224,7 +290,7 @@ export default function AdminSidebar() {
                       </>
                     )}
                   </button>
-                  {!collapsed && expandedItems.includes(item.label) && (
+                  {!collapsed && expandedItems.includes(item.label) && item.subItems && (
                     <ul className="mt-1 ml-6 space-y-1">
                       {item.subItems.map((subItem) => (
                         <li key={subItem.href}>
@@ -246,9 +312,9 @@ export default function AdminSidebar() {
                             )}
                           >
                             <span>{subItem.label}</span>
-                            {subItem.badge && (
+                            {getBadgeValue(subItem) && (
                               <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                {subItem.badge}
+                                {getBadgeValue(subItem)}
                               </span>
                             )}
                           </Link>
@@ -280,9 +346,9 @@ export default function AdminSidebar() {
                     <item.icon className={cn("w-5 h-5", collapsed ? "" : "mr-3")} />
                     {!collapsed && <span>{item.label}</span>}
                   </div>
-                  {!collapsed && item.badge && (
+                  {!collapsed && getBadgeValue(item) && (
                     <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                      {item.badge}
+                      {getBadgeValue(item)}
                     </span>
                   )}
                 </Link>
@@ -325,4 +391,3 @@ export default function AdminSidebar() {
     </div>
   )
 }
-
