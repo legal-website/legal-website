@@ -9,23 +9,35 @@ import { cn } from "@/lib/utils"
 import { useTheme } from "@/context/theme-context"
 import { Button } from "@/components/ui/button"
 import { signOut } from "next-auth/react"
-import { LayoutDashboard, Users, FileText, Settings, Tag, Bell, BarChart3, Shield, LogOut, ChevronLeft, ChevronRight, Ticket, CreditCard, MessageCircle } from 'lucide-react'
-
-// Define the SubMenuItem type separately
-interface SubMenuItem {
-  label: string
-  href: string
-  badge?: number | string
-  badgeKey?: string
-}
+import {
+  LayoutDashboard,
+  Users,
+  FileText,
+  Settings,
+  Tag,
+  Bell,
+  BarChart3,
+  Shield,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Ticket,
+  CreditCard,
+  MessageCircle,
+} from "lucide-react"
 
 interface MenuItem {
   icon: React.ElementType
   label: string
   href: string
   badge?: number | string
-  badgeKey?: string
-  subItems?: SubMenuItem[]
+  badgeKey?: string // Add this to identify which counter this item uses
+  subItems?: {
+    label: string
+    href: string
+    badge?: number | string
+    badgeKey?: string // Add this for sub-items too
+  }[]
 }
 
 const menuItems: MenuItem[] = [
@@ -152,7 +164,7 @@ export default function AdminSidebar() {
   })
 
   // Function to update a counter
-  const updateCounter = (key: string, value: number | string | null) => {
+  const updateCounter = (key: string, value: number | string) => {
     setCounters((prev) => ({
       ...prev,
       [key]: value,
@@ -193,11 +205,15 @@ export default function AdminSidebar() {
   }, [])
 
   // Helper function to get the current badge value for an item
-  const getBadgeValue = (item: MenuItem | SubMenuItem) => {
-    if (!item.badgeKey) return item.badge;
-    const counterValue = counters[item.badgeKey];
-    return counterValue !== undefined ? counterValue : item.badge;
+  const getBadgeValue = (
+    item: MenuItem | (MenuItem["subItems"] extends undefined ? never : NonNullable<MenuItem["subItems"]>[number]),
+  ) => {
+    if (!item.badgeKey) return item.badge
+    const counterValue = counters[item.badgeKey]
+    return counterValue !== null ? counterValue : item.badge
   }
+
+  // Rest of the component remains the same, but we'll update the badge rendering
 
   const toggleExpand = (label: string) => {
     setExpandedItems((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]))
@@ -276,7 +292,7 @@ export default function AdminSidebar() {
                     </div>
                     {!collapsed && (
                       <>
-                        {getBadgeValue(item) && (
+                        {getBadgeValue(item) !== null && (
                           <span className="px-2 py-0.5 ml-2 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                             {getBadgeValue(item)}
                           </span>
@@ -290,7 +306,7 @@ export default function AdminSidebar() {
                       </>
                     )}
                   </button>
-                  {!collapsed && expandedItems.includes(item.label) && item.subItems && (
+                  {!collapsed && expandedItems.includes(item.label) && (
                     <ul className="mt-1 ml-6 space-y-1">
                       {item.subItems.map((subItem) => (
                         <li key={subItem.href}>
@@ -312,7 +328,7 @@ export default function AdminSidebar() {
                             )}
                           >
                             <span>{subItem.label}</span>
-                            {getBadgeValue(subItem) && (
+                            {getBadgeValue(subItem) !== null && (
                               <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                                 {getBadgeValue(subItem)}
                               </span>
@@ -346,7 +362,7 @@ export default function AdminSidebar() {
                     <item.icon className={cn("w-5 h-5", collapsed ? "" : "mr-3")} />
                     {!collapsed && <span>{item.label}</span>}
                   </div>
-                  {!collapsed && getBadgeValue(item) && (
+                  {!collapsed && getBadgeValue(item) !== null && (
                     <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                       {getBadgeValue(item)}
                     </span>
@@ -391,3 +407,4 @@ export default function AdminSidebar() {
     </div>
   )
 }
+
