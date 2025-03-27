@@ -343,14 +343,21 @@ export async function POST(request: Request) {
       }
     }
 
+    const newPost = {
+      id: postId,
+      title,
+      content,
+      status,
+      createdAt: now,
+    }
+
+    // Return a flag to indicate a counter should be updated
     return NextResponse.json({
       success: true,
-      post: {
-        id: postId,
-        title,
-        content,
-        status,
-        createdAt: now,
+      post: newPost,
+      updateCounter: {
+        key: "community",
+        action: "increment",
       },
     })
   } catch (error) {

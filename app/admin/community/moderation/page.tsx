@@ -52,6 +52,9 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 // Add this import at the top
 import { DebugButton } from "./debug-button"
+// Add this import at the top of your file
+import { incrementSidebarCounter, setNewBadge } from "@/lib/admin-counter"
+import { CounterDemo } from "@/components/admin/counter-demo" // Optional for testing
 
 interface Post {
   id: string
@@ -797,6 +800,22 @@ export default function AdminCommunityModerationPage() {
     }
   }
 
+  // Then in your component, when a new item needs moderation:
+  const handleNewItemForModeration = () => {
+    // Your existing code...
+
+    // Update the sidebar counter
+    incrementSidebarCounter("moderation")
+  }
+
+  // Or when a new feature is added:
+  const handleNewFeatureAdded = () => {
+    // Your existing code...
+
+    // Show "New" badge on the community section
+    setNewBadge("community")
+  }
+
   return (
     <div className="container mx-auto py-6 px-4 md:px-6 mb-20">
       {/* Then in the header section of the page: */}
@@ -1457,6 +1476,8 @@ export default function AdminCommunityModerationPage() {
           )}
         </DialogContent>
       </Dialog>
+      {/* You can add the demo component to test functionality */}
+      <CounterDemo />
     </div>
   )
 }

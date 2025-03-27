@@ -153,15 +153,8 @@ export default function AdminSidebar() {
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const { theme } = useTheme()
 
-  // Add state for counters
-  const [counters, setCounters] = useState<Record<string, number | string | null>>({
-    userManagement: 3,
-    pendingApprovals: 3,
-    promotions: "New",
-    community: "New",
-    tickets: 12,
-    amendments: "New",
-  })
+  // Replace the initial counter state with an empty object to avoid showing dummy data
+  const [counters, setCounters] = useState<Record<string, number | string | null>>({})
 
   // Function to update a counter
   const updateCounter = (key: string, value: number | string) => {
@@ -185,22 +178,63 @@ export default function AdminSidebar() {
     })
   }
 
-  // Example effect to listen for events that should update counters
-  useEffect(() => {
-    // This is where you would set up event listeners or fetch initial counter values
+  // Now let's update the sidebar component to properly use our counter system
 
-    // Example: Listen for a custom event that updates counters
-    const handleCounterUpdate = (event: CustomEvent) => {
-      const { key, value } = event.detail
-      updateCounter(key, value)
+  // Update the useEffect hook that listens for counter events
+  useEffect(() => {
+    // Load initial counters from localStorage
+    const storedCounters = localStorage.getItem("admin-counters")
+    if (storedCounters) {
+      try {
+        const parsedCounters = JSON.parse(storedCounters)
+        setCounters(parsedCounters)
+      } catch (error) {
+        console.error("Error parsing stored counters:", error)
+      }
     }
 
-    // Add event listener
+    // Listen for counter update events
+    const handleCounterUpdate = (event: CustomEvent) => {
+      const { key, value } = event.detail
+      setCounters((prev) => ({
+        ...prev,
+        [key]: value,
+      }))
+    }
+
+    // Listen for counter clear events
+    const handleCounterClear = () => {
+      setCounters({})
+    }
+
+    // Listen for counter increment events
+    const handleCounterIncrement = (event: CustomEvent) => {
+      const { key } = event.detail
+      setCounters((prev) => {
+        const currentValue = prev[key]
+        if (typeof currentValue === "number") {
+          return {
+            ...prev,
+            [key]: currentValue + 1,
+          }
+        }
+        return {
+          ...prev,
+          [key]: 1,
+        }
+      })
+    }
+
+    // Add event listeners
     window.addEventListener("admin:counter-update" as any, handleCounterUpdate as EventListener)
+    window.addEventListener("admin:counter-clear" as any, handleCounterClear as EventListener)
+    window.addEventListener("admin:counter-increment" as any, handleCounterIncrement as EventListener)
 
     // Clean up
     return () => {
       window.removeEventListener("admin:counter-update" as any, handleCounterUpdate as EventListener)
+      window.removeEventListener("admin:counter-clear" as any, handleCounterClear as EventListener)
+      window.addEventListener("admin:counter-increment" as any, handleCounterIncrement as EventListener)
     }
   }, [])
 
