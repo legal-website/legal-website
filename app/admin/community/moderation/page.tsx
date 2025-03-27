@@ -8,6 +8,7 @@ import Image from "next/image"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -47,7 +48,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { CommentItem } from "@/components/comment-item"
-import { Textarea } from "@/components/ui/textarea"
 
 interface Author {
   id: string
@@ -137,14 +137,20 @@ export default function CommunityPage() {
   // Helper function to sort comments (Best Answer first)
   const sortComments = useCallback((comments: Comment[]) => {
     console.log("Sorting comments, before:", comments)
+
+    // Check if any comments have isBestAnswer set to true
+    const hasBestAnswer = comments.some((comment) => comment.isBestAnswer === true)
+    console.log("Has best answer:", hasBestAnswer)
+
     const sorted = [...comments].sort((a, b) => {
       // Best Answer comments come first (highest priority)
-      if (a.isBestAnswer && !b.isBestAnswer) return -1
-      if (!a.isBestAnswer && b.isBestAnswer) return 1
+      if (a.isBestAnswer === true && b.isBestAnswer !== true) return -1
+      if (a.isBestAnswer !== true && b.isBestAnswer === true) return 1
 
       // If both are best answers or neither are, sort by date (newest first)
       return new Date(b.date).getTime() - new Date(a.date).getTime()
     })
+
     console.log("After sorting:", sorted)
     return sorted
   }, [])
@@ -787,6 +793,10 @@ export default function CommunityPage() {
     }
   }
 
+  // Separate best answer from other comments for rendering
+  const bestAnswerComment = postComments.find((comment) => comment.isBestAnswer === true)
+  const otherComments = postComments.filter((comment) => comment.isBestAnswer !== true)
+
   return (
     <div className="p-8 mb-40">
       <h1 className="text-3xl font-bold mb-6">Community</h1>
@@ -1420,7 +1430,26 @@ export default function CommunityPage() {
                     </div>
                   ) : postComments.length > 0 ? (
                     <div className="space-y-6">
-                      {postComments.map((comment) => (
+                      {/* Render Best Answer first if it exists */}
+                      {bestAnswerComment && (
+                        <div className="mb-4">
+                          <CommentItem
+                            key={bestAnswerComment.id}
+                            id={bestAnswerComment.id}
+                            content={bestAnswerComment.content}
+                            author={bestAnswerComment.author}
+                            date={bestAnswerComment.date}
+                            likes={bestAnswerComment.likes}
+                            isLiked={bestAnswerComment.isLiked}
+                            isBestAnswer={true}
+                            moderationNotes={bestAnswerComment.moderationNotes}
+                            onLike={handleLikeComment}
+                          />
+                        </div>
+                      )}
+
+                      {/* Then render other comments */}
+                      {otherComments.map((comment) => (
                         <CommentItem
                           key={comment.id}
                           id={comment.id}
@@ -1429,7 +1458,7 @@ export default function CommunityPage() {
                           date={comment.date}
                           likes={comment.likes}
                           isLiked={comment.isLiked}
-                          isBestAnswer={comment.isBestAnswer}
+                          isBestAnswer={false}
                           moderationNotes={comment.moderationNotes}
                           onLike={handleLikeComment}
                         />
