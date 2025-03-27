@@ -1,10 +1,7 @@
-export enum Role {
-  ADMIN = "ADMIN",
-  SUPPORT = "SUPPORT",
-  CLIENT = "CLIENT",
-}
+import { Role } from "@/lib/enums"
 
-export const isAdmin = (role?: string): boolean => {
+// Check if a user has admin role
+export function isAdmin(role: string | undefined): boolean {
   return role === Role.ADMIN
 }
 

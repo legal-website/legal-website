@@ -132,7 +132,8 @@ export default function AnalyticsDashboard() {
     fetch(`/api/admin/analytics/pageviews?startDate=${startDate}&endDate=${endDate}`)
       .then((res) => res.json())
       .then((data) => {
-        setPageViews(data)
+        // Ensure data is an array before setting state
+        setPageViews(Array.isArray(data) ? data : [])
         setLoading((prev) => ({ ...prev, pageViews: false }))
       })
       .catch((err) => {
@@ -145,7 +146,8 @@ export default function AnalyticsDashboard() {
     fetch(`/api/admin/analytics/top-pages?startDate=${startDate}&endDate=${endDate}`)
       .then((res) => res.json())
       .then((data) => {
-        setTopPages(data)
+        // Ensure data is an array before setting state
+        setTopPages(Array.isArray(data) ? data : [])
         setLoading((prev) => ({ ...prev, topPages: false }))
       })
       .catch((err) => {
@@ -158,7 +160,8 @@ export default function AnalyticsDashboard() {
     fetch(`/api/admin/analytics/demographics?startDate=${startDate}&endDate=${endDate}`)
       .then((res) => res.json())
       .then((data) => {
-        setDemographics(data)
+        // Ensure data is an array before setting state
+        setDemographics(Array.isArray(data) ? data : [])
         setLoading((prev) => ({ ...prev, demographics: false }))
       })
       .catch((err) => {
@@ -171,7 +174,8 @@ export default function AnalyticsDashboard() {
     fetch(`/api/admin/analytics/traffic-sources?startDate=${startDate}&endDate=${endDate}`)
       .then((res) => res.json())
       .then((data) => {
-        setTrafficSources(data)
+        // Ensure data is an array before setting state
+        setTrafficSources(Array.isArray(data) ? data : [])
         setLoading((prev) => ({ ...prev, trafficSources: false }))
       })
       .catch((err) => {
@@ -184,7 +188,8 @@ export default function AnalyticsDashboard() {
     fetch(`/api/admin/analytics/devices?startDate=${startDate}&endDate=${endDate}`)
       .then((res) => res.json())
       .then((data) => {
-        setDevices(data)
+        // Ensure data is an array before setting state
+        setDevices(Array.isArray(data) ? data : [])
         setLoading((prev) => ({ ...prev, devices: false }))
       })
       .catch((err) => {
@@ -206,6 +211,12 @@ export default function AnalyticsDashboard() {
       from: subDays(new Date(), days),
       to: new Date(),
     })
+  }
+
+  // Safe slice function that checks if the input is an array
+  const safeSlice = (arr: any[], start: number, end?: number) => {
+    if (!Array.isArray(arr)) return []
+    return arr.slice(start, end)
   }
 
   return (
@@ -397,7 +408,8 @@ export default function AnalyticsDashboard() {
               </div>
             ) : (
               <div className="space-y-4">
-                {topPages.slice(0, 7).map((page, index) => (
+                {/* Use the safe slice function */}
+                {safeSlice(topPages, 0, 7).map((page, index) => (
                   <div key={index} className="flex justify-between items-center">
                     <div className="flex items-center">
                       <span className="font-medium text-sm truncate max-w-[250px]" title={page.page}>
@@ -433,7 +445,8 @@ export default function AnalyticsDashboard() {
                 className="h-[300px]"
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={demographics.slice(0, 7)}>
+                  {/* Use the safe slice function */}
+                  <BarChart data={safeSlice(demographics, 0, 7)}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="country" />
                     <YAxis />
@@ -468,7 +481,8 @@ export default function AnalyticsDashboard() {
                 className="h-[300px]"
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={trafficSources.slice(0, 7)} layout="vertical">
+                  {/* Use the safe slice function */}
+                  <BarChart data={safeSlice(trafficSources, 0, 7)} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" />
                     <YAxis dataKey="source" type="category" width={100} />

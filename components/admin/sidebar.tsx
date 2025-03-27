@@ -82,10 +82,10 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    icon: Bell,
-    label: "Notifications",
-    href: "/admin/notifications",
-    badgeKey: "notifications",
+    icon: BarChart3,
+    label: "Orizen Analytics",
+    href: "/admin/orizen-analytics",
+    badgeKey: "analytics",
   },
   {
     icon: MessageCircle,
