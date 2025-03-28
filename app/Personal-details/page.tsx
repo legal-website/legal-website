@@ -378,7 +378,7 @@ export default function PersonalDetailsPage() {
     }
 
     return (
-      <div className="container max-w-3xl py-10 mx-auto">
+      <div className="container max-w-3xl py-10 mx-auto mb-40">
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="text-3xl font-bold">Personal Details Verification</CardTitle>
@@ -587,7 +587,7 @@ export default function PersonalDetailsPage() {
 
   // Show the form for initial submission or updates
   return (
-    <div className="container max-w-3xl py-10 mx-auto">
+    <div className="container max-w-3xl py-10 mx-auto mb-40">
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold">Personal Details Verification</CardTitle>

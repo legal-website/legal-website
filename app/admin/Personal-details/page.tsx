@@ -20,6 +20,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import {
   Loader2,
   CheckCircle,
   XCircle,
@@ -28,7 +39,17 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react"
+
+interface Member {
+  id: string
+  memberName: string
+  idCardFrontUrl: string
+  idCardBackUrl: string
+  passportUrl?: string
+}
 
 interface PersonalDetails {
   id: string
@@ -45,6 +66,7 @@ interface PersonalDetails {
   isRedirectDisabled: boolean
   createdAt: string
   updatedAt: string
+  members?: Member[]
   user?: {
     email: string
     name: string | null
@@ -67,6 +89,9 @@ export default function AdminPersonalDetailsPage() {
   const [activeTab, setActiveTab] = useState("pending")
   const [openDialog, setOpenDialog] = useState(false)
   const [viewingImage, setViewingImage] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -213,6 +238,48 @@ export default function AdminPersonalDetailsPage() {
         description: "Failed to toggle redirect",
         variant: "destructive",
       })
+    }
+  }
+
+  const handleDeleteClick = (id: string) => {
+    setDeletingId(id)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingId) return
+
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/admin/personal-details/${deletingId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete personal details")
+      }
+
+      toast({
+        title: "Success",
+        description: "Personal details deleted successfully",
+      })
+
+      // Close dialogs and refresh data
+      setDeleteDialogOpen(false)
+      setDeletingId(null)
+      if (selectedDetails?.id === deletingId) {
+        setSelectedDetails(null)
+      }
+      fetchPersonalDetails(currentPage)
+    } catch (error) {
+      console.error("Error deleting personal details:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete personal details",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -394,10 +461,21 @@ export default function AdminPersonalDetailsPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Button variant="outline" size="sm" onClick={() => handleViewDetails(details)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View
-                            </Button>
+                            <div className="flex items-center space-x-2">
+                              <Button variant="outline" size="sm" onClick={() => handleViewDetails(details)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                View
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleDeleteClick(details.id)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -512,6 +590,75 @@ export default function AdminPersonalDetailsPage() {
               </div>
             </div>
 
+            {/* Additional Members Section */}
+            {selectedDetails.members && selectedDetails.members.length > 0 && (
+              <div className="mt-6 border-t pt-6">
+                <h3 className="text-xl font-semibold mb-4">Additional Members</h3>
+
+                <Accordion type="single" collapsible className="w-full">
+                  {selectedDetails.members.map((member, index) => (
+                    <AccordionItem key={member.id} value={member.id}>
+                      <AccordionTrigger className="hover:bg-gray-50 px-4 rounded-lg">
+                        <span className="text-left">
+                          Member {index + 1}: {member.memberName}
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-4 pt-2">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <h4 className="font-medium mb-2 text-sm">ID Card (Front)</h4>
+                            <div className="relative h-32 border rounded overflow-hidden">
+                              <img
+                                src={member.idCardFrontUrl || "/placeholder.svg"}
+                                alt={`${member.memberName} ID Card Front`}
+                                className="w-full h-full object-contain cursor-pointer"
+                                onClick={() => {
+                                  setViewingImage(member.idCardFrontUrl)
+                                  setOpenDialog(true)
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <h4 className="font-medium mb-2 text-sm">ID Card (Back)</h4>
+                            <div className="relative h-32 border rounded overflow-hidden">
+                              <img
+                                src={member.idCardBackUrl || "/placeholder.svg"}
+                                alt={`${member.memberName} ID Card Back`}
+                                className="w-full h-full object-contain cursor-pointer"
+                                onClick={() => {
+                                  setViewingImage(member.idCardBackUrl)
+                                  setOpenDialog(true)
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {member.passportUrl && (
+                            <div>
+                              <h4 className="font-medium mb-2 text-sm">Passport</h4>
+                              <div className="relative h-32 border rounded overflow-hidden">
+                                <img
+                                  src={member.passportUrl || "/placeholder.svg"}
+                                  alt={`${member.memberName} Passport`}
+                                  className="w-full h-full object-contain cursor-pointer"
+                                  onClick={() => {
+                                    setViewingImage(member.passportUrl || null)
+                                    setOpenDialog(true)
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+            )}
+
             <div className="space-y-2 mt-4">
               <Label htmlFor="adminNotes">Admin Notes</Label>
               <Textarea
@@ -536,6 +683,15 @@ export default function AdminPersonalDetailsPage() {
               </div>
 
               <div className="flex space-x-2 w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => handleDeleteClick(selectedDetails.id)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+
                 {selectedDetails.status === "pending" && (
                   <>
                     <Button variant="destructive" onClick={handleReject} className="flex-1 sm:flex-none">
@@ -578,6 +734,44 @@ export default function AdminPersonalDetailsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Confirm Deletion
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this personal details record? This action cannot be undone and will
+              permanently remove all associated data, including member information and uploaded documents.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteConfirm()
+              }}
+              disabled={isDeleting}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
