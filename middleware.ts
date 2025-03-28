@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
-import { Role } from "@prisma/client"
+// Fix: Import Role from our own types instead of @prisma/client
+import { Role } from "./lib/prisma-types"
 import { trackAffiliateClick } from "./lib/middleware/affiliate"
 
 export async function middleware(request: NextRequest) {
@@ -47,6 +48,38 @@ export async function middleware(request: NextRequest) {
       const url = new URL("/login", request.url)
       url.searchParams.set("callbackUrl", encodeURI(request.url))
       return NextResponse.redirect(url)
+    }
+
+    // Check if user has completed personal details verification
+    // Skip this check for admin and support users
+    if (token.role !== Role.ADMIN && token.role !== Role.SUPPORT) {
+      try {
+        // Make API call to check personal details status
+        const response = await fetch(`${request.nextUrl.origin}/api/user/personal-details-status`, {
+          headers: {
+            Cookie: request.headers.get("cookie") || "",
+          },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+
+          // If personal details don't exist or are pending/rejected, redirect to personal details page
+          if (
+            !data.personalDetails ||
+            data.personalDetails.status !== "approved" ||
+            !data.personalDetails.isRedirectDisabled
+          ) {
+            // Don't redirect if already on the personal details page
+            if (!path.startsWith("/Personal-details")) {
+              return NextResponse.redirect(new URL("/Personal-details", request.url))
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error checking personal details status:", error)
+        // Continue to dashboard if there's an error checking status
+      }
     }
   }
 

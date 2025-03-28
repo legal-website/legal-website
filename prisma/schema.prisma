@@ -39,6 +39,7 @@ model User {
   affiliatePayouts   AffiliatePayout[]
   settings           UserSettings?
   loginSessions      LoginSession[]
+  personalDetails    PersonalDetails?
   accountManagerRequest AccountManagerRequest?
   @@index([businessId], map: "User_businessId_fkey")
 }
@@ -527,4 +528,21 @@ model LoginSession {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+model PersonalDetails {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  clientName        String
+  companyName       String
+  currentAddress    String
+  businessPurpose   String
+  idCardFrontUrl    String
+  idCardBackUrl     String
+  passportUrl       String
+  status            String    @default("pending") // pending, approved, rejected
+  adminNotes        String?
+  isRedirectDisabled Boolean  @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

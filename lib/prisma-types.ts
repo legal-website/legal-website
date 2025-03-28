@@ -54,7 +54,29 @@ export interface VerificationTokenModel {
   user?: UserModel
 }
 
-// Define User model for relationships
+// Add these interfaces after the UserModel interface
+
+// PersonalDetails model
+export interface PersonalDetailsModel {
+  id: string
+  userId: string
+  clientName: string
+  companyName: string
+  currentAddress: string
+  businessPurpose: string
+  idCardFrontUrl: string
+  idCardBackUrl: string
+  passportUrl: string
+  status: string // pending, approved, rejected
+  adminNotes?: string | null
+  isRedirectDisabled: boolean
+  createdAt: Date
+  updatedAt: Date
+  user?: UserModel
+}
+
+// Add this to the UserModel interface
+// Update the UserModel interface to include personalDetails
 export interface UserModel {
   id: string
   name: string | null
@@ -63,6 +85,7 @@ export interface UserModel {
   image?: string | null
   businessId?: string | null
   business?: BusinessModel | null
+  personalDetails?: PersonalDetailsModel | null
   // Add other fields as needed
 }
 
@@ -368,6 +391,21 @@ export interface UserDelegate {
   count: (args?: any) => Promise<number>
 }
 
+// Add this delegate after the UserDelegate
+export interface PersonalDetailsDelegate {
+  findUnique: (args: {
+    where: { id: string } | { userId: string }
+    include?: any
+  }) => Promise<PersonalDetailsModel | null>
+  findFirst: (args: { where: any; include?: any }) => Promise<PersonalDetailsModel | null>
+  findMany: (args?: any) => Promise<PersonalDetailsModel[]>
+  create: (args: { data: any; include?: any }) => Promise<PersonalDetailsModel>
+  update: (args: { where: { id: string } | { userId: string }; data: any }) => Promise<PersonalDetailsModel>
+  upsert: (args: { where: any; create: any; update: any }) => Promise<PersonalDetailsModel>
+  delete: (args: { where: { id: string } }) => Promise<PersonalDetailsModel>
+  count: (args?: any) => Promise<number>
+}
+
 // Add this interface to your existing interfaces
 export interface SystemSettingsModel {
   id: number
@@ -566,6 +604,28 @@ export interface CouponUsageDelegate {
   count: (args?: any) => Promise<number>
 }
 
+// Notification model and delegate
+export interface NotificationModel {
+  id: string
+  userId: string
+  type: string
+  title: string
+  body: string
+  data: string | null
+  read: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface NotificationDelegate {
+  findMany: (args?: any) => Promise<NotificationModel[]>
+  findUnique: (args: { where: { id: string } }) => Promise<NotificationModel | null>
+  create: (args: { data: any }) => Promise<NotificationModel>
+  update: (args: { where: { id: string }; data: any }) => Promise<NotificationModel>
+  delete: (args: { where: { id: string } }) => Promise<NotificationModel>
+  count: (args?: any) => Promise<number>
+}
+
 // Then update your ExtendedPrismaClient type to include the user property
 export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   amendment: AmendmentDelegate
@@ -590,6 +650,8 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   systemSettings: SystemSettingsDelegate
   // Add pricing settings model
   pricingSettings: PricingSettingsDelegate
+  // Add personal details model
+  personalDetails: PersonalDetailsDelegate
 
   // Add affiliate delegates
   affiliateLink: AffiliateLinkDelegate
@@ -597,6 +659,10 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   affiliateConversion: AffiliateConversionDelegate
   affiliatePayout: AffiliatePayoutDelegate
   affiliateSettings: AffiliateSettingsDelegate
+
+  // Add notification delegate
+  notification: NotificationDelegate
+
   // ... existing delegates
   coupon: CouponDelegate
   couponUsage: CouponUsageDelegate
