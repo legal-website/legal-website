@@ -180,7 +180,8 @@ export default function AdminDashboard() {
             // Process users and filter to only show clients
             const allUsers = data.users || []
             const clientUsers = allUsers.filter(
-              (user: any) => user.role === "client" || user.role === "customer" || user.role === "user",
+              (user: any) =>
+                user.role === "CLIENT" || user.role === "client" || user.role === "customer" || user.role === "user",
             )
 
             setUsers(clientUsers)
@@ -241,8 +242,12 @@ export default function AdminDashboard() {
               title: ticket.title || ticket.subject || `Support Request ${Math.floor(Math.random() * 100)}`,
               status: ticket.status || "open",
               createdAt: ticket.createdAt || new Date().toISOString(),
-              userName: ticket.userName || ticket.user?.name || ticket.author || "User",
-              userId: ticket.userId || ticket.user?.id || `user-${Math.random().toString(36).substring(2, 9)}`,
+              userName: ticket.userName || ticket.user?.name || ticket.creator?.name || ticket.author || "User",
+              userId:
+                ticket.userId ||
+                ticket.user?.id ||
+                ticket.creator?.id ||
+                `user-${Math.random().toString(36).substring(2, 9)}`,
             }))
 
             setTickets(processedTickets)
@@ -250,19 +255,44 @@ export default function AdminDashboard() {
           })
           .catch((err) => {
             console.error("Error fetching tickets:", err)
-            // Generate sample data for development
-            const sampleTickets = Array(10)
-              .fill(0)
-              .map((_, i) => ({
-                id: `ticket-${i}`,
-                title: `Support Request #${i + 1}`,
-                status: ["open", "in_progress", "resolved", "closed"][Math.floor(Math.random() * 4)],
-                createdAt: new Date(Date.now() - Math.floor(Math.random() * 14) * 24 * 60 * 60 * 1000).toISOString(),
-                userName: `User ${i + 1}`,
-                userId: `user-${i}`,
-              }))
-            setTickets(sampleTickets)
-            setLoading((prev) => ({ ...prev, tickets: false }))
+            // Try fetching from the actual tickets page endpoint
+            fetch("/api/admin/tickets/recent")
+              .then((res) => res.json())
+              .then((data) => {
+                const processedTickets = (data.tickets || []).map((ticket: any) => ({
+                  id: ticket.id || `ticket-${Math.random().toString(36).substring(2, 9)}`,
+                  title: ticket.title || ticket.subject || `Support Request ${Math.floor(Math.random() * 100)}`,
+                  status: ticket.status || "open",
+                  createdAt: ticket.createdAt || new Date().toISOString(),
+                  userName: ticket.userName || ticket.user?.name || ticket.creator?.name || ticket.author || "User",
+                  userId:
+                    ticket.userId ||
+                    ticket.user?.id ||
+                    ticket.creator?.id ||
+                    `user-${Math.random().toString(36).substring(2, 9)}`,
+                }))
+
+                setTickets(processedTickets)
+                setLoading((prev) => ({ ...prev, tickets: false }))
+              })
+              .catch((error) => {
+                console.error("Error fetching tickets from alternate endpoint:", error)
+                // Generate sample data for development
+                const sampleTickets = Array(10)
+                  .fill(0)
+                  .map((_, i) => ({
+                    id: `ticket-${i}`,
+                    title: `Support Request #${i + 1}`,
+                    status: ["open", "in_progress", "resolved", "closed"][Math.floor(Math.random() * 4)],
+                    createdAt: new Date(
+                      Date.now() - Math.floor(Math.random() * 14) * 24 * 60 * 60 * 1000,
+                    ).toISOString(),
+                    userName: `User ${i + 1}`,
+                    userId: `user-${i}`,
+                  }))
+                setTickets(sampleTickets)
+                setLoading((prev) => ({ ...prev, tickets: false }))
+              })
           })
 
         // Fetch comments
@@ -287,42 +317,72 @@ export default function AdminDashboard() {
           })
           .catch((err) => {
             console.error("Error fetching comments:", err)
-            // Generate sample data for development
-            const sampleComments = Array(12)
-              .fill(0)
-              .map((_, i) => ({
-                id: `comment-${i}`,
-                content: `This is comment #${i + 1} content. It's a sample comment.`,
-                postTitle: `Post Title ${Math.floor(Math.random() * 5) + 1}`,
-                author: {
-                  name: `Commenter ${i + 1}`,
-                  id: `user-${i}`,
-                },
-                createdAt: new Date(Date.now() - Math.floor(Math.random() * 7) * 24 * 60 * 60 * 1000).toISOString(),
-                status: ["approved", "pending", "rejected"][Math.floor(Math.random() * 3)],
-                postId: `post-${Math.floor(Math.random() * 5) + 1}`,
-              }))
-            setComments(sampleComments)
-            setLoading((prev) => ({ ...prev, comments: false }))
+            // Try fetching from the moderation endpoint
+            fetch("/api/community/moderation/comments")
+              .then((res) => res.json())
+              .then((data) => {
+                const processedComments = (data.comments || []).map((comment: any) => ({
+                  id: comment.id || `comment-${Math.random().toString(36).substring(2, 9)}`,
+                  content: comment.content || comment.text || "Comment content",
+                  postTitle: comment.postTitle || comment.post?.title || "Post Title",
+                  author: comment.author || {
+                    name: comment.authorName || "Anonymous",
+                    id: comment.authorId || `user-${Math.random().toString(36).substring(2, 9)}`,
+                  },
+                  createdAt: comment.createdAt || new Date().toISOString(),
+                  status: comment.status || "pending",
+                  postId: comment.postId || comment.post?.id || `post-${Math.random().toString(36).substring(2, 9)}`,
+                }))
+
+                setComments(processedComments)
+                setLoading((prev) => ({ ...prev, comments: false }))
+              })
+              .catch((error) => {
+                console.error("Error fetching comments from alternate endpoint:", error)
+                // Generate sample data for development
+                const sampleComments = Array(12)
+                  .fill(0)
+                  .map((_, i) => ({
+                    id: `comment-${i}`,
+                    content: `This is comment #${i + 1} content. It's a sample comment.`,
+                    postTitle: `Post Title ${Math.floor(Math.random() * 5) + 1}`,
+                    author: {
+                      name: `Commenter ${i + 1}`,
+                      id: `user-${i}`,
+                    },
+                    createdAt: new Date(Date.now() - Math.floor(Math.random() * 7) * 24 * 60 * 60 * 1000).toISOString(),
+                    status: ["approved", "pending", "rejected"][Math.floor(Math.random() * 3)],
+                    postId: `post-${Math.floor(Math.random() * 5) + 1}`,
+                  }))
+                setComments(sampleComments)
+                setLoading((prev) => ({ ...prev, comments: false }))
+              })
           })
 
         // Fetch amendments
-        fetch("/api/user/amendments")
+        fetch("/api/admin/compliance/amendments")
           .then((res) => res.json())
           .then((data) => {
             const processedAmendments = (data.amendments || []).map((amendment: any) => ({
               id: amendment.id || `amendment-${Math.random().toString(36).substring(2, 9)}`,
-              title: amendment.title || amendment.name || `Amendment ${Math.floor(Math.random() * 100)}`,
+              title:
+                amendment.title || amendment.type || amendment.name || `Amendment ${Math.floor(Math.random() * 100)}`,
               status: amendment.status || "pending",
               amount:
                 Number.parseFloat(amendment.amount) ||
                 Number.parseFloat(amendment.fee) ||
+                Number.parseFloat(amendment.paymentAmount) ||
                 Math.floor(Math.random() * 500) + 100,
               createdAt: amendment.createdAt || new Date().toISOString(),
-              businessName: amendment.businessName || amendment.business?.name || "Business Name",
+              businessName:
+                amendment.businessName ||
+                amendment.business?.name ||
+                amendment.creator?.business?.name ||
+                "Business Name",
               businessId:
                 amendment.businessId ||
                 amendment.business?.id ||
+                amendment.creator?.business?.id ||
                 `business-${Math.random().toString(36).substring(2, 9)}`,
             }))
 
@@ -331,34 +391,76 @@ export default function AdminDashboard() {
           })
           .catch((err) => {
             console.error("Error fetching amendments:", err)
-            // Generate sample data for development
-            const sampleAmendments = Array(8)
-              .fill(0)
-              .map((_, i) => ({
-                id: `amendment-${i}`,
-                title: `Business Amendment ${i + 1}`,
-                status: ["approved", "pending", "rejected"][Math.floor(Math.random() * 3)],
-                amount: Math.floor(Math.random() * 500) + 100,
-                createdAt: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000).toISOString(),
-                businessName: `Business ${i + 1} LLC`,
-                businessId: `business-${i}`,
-              }))
-            setAmendments(sampleAmendments)
-            setLoading((prev) => ({ ...prev, amendments: false }))
+            // Try fetching from the user amendments endpoint
+            fetch("/api/amendments")
+              .then((res) => res.json())
+              .then((data) => {
+                const processedAmendments = (data.amendments || []).map((amendment: any) => ({
+                  id: amendment.id || `amendment-${Math.random().toString(36).substring(2, 9)}`,
+                  title:
+                    amendment.title ||
+                    amendment.type ||
+                    amendment.name ||
+                    `Amendment ${Math.floor(Math.random() * 100)}`,
+                  status: amendment.status || "pending",
+                  amount:
+                    Number.parseFloat(amendment.amount) ||
+                    Number.parseFloat(amendment.fee) ||
+                    Number.parseFloat(amendment.paymentAmount) ||
+                    Math.floor(Math.random() * 500) + 100,
+                  createdAt: amendment.createdAt || new Date().toISOString(),
+                  businessName:
+                    amendment.businessName ||
+                    amendment.business?.name ||
+                    amendment.creator?.business?.name ||
+                    "Business Name",
+                  businessId:
+                    amendment.businessId ||
+                    amendment.business?.id ||
+                    amendment.creator?.business?.id ||
+                    `business-${Math.random().toString(36).substring(2, 9)}`,
+                }))
+
+                setAmendments(processedAmendments)
+                setLoading((prev) => ({ ...prev, amendments: false }))
+              })
+              .catch((error) => {
+                console.error("Error fetching amendments from alternate endpoint:", error)
+                // Generate sample data for development
+                const sampleAmendments = Array(8)
+                  .fill(0)
+                  .map((_, i) => ({
+                    id: `amendment-${i}`,
+                    title: `Business Amendment ${i + 1}`,
+                    status: ["approved", "pending", "rejected"][Math.floor(Math.random() * 3)],
+                    amount: Math.floor(Math.random() * 500) + 100,
+                    createdAt: new Date(
+                      Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000,
+                    ).toISOString(),
+                    businessName: `Business ${i + 1} LLC`,
+                    businessId: `business-${i}`,
+                  }))
+                setAmendments(sampleAmendments)
+                setLoading((prev) => ({ ...prev, amendments: false }))
+              })
           })
 
         // Fetch annual reports
-        fetch("/api/user/annual-reports/filings")
+        fetch("/api/admin/compliance/annual-reports")
           .then((res) => res.json())
           .then((data) => {
-            const processedReports = (data.filings || []).map((report: any) => ({
+            const processedReports = (data.reports || data.filings || []).map((report: any) => ({
               id: report.id || `report-${Math.random().toString(36).substring(2, 9)}`,
               title: report.title || report.name || `Annual Report ${Math.floor(Math.random() * 100)}`,
               status: report.status || "pending",
               createdAt: report.createdAt || new Date().toISOString(),
-              businessName: report.businessName || report.business?.name || "Business Name",
+              businessName:
+                report.businessName || report.business?.name || report.creator?.business?.name || "Business Name",
               businessId:
-                report.businessId || report.business?.id || `business-${Math.random().toString(36).substring(2, 9)}`,
+                report.businessId ||
+                report.business?.id ||
+                report.creator?.business?.id ||
+                `business-${Math.random().toString(36).substring(2, 9)}`,
               year: report.year || new Date().getFullYear().toString(),
             }))
 
@@ -367,21 +469,48 @@ export default function AdminDashboard() {
           })
           .catch((err) => {
             console.error("Error fetching annual reports:", err)
-            // Generate sample data for development
-            const currentYear = new Date().getFullYear()
-            const sampleReports = Array(8)
-              .fill(0)
-              .map((_, i) => ({
-                id: `report-${i}`,
-                title: `Annual Report ${currentYear - Math.floor(Math.random() * 3)}`,
-                status: ["filed", "pending", "rejected"][Math.floor(Math.random() * 3)],
-                createdAt: new Date(Date.now() - Math.floor(Math.random() * 60) * 24 * 60 * 60 * 1000).toISOString(),
-                businessName: `Business ${i + 1} LLC`,
-                businessId: `business-${i}`,
-                year: (currentYear - Math.floor(Math.random() * 3)).toString(),
-              }))
-            setAnnualReports(sampleReports)
-            setLoading((prev) => ({ ...prev, annualReports: false }))
+            // Try fetching from the annual-reports/filings endpoint
+            fetch("/api/annual-reports/filings")
+              .then((res) => res.json())
+              .then((data) => {
+                const processedReports = (data.filings || []).map((report: any) => ({
+                  id: report.id || `report-${Math.random().toString(36).substring(2, 9)}`,
+                  title: report.title || report.name || `Annual Report ${Math.floor(Math.random() * 100)}`,
+                  status: report.status || "pending",
+                  createdAt: report.createdAt || new Date().toISOString(),
+                  businessName:
+                    report.businessName || report.business?.name || report.creator?.business?.name || "Business Name",
+                  businessId:
+                    report.businessId ||
+                    report.business?.id ||
+                    report.creator?.business?.id ||
+                    `business-${Math.random().toString(36).substring(2, 9)}`,
+                  year: report.year || new Date().getFullYear().toString(),
+                }))
+
+                setAnnualReports(processedReports)
+                setLoading((prev) => ({ ...prev, annualReports: false }))
+              })
+              .catch((error) => {
+                console.error("Error fetching annual reports from alternate endpoint:", error)
+                // Generate sample data for development
+                const currentYear = new Date().getFullYear()
+                const sampleReports = Array(8)
+                  .fill(0)
+                  .map((_, i) => ({
+                    id: `report-${i}`,
+                    title: `Annual Report ${currentYear - Math.floor(Math.random() * 3)}`,
+                    status: ["filed", "pending", "rejected"][Math.floor(Math.random() * 3)],
+                    createdAt: new Date(
+                      Date.now() - Math.floor(Math.random() * 60) * 24 * 60 * 60 * 1000,
+                    ).toISOString(),
+                    businessName: `Business ${i + 1} LLC`,
+                    businessId: `business-${i}`,
+                    year: (currentYear - Math.floor(Math.random() * 3)).toString(),
+                  }))
+                setAnnualReports(sampleReports)
+                setLoading((prev) => ({ ...prev, annualReports: false }))
+              })
           })
       } catch (error) {
         console.error("Error fetching data:", error)
@@ -486,8 +615,11 @@ export default function AdminDashboard() {
 
   // Calculate amendment revenue for bar chart
   const getAmendmentRevenueData = () => {
-    const approvedAmendments = amendments.filter((a) => a.status === "approved")
-    const pendingAmendments = amendments.filter((a) => a.status === "pending")
+    const approvedAmendments = amendments.filter((a) => a.status === "approved" || a.status === "amendment_resolved")
+    const pendingAmendments = amendments.filter(
+      (a) =>
+        a.status === "pending" || a.status === "waiting_for_payment" || a.status === "payment_confirmation_pending",
+    )
     const rejectedAmendments = amendments.filter((a) => a.status === "rejected")
 
     const approvedTotal = approvedAmendments.reduce((sum, a) => sum + (a.amount || 0), 0)
