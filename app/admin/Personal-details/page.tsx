@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -19,7 +19,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Loader2, CheckCircle, XCircle, Eye } from "lucide-react"
+import {
+  Loader2,
+  CheckCircle,
+  XCircle,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react"
 
 interface PersonalDetails {
   id: string
@@ -42,6 +51,13 @@ interface PersonalDetails {
   }
 }
 
+interface PaginationResponse {
+  personalDetails: PersonalDetails[]
+  totalItems: number
+  totalPages: number
+  currentPage: number
+}
+
 export default function AdminPersonalDetailsPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
@@ -52,19 +68,28 @@ export default function AdminPersonalDetailsPage() {
   const [openDialog, setOpenDialog] = useState(false)
   const [viewingImage, setViewingImage] = useState<string | null>(null)
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const itemsPerPage = 15
+
   useEffect(() => {
-    fetchPersonalDetails()
+    fetchPersonalDetails(1)
   }, [activeTab])
 
-  const fetchPersonalDetails = async () => {
+  const fetchPersonalDetails = async (page: number) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/admin/personal-details?status=${activeTab}`)
+      const response = await fetch(`/api/admin/personal-details?status=${activeTab}&page=${page}&limit=${itemsPerPage}`)
       if (!response.ok) {
         throw new Error("Failed to fetch personal details")
       }
-      const data = await response.json()
+      const data: PaginationResponse = await response.json()
       setPersonalDetails(data.personalDetails)
+      setTotalItems(data.totalItems)
+      setTotalPages(data.totalPages)
+      setCurrentPage(data.currentPage)
     } catch (error) {
       console.error("Error fetching personal details:", error)
       toast({
@@ -75,6 +100,12 @@ export default function AdminPersonalDetailsPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return
+    setCurrentPage(page)
+    fetchPersonalDetails(page)
   }
 
   const handleViewDetails = (details: PersonalDetails) => {
@@ -104,7 +135,7 @@ export default function AdminPersonalDetailsPage() {
       })
 
       setSelectedDetails(null)
-      fetchPersonalDetails()
+      fetchPersonalDetails(currentPage)
     } catch (error) {
       console.error("Error approving personal details:", error)
       toast({
@@ -137,7 +168,7 @@ export default function AdminPersonalDetailsPage() {
       })
 
       setSelectedDetails(null)
-      fetchPersonalDetails()
+      fetchPersonalDetails(currentPage)
     } catch (error) {
       console.error("Error rejecting personal details:", error)
       toast({
@@ -214,8 +245,91 @@ export default function AdminPersonalDetailsPage() {
     return new Date(dateString).toLocaleString()
   }
 
+  // Generate pagination buttons
+  const renderPaginationButtons = () => {
+    const buttons = []
+
+    // First page and previous page buttons
+    buttons.push(
+      <Button
+        key="first"
+        variant="outline"
+        size="icon"
+        onClick={() => handlePageChange(1)}
+        disabled={currentPage === 1}
+        className="h-8 w-8"
+      >
+        <ChevronsLeft className="h-4 w-4" />
+        <span className="sr-only">First page</span>
+      </Button>,
+    )
+
+    buttons.push(
+      <Button
+        key="prev"
+        variant="outline"
+        size="icon"
+        onClick={() => handlePageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="h-8 w-8"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        <span className="sr-only">Previous page</span>
+      </Button>,
+    )
+
+    // Page number buttons
+    const startPage = Math.max(1, currentPage - 2)
+    const endPage = Math.min(totalPages, startPage + 4)
+
+    for (let i = startPage; i <= endPage; i++) {
+      buttons.push(
+        <Button
+          key={i}
+          variant={currentPage === i ? "default" : "outline"}
+          size="sm"
+          onClick={() => handlePageChange(i)}
+          className="h-8 w-8"
+        >
+          {i}
+        </Button>,
+      )
+    }
+
+    // Next page and last page buttons
+    buttons.push(
+      <Button
+        key="next"
+        variant="outline"
+        size="icon"
+        onClick={() => handlePageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="h-8 w-8"
+      >
+        <ChevronRight className="h-4 w-4" />
+        <span className="sr-only">Next page</span>
+      </Button>,
+    )
+
+    buttons.push(
+      <Button
+        key="last"
+        variant="outline"
+        size="icon"
+        onClick={() => handlePageChange(totalPages)}
+        disabled={currentPage === totalPages}
+        className="h-8 w-8"
+      >
+        <ChevronsRight className="h-4 w-4" />
+        <span className="sr-only">Last page</span>
+      </Button>,
+    )
+
+    return buttons
+  }
+
   return (
-    <div className="container py-10">
+    <div className="px-[3%] py-10 mb-40">
       <h1 className="text-3xl font-bold mb-6 text-center">Personal Details Verification</h1>
 
       <Tabs defaultValue="pending" value={activeTab} onValueChange={setActiveTab}>
@@ -227,8 +341,15 @@ export default function AdminPersonalDetailsPage() {
 
         <TabsContent value={activeTab} className="space-y-6">
           {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin" />
+            <div className="flex flex-col justify-center items-center h-64">
+              <div className="relative w-24 h-24">
+                <div className="absolute inset-0 rounded-full border-t-4 border-b-4 border-primary animate-spin"></div>
+                <div className="absolute inset-2 rounded-full border-r-4 border-l-4 border-primary/30 animate-ping"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 className="h-10 w-10 text-primary animate-pulse" />
+                </div>
+              </div>
+              <p className="mt-6 text-lg font-medium text-primary animate-pulse">Loading verification data...</p>
             </div>
           ) : personalDetails.length === 0 ? (
             <div className="text-center py-10">
@@ -284,6 +405,17 @@ export default function AdminPersonalDetailsPage() {
                   </Table>
                 </div>
               </CardContent>
+              {totalPages > 1 && (
+                <CardFooter className="flex justify-between items-center border-t px-6 py-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing{" "}
+                    <span className="font-medium">{Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}</span> to{" "}
+                    <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{" "}
+                    <span className="font-medium">{totalItems}</span> entries
+                  </div>
+                  <div className="flex items-center space-x-2">{renderPaginationButtons()}</div>
+                </CardFooter>
+              )}
             </Card>
           )}
         </TabsContent>
