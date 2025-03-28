@@ -1,28 +1,30 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { db } from "@/lib/db"
-import { Role } from "@/lib/enums"
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = params.id
     const session = await getServerSession()
 
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Find the user and check if they are an admin
+    // Check if user is admin or support
     const user = await db.user.findFirst({
       where: { email: session.user.email },
-      select: { id: true, role: true },
+      select: { role: true },
     })
 
-    if (!user || (user.role !== Role.ADMIN && user.role !== Role.SUPPORT)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!user || (user.role !== "ADMIN" && user.role !== "SUPPORT")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Find the current personal details
+    const { id } = params
+    const body = await req.json()
+    const { isRedirectDisabled } = body
+
+    // Get the current personal details
     const currentDetails = await db.personalDetails.findUnique({
       where: { id },
     })
@@ -31,11 +33,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Personal details not found" }, { status: 404 })
     }
 
-    // Toggle the isRedirectDisabled flag
+    // Only allow toggling redirect for approved applications
+    if (currentDetails.status !== "approved") {
+      return NextResponse.json(
+        {
+          error: "Can only toggle redirect for approved applications",
+        },
+        { status: 400 },
+      )
+    }
+
+    // Update personal details
     const personalDetails = await db.personalDetails.update({
       where: { id },
       data: {
-        isRedirectDisabled: !currentDetails.isRedirectDisabled,
+        isRedirectDisabled,
         updatedAt: new Date(),
       },
     })

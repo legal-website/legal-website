@@ -1,36 +1,35 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { db } from "@/lib/db"
-import { Role } from "@/lib/enums"
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = params.id
     const session = await getServerSession()
 
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Find the user and check if they are an admin
+    // Check if user is admin or support
     const user = await db.user.findFirst({
       where: { email: session.user.email },
-      select: { id: true, role: true },
+      select: { role: true },
     })
 
-    if (!user || (user.role !== Role.ADMIN && user.role !== Role.SUPPORT)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!user || (user.role !== "ADMIN" && user.role !== "SUPPORT")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Get the request body for notes
+    const { id } = params
     const body = await req.json()
+    const { adminNotes } = body
 
-    // Update the personal details status to approved
+    // Update personal details
     const personalDetails = await db.personalDetails.update({
       where: { id },
       data: {
         status: "approved",
-        adminNotes: body.notes || null,
+        adminNotes,
         updatedAt: new Date(),
       },
     })

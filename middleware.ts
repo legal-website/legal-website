@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
-// Fix: Import Role from our own types instead of @prisma/client
-import { Role } from "./lib/prisma-types"
 import { trackAffiliateClick } from "./lib/middleware/affiliate"
 
 export async function middleware(request: NextRequest) {
@@ -34,7 +32,7 @@ export async function middleware(request: NextRequest) {
   // If trying to access admin routes
   if (isAdminPath) {
     // Check if user is authenticated and is an admin or support
-    if (!token || (token.role !== Role.ADMIN && token.role !== Role.SUPPORT)) {
+    if (!token || (token.role !== "ADMIN" && token.role !== "SUPPORT")) {
       const url = new URL("/login", request.url)
       url.searchParams.set("callbackUrl", encodeURI(request.url))
       return NextResponse.redirect(url)
@@ -50,9 +48,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Check if user has completed personal details verification
-    // Skip this check for admin and support users
-    if (token.role !== Role.ADMIN && token.role !== Role.SUPPORT) {
+    // Skip personal details check for admin and support users
+    if (token.role !== "ADMIN" && token.role !== "SUPPORT") {
       try {
         // Make API call to check personal details status
         const response = await fetch(`${request.nextUrl.origin}/api/user/personal-details-status`, {
@@ -64,21 +61,26 @@ export async function middleware(request: NextRequest) {
         if (response.ok) {
           const data = await response.json()
 
-          // If personal details don't exist or are pending/rejected, redirect to personal details page
-          if (
-            !data.personalDetails ||
-            data.personalDetails.status !== "approved" ||
-            !data.personalDetails.isRedirectDisabled
-          ) {
+          // IMPORTANT: Changed the logic here to always redirect unless explicitly disabled
+          // If personal details don't exist OR they exist but redirection is not disabled, redirect
+          if (!data.personalDetails || !data.personalDetails.isRedirectDisabled) {
             // Don't redirect if already on the personal details page
             if (!path.startsWith("/Personal-details")) {
               return NextResponse.redirect(new URL("/Personal-details", request.url))
             }
           }
+        } else {
+          // If API call fails, redirect to be safe
+          if (!path.startsWith("/Personal-details")) {
+            return NextResponse.redirect(new URL("/Personal-details", request.url))
+          }
         }
       } catch (error) {
         console.error("Error checking personal details status:", error)
-        // Continue to dashboard if there's an error checking status
+        // If there's an error, redirect to be safe
+        if (!path.startsWith("/Personal-details")) {
+          return NextResponse.redirect(new URL("/Personal-details", request.url))
+        }
       }
     }
   }

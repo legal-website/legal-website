@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -217,7 +216,7 @@ export default function AdminPersonalDetailsPage() {
 
   return (
     <div className="container py-10">
-      <h1 className="text-3xl font-bold mb-6">Personal Details Verification</h1>
+      <h1 className="text-3xl font-bold mb-6 text-center">Personal Details Verification</h1>
 
       <Tabs defaultValue="pending" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-6">
@@ -241,47 +240,49 @@ export default function AdminPersonalDetailsPage() {
                 <CardTitle>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Verifications</CardTitle>
                 <CardDescription>Review and manage user personal details verification requests</CardDescription>
               </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Client Name</TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead>Redirect</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {personalDetails.map((details) => (
-                      <TableRow key={details.id}>
-                        <TableCell className="font-medium">{details.clientName}</TableCell>
-                        <TableCell>{details.companyName}</TableCell>
-                        <TableCell>{getStatusBadge(details.status)}</TableCell>
-                        <TableCell>{formatDate(details.createdAt)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Switch
-                              id={`redirect-${details.id}`}
-                              checked={details.isRedirectDisabled}
-                              onCheckedChange={() => handleToggleRedirect(details.id, details.isRedirectDisabled)}
-                            />
-                            <Label htmlFor={`redirect-${details.id}`}>
-                              {details.isRedirectDisabled ? "Disabled" : "Enabled"}
-                            </Label>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => handleViewDetails(details)}>
-                            <Eye className="h-4 w-4 mr-2" />
-                            View
-                          </Button>
-                        </TableCell>
+              <CardContent className="overflow-auto">
+                <div className="w-full overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Client Name</TableHead>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Submitted</TableHead>
+                        <TableHead>Redirect</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {personalDetails.map((details) => (
+                        <TableRow key={details.id}>
+                          <TableCell className="font-medium">{details.clientName}</TableCell>
+                          <TableCell>{details.companyName}</TableCell>
+                          <TableCell>{getStatusBadge(details.status)}</TableCell>
+                          <TableCell>{formatDate(details.createdAt)}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Switch
+                                id={`redirect-${details.id}`}
+                                checked={details.isRedirectDisabled}
+                                onCheckedChange={() => handleToggleRedirect(details.id, details.isRedirectDisabled)}
+                              />
+                              <Label htmlFor={`redirect-${details.id}`}>
+                                {details.isRedirectDisabled ? "Disabled" : "Enabled"}
+                              </Label>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="outline" size="sm" onClick={() => handleViewDetails(details)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -290,7 +291,7 @@ export default function AdminPersonalDetailsPage() {
 
       {selectedDetails && (
         <Dialog open={true} onOpenChange={(open) => !open && setSelectedDetails(null)}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Personal Details Review</DialogTitle>
               <DialogDescription>
@@ -298,7 +299,7 @@ export default function AdminPersonalDetailsPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div>
                   <h3 className="font-medium mb-1">Client Name</h3>
@@ -335,16 +336,14 @@ export default function AdminPersonalDetailsPage() {
                 <div>
                   <h3 className="font-medium mb-2">ID Card (Front)</h3>
                   <div className="relative h-40 border rounded overflow-hidden">
-                    <Image
+                    <img
                       src={selectedDetails.idCardFrontUrl || "/placeholder.svg"}
                       alt="ID Card Front"
-                      fill
-                      style={{ objectFit: "contain" }}
+                      className="w-full h-full object-contain cursor-pointer"
                       onClick={() => {
                         setViewingImage(selectedDetails.idCardFrontUrl)
                         setOpenDialog(true)
                       }}
-                      className="cursor-pointer"
                     />
                   </div>
                 </div>
@@ -352,16 +351,14 @@ export default function AdminPersonalDetailsPage() {
                 <div>
                   <h3 className="font-medium mb-2">ID Card (Back)</h3>
                   <div className="relative h-40 border rounded overflow-hidden">
-                    <Image
+                    <img
                       src={selectedDetails.idCardBackUrl || "/placeholder.svg"}
                       alt="ID Card Back"
-                      fill
-                      style={{ objectFit: "contain" }}
+                      className="w-full h-full object-contain cursor-pointer"
                       onClick={() => {
                         setViewingImage(selectedDetails.idCardBackUrl)
                         setOpenDialog(true)
                       }}
-                      className="cursor-pointer"
                     />
                   </div>
                 </div>
@@ -369,16 +366,14 @@ export default function AdminPersonalDetailsPage() {
                 <div>
                   <h3 className="font-medium mb-2">Passport</h3>
                   <div className="relative h-40 border rounded overflow-hidden">
-                    <Image
+                    <img
                       src={selectedDetails.passportUrl || "/placeholder.svg"}
                       alt="Passport"
-                      fill
-                      style={{ objectFit: "contain" }}
+                      className="w-full h-full object-contain cursor-pointer"
                       onClick={() => {
                         setViewingImage(selectedDetails.passportUrl)
                         setOpenDialog(true)
                       }}
-                      className="cursor-pointer"
                     />
                   </div>
                 </div>
@@ -396,8 +391,8 @@ export default function AdminPersonalDetailsPage() {
               />
             </div>
 
-            <DialogFooter className="flex justify-between sm:justify-between">
-              <div className="flex items-center space-x-2">
+            <DialogFooter className="flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="flex items-center space-x-2 w-full sm:w-auto">
                 <Switch
                   id="toggle-redirect"
                   checked={selectedDetails.isRedirectDisabled}
@@ -408,27 +403,27 @@ export default function AdminPersonalDetailsPage() {
                 </Label>
               </div>
 
-              <div className="flex space-x-2">
+              <div className="flex space-x-2 w-full sm:w-auto">
                 {selectedDetails.status === "pending" && (
                   <>
-                    <Button variant="destructive" onClick={handleReject}>
+                    <Button variant="destructive" onClick={handleReject} className="flex-1 sm:flex-none">
                       <XCircle className="h-4 w-4 mr-2" />
                       Reject
                     </Button>
-                    <Button variant="default" onClick={handleApprove}>
+                    <Button variant="default" onClick={handleApprove} className="flex-1 sm:flex-none">
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Approve
                     </Button>
                   </>
                 )}
                 {selectedDetails.status === "rejected" && (
-                  <Button variant="default" onClick={handleApprove}>
+                  <Button variant="default" onClick={handleApprove} className="w-full sm:w-auto">
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Approve
                   </Button>
                 )}
                 {selectedDetails.status === "approved" && (
-                  <Button variant="destructive" onClick={handleReject}>
+                  <Button variant="destructive" onClick={handleReject} className="w-full sm:w-auto">
                     <XCircle className="h-4 w-4 mr-2" />
                     Reject
                   </Button>
@@ -440,13 +435,13 @@ export default function AdminPersonalDetailsPage() {
       )}
 
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="max-w-4xl max-h-screen overflow-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto p-1 sm:p-6">
+          <DialogHeader className="px-4 pt-4 sm:px-0 sm:pt-0">
             <DialogTitle>Document Preview</DialogTitle>
           </DialogHeader>
           {viewingImage && (
-            <div className="relative h-[70vh]">
-              <Image src={viewingImage || "/placeholder.svg"} alt="Document" fill style={{ objectFit: "contain" }} />
+            <div className="relative h-[50vh] sm:h-[70vh] w-full">
+              <img src={viewingImage || "/placeholder.svg"} alt="Document" className="w-full h-full object-contain" />
             </div>
           )}
         </DialogContent>
