@@ -65,7 +65,6 @@ const menuItems: MenuItem[] = [
     subItems: [
       { label: "Templates", href: "/admin/documents/templates", badgeKey: "templates" },
       { label: "Client Documents", href: "/admin/documents/client", badgeKey: "clientDocuments" },
-      { label: "Bulk Upload", href: "/admin/documents/upload", badgeKey: "bulkUpload" },
     ],
   },
   {

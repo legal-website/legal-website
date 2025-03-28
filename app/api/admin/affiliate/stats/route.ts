@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { Role } from "@/lib/role"
+import { Role } from "@/lib/enums"
 
 export async function GET() {
   try {
