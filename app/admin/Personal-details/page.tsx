@@ -103,6 +103,7 @@ export default function AdminPersonalDetailsPage() {
     fetchPersonalDetails(1)
   }, [activeTab])
 
+  // Update the fetchPersonalDetails function to log the response data
   const fetchPersonalDetails = async (page: number) => {
     setIsLoading(true)
     try {
@@ -111,6 +112,7 @@ export default function AdminPersonalDetailsPage() {
         throw new Error("Failed to fetch personal details")
       }
       const data: PaginationResponse = await response.json()
+      console.log("Fetched personal details:", data.personalDetails) // Add this line to debug
       setPersonalDetails(data.personalDetails)
       setTotalItems(data.totalItems)
       setTotalPages(data.totalPages)
@@ -127,15 +129,18 @@ export default function AdminPersonalDetailsPage() {
     }
   }
 
+  // Update the handleViewDetails function to log the selected details
+  const handleViewDetails = (details: PersonalDetails) => {
+    console.log("Selected details:", details) // Add this line to debug
+    console.log("Members:", details.members) // Add this line to debug
+    setSelectedDetails(details)
+    setAdminNotes(details.adminNotes || "")
+  }
+
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages) return
     setCurrentPage(page)
     fetchPersonalDetails(page)
-  }
-
-  const handleViewDetails = (details: PersonalDetails) => {
-    setSelectedDetails(details)
-    setAdminNotes(details.adminNotes || "")
   }
 
   const handleApprove = async () => {

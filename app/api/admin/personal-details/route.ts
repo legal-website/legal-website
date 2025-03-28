@@ -1,46 +1,35 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { db } from "@/lib/db"
+import { authOptions } from "@/lib/auth"
+import prisma from "@/lib/prisma"
 
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession()
-
-    if (!session?.user?.email) {
+    // Check authentication
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if user is admin or support
-    const user = await db.user.findFirst({
-      where: { email: session.user.email },
-      select: { role: true },
-    })
-
-    if (!user || (user.role !== "ADMIN" && user.role !== "SUPPORT")) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    // Get status filter from query params
-    const url = new URL(req.url)
-    const status = url.searchParams.get("status") || "all"
-    const page = Number.parseInt(url.searchParams.get("page") || "1")
-    const limit = Number.parseInt(url.searchParams.get("limit") || "15")
-
-    // Ensure valid pagination parameters
-    const validPage = page > 0 ? page : 1
-    const validLimit = limit > 0 && limit <= 100 ? limit : 15
-    const skip = (validPage - 1) * validLimit
-
-    // Build where clause based on status
-    const where = status !== "all" ? { status } : {}
+    // Get query parameters
+    const searchParams = request.nextUrl.searchParams
+    const status = searchParams.get("status") || "pending"
+    const page = Number.parseInt(searchParams.get("page") || "1")
+    const limit = Number.parseInt(searchParams.get("limit") || "15")
+    const skip = (page - 1) * limit
 
     // Get total count for pagination
-    const totalItems = await db.personalDetails.count({ where })
-    const totalPages = Math.ceil(totalItems / validLimit)
+    const totalItems = await prisma.personalDetails.count({
+      where: {
+        status: status,
+      },
+    })
 
-    // Get paginated personal details
-    const personalDetails = await db.personalDetails.findMany({
-      where,
+    // Get personal details with pagination
+    const personalDetails = await prisma.personalDetails.findMany({
+      where: {
+        status: status,
+      },
       include: {
         user: {
           select: {
@@ -48,23 +37,29 @@ export async function GET(req: NextRequest) {
             name: true,
           },
         },
+        members: true, // Include members data
       },
       orderBy: {
-        updatedAt: "desc",
+        createdAt: "desc",
       },
       skip,
-      take: validLimit,
+      take: limit,
     })
+
+    // Calculate total pages
+    const totalPages = Math.ceil(totalItems / limit)
 
     return NextResponse.json({
       personalDetails,
       totalItems,
       totalPages,
-      currentPage: validPage,
+      currentPage: page,
     })
   } catch (error) {
     console.error("Error fetching personal details:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch personal details" }, { status: 500 })
   }
 }
+
+// Keep existing route handlers (POST, etc.) if they exist
 
