@@ -1,119 +1,208 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { db } from "@/lib/db"
+import { authOptions } from "@/lib/auth"
+import prisma from "@/lib/prisma"
 
-export async function POST(req: NextRequest) {
-  try {
-    const session = await getServerSession()
+// Define types for our models
+type PersonalDetailsMember = {
+  id: string
+  personalDetailsId: string
+  memberName: string
+  idCardFrontUrl: string
+  idCardBackUrl: string
+  passportUrl: string | null
+  createdAt: Date
+  updatedAt: Date
+}
 
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+type PersonalDetails = {
+  id: string
+  userId: string
+  clientName: string
+  companyName: string
+  currentAddress: string
+  businessPurpose: string
+  idCardFrontUrl: string
+  idCardBackUrl: string
+  passportUrl: string | null
+  status: "pending" | "approved" | "rejected"
+  adminNotes: string | null
+  isRedirectDisabled: boolean
+  createdAt: Date
+  updatedAt: Date
+  members: PersonalDetailsMember[]
+}
 
-    // Find the user
-    const user = await db.user.findFirst({
-      where: { email: session.user.email },
-      select: { id: true },
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // Get the request body
-    const body = await req.json()
-
-    // Validate required fields
-    const requiredFields = [
-      "clientName",
-      "companyName",
-      "currentAddress",
-      "businessPurpose",
-      "idCardFrontUrl",
-      "idCardBackUrl",
-      "passportUrl",
-    ]
-
-    for (const field of requiredFields) {
-      if (!body[field]) {
-        return NextResponse.json({ error: `${field} is required` }, { status: 400 })
-      }
-    }
-
-    // Check if personal details already exist for this user
-    const existingDetails = await db.personalDetails.findFirst({
-      where: { userId: user.id },
-    })
-
-    let personalDetails
-
-    if (existingDetails) {
-      // Update existing record
-      personalDetails = await db.personalDetails.update({
-        where: { id: existingDetails.id },
-        data: {
-          clientName: body.clientName,
-          companyName: body.companyName,
-          currentAddress: body.currentAddress,
-          businessPurpose: body.businessPurpose,
-          idCardFrontUrl: body.idCardFrontUrl,
-          idCardBackUrl: body.idCardBackUrl,
-          passportUrl: body.passportUrl,
-          status: "pending", // Reset to pending if resubmitting
-          updatedAt: new Date(),
-        },
-      })
-    } else {
-      // Create new record
-      personalDetails = await db.personalDetails.create({
-        data: {
-          userId: user.id,
-          clientName: body.clientName,
-          companyName: body.companyName,
-          currentAddress: body.currentAddress,
-          businessPurpose: body.businessPurpose,
-          idCardFrontUrl: body.idCardFrontUrl,
-          idCardBackUrl: body.idCardBackUrl,
-          passportUrl: body.passportUrl,
-          status: "pending",
-          isRedirectDisabled: false,
-        },
-      })
-    }
-
-    return NextResponse.json({ personalDetails })
-  } catch (error) {
-    console.error("Error submitting personal details:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
+type MemberInput = {
+  memberName: string
+  idCardFrontUrl: string
+  idCardBackUrl: string
+  passportUrl?: string | null
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
 
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Find the user
-    const user = await db.user.findFirst({
+    const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: { id: true },
     })
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Find personal details for the user
-    const personalDetails = await db.personalDetails.findFirst({
+    const personalDetails = await prisma.personalDetails.findUnique({
       where: { userId: user.id },
+      include: {
+        members: true,
+      },
     })
 
     return NextResponse.json({ personalDetails })
   } catch (error) {
     console.error("Error fetching personal details:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    const data = await req.json()
+    const {
+      clientName,
+      companyName,
+      currentAddress,
+      businessPurpose,
+      idCardFrontUrl,
+      idCardBackUrl,
+      passportUrl,
+      members,
+    } = data
+
+    // Validate required fields
+    if (!clientName || !companyName || !currentAddress || !businessPurpose || !idCardFrontUrl || !idCardBackUrl) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    // Check if personal details already exist for this user
+    const existingDetails = await prisma.personalDetails.findUnique({
+      where: { userId: user.id },
+      include: { members: true },
+    })
+
+    let personalDetails: PersonalDetails | null = null
+
+    if (existingDetails) {
+      // Update existing personal details
+      personalDetails = (await prisma.personalDetails.update({
+        where: { id: existingDetails.id },
+        data: {
+          clientName,
+          companyName,
+          currentAddress,
+          businessPurpose,
+          idCardFrontUrl,
+          idCardBackUrl,
+          passportUrl,
+          status: "pending", // Reset status to pending when updated
+          adminNotes: null,
+        },
+        include: { members: true },
+      })) as PersonalDetails
+
+      // Delete existing members
+      if (existingDetails.members.length > 0) {
+        await prisma.personalDetailsMember.deleteMany({
+          where: { personalDetailsId: existingDetails.id },
+        })
+      }
+
+      // Add new members if provided
+      if (members && members.length > 0) {
+        const memberPromises = members.map((member: MemberInput) => {
+          return prisma.personalDetailsMember.create({
+            data: {
+              personalDetailsId: personalDetails!.id,
+              memberName: member.memberName,
+              idCardFrontUrl: member.idCardFrontUrl,
+              idCardBackUrl: member.idCardBackUrl,
+              passportUrl: member.passportUrl || null,
+            },
+          })
+        })
+
+        await Promise.all(memberPromises)
+
+        // Fetch updated details with members
+        personalDetails = (await prisma.personalDetails.findUnique({
+          where: { id: personalDetails.id },
+          include: { members: true },
+        })) as PersonalDetails
+      }
+    } else {
+      // Create new personal details
+      personalDetails = (await prisma.personalDetails.create({
+        data: {
+          userId: user.id,
+          clientName,
+          companyName,
+          currentAddress,
+          businessPurpose,
+          idCardFrontUrl,
+          idCardBackUrl,
+          passportUrl,
+          status: "pending",
+          isRedirectDisabled: false,
+        },
+        include: { members: true },
+      })) as PersonalDetails
+
+      // Add members if provided
+      if (members && members.length > 0) {
+        const memberPromises = members.map((member: MemberInput) => {
+          return prisma.personalDetailsMember.create({
+            data: {
+              personalDetailsId: personalDetails!.id,
+              memberName: member.memberName,
+              idCardFrontUrl: member.idCardFrontUrl,
+              idCardBackUrl: member.idCardBackUrl,
+              passportUrl: member.passportUrl || null,
+            },
+          })
+        })
+
+        await Promise.all(memberPromises)
+
+        // Fetch updated details with members
+        personalDetails = (await prisma.personalDetails.findUnique({
+          where: { id: personalDetails.id },
+          include: { members: true },
+        })) as PersonalDetails
+      }
+    }
+
+    return NextResponse.json({ personalDetails })
+  } catch (error) {
+    console.error("Error submitting personal details:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

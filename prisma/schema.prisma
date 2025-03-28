@@ -545,4 +545,18 @@ model PersonalDetails {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  members           PersonalDetailsMember[]
+}
+model PersonalDetailsMember {
+  id                String          @id @default(cuid())
+  personalDetails   PersonalDetails @relation(fields: [personalDetailsId], references: [id], onDelete: Cascade)
+  personalDetailsId String
+  memberName        String
+  idCardFrontUrl    String
+  idCardBackUrl     String
+  passportUrl       String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([personalDetailsId])
 }

@@ -12,7 +12,17 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { toast } from "@/components/ui/use-toast"
-import { Loader2, Upload, CheckCircle, XCircle, AlertCircle } from "lucide-react"
+import { Loader2, Upload, CheckCircle, XCircle, AlertCircle, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+
+interface Member {
+  id?: string
+  memberName: string
+  idCardFrontUrl: string
+  idCardBackUrl: string
+  passportUrl?: string
+  isOpen: boolean
+}
 
 interface PersonalDetails {
   id: string
@@ -29,6 +39,7 @@ interface PersonalDetails {
   isRedirectDisabled: boolean
   createdAt: string
   updatedAt: string
+  members: Member[]
 }
 
 export default function PersonalDetailsPage() {
@@ -51,10 +62,13 @@ export default function PersonalDetailsPage() {
     idCardBackUrl: "",
     passportUrl: "",
   })
+  const [members, setMembers] = useState<Member[]>([])
+  const [memberUploadProgress, setMemberUploadProgress] = useState<{ [key: string]: { [key: string]: number } }>({})
 
   const idCardFrontRef = useRef<HTMLInputElement>(null)
   const idCardBackRef = useRef<HTMLInputElement>(null)
   const passportRef = useRef<HTMLInputElement>(null)
+  const memberFileRefs = useRef<{ [key: string]: { [key: string]: HTMLInputElement | null } }>({})
 
   // Fetch existing personal details on page load
   useEffect(() => {
@@ -80,6 +94,15 @@ export default function PersonalDetailsPage() {
           idCardBackUrl: data.personalDetails.idCardBackUrl,
           passportUrl: data.personalDetails.passportUrl,
         })
+
+        // Populate members if they exist
+        if (data.personalDetails.members && data.personalDetails.members.length > 0) {
+          const formattedMembers = data.personalDetails.members.map((member: any) => ({
+            ...member,
+            isOpen: false,
+          }))
+          setMembers(formattedMembers)
+        }
       }
     } catch (error) {
       console.error("Error fetching personal details:", error)
@@ -96,6 +119,13 @@ export default function PersonalDetailsPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleMemberInputChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    const updatedMembers = [...members]
+    updatedMembers[index] = { ...updatedMembers[index], [name]: value }
+    setMembers(updatedMembers)
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fileType: string) => {
@@ -152,15 +182,137 @@ export default function PersonalDetailsPage() {
     }
   }
 
+  const handleMemberFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number, fileType: string) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("fileType", `member_${index}_${fileType}`)
+
+      // Initialize progress for this member if it doesn't exist
+      if (!memberUploadProgress[index]) {
+        setMemberUploadProgress((prev) => ({ ...prev, [index]: {} }))
+      }
+
+      // Update progress
+      setMemberUploadProgress((prev) => ({
+        ...prev,
+        [index]: { ...prev[index], [fileType]: 10 },
+      }))
+
+      const response = await fetch("/api/user/upload-document", {
+        method: "POST",
+        body: formData,
+      })
+
+      // Simulate progress
+      setMemberUploadProgress((prev) => ({
+        ...prev,
+        [index]: { ...prev[index], [fileType]: 50 },
+      }))
+
+      if (!response.ok) {
+        throw new Error("Failed to upload file")
+      }
+
+      const data = await response.json()
+
+      setMemberUploadProgress((prev) => ({
+        ...prev,
+        [index]: { ...prev[index], [fileType]: 100 },
+      }))
+
+      // Update member data with file URL
+      const urlKey =
+        fileType === "idCardFront" ? "idCardFrontUrl" : fileType === "idCardBack" ? "idCardBackUrl" : "passportUrl"
+
+      const updatedMembers = [...members]
+      updatedMembers[index] = { ...updatedMembers[index], [urlKey]: data.fileUrl }
+      setMembers(updatedMembers)
+
+      toast({
+        title: "File uploaded successfully",
+        description: `Member ${fileType} has been uploaded.`,
+      })
+    } catch (error) {
+      console.error("Error uploading file:", error)
+      setMemberUploadProgress((prev) => ({
+        ...prev,
+        [index]: { ...prev[index], [fileType]: 0 },
+      }))
+      toast({
+        title: "Error uploading file",
+        description: "There was an error uploading the file. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const addMember = () => {
+    setMembers([
+      ...members,
+      {
+        memberName: "",
+        idCardFrontUrl: "",
+        idCardBackUrl: "",
+        passportUrl: "",
+        isOpen: true,
+      },
+    ])
+  }
+
+  const removeMember = (index: number) => {
+    const updatedMembers = [...members]
+    updatedMembers.splice(index, 1)
+    setMembers(updatedMembers)
+  }
+
+  const toggleMemberCollapsible = (index: number) => {
+    const updatedMembers = [...members]
+    updatedMembers[index].isOpen = !updatedMembers[index].isOpen
+    setMembers(updatedMembers)
+  }
+
+  const validateForm = () => {
+    // Validate main form
+    if (
+      !formData.clientName ||
+      !formData.companyName ||
+      !formData.currentAddress ||
+      !formData.businessPurpose ||
+      !formData.idCardFrontUrl ||
+      !formData.idCardBackUrl
+    ) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields and upload ID card documents.",
+        variant: "destructive",
+      })
+      return false
+    }
+
+    // Validate members
+    for (let i = 0; i < members.length; i++) {
+      const member = members[i]
+      if (!member.memberName || !member.idCardFrontUrl || !member.idCardBackUrl) {
+        toast({
+          title: "Missing member information",
+          description: `Please fill in all required fields for member ${i + 1}.`,
+          variant: "destructive",
+        })
+        return false
+      }
+    }
+
+    return true
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.idCardFrontUrl || !formData.idCardBackUrl || !formData.passportUrl) {
-      toast({
-        title: "Missing documents",
-        description: "Please upload all required documents.",
-        variant: "destructive",
-      })
+    if (!validateForm()) {
       return
     }
 
@@ -172,7 +324,10 @@ export default function PersonalDetailsPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          members,
+        }),
       })
 
       if (!response.ok) {
@@ -223,7 +378,7 @@ export default function PersonalDetailsPage() {
     }
 
     return (
-      <div className="container max-w-3xl py-10 mx-auto mb-40">
+      <div className="container max-w-3xl py-10 mx-auto">
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="text-3xl font-bold">Personal Details Verification</CardTitle>
@@ -360,6 +515,63 @@ export default function PersonalDetailsPage() {
               </div>
             </div>
 
+            {/* Additional Members Section */}
+            {personalDetails.members && personalDetails.members.length > 0 && (
+              <div className="mt-8 space-y-6">
+                <h3 className="text-xl font-semibold border-b pb-2">Additional Members</h3>
+
+                {personalDetails.members.map((member: Member, index: number) => (
+                  <div key={member.id || index} className="border rounded-lg p-4 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-lg font-medium">Member {index + 1}</h4>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Name</p>
+                      <p className="mt-1">{member.memberName}</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">ID Card (Front)</p>
+                        <div className="mt-1 border rounded-lg overflow-hidden">
+                          <img
+                            src={member.idCardFrontUrl || "/placeholder.svg"}
+                            alt="Member ID Card Front"
+                            className="w-full h-auto object-cover"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">ID Card (Back)</p>
+                        <div className="mt-1 border rounded-lg overflow-hidden">
+                          <img
+                            src={member.idCardBackUrl || "/placeholder.svg"}
+                            alt="Member ID Card Back"
+                            className="w-full h-auto object-cover"
+                          />
+                        </div>
+                      </div>
+
+                      {member.passportUrl && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Passport</p>
+                          <div className="mt-1 border rounded-lg overflow-hidden">
+                            <img
+                              src={member.passportUrl || "/placeholder.svg"}
+                              alt="Member Passport"
+                              className="w-full h-auto object-cover"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {personalDetails.status === "rejected" && (
               <div className="mt-6">
                 <Button onClick={() => setPersonalDetails(null)} className="w-full">
@@ -387,7 +599,9 @@ export default function PersonalDetailsPage() {
           <CardContent className="space-y-6">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="clientName">Full Name</Label>
+                <Label htmlFor="clientName">
+                  Full Name <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="clientName"
                   name="clientName"
@@ -399,7 +613,9 @@ export default function PersonalDetailsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="companyName">Company Name</Label>
+                <Label htmlFor="companyName">
+                  Company Name <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="companyName"
                   name="companyName"
@@ -411,7 +627,9 @@ export default function PersonalDetailsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="currentAddress">Current Address</Label>
+                <Label htmlFor="currentAddress">
+                  Current Address <span className="text-red-500">*</span>
+                </Label>
                 <Textarea
                   id="currentAddress"
                   name="currentAddress"
@@ -423,7 +641,9 @@ export default function PersonalDetailsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="businessPurpose">Business Purpose</Label>
+                <Label htmlFor="businessPurpose">
+                  Business Purpose <span className="text-red-500">*</span>
+                </Label>
                 <Textarea
                   id="businessPurpose"
                   name="businessPurpose"
@@ -439,7 +659,9 @@ export default function PersonalDetailsPage() {
               <h3 className="text-lg font-medium">Document Upload</h3>
 
               <div className="space-y-2">
-                <Label htmlFor="idCardFront">ID Card (Front)</Label>
+                <Label htmlFor="idCardFront">
+                  ID Card (Front) <span className="text-red-500">*</span>
+                </Label>
                 <div className="flex items-center gap-4">
                   <Input
                     id="idCardFront"
@@ -477,7 +699,9 @@ export default function PersonalDetailsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="idCardBack">ID Card (Back)</Label>
+                <Label htmlFor="idCardBack">
+                  ID Card (Back) <span className="text-red-500">*</span>
+                </Label>
                 <div className="flex items-center gap-4">
                   <Input
                     id="idCardBack"
@@ -515,7 +739,7 @@ export default function PersonalDetailsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="passport">Passport</Label>
+                <Label htmlFor="passport">Passport (Optional)</Label>
                 <div className="flex items-center gap-4">
                   <Input
                     id="passport"
@@ -551,6 +775,210 @@ export default function PersonalDetailsPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Additional Members Section */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-medium">Additional Members</h3>
+                <Button
+                  type="button"
+                  onClick={addMember}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Member
+                </Button>
+              </div>
+
+              {members.length === 0 && (
+                <div className="text-center py-6 border border-dashed rounded-lg">
+                  <p className="text-gray-500">No additional members added yet</p>
+                </div>
+              )}
+
+              {members.map((member, index) => (
+                <Collapsible
+                  key={index}
+                  open={member.isOpen}
+                  onOpenChange={() => toggleMemberCollapsible(index)}
+                  className="border rounded-lg overflow-hidden"
+                >
+                  <div className="flex items-center justify-between p-4 bg-gray-50">
+                    <div className="flex items-center gap-2">
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm" className="p-0 h-8 w-8">
+                          {member.isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+                      </CollapsibleTrigger>
+                      <h4 className="font-medium">{member.memberName ? member.memberName : `Member ${index + 1}`}</h4>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeMember(index)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 p-0 h-8 w-8"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Remove member</span>
+                    </Button>
+                  </div>
+
+                  <CollapsibleContent className="p-4 space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor={`member-${index}-name`}>
+                        Member Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id={`member-${index}-name`}
+                        name="memberName"
+                        placeholder="Enter member name"
+                        value={member.memberName}
+                        onChange={(e) => handleMemberInputChange(index, e)}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor={`member-${index}-idCardFront`}>
+                        ID Card (Front) <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="flex items-center gap-4">
+                        <Input
+                          id={`member-${index}-idCardFront`}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          ref={(el) => {
+                            if (!memberFileRefs.current[index]) {
+                              memberFileRefs.current[index] = {}
+                            }
+                            memberFileRefs.current[index].idCardFront = el
+                          }}
+                          onChange={(e) => handleMemberFileUpload(e, index, "idCardFront")}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => memberFileRefs.current[index]?.idCardFront?.click()}
+                          className="w-full"
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          {member.idCardFrontUrl ? "Change File" : "Upload ID Card Front"}
+                        </Button>
+                        {memberUploadProgress[index]?.idCardFront > 0 &&
+                          memberUploadProgress[index]?.idCardFront < 100 && (
+                            <div className="w-full">
+                              <Progress value={memberUploadProgress[index]?.idCardFront} className="h-2" />
+                            </div>
+                          )}
+                        {member.idCardFrontUrl && <span className="text-sm text-green-600">Uploaded</span>}
+                      </div>
+                      {member.idCardFrontUrl && (
+                        <div className="mt-2 border rounded-lg overflow-hidden h-32">
+                          <img
+                            src={member.idCardFrontUrl || "/placeholder.svg"}
+                            alt="Member ID Card Front Preview"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor={`member-${index}-idCardBack`}>
+                        ID Card (Back) <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="flex items-center gap-4">
+                        <Input
+                          id={`member-${index}-idCardBack`}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          ref={(el) => {
+                            if (!memberFileRefs.current[index]) {
+                              memberFileRefs.current[index] = {}
+                            }
+                            memberFileRefs.current[index].idCardBack = el
+                          }}
+                          onChange={(e) => handleMemberFileUpload(e, index, "idCardBack")}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => memberFileRefs.current[index]?.idCardBack?.click()}
+                          className="w-full"
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          {member.idCardBackUrl ? "Change File" : "Upload ID Card Back"}
+                        </Button>
+                        {memberUploadProgress[index]?.idCardBack > 0 &&
+                          memberUploadProgress[index]?.idCardBack < 100 && (
+                            <div className="w-full">
+                              <Progress value={memberUploadProgress[index]?.idCardBack} className="h-2" />
+                            </div>
+                          )}
+                        {member.idCardBackUrl && <span className="text-sm text-green-600">Uploaded</span>}
+                      </div>
+                      {member.idCardBackUrl && (
+                        <div className="mt-2 border rounded-lg overflow-hidden h-32">
+                          <img
+                            src={member.idCardBackUrl || "/placeholder.svg"}
+                            alt="Member ID Card Back Preview"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor={`member-${index}-passport`}>Passport (Optional)</Label>
+                      <div className="flex items-center gap-4">
+                        <Input
+                          id={`member-${index}-passport`}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          ref={(el) => {
+                            if (!memberFileRefs.current[index]) {
+                              memberFileRefs.current[index] = {}
+                            }
+                            memberFileRefs.current[index].passport = el
+                          }}
+                          onChange={(e) => handleMemberFileUpload(e, index, "passport")}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => memberFileRefs.current[index]?.passport?.click()}
+                          className="w-full"
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          {member.passportUrl ? "Change File" : "Upload Passport"}
+                        </Button>
+                        {memberUploadProgress[index]?.passport > 0 && memberUploadProgress[index]?.passport < 100 && (
+                          <div className="w-full">
+                            <Progress value={memberUploadProgress[index]?.passport} className="h-2" />
+                          </div>
+                        )}
+                        {member.passportUrl && <span className="text-sm text-green-600">Uploaded</span>}
+                      </div>
+                      {member.passportUrl && (
+                        <div className="mt-2 border rounded-lg overflow-hidden h-32">
+                          <img
+                            src={member.passportUrl || "/placeholder.svg"}
+                            alt="Member Passport Preview"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
             </div>
           </CardContent>
           <CardFooter>
