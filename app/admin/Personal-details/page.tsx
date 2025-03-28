@@ -180,6 +180,9 @@ export default function AdminPersonalDetailsPage() {
     if (!selectedDetails) return
 
     try {
+      // Log what we're sending for debugging
+      console.log("Sending reject request with:", { adminNotes })
+
       const response = await fetch(`/api/admin/personal-details/${selectedDetails.id}/reject`, {
         method: "POST",
         headers: {
@@ -188,8 +191,11 @@ export default function AdminPersonalDetailsPage() {
         body: JSON.stringify({ adminNotes }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error("Failed to reject personal details")
+        console.error("Reject response error:", data)
+        throw new Error(data.error || "Failed to reject personal details")
       }
 
       toast({
@@ -203,7 +209,7 @@ export default function AdminPersonalDetailsPage() {
       console.error("Error rejecting personal details:", error)
       toast({
         title: "Error",
-        description: "Failed to reject personal details",
+        description: error instanceof Error ? error.message : "Failed to reject personal details",
         variant: "destructive",
       })
     }
@@ -256,12 +262,18 @@ export default function AdminPersonalDetailsPage() {
 
     setIsDeleting(true)
     try {
+      // Log what we're deleting for debugging
+      console.log("Deleting personal details with ID:", deletingId)
+
       const response = await fetch(`/api/admin/personal-details/${deletingId}`, {
         method: "DELETE",
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error("Failed to delete personal details")
+        console.error("Delete response error:", data)
+        throw new Error(data.error || "Failed to delete personal details")
       }
 
       toast({
@@ -280,7 +292,7 @@ export default function AdminPersonalDetailsPage() {
       console.error("Error deleting personal details:", error)
       toast({
         title: "Error",
-        description: "Failed to delete personal details",
+        description: error instanceof Error ? error.message : "Failed to delete personal details",
         variant: "destructive",
       })
     } finally {
