@@ -64,6 +64,7 @@ export default function PersonalDetailsPage() {
   })
   const [members, setMembers] = useState<Member[]>([])
   const [memberUploadProgress, setMemberUploadProgress] = useState<{ [key: string]: { [key: string]: number } }>({})
+  const [progressValue, setProgressValue] = useState(33) // For animated progress bar
 
   const idCardFrontRef = useRef<HTMLInputElement>(null)
   const idCardBackRef = useRef<HTMLInputElement>(null)
@@ -73,11 +74,39 @@ export default function PersonalDetailsPage() {
   // Fetch existing personal details on page load
   useEffect(() => {
     fetchPersonalDetails()
+
+    // Set up background refresh every 10 seconds
+    const intervalId = setInterval(() => {
+      fetchPersonalDetails(true) // true = silent refresh (no loading state)
+    }, 10000)
+
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId)
   }, [])
 
-  const fetchPersonalDetails = async () => {
+  // Animate progress bar when status is pending
+  useEffect(() => {
+    let animationInterval: NodeJS.Timeout | null = null
+
+    if (personalDetails?.status === "pending") {
+      // Create animation effect for progress bar
+      animationInterval = setInterval(() => {
+        setProgressValue((prev) => {
+          // Oscillate between 25 and 45
+          if (prev >= 45) return 25
+          return prev + 1
+        })
+      }, 150)
+    }
+
+    return () => {
+      if (animationInterval) clearInterval(animationInterval)
+    }
+  }, [personalDetails?.status])
+
+  const fetchPersonalDetails = async (silent = false) => {
     try {
-      setIsLoading(true)
+      if (!silent) setIsLoading(true)
       const response = await fetch("/api/user/personal-details")
       const data = await response.json()
 
@@ -106,13 +135,15 @@ export default function PersonalDetailsPage() {
       }
     } catch (error) {
       console.error("Error fetching personal details:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load your personal details",
-        variant: "destructive",
-      })
+      if (!silent) {
+        toast({
+          title: "Error",
+          description: "Failed to load your personal details",
+          variant: "destructive",
+        })
+      }
     } finally {
-      setIsLoading(false)
+      if (!silent) setIsLoading(false)
     }
   }
 
@@ -367,7 +398,7 @@ export default function PersonalDetailsPage() {
     const getStatusProgress = () => {
       switch (personalDetails.status) {
         case "pending":
-          return 33
+          return progressValue // Use animated value
         case "approved":
           return 100
         case "rejected":
@@ -405,7 +436,9 @@ export default function PersonalDetailsPage() {
                     ? "bg-red-100 [&>div]:bg-red-500"
                     : personalDetails.status === "approved"
                       ? "bg-green-100 [&>div]:bg-green-500"
-                      : ""
+                      : personalDetails.status === "pending"
+                        ? "bg-yellow-100 [&>div]:bg-yellow-500 transition-all duration-300"
+                        : ""
                 }`}
               />
             </div>
