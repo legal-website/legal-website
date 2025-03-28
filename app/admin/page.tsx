@@ -35,6 +35,7 @@ import {
   BarChart,
   Bar,
 } from "recharts"
+import { RecentPersonalDetails } from "@/components/admin/recent-personal-details"
 
 // Types for our data
 interface Invoice {
@@ -668,6 +669,9 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Recent Personal Details */}
+        <RecentPersonalDetails />
 
         {/* Third Section - Recent Tickets */}
         <div className="mt-8">
