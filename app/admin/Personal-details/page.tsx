@@ -268,7 +268,7 @@ export default function AdminPersonalDetailsPage() {
                                 onCheckedChange={() => handleToggleRedirect(details.id, details.isRedirectDisabled)}
                               />
                               <Label htmlFor={`redirect-${details.id}`}>
-                                {details.isRedirectDisabled ? "Disabled" : "Enabled"}
+                                {details.isRedirectDisabled ? "Dashboard Access ON" : "Dashboard Access OFF"}
                               </Label>
                             </div>
                           </TableCell>
@@ -399,7 +399,7 @@ export default function AdminPersonalDetailsPage() {
                   onCheckedChange={() => handleToggleRedirect(selectedDetails.id, selectedDetails.isRedirectDisabled)}
                 />
                 <Label htmlFor="toggle-redirect">
-                  {selectedDetails.isRedirectDisabled ? "Redirect Disabled" : "Redirect Enabled"}
+                  {selectedDetails.isRedirectDisabled ? "Dashboard Access ON" : "Dashboard Access OFF"}
                 </Label>
               </div>
 

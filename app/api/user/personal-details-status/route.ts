@@ -13,21 +13,10 @@ export async function GET(req: NextRequest) {
     // Find the user
     const user = await db.user.findFirst({
       where: { email: session.user.email },
-      select: { id: true, role: true },
     })
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // Skip check for admin and support users
-    if (user.role === "ADMIN" || user.role === "SUPPORT") {
-      return NextResponse.json({
-        personalDetails: {
-          isRedirectDisabled: true,
-          status: "approved",
-        },
-      })
     }
 
     // Find personal details for the user
@@ -35,7 +24,17 @@ export async function GET(req: NextRequest) {
       where: { userId: user.id },
     })
 
-    return NextResponse.json({ personalDetails })
+    return NextResponse.json({
+      personalDetails: personalDetails
+        ? {
+            id: personalDetails.id,
+            status: personalDetails.status,
+            isRedirectDisabled: personalDetails.isRedirectDisabled,
+            createdAt: personalDetails.createdAt,
+            updatedAt: personalDetails.updatedAt,
+          }
+        : null,
+    })
   } catch (error) {
     console.error("Error checking personal details status:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

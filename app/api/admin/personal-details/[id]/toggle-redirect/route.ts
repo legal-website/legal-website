@@ -34,14 +34,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     // Only allow toggling redirect for approved applications
-    if (currentDetails.status !== "approved") {
-      return NextResponse.json(
-        {
-          error: "Can only toggle redirect for approved applications",
-        },
-        { status: 400 },
-      )
-    }
+    // Remove this check to allow toggling for all statuses
+    // if (currentDetails.status !== "approved") {
+    //   return NextResponse.json({
+    //     error: "Can only toggle redirect for approved applications"
+    //   }, { status: 400 })
+    // }
 
     // Update personal details
     const personalDetails = await db.personalDetails.update({
@@ -51,6 +49,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         updatedAt: new Date(),
       },
     })
+
+    // Add after updating personal details
+    console.log(`Toggled redirect for user ${currentDetails.userId}. isRedirectDisabled: ${isRedirectDisabled}`)
 
     return NextResponse.json({ personalDetails })
   } catch (error) {

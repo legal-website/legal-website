@@ -61,10 +61,18 @@ export async function middleware(request: NextRequest) {
         if (response.ok) {
           const data = await response.json()
 
-          // IMPORTANT: Changed the logic here to always redirect unless explicitly disabled
-          // If personal details don't exist OR they exist but redirection is not disabled, redirect
-          if (!data.personalDetails || !data.personalDetails.isRedirectDisabled) {
-            // Don't redirect if already on the personal details page
+          // Check if personal details exist and are approved
+          if (data.personalDetails && data.personalDetails.status === "approved") {
+            // If redirect is NOT disabled (toggle is OFF), redirect to Personal-details
+            if (!data.personalDetails.isRedirectDisabled) {
+              // Don't redirect if already on the personal details page
+              if (!path.startsWith("/Personal-details")) {
+                return NextResponse.redirect(new URL("/Personal-details", request.url))
+              }
+            }
+            // If redirect is disabled (toggle is ON), allow access to dashboard
+          } else {
+            // If personal details don't exist or are not approved, redirect
             if (!path.startsWith("/Personal-details")) {
               return NextResponse.redirect(new URL("/Personal-details", request.url))
             }
