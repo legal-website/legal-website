@@ -481,7 +481,7 @@ export default function PersonalDetailsPage() {
                 <div>
                   <p className="font-medium text-yellow-800">Verification In Progress</p>
                   <p className="text-yellow-700 mt-1">
-                    Your details are being reviewed by our team. This process usually takes 1-2 business days.
+                    Your details are being reviewed by our team. This process usually takes 1-2 Hours.
                   </p>
                 </div>
               </div>
