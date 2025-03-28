@@ -131,11 +131,13 @@ export default function AdminDashboard() {
   // Fetch all data on component mount
   useEffect(() => {
     const fetchAllData = async () => {
+      console.log("Fetching data for admin dashboard...")
       try {
         // Fetch invoices
         fetch("/api/admin/invoices")
           .then((res) => res.json())
           .then((data) => {
+            console.log("Received data:", { endpoint: "/api/admin/invoices", data })
             // Ensure we have the correct data structure and add fallback values
             const processedInvoices = (data.invoices || []).map((invoice: any) => ({
               id: invoice.id || `inv-${Math.random().toString(36).substring(2, 9)}`,
@@ -177,6 +179,7 @@ export default function AdminDashboard() {
         fetch("/api/admin/users")
           .then((res) => res.json())
           .then((data) => {
+            console.log("Received data:", { endpoint: "/api/admin/users", data })
             // Process users and filter to only show clients
             const allUsers = data.users || []
             const clientUsers = allUsers.filter(
@@ -208,6 +211,7 @@ export default function AdminDashboard() {
         fetch("/api/admin/templates")
           .then((res) => res.json())
           .then((data) => {
+            console.log("Received data:", { endpoint: "/api/admin/templates", data })
             const processedTemplates = (data.templates || []).map((template: any) => ({
               id: template.id || `temp-${Math.random().toString(36).substring(2, 9)}`,
               name: template.name || template.title || `Template ${Math.floor(Math.random() * 100)}`,
@@ -234,9 +238,10 @@ export default function AdminDashboard() {
           })
 
         // Fetch tickets
-        fetch("/api/admin/tickets")
+        fetch("/api/admin/support/tickets")
           .then((res) => res.json())
           .then((data) => {
+            console.log("Received data:", { endpoint: "/api/admin/support/tickets", data })
             const processedTickets = (data.tickets || []).map((ticket: any) => ({
               id: ticket.id || `ticket-${Math.random().toString(36).substring(2, 9)}`,
               title: ticket.title || ticket.subject || `Support Request ${Math.floor(Math.random() * 100)}`,
@@ -260,9 +265,10 @@ export default function AdminDashboard() {
           })
 
         // Fetch comments
-        fetch("/api/admin/community/moderation")
+        fetch("/api/admin/community/comments")
           .then((res) => res.json())
           .then((data) => {
+            console.log("Received data:", { endpoint: "/api/admin/community/comments", data })
             const processedComments = (data.comments || []).map((comment: any) => ({
               id: comment.id || `comment-${Math.random().toString(36).substring(2, 9)}`,
               content: comment.content || comment.text || "Comment content",
@@ -289,6 +295,7 @@ export default function AdminDashboard() {
         fetch("/api/admin/compliance/amendments")
           .then((res) => res.json())
           .then((data) => {
+            console.log("Received data:", { endpoint: "/api/admin/compliance/amendments", data })
             const processedAmendments = (data.amendments || []).map((amendment: any) => ({
               id: amendment.id || `amendment-${Math.random().toString(36).substring(2, 9)}`,
               title:
@@ -325,6 +332,7 @@ export default function AdminDashboard() {
         fetch("/api/admin/compliance/annual-reports")
           .then((res) => res.json())
           .then((data) => {
+            console.log("Received data:", { endpoint: "/api/admin/compliance/annual-reports", data })
             const processedReports = (data.reports || data.filings || []).map((report: any) => ({
               id: report.id || `report-${Math.random().toString(36).substring(2, 9)}`,
               title: report.title || report.name || `Annual Report ${Math.floor(Math.random() * 100)}`,
@@ -437,12 +445,7 @@ export default function AdminDashboard() {
       }
     })
 
-    // If no data, provide sample data
-    if (templateRevenue === 0 && regularRevenue === 0) {
-      templateRevenue = 2500
-      regularRevenue = 7500
-    }
-
+    // Return actual data without fallback to sample data
     return [
       { name: "Template Invoices", value: templateRevenue },
       { name: "Regular Invoices", value: regularRevenue },
@@ -462,15 +465,7 @@ export default function AdminDashboard() {
     const pendingTotal = pendingAmendments.reduce((sum, a) => sum + (a.amount || 0), 0)
     const rejectedTotal = rejectedAmendments.reduce((sum, a) => sum + (a.amount || 0), 0)
 
-    // If no data, provide sample data
-    if (approvedTotal === 0 && pendingTotal === 0 && rejectedTotal === 0) {
-      return [
-        { name: "Approved", amount: 3500 },
-        { name: "Pending", amount: 1800 },
-        { name: "Rejected", amount: 750 },
-      ]
-    }
-
+    // Return actual data without fallback to sample data
     return [
       { name: "Approved", amount: approvedTotal },
       { name: "Pending", amount: pendingTotal },
@@ -1105,7 +1100,7 @@ export default function AdminDashboard() {
                 <div className="h-[300px] w-full flex items-center justify-center">
                   <Skeleton className="h-[250px] w-full" />
                 </div>
-              ) : (
+              ) : amendments.length > 0 ? (
                 <div className="h-[300px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
@@ -1129,6 +1124,10 @@ export default function AdminDashboard() {
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  No amendment revenue data found. Data will appear here when available.
                 </div>
               )}
             </CardContent>

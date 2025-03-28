@@ -15,7 +15,6 @@ import {
   FileText,
   Settings,
   Tag,
-  Bell,
   BarChart3,
   Shield,
   LogOut,
@@ -76,7 +75,6 @@ const menuItems: MenuItem[] = [
     badge: "New",
     badgeKey: "promotions",
     subItems: [
-      { label: "Deals", href: "/admin/promotions/deals", badgeKey: "deals" },
       { label: "Coupons", href: "/admin/promotions/coupons", badgeKey: "coupons" },
       { label: "Campaigns", href: "/admin/promotions/campaigns", badgeKey: "campaigns" },
     ],
@@ -96,7 +94,6 @@ const menuItems: MenuItem[] = [
     subItems: [
       { label: "Manage Posts", href: "/admin/community", badgeKey: "managePosts" },
       { label: "Moderation", href: "/admin/community/moderation", badgeKey: "moderation" },
-      { label: "Reports", href: "/admin/community/reports", badgeKey: "reports" },
     ],
   },
   {
