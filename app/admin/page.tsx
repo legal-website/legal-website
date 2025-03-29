@@ -589,7 +589,8 @@ export default function AdminDashboard() {
         amendment.paymentStatus?.toLowerCase() === "completed" ||
         amendment.paymentReceived === true
 
-      const hasAmount = amendment.amount > 0
+      // Fix the TypeScript error by safely checking if amount is defined and greater than 0
+      const hasAmount = (amendment.amount ?? 0) > 0
 
       const result = isApproved && isPaymentReceived && hasAmount
 
@@ -607,6 +608,7 @@ export default function AdminDashboard() {
     const revenueByMonth: Record<string, number> = {}
 
     approvedAmendments.forEach((amendment) => {
+      // Also fix this potential undefined error
       if (!amendment.amount) return
 
       const date = new Date(amendment.createdAt)
