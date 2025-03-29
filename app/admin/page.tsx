@@ -36,6 +36,7 @@ import {
   Bar,
 } from "recharts"
 import { RecentPersonalDetails } from "@/components/admin/recent-personal-details"
+import { getAllTickets } from "@/lib/actions/admin-ticket-actions"
 
 // Types for our data
 interface Invoice {
@@ -238,32 +239,30 @@ export default function AdminDashboard() {
             setLoading((prev) => ({ ...prev, templates: false }))
           })
 
-        // Fetch tickets
-        fetch("/api/admin/support/tickets")
-          .then((res) => res.json())
-          .then((data) => {
-            console.log("Received data:", { endpoint: "/api/admin/support/tickets", data })
-            const processedTickets = (data.tickets || []).map((ticket: any) => ({
-              id: ticket.id || `ticket-${Math.random().toString(36).substring(2, 9)}`,
-              title: ticket.title || ticket.subject || `Support Request ${Math.floor(Math.random() * 100)}`,
+        // Fetch tickets using the same server action as the tickets page
+        try {
+          const ticketsResult = await getAllTickets(1, 3) // Get first page with 3 items
+          if (!ticketsResult.error && ticketsResult.tickets) {
+            const fetchedTickets = ticketsResult.tickets as any[]
+            const processedTickets = fetchedTickets.map((ticket) => ({
+              id: ticket.id,
+              title: ticket.subject || "No subject",
               status: ticket.status || "open",
               createdAt: ticket.createdAt || new Date().toISOString(),
-              userName: ticket.userName || ticket.user?.name || ticket.creator?.name || ticket.author || "User",
-              userId:
-                ticket.userId ||
-                ticket.user?.id ||
-                ticket.creator?.id ||
-                `user-${Math.random().toString(36).substring(2, 9)}`,
+              userName: ticket.creator?.name || ticket.creator?.email || "Unknown",
+              userId: ticket.creatorId || ticket.creator?.id || "unknown-id",
             }))
-
             setTickets(processedTickets)
-            setLoading((prev) => ({ ...prev, tickets: false }))
-          })
-          .catch((err) => {
-            console.error("Error fetching tickets:", err)
+          } else {
+            console.error("Error fetching tickets:", ticketsResult.error)
             setTickets([])
-            setLoading((prev) => ({ ...prev, tickets: false }))
-          })
+          }
+        } catch (err) {
+          console.error("Error fetching tickets:", err)
+          setTickets([])
+        } finally {
+          setLoading((prev) => ({ ...prev, tickets: false }))
+        }
 
         // Fetch comments
         fetch("/api/admin/community/comments")
@@ -719,7 +718,7 @@ export default function AdminDashboard() {
                           variant={
                             ticket.status === "open"
                               ? "default"
-                              : ticket.status === "in_progress"
+                              : ticket.status === "in-progress"
                                 ? "outline"
                                 : ticket.status === "resolved"
                                   ? "secondary"
@@ -728,12 +727,12 @@ export default function AdminDashboard() {
                           className={`${
                             ticket.status === "resolved"
                               ? "bg-green-100 text-green-800 hover:bg-green-100"
-                              : ticket.status === "in_progress"
+                              : ticket.status === "in-progress"
                                 ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
                                 : ""
                           }`}
                         >
-                          {ticket.status.replace("_", " ")}
+                          {ticket.status.replace("-", " ")}
                         </Badge>
                         <div className="text-sm text-muted-foreground">{formatDate(ticket.createdAt)}</div>
                       </div>
