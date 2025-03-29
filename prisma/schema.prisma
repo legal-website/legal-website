@@ -41,8 +41,8 @@ model User {
   loginSessions      LoginSession[]
   personalDetails    PersonalDetails?
   accountManagerRequest AccountManagerRequest?
-  bankAccount        BankAccount?        
-  createdPaymentMethods PaymentMethod[]  
+  createdBankAccounts BankAccount[] @relation("UserCreatedBankAccounts")
+  createdPaymentMethods PaymentMethod[] 
   @@index([businessId], map: "User_businessId_fkey")
 }
 
@@ -576,7 +576,7 @@ model BankAccount {
   createdBy    String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  user         User?    @relation(fields: [createdBy], references: [id])
+  creator      User     @relation("UserCreatedBankAccounts", fields: [createdBy], references: [id])
 
   @@index([isDefault])
   @@index([createdBy])
@@ -588,9 +588,9 @@ model PaymentMethod {
   isActive      Boolean  @default(true)
   createdBy     String
   createdAt     DateTime @default(now())
-  updatedAt     DateTime @default(now()) @updatedAt
+  updatedAt     DateTime @updatedAt
   creator       User     @relation(fields: [createdBy], references: [id])
-}
+
 
 
 
