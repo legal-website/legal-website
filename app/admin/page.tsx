@@ -35,7 +35,6 @@ import {
   BarChart,
   Bar,
 } from "recharts"
-import { RecentPersonalDetails } from "@/components/admin/recent-personal-details"
 
 // Types for our data
 interface Invoice {
@@ -239,21 +238,17 @@ export default function AdminDashboard() {
           })
 
         // Fetch tickets
-        fetch("/api/admin/support/tickets")
+        fetch("/api/admin/tickets")
           .then((res) => res.json())
           .then((data) => {
-            console.log("Received data:", { endpoint: "/api/admin/support/tickets", data })
+            console.log("Received data:", { endpoint: "/api/admin/tickets", data })
             const processedTickets = (data.tickets || []).map((ticket: any) => ({
               id: ticket.id || `ticket-${Math.random().toString(36).substring(2, 9)}`,
-              title: ticket.title || ticket.subject || `Support Request ${Math.floor(Math.random() * 100)}`,
+              title: ticket.subject || ticket.title || `Support Request ${Math.floor(Math.random() * 100)}`,
               status: ticket.status || "open",
               createdAt: ticket.createdAt || new Date().toISOString(),
-              userName: ticket.userName || ticket.user?.name || ticket.creator?.name || ticket.author || "User",
-              userId:
-                ticket.userId ||
-                ticket.user?.id ||
-                ticket.creator?.id ||
-                `user-${Math.random().toString(36).substring(2, 9)}`,
+              userName: ticket.creator?.name || ticket.userName || "User",
+              userId: ticket.creator?.id || ticket.userId || `user-${Math.random().toString(36).substring(2, 9)}`,
             }))
 
             setTickets(processedTickets)
@@ -670,9 +665,6 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Recent Personal Details */}
-        <RecentPersonalDetails />
-
         {/* Third Section - Recent Tickets */}
         <div className="mt-8">
           <Card>
@@ -719,7 +711,7 @@ export default function AdminDashboard() {
                           variant={
                             ticket.status === "open"
                               ? "default"
-                              : ticket.status === "in_progress"
+                              : ticket.status === "in-progress"
                                 ? "outline"
                                 : ticket.status === "resolved"
                                   ? "secondary"
@@ -728,12 +720,12 @@ export default function AdminDashboard() {
                           className={`${
                             ticket.status === "resolved"
                               ? "bg-green-100 text-green-800 hover:bg-green-100"
-                              : ticket.status === "in_progress"
+                              : ticket.status === "in-progress"
                                 ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
                                 : ""
                           }`}
                         >
-                          {ticket.status.replace("_", " ")}
+                          {ticket.status.replace(/_/g, " ")}
                         </Badge>
                         <div className="text-sm text-muted-foreground">{formatDate(ticket.createdAt)}</div>
                       </div>
