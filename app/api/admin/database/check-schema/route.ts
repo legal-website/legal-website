@@ -8,6 +8,31 @@ interface IndexInfo {
   unique: boolean
 }
 
+// Helper function to handle BigInt serialization
+function serializeData(data: any): any {
+  if (data === null || data === undefined) {
+    return data
+  }
+
+  if (typeof data === "bigint") {
+    return data.toString()
+  }
+
+  if (Array.isArray(data)) {
+    return data.map((item) => serializeData(item))
+  }
+
+  if (typeof data === "object") {
+    const result: Record<string, any> = {}
+    for (const key in data) {
+      result[key] = serializeData(data[key])
+    }
+    return result
+  }
+
+  return data
+}
+
 export async function GET(req: NextRequest) {
   try {
     // Validate admin session
@@ -70,10 +95,14 @@ export async function GET(req: NextRequest) {
       })
     }
 
+    // Serialize the data to handle BigInt values
+    const serializedColumns = serializeData(columnsResult)
+    const serializedIndexes = serializeData(Object.values(indexes))
+
     return NextResponse.json({
       table,
-      columns: columnsResult,
-      indexes: Object.values(indexes),
+      columns: serializedColumns,
+      indexes: serializedIndexes,
       success: true,
     })
   } catch (error) {
