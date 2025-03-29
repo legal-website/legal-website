@@ -342,12 +342,20 @@ export default function AdminDashboard() {
 
         // Fetch annual reports using our new server action
         try {
-          const fetchedReports = await fetchAnnualReports()
-          setAnnualReports(fetchedReports)
-          setLoading((prev) => ({ ...prev, annualReports: false }))
+          // Use the server action directly in the useEffect
+          const result = await getUpcomingAnnualReports(3)
+          console.log("Annual reports data:", result)
+
+          if (result.error) {
+            console.error("Error in annual reports response:", result.error)
+            setAnnualReports([])
+          } else {
+            setAnnualReports(result.reports || [])
+          }
         } catch (err) {
           console.error("Error fetching annual reports:", err)
           setAnnualReports([])
+        } finally {
           setLoading((prev) => ({ ...prev, annualReports: false }))
         }
       } catch (error) {
@@ -532,54 +540,8 @@ export default function AdminDashboard() {
   }
 
   // Add this function inside the AdminDashboard component, before the return statement
-  async function fetchAnnualReports() {
-    try {
-      // Try to use the server action
-      const result = await getUpcomingAnnualReports(3)
-
-      if (result.error) {
-        throw new Error(result.error)
-      }
-
-      return result.reports
-    } catch (error) {
-      console.error("Error fetching annual reports:", error)
-
-      // Fallback to sample data
-      return [
-        {
-          id: "1",
-          title: "Annual Report 2023",
-          status: "pending",
-          createdAt: new Date().toISOString(),
-          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-          businessName: "Acme Corp",
-          businessId: "acme-corp",
-          year: "2023",
-        },
-        {
-          id: "2",
-          title: "Annual Report 2023",
-          status: "pending",
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days from now
-          businessName: "Globex Inc",
-          businessId: "globex-inc",
-          year: "2023",
-        },
-        {
-          id: "3",
-          title: "Annual Report 2023",
-          status: "overdue",
-          createdAt: new Date(Date.now() - 172800000).toISOString(),
-          dueDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
-          businessName: "Initech",
-          businessId: "initech",
-          year: "2023",
-        },
-      ]
-    }
-  }
+  // Remove this function as we're now calling the server action directly in useEffect
+  // Delete the entire fetchAnnualReports function
 
   return (
     <div className="flex flex-col min-h-screen px-[3%] mb-40">

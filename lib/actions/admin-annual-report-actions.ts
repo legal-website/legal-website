@@ -20,7 +20,7 @@ export async function getUpcomingAnnualReports(limit = 3) {
     // Get current date for comparison
     const currentDate = new Date()
 
-    // Fetch all annual reports
+    // Fetch all annual reports with related business and user data
     // @ts-ignore - Prisma client type issue
     const allReports = await db.annualReport.findMany({
       include: {
@@ -30,7 +30,10 @@ export async function getUpcomingAnnualReports(limit = 3) {
       orderBy: {
         dueDate: "asc", // Order by due date ascending to get the nearest ones first
       },
+      take: limit * 2, // Fetch more than we need to ensure we have enough after filtering
     })
+
+    console.log(`Found ${allReports.length} annual reports in database`)
 
     // Filter for reports with due dates in the future or recent past
     const upcomingReports = allReports
@@ -45,10 +48,11 @@ export async function getUpcomingAnnualReports(limit = 3) {
       })
       .slice(0, limit)
 
+    console.log(`Filtered to ${upcomingReports.length} upcoming reports`)
+
     // Process reports to ensure consistent format
     const processedReports = upcomingReports.map((report: any) => {
       const businessName = report.business?.name || report.businessName || "Unknown Business"
-
       const businessId = report.businessId || report.business?.id || "unknown-business"
 
       return {
@@ -63,6 +67,7 @@ export async function getUpcomingAnnualReports(limit = 3) {
       }
     })
 
+    console.log(`Returning ${processedReports.length} processed reports`)
     return { reports: processedReports }
   } catch (error) {
     console.error("Error fetching upcoming annual reports:", error)
