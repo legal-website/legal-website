@@ -93,7 +93,7 @@ interface Comment {
   postId: string
 }
 
-// Update the Amendment interface to match our new data structure
+// First, let's update the Amendment interface to include payment status and amount
 interface Amendment {
   id: string
   title: string
@@ -101,6 +101,8 @@ interface Amendment {
   createdAt: string
   userName: string
   userId: string
+  amount?: number
+  paymentStatus?: string
 }
 
 interface AnnualReport {
@@ -168,7 +170,7 @@ export default function AdminDashboard() {
     annualReports: true,
   })
 
-  // Fetch all data on component mount
+  // Update the useEffect to fetch amendment data with amounts and payment status
   useEffect(() => {
     const fetchAllData = async () => {
       console.log("Fetching data for admin dashboard...")
@@ -322,53 +324,34 @@ export default function AdminDashboard() {
             setLoading((prev) => ({ ...prev, comments: false }))
           })
 
-        // Fetch amendments from the real API endpoint
+        // Update the amendments fetch to include payment information
         try {
-          // First try to use the server action if available
-          if (typeof getRecentAmendments === "function") {
-            const amendmentsResult = await getRecentAmendments(3) // Get 3 recent amendments
-            if (amendmentsResult && !amendmentsResult.error) {
-              setAmendments(amendmentsResult.amendments || [])
-            } else {
-              throw new Error(amendmentsResult?.error || "Failed to fetch amendments")
-            }
-          } else {
-            // Fall back to API route
-            const response = await fetch("/api/admin/compliance/amendments?limit=3&status=pending")
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`)
-            }
-            const data = await response.json()
-            console.log("Received data:", { endpoint: "/api/admin/compliance/amendments", data })
+          const response = await fetch("/api/admin/compliance/amendments?includePayments=true")
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`)
+          }
+          const data = await response.json()
+          console.log("Received data:", { endpoint: "/api/admin/compliance/amendments", data })
 
-            if (data.success && data.amendments) {
-              const processedAmendments = data.amendments.map((amendment: any) => ({
-                id: amendment.id,
-                title: amendment.title || amendment.type || amendment.name || "Amendment",
-                status: "pending",
-                createdAt: amendment.createdAt || new Date().toISOString(),
-                userName: amendment.user?.name || amendment.user?.email || amendment.client?.name || "Unknown User",
-                userId: amendment.userId || amendment.clientId || "unknown-user",
-              }))
-              setAmendments(processedAmendments)
-            } else {
-              throw new Error(data.error || "Failed to fetch amendments")
-            }
+          if (data.success && data.amendments) {
+            const processedAmendments = data.amendments.map((amendment: any) => ({
+              id: amendment.id,
+              title: amendment.title || amendment.type || amendment.name || "Amendment",
+              status: amendment.status || "pending",
+              createdAt: amendment.createdAt || new Date().toISOString(),
+              userName: amendment.user?.name || amendment.user?.email || amendment.client?.name || "Unknown User",
+              userId: amendment.userId || amendment.clientId || "unknown-user",
+              amount: Number(amendment.amount) || Number(amendment.fee) || 0,
+              paymentStatus: amendment.paymentStatus || amendment.payment?.status || "unpaid",
+            }))
+            setAmendments(processedAmendments)
+          } else {
+            throw new Error(data.error || "Failed to fetch amendments")
           }
         } catch (err) {
           console.error("Error fetching amendments:", err)
-          // Generate sample data for development
-          const sampleAmendments = Array(3)
-            .fill(0)
-            .map((_, i) => ({
-              id: `amendment-${i}`,
-              title: `Amendment Request ${i + 1}`,
-              status: "pending",
-              createdAt: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000).toISOString(),
-              userName: `User ${i + 1}`,
-              userId: `user-${i}`,
-            }))
-          setAmendments(sampleAmendments)
+          // Fallback to empty array instead of sample data
+          setAmendments([])
         } finally {
           setLoading((prev) => ({ ...prev, amendments: false }))
         }
@@ -582,14 +565,35 @@ export default function AdminDashboard() {
     ]
   }
 
-  // Calculate amendment revenue for bar chart - using fixed data since amendments no longer have amounts
+  // Replace the getAmendmentRevenueData function with this real data implementation
   const getAmendmentRevenueData = () => {
-    // Return fixed sample data since we no longer track amendment amounts
-    return [
-      { name: "Approved", amount: 5000 },
-      { name: "Pending", amount: 3000 },
-      { name: "Rejected", amount: 1000 },
-    ]
+    // Filter amendments to only include approved ones with payment received
+    const approvedAmendments = amendments.filter(
+      (amendment) =>
+        amendment.status?.toLowerCase() === "approved" && amendment.paymentStatus?.toLowerCase() === "paid",
+    )
+
+    // Group by month for a more meaningful chart
+    const revenueByMonth: Record<string, number> = {}
+
+    approvedAmendments.forEach((amendment) => {
+      if (!amendment.amount) return
+
+      const date = new Date(amendment.createdAt)
+      const monthYear = date.toLocaleString("default", { month: "short", year: "numeric" })
+
+      if (!revenueByMonth[monthYear]) {
+        revenueByMonth[monthYear] = 0
+      }
+
+      revenueByMonth[monthYear] += amendment.amount
+    })
+
+    // Convert to array format for the chart
+    return Object.entries(revenueByMonth).map(([name, amount]) => ({
+      name,
+      amount,
+    }))
   }
 
   // Format currency
@@ -1260,7 +1264,7 @@ export default function AdminDashboard() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Amendment Revenue</CardTitle>
-                <CardDescription>Revenue from amendments by status</CardDescription>
+                <CardDescription>Revenue from approved amendments with payment received</CardDescription>
               </div>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
@@ -1269,7 +1273,7 @@ export default function AdminDashboard() {
                 <div className="h-[300px] w-full flex items-center justify-center">
                   <Skeleton className="h-[250px] w-full" />
                 </div>
-              ) : (
+              ) : getAmendmentRevenueData().length > 0 ? (
                 <div className="h-[300px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
@@ -1283,7 +1287,7 @@ export default function AdminDashboard() {
                     >
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
-                      <YAxis />
+                      <YAxis tickFormatter={(value) => `$${value.toLocaleString()}`} />
                       <Tooltip formatter={(value) => formatCurrency(value as number)} />
                       <Legend />
                       <Bar dataKey="amount" name="Revenue" fill="#8884d8" radius={[4, 4, 0, 0]}>
@@ -1293,6 +1297,10 @@ export default function AdminDashboard() {
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  No approved amendments with payments found. Revenue data will appear here when available.
                 </div>
               )}
             </CardContent>
