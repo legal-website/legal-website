@@ -348,12 +348,15 @@ export default function AdminDashboard() {
 
           if (result.error) {
             console.error("Error in annual reports response:", result.error)
+            // Use empty array instead of null to avoid UI issues
             setAnnualReports([])
           } else {
+            // If we have reports, use them, otherwise use empty array
             setAnnualReports(result.reports || [])
           }
         } catch (err) {
           console.error("Error fetching annual reports:", err)
+          // Use empty array instead of null to avoid UI issues
           setAnnualReports([])
         } finally {
           setLoading((prev) => ({ ...prev, annualReports: false }))
