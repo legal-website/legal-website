@@ -625,6 +625,7 @@ export interface PaymentMethodModel {
 
 // Add these delegates to your ExtendedPrismaClient interface
 export interface BankAccountDelegate {
+  deleteMany(arg0: { where: { id: { in: any[] } } }): unknown
   findUnique: (args: { where: { id: string } | { userId: string } }) => Promise<BankAccountModel | null>
   findFirst: (args: { where: any }) => Promise<BankAccountModel | null>
   findMany: (args?: any) => Promise<BankAccountModel[]>
