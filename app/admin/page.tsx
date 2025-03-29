@@ -574,48 +574,50 @@ export default function AdminDashboard() {
     ]
   }
 
-  // New function to get template revenue data for the chart
+  // New function to get template revenue data for the chart - improved to show last 6 months
   const getTemplateRevenueData = () => {
     console.log("All invoices:", invoices)
 
     // Filter invoices to only include those with "temp" in the invoice number
     const templateInvoices = invoices.filter((invoice) => {
       const isTemplateInvoice = invoice.invoiceNumber?.toLowerCase().includes("temp") || invoice.type === "template"
-
-      // Only include paid invoices
       const isPaid = invoice.status?.toLowerCase() === "paid"
-
-      // Make sure there's an amount
       const hasAmount = (invoice.amount ?? 0) > 0
-
-      const result = isTemplateInvoice && isPaid && hasAmount
-
-      // Log each invoice evaluation for debugging
-      console.log(
-        `Invoice ${invoice.invoiceNumber}: template=${isTemplateInvoice}, paid=${isPaid}, amount=${hasAmount}, included=${result}`,
-      )
-
-      return result
+      return isTemplateInvoice && isPaid && hasAmount
     })
 
     console.log("Filtered template invoices:", templateInvoices)
 
-    // Group by month for a more meaningful chart
-    const revenueByMonth: Record<string, number> = {}
+    // Get the current date and calculate 6 months ago
+    const currentDate = new Date()
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(currentDate.getMonth() - 5) // -5 because we want current month + 5 previous = 6 months total
 
+    // Initialize all 6 months with zero values to ensure continuous data
+    const revenueByMonth: Record<string, number> = {}
+    for (let i = 0; i < 6; i++) {
+      const date = new Date(currentDate)
+      date.setMonth(currentDate.getMonth() - i)
+      const monthYear = date.toLocaleString("default", { month: "short", year: "numeric" })
+      revenueByMonth[monthYear] = 0
+    }
+
+    // Group by month for a more meaningful chart
     templateInvoices.forEach((invoice) => {
       // Skip if no amount
       if (!invoice.amount) return
 
       // Use createdAt date for grouping
       const date = new Date(invoice.createdAt)
-      const monthYear = date.toLocaleString("default", { month: "short", year: "numeric" })
 
-      if (!revenueByMonth[monthYear]) {
-        revenueByMonth[monthYear] = 0
+      // Only include invoices from the last 6 months
+      if (date >= sixMonthsAgo) {
+        const monthYear = date.toLocaleString("default", { month: "short", year: "numeric" })
+
+        if (revenueByMonth[monthYear] !== undefined) {
+          revenueByMonth[monthYear] += invoice.amount
+        }
       }
-
-      revenueByMonth[monthYear] += invoice.amount
     })
 
     // Convert to array format for the chart and sort by date
@@ -646,7 +648,7 @@ export default function AdminDashboard() {
       .sort((a, b) => a.sortKey - b.sortKey)
       .map(({ name, amount }) => ({ name, amount }))
 
-    console.log("Template revenue data for chart:", result)
+    console.log("Template revenue data for chart (last 6 months):", result)
     return result
   }
 
