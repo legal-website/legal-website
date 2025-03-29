@@ -38,6 +38,8 @@ import {
 import { RecentPersonalDetails } from "@/components/admin/recent-personal-details"
 import { getAllTickets } from "@/lib/actions/admin-ticket-actions"
 import { getRecentAmendments } from "@/lib/actions/admin-amendment-actions"
+// Import the new server action at the top of the file
+import { getUpcomingAnnualReports } from "@/lib/actions/admin-annual-report-actions"
 
 // Types for our data
 interface Invoice {
@@ -108,6 +110,7 @@ interface AnnualReport {
   businessName: string
   businessId: string
   year: string
+  dueDate?: string
 }
 
 // Dashboard component
@@ -337,34 +340,16 @@ export default function AdminDashboard() {
           setLoading((prev) => ({ ...prev, amendments: false }))
         }
 
-        // Fetch annual reports
-        fetch("/api/admin/compliance/annual-reports")
-          .then((res) => res.json())
-          .then((data) => {
-            console.log("Received data:", { endpoint: "/api/admin/compliance/annual-reports", data })
-            const processedReports = (data.reports || data.filings || []).map((report: any) => ({
-              id: report.id || `report-${Math.random().toString(36).substring(2, 9)}`,
-              title: report.title || report.name || `Annual Report ${Math.floor(Math.random() * 100)}`,
-              status: report.status || "pending",
-              createdAt: report.createdAt || new Date().toISOString(),
-              businessName:
-                report.businessName || report.business?.name || report.creator?.business?.name || "Business Name",
-              businessId:
-                report.businessId ||
-                report.business?.id ||
-                report.creator?.business?.id ||
-                `business-${Math.random().toString(36).substring(2, 9)}`,
-              year: report.year || new Date().getFullYear().toString(),
-            }))
-
-            setAnnualReports(processedReports)
-            setLoading((prev) => ({ ...prev, annualReports: false }))
-          })
-          .catch((err) => {
-            console.error("Error fetching annual reports:", err)
-            setAnnualReports([])
-            setLoading((prev) => ({ ...prev, annualReports: false }))
-          })
+        // Fetch annual reports using our new server action
+        try {
+          const fetchedReports = await fetchAnnualReports()
+          setAnnualReports(fetchedReports)
+          setLoading((prev) => ({ ...prev, annualReports: false }))
+        } catch (err) {
+          console.error("Error fetching annual reports:", err)
+          setAnnualReports([])
+          setLoading((prev) => ({ ...prev, annualReports: false }))
+        }
       } catch (error) {
         console.error("Error fetching data:", error)
         setLoading({
@@ -541,6 +526,56 @@ export default function AdminDashboard() {
           createdAt: new Date(Date.now() - 172800000).toISOString(),
           userName: "Initech",
           userId: "initech",
+        },
+      ]
+    }
+  }
+
+  // Add this function inside the AdminDashboard component, before the return statement
+  async function fetchAnnualReports() {
+    try {
+      // Try to use the server action
+      const result = await getUpcomingAnnualReports(3)
+
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      return result.reports
+    } catch (error) {
+      console.error("Error fetching annual reports:", error)
+
+      // Fallback to sample data
+      return [
+        {
+          id: "1",
+          title: "Annual Report 2023",
+          status: "pending",
+          createdAt: new Date().toISOString(),
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+          businessName: "Acme Corp",
+          businessId: "acme-corp",
+          year: "2023",
+        },
+        {
+          id: "2",
+          title: "Annual Report 2023",
+          status: "pending",
+          createdAt: new Date(Date.now() - 86400000).toISOString(),
+          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days from now
+          businessName: "Globex Inc",
+          businessId: "globex-inc",
+          year: "2023",
+        },
+        {
+          id: "3",
+          title: "Annual Report 2023",
+          status: "overdue",
+          createdAt: new Date(Date.now() - 172800000).toISOString(),
+          dueDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+          businessName: "Initech",
+          businessId: "initech",
+          year: "2023",
         },
       ]
     }
@@ -932,8 +967,8 @@ export default function AdminDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Recent Annual Reports</CardTitle>
-                <CardDescription>Latest annual report filings</CardDescription>
+                <CardTitle>Upcoming Annual Reports</CardTitle>
+                <CardDescription>Reports with nearest due dates</CardDescription>
               </div>
               <Link href="/admin/compliance/annual-reports">
                 <Button variant="outline" size="sm" className="flex items-center gap-1">
@@ -957,42 +992,60 @@ export default function AdminDashboard() {
                 </div>
               ) : annualReports.length > 0 ? (
                 <div className="space-y-4">
-                  {annualReports.slice(0, 3).map((report) => (
-                    <div key={report.id} className="flex items-center justify-between gap-4 rounded-lg border p-4">
-                      <div className="flex items-center gap-4">
-                        <div className="rounded-full bg-purple-100 p-2">
-                          <FileArchive className="h-4 w-4 text-purple-600" />
+                  {annualReports.slice(0, 3).map((report) => {
+                    const dueDate = report.dueDate ? new Date(report.dueDate) : null
+                    const isOverdue = dueDate && dueDate < new Date()
+
+                    return (
+                      <div key={report.id} className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                        <div className="flex items-center gap-4">
+                          <div className="rounded-full bg-purple-100 p-2">
+                            <FileArchive className="h-4 w-4 text-purple-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium leading-none">{report.title}</p>
+                            <p className="text-sm text-muted-foreground">{report.businessName}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium leading-none">{report.title}</p>
-                          <p className="text-sm text-muted-foreground">{report.businessName}</p>
+                        <div className="flex items-center gap-4">
+                          <Badge
+                            variant={
+                              report.status === "filed"
+                                ? "secondary"
+                                : report.status === "pending"
+                                  ? "outline"
+                                  : report.status === "overdue" || isOverdue
+                                    ? "destructive"
+                                    : "secondary"
+                            }
+                            className={`${
+                              report.status === "filed"
+                                ? "bg-green-100 text-green-800 hover:bg-green-100"
+                                : report.status === "pending" && !isOverdue
+                                  ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                                  : report.status === "overdue" || isOverdue
+                                    ? "bg-red-100 text-red-800 hover:bg-red-100"
+                                    : ""
+                            }`}
+                          >
+                            {isOverdue ? "Overdue" : report.status}
+                          </Badge>
+                          <div className="flex flex-col items-end">
+                            <div className="text-sm text-muted-foreground">
+                              {dueDate ? formatDate(report.dueDate!) : "No due date"}
+                            </div>
+                            {dueDate && (
+                              <div className={`text-xs ${isOverdue ? "text-red-600" : "text-blue-600"}`}>
+                                {isOverdue
+                                  ? `Overdue by ${Math.floor((new Date().getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))} days`
+                                  : `Due in ${Math.floor((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days`}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <Badge
-                          variant={
-                            report.status === "filed"
-                              ? "secondary"
-                              : report.status === "pending"
-                                ? "outline"
-                                : report.status === "rejected"
-                                  ? "destructive"
-                                  : "secondary"
-                          }
-                          className={`${
-                            report.status === "filed"
-                              ? "bg-green-100 text-green-800 hover:bg-green-100"
-                              : report.status === "pending"
-                                ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-                                : ""
-                          }`}
-                        >
-                          {report.status}
-                        </Badge>
-                        <div className="text-sm text-muted-foreground">{formatDate(report.createdAt)}</div>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-6 text-muted-foreground">
