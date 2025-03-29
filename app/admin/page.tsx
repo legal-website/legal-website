@@ -618,11 +618,33 @@ export default function AdminDashboard() {
       revenueByMonth[monthYear] += invoice.amount
     })
 
-    // Convert to array format for the chart
-    const result = Object.entries(revenueByMonth).map(([name, amount]) => ({
-      name,
-      amount,
-    }))
+    // Convert to array format for the chart and sort by date
+    const monthOrder: Record<string, number> = {
+      Jan: 0,
+      Feb: 1,
+      Mar: 2,
+      Apr: 3,
+      May: 4,
+      Jun: 5,
+      Jul: 6,
+      Aug: 7,
+      Sep: 8,
+      Oct: 9,
+      Nov: 10,
+      Dec: 11,
+    }
+
+    const result = Object.entries(revenueByMonth)
+      .map(([name, amount]) => {
+        const [month, year] = name.split(" ")
+        return {
+          name,
+          amount,
+          sortKey: Number.parseInt(year) * 12 + monthOrder[month],
+        }
+      })
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map(({ name, amount }) => ({ name, amount }))
 
     console.log("Template revenue data for chart:", result)
     return result
@@ -1046,65 +1068,6 @@ export default function AdminDashboard() {
               ) : (
                 <div className="text-center py-6 text-muted-foreground">
                   No comments found. New community comments will appear here when available.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Fifth Section - Recent Amendments */}
-        <div className="mt-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Pending Amendments</CardTitle>
-                <CardDescription>Amendments waiting for approval</CardDescription>
-              </div>
-              <Link href="/admin/compliance/amendments">
-                <Button variant="outline" size="sm" className="flex items-center gap-1">
-                  View All
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {loading.amendments ? (
-                <div className="space-y-4">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="flex items-center gap-4">
-                      <Skeleton className="h-12 w-12 rounded-full" />
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-[250px]" />
-                        <Skeleton className="h-4 w-[200px]" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : amendments.length > 0 ? (
-                <div className="space-y-4">
-                  {amendments.slice(0, 3).map((amendment) => (
-                    <div key={amendment.id} className="flex items-center justify-between gap-4 rounded-lg border p-4">
-                      <div className="flex items-center gap-4">
-                        <div className="rounded-full bg-green-100 p-2">
-                          <FileText className="h-4 w-4 text-green-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium leading-none">{amendment.title}</p>
-                          <p className="text-sm text-muted-foreground">By {amendment.userName}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-                          Pending
-                        </Badge>
-                        <div className="text-sm text-muted-foreground">{formatDate(amendment.createdAt)}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  No pending amendments found. New amendment requests will appear here when available.
                 </div>
               )}
             </CardContent>
