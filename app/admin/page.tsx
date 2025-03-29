@@ -52,6 +52,7 @@ interface Invoice {
   customerName: string
   customerEmail: string
   type?: string
+  createdAt: string
 }
 
 interface User {
@@ -93,7 +94,6 @@ interface Comment {
   postId: string
 }
 
-// First, let's update the Amendment interface to include payment status and amount
 interface Amendment {
   id: string
   title: string
@@ -191,6 +191,7 @@ export default function AdminDashboard() {
                 Math.floor(Math.random() * 1000),
               status: invoice.status || "pending",
               date: invoice.date || invoice.createdAt || new Date().toISOString(),
+              createdAt: invoice.createdAt || new Date().toISOString(),
               customerName: invoice.customerName || invoice.client?.name || "Client",
               customerEmail: invoice.customerEmail || invoice.client?.email || "client@example.com",
               type: invoice.type || (invoice.invoiceNumber?.toLowerCase().includes("temp") ? "template" : "regular"),
@@ -206,10 +207,11 @@ export default function AdminDashboard() {
               .fill(0)
               .map((_, i) => ({
                 id: `inv-${i}`,
-                invoiceNumber: `INV-${1000 + i}`,
+                invoiceNumber: i % 3 === 0 ? `TEMP-${1000 + i}` : `INV-${1000 + i}`,
                 amount: Math.floor(Math.random() * 5000) + 500,
                 status: ["paid", "pending", "overdue"][Math.floor(Math.random() * 3)],
                 date: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000).toISOString(),
+                createdAt: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000).toISOString(),
                 customerName: `Client ${i + 1}`,
                 customerEmail: `client${i + 1}@example.com`,
                 type: i % 3 === 0 ? "template" : "regular",
@@ -572,53 +574,48 @@ export default function AdminDashboard() {
     ]
   }
 
-  // Replace the getAmendmentRevenueData function with this real data implementation
-  const getAmendmentRevenueData = () => {
-    console.log("All amendments:", amendments)
+  // New function to get template revenue data for the chart
+  const getTemplateRevenueData = () => {
+    console.log("All invoices:", invoices)
 
-    // Filter amendments to only include approved ones with payment received
-    // Check for various possible status and payment indicators
-    const approvedAmendments = amendments.filter((amendment) => {
-      const isApproved =
-        amendment.status?.toLowerCase() === "approved" ||
-        amendment.status?.toLowerCase() === "completed" ||
-        amendment.status?.toLowerCase() === "paid"
+    // Filter invoices to only include those with "temp" in the invoice number
+    const templateInvoices = invoices.filter((invoice) => {
+      const isTemplateInvoice = invoice.invoiceNumber?.toLowerCase().includes("temp") || invoice.type === "template"
 
-      const isPaymentReceived =
-        amendment.paymentStatus?.toLowerCase() === "paid" ||
-        amendment.paymentStatus?.toLowerCase() === "completed" ||
-        amendment.paymentReceived === true
+      // Only include paid invoices
+      const isPaid = invoice.status?.toLowerCase() === "paid"
 
-      // Fix the TypeScript error by safely checking if amount is defined and greater than 0
-      const hasAmount = (amendment.amount ?? 0) > 0
+      // Make sure there's an amount
+      const hasAmount = (invoice.amount ?? 0) > 0
 
-      const result = isApproved && isPaymentReceived && hasAmount
+      const result = isTemplateInvoice && isPaid && hasAmount
 
-      // Log each amendment evaluation for debugging
+      // Log each invoice evaluation for debugging
       console.log(
-        `Amendment ${amendment.id}: approved=${isApproved}, payment=${isPaymentReceived}, amount=${hasAmount}, included=${result}`,
+        `Invoice ${invoice.invoiceNumber}: template=${isTemplateInvoice}, paid=${isPaid}, amount=${hasAmount}, included=${result}`,
       )
 
       return result
     })
 
-    console.log("Filtered approved amendments with payment:", approvedAmendments)
+    console.log("Filtered template invoices:", templateInvoices)
 
     // Group by month for a more meaningful chart
     const revenueByMonth: Record<string, number> = {}
 
-    approvedAmendments.forEach((amendment) => {
-      // Also fix this potential undefined error
-      if (!amendment.amount) return
+    templateInvoices.forEach((invoice) => {
+      // Skip if no amount
+      if (!invoice.amount) return
 
-      const date = new Date(amendment.createdAt)
+      // Use createdAt date for grouping
+      const date = new Date(invoice.createdAt)
       const monthYear = date.toLocaleString("default", { month: "short", year: "numeric" })
 
       if (!revenueByMonth[monthYear]) {
         revenueByMonth[monthYear] = 0
       }
 
-      revenueByMonth[monthYear] += amendment.amount
+      revenueByMonth[monthYear] += invoice.amount
     })
 
     // Convert to array format for the chart
@@ -627,7 +624,7 @@ export default function AdminDashboard() {
       amount,
     }))
 
-    console.log("Amendment revenue data for chart:", result)
+    console.log("Template revenue data for chart:", result)
     return result
   }
 
@@ -1294,25 +1291,25 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Amendment Revenue Bar Chart */}
+          {/* Template Revenue Bar Chart (Replaced Amendment Revenue) */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Amendment Revenue</CardTitle>
-                <CardDescription>Revenue from approved amendments with payment received</CardDescription>
+                <CardTitle>Template Revenue</CardTitle>
+                <CardDescription>Revenue from paid template invoices</CardDescription>
               </div>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {loading.amendments ? (
+              {loading.invoices ? (
                 <div className="h-[300px] w-full flex items-center justify-center">
                   <Skeleton className="h-[250px] w-full" />
                 </div>
-              ) : getAmendmentRevenueData().length > 0 ? (
+              ) : getTemplateRevenueData().length > 0 ? (
                 <div className="h-[300px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={getAmendmentRevenueData()}
+                      data={getTemplateRevenueData()}
                       margin={{
                         top: 20,
                         right: 30,
@@ -1326,7 +1323,7 @@ export default function AdminDashboard() {
                       <Tooltip formatter={(value) => formatCurrency(value as number)} />
                       <Legend />
                       <Bar dataKey="amount" name="Revenue" fill="#8884d8" radius={[4, 4, 0, 0]}>
-                        {getAmendmentRevenueData().map((entry, index) => (
+                        {getTemplateRevenueData().map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Bar>
@@ -1335,7 +1332,7 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <div className="text-center py-6 text-muted-foreground">
-                  No approved amendments with payments found. Revenue data will appear here when available.
+                  No paid template invoices found. Revenue data will appear here when available.
                 </div>
               )}
             </CardContent>
