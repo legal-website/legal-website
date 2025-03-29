@@ -12,18 +12,18 @@ import {
   PieChart,
   Ticket,
   Users,
-  FileArchive,
   ChevronRight,
+  TrendingUp,
+  ArrowUpRight,
+  ArrowDownRight,
 } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   ResponsiveContainer,
-  LineChart as RechartsLineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -34,12 +34,13 @@ import {
   Cell,
   BarChart,
   Bar,
+  Area,
+  AreaChart,
+  type TooltipProps,
 } from "recharts"
 import { RecentPersonalDetails } from "@/components/admin/recent-personal-details"
 import { getAllTickets } from "@/lib/actions/admin-ticket-actions"
 import { getRecentAmendments } from "@/lib/actions/admin-amendment-actions"
-// Import the new server action at the top of the file
-import { getUpcomingAnnualReports } from "@/lib/actions/admin-annual-report-actions"
 
 // Types for our data
 interface Invoice {
@@ -113,6 +114,37 @@ interface AnnualReport {
   dueDate?: string
 }
 
+// Custom tooltip component for the revenue chart
+const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white dark:bg-gray-800 p-4 border rounded-lg shadow-lg">
+        <p className="font-bold text-sm">{label}</p>
+        <div className="mt-2 space-y-1">
+          {payload.map((entry, index) => (
+            <div key={`item-${index}`} className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }}></div>
+              <p className="text-sm">
+                <span className="font-medium">{entry.name}: </span>
+                <span className="font-bold">
+                  {new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  }).format(entry.value as number)}
+                </span>
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return null
+}
+
 // Dashboard component
 export default function AdminDashboard() {
   // State for all our data
@@ -123,6 +155,7 @@ export default function AdminDashboard() {
   const [comments, setComments] = useState<Comment[]>([])
   const [amendments, setAmendments] = useState<Amendment[]>([])
   const [annualReports, setAnnualReports] = useState<AnnualReport[]>([])
+  const [selectedTimeframe, setSelectedTimeframe] = useState<string>("monthly")
 
   // Loading states
   const [loading, setLoading] = useState({
@@ -339,28 +372,6 @@ export default function AdminDashboard() {
         } finally {
           setLoading((prev) => ({ ...prev, amendments: false }))
         }
-
-        // Fetch annual reports using our new server action
-        try {
-          // Use the server action directly in the useEffect
-          const result = await getUpcomingAnnualReports(3)
-          console.log("Annual reports data:", result)
-
-          if (result.error) {
-            console.error("Error in annual reports response:", result.error)
-            // Use empty array instead of null to avoid UI issues
-            setAnnualReports([])
-          } else {
-            // If we have reports, use them, otherwise use empty array
-            setAnnualReports(result.reports || [])
-          }
-        } catch (err) {
-          console.error("Error fetching annual reports:", err)
-          // Use empty array instead of null to avoid UI issues
-          setAnnualReports([])
-        } finally {
-          setLoading((prev) => ({ ...prev, annualReports: false }))
-        }
       } catch (error) {
         console.error("Error fetching data:", error)
         setLoading({
@@ -437,6 +448,120 @@ export default function AdminDashboard() {
       .map(({ month, amount, avgPerInvoice }) => ({ month, amount, avgPerInvoice }))
   }
 
+  // Get weekly revenue data
+  const getWeeklyRevenueData = () => {
+    const weeklyData: Record<string, { amount: number; count: number }> = {}
+    const now = new Date()
+
+    // Initialize the last 10 weeks with zero values
+    for (let i = 0; i < 10; i++) {
+      const weekStart = new Date(now)
+      weekStart.setDate(now.getDate() - i * 7)
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekStart.getDate() - 6)
+
+      const weekLabel = `Week ${i + 1}`
+      weeklyData[weekLabel] = { amount: 0, count: 0 }
+    }
+
+    // Process invoice data
+    invoices.forEach((invoice) => {
+      try {
+        const date = new Date(invoice.date)
+        if (isNaN(date.getTime())) return
+
+        // Find which week this invoice belongs to
+        for (let i = 0; i < 10; i++) {
+          const weekStart = new Date(now)
+          weekStart.setDate(now.getDate() - i * 7)
+          const weekEnd = new Date(weekStart)
+          weekEnd.setDate(weekStart.getDate() - 6)
+
+          if (date <= weekStart && date >= weekEnd) {
+            const weekLabel = `Week ${i + 1}`
+            weeklyData[weekLabel].amount += invoice.amount || 0
+            weeklyData[weekLabel].count += 1
+            break
+          }
+        }
+      } catch (error) {
+        console.error("Error processing invoice date for weekly data:", error)
+      }
+    })
+
+    // Convert to array and sort
+    return Object.entries(weeklyData)
+      .map(([week, data]) => ({
+        week,
+        amount: data.amount,
+        avgPerInvoice: data.count ? Math.round(data.amount / data.count) : 0,
+      }))
+      .reverse() // Most recent week first
+  }
+
+  // Get quarterly revenue data
+  const getQuarterlyRevenueData = () => {
+    const quarterlyData: Record<string, { amount: number; count: number }> = {}
+    const now = new Date()
+    const currentYear = now.getFullYear()
+
+    // Initialize the last 8 quarters with zero values
+    for (let i = 0; i < 8; i++) {
+      const quarterIndex = Math.floor(now.getMonth() / 3) - i
+      const year = currentYear - Math.floor(Math.abs(quarterIndex) / 4)
+      const quarter = (((quarterIndex % 4) + 4) % 4) + 1
+
+      const key = `Q${quarter} ${year}`
+      quarterlyData[key] = { amount: 0, count: 0 }
+    }
+
+    // Process invoice data
+    invoices.forEach((invoice) => {
+      try {
+        const date = new Date(invoice.date)
+        if (isNaN(date.getTime())) return
+
+        const quarter = Math.floor(date.getMonth() / 3) + 1
+        const year = date.getFullYear()
+        const key = `Q${quarter} ${year}`
+
+        if (quarterlyData[key]) {
+          quarterlyData[key].amount += invoice.amount || 0
+          quarterlyData[key].count += 1
+        }
+      } catch (error) {
+        console.error("Error processing invoice date for quarterly data:", error)
+      }
+    })
+
+    // Convert to array and sort by date
+    return Object.entries(quarterlyData)
+      .map(([quarter, data]) => {
+        const [q, year] = quarter.split(" ")
+        return {
+          quarter,
+          amount: data.amount,
+          avgPerInvoice: data.count ? Math.round(data.amount / data.count) : 0,
+          sortKey: Number.parseInt(year) * 4 + Number.parseInt(q.substring(1)),
+        }
+      })
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map(({ quarter, amount, avgPerInvoice }) => ({ quarter, amount, avgPerInvoice }))
+  }
+
+  // Get revenue data based on selected timeframe
+  const getRevenueData = () => {
+    switch (selectedTimeframe) {
+      case "weekly":
+        return getWeeklyRevenueData()
+      case "quarterly":
+        return getQuarterlyRevenueData()
+      case "monthly":
+      default:
+        return getMonthlyRevenueData()
+    }
+  }
+
   // Calculate revenue by invoice type for pie chart
   const getRevenueByInvoiceType = () => {
     let templateRevenue = 0
@@ -497,6 +622,10 @@ export default function AdminDashboard() {
 
   // Colors for charts
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"]
+  const GRADIENT_COLORS = {
+    revenue: ["#0088FE", "#00C49F"],
+    average: ["#FFBB28", "#FF8042"],
+  }
 
   // Replace the existing fetchAmendments function with this:
   async function fetchAmendments() {
@@ -542,9 +671,22 @@ export default function AdminDashboard() {
     }
   }
 
-  // Add this function inside the AdminDashboard component, before the return statement
-  // Remove this function as we're now calling the server action directly in useEffect
-  // Delete the entire fetchAnnualReports function
+  // Calculate revenue growth percentage
+  const calculateRevenueGrowth = () => {
+    const revenueData = getRevenueData()
+
+    if (revenueData.length < 2) return 0
+
+    const currentPeriod = revenueData[revenueData.length - 1].amount
+    const previousPeriod = revenueData[revenueData.length - 2].amount
+
+    if (previousPeriod === 0) return 100 // Avoid division by zero
+
+    return ((currentPeriod - previousPeriod) / previousPeriod) * 100
+  }
+
+  const revenueGrowth = calculateRevenueGrowth()
+  const isPositiveGrowth = revenueGrowth >= 0
 
   return (
     <div className="flex flex-col min-h-screen px-[3%] mb-40">
@@ -590,9 +732,15 @@ export default function AdminDashboard() {
               {loading.invoices ? (
                 <Skeleton className="h-8 w-24" />
               ) : (
-                <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+                  <div className={`flex items-center text-xs ${isPositiveGrowth ? "text-green-600" : "text-red-600"}`}>
+                    {isPositiveGrowth ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                    {Math.abs(revenueGrowth).toFixed(1)}%
+                  </div>
+                </div>
               )}
-              <p className="text-xs text-muted-foreground">+{Math.floor(Math.random() * 15) + 5}% since last month</p>
+              <p className="text-xs text-muted-foreground">Compared to previous period</p>
             </CardContent>
           </Card>
 
@@ -927,114 +1075,37 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Sixth Section - Recent Annual Reports */}
-        <div className="mt-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Upcoming Annual Reports</CardTitle>
-                <CardDescription>Reports with nearest due dates</CardDescription>
-              </div>
-              <Link href="/admin/compliance/annual-reports">
-                <Button variant="outline" size="sm" className="flex items-center gap-1">
-                  View All
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {loading.annualReports ? (
-                <div className="space-y-4">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="flex items-center gap-4">
-                      <Skeleton className="h-12 w-12 rounded-full" />
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-[250px]" />
-                        <Skeleton className="h-4 w-[200px]" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : annualReports.length > 0 ? (
-                <div className="space-y-4">
-                  {annualReports.slice(0, 3).map((report) => {
-                    const dueDate = report.dueDate ? new Date(report.dueDate) : null
-                    const isOverdue = dueDate && dueDate < new Date()
-
-                    return (
-                      <div key={report.id} className="flex items-center justify-between gap-4 rounded-lg border p-4">
-                        <div className="flex items-center gap-4">
-                          <div className="rounded-full bg-purple-100 p-2">
-                            <FileArchive className="h-4 w-4 text-purple-600" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium leading-none">{report.title}</p>
-                            <p className="text-sm text-muted-foreground">{report.businessName}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <Badge
-                            variant={
-                              report.status === "filed"
-                                ? "secondary"
-                                : report.status === "pending"
-                                  ? "outline"
-                                  : report.status === "overdue" || isOverdue
-                                    ? "destructive"
-                                    : "secondary"
-                            }
-                            className={`${
-                              report.status === "filed"
-                                ? "bg-green-100 text-green-800 hover:bg-green-100"
-                                : report.status === "pending" && !isOverdue
-                                  ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-                                  : report.status === "overdue" || isOverdue
-                                    ? "bg-red-100 text-red-800 hover:bg-red-100"
-                                    : ""
-                            }`}
-                          >
-                            {isOverdue ? "Overdue" : report.status}
-                          </Badge>
-                          <div className="flex flex-col items-end">
-                            <div className="text-sm text-muted-foreground">
-                              {dueDate ? formatDate(report.dueDate!) : "No due date"}
-                            </div>
-                            {dueDate && (
-                              <div className={`text-xs ${isOverdue ? "text-red-600" : "text-blue-600"}`}>
-                                {isOverdue
-                                  ? `Overdue by ${Math.floor((new Date().getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))} days`
-                                  : `Due in ${Math.floor((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days`}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  No annual reports found. New filings will appear here when available.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Seventh Section - Revenue Chart */}
+        {/* Seventh Section - Revenue Overview Chart (Redesigned) */}
         <div className="mt-8">
           <Card className="overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Revenue Overview</CardTitle>
-                <CardDescription>Monthly revenue and average per invoice</CardDescription>
+                <CardTitle className="text-xl">Revenue Overview</CardTitle>
+                <CardDescription>Track your revenue trends over time</CardDescription>
               </div>
-              <Link href="/admin/billing/invoices">
-                <Button variant="outline" size="sm" className="flex items-center gap-1">
-                  View Details
-                  <ChevronRight className="h-4 w-4" />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={selectedTimeframe === "weekly" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedTimeframe("weekly")}
+                >
+                  Weekly
                 </Button>
-              </Link>
+                <Button
+                  variant={selectedTimeframe === "monthly" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedTimeframe("monthly")}
+                >
+                  Monthly
+                </Button>
+                <Button
+                  variant={selectedTimeframe === "quarterly" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedTimeframe("quarterly")}
+                >
+                  Quarterly
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {loading.invoices ? (
@@ -1046,8 +1117,8 @@ export default function AdminDashboard() {
               ) : (
                 <div className="h-[400px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RechartsLineChart
-                      data={getMonthlyRevenueData()}
+                    <AreaChart
+                      data={getRevenueData()}
                       margin={{
                         top: 20,
                         right: 30,
@@ -1055,37 +1126,89 @@ export default function AdminDashboard() {
                         bottom: 10,
                       }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis yAxisId="left" />
-                      <YAxis yAxisId="right" orientation="right" />
-                      <Tooltip
-                        formatter={(value) => [`${formatCurrency(value as number)}`, undefined]}
-                        labelFormatter={(label) => `Month: ${label}`}
+                      <defs>
+                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#0088FE" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#0088FE" stopOpacity={0.1} />
+                        </linearGradient>
+                        <linearGradient id="colorAvg" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#00C49F" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#00C49F" stopOpacity={0.1} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis
+                        dataKey={
+                          selectedTimeframe === "quarterly"
+                            ? "quarter"
+                            : selectedTimeframe === "weekly"
+                              ? "week"
+                              : "month"
+                        }
+                        tick={{ fontSize: 12 }}
+                        tickLine={false}
+                        axisLine={{ stroke: "#e0e0e0" }}
                       />
-                      <Legend />
-                      <Line
+                      <YAxis
+                        yAxisId="left"
+                        tickFormatter={(value) => `$${value.toLocaleString()}`}
+                        tick={{ fontSize: 12 }}
+                        tickLine={false}
+                        axisLine={{ stroke: "#e0e0e0" }}
+                      />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend
+                        verticalAlign="top"
+                        height={36}
+                        iconType="circle"
+                        iconSize={10}
+                        wrapperStyle={{ paddingTop: "10px" }}
+                      />
+                      <Area
                         yAxisId="left"
                         type="monotone"
                         dataKey="amount"
                         stroke="#0088FE"
-                        activeDot={{ r: 8 }}
-                        strokeWidth={2}
+                        strokeWidth={3}
+                        fillOpacity={1}
+                        fill="url(#colorRevenue)"
                         name="Total Revenue"
+                        activeDot={{ r: 8, strokeWidth: 0 }}
                       />
-                      <Line
-                        yAxisId="right"
+                      <Area
+                        yAxisId="left"
                         type="monotone"
                         dataKey="avgPerInvoice"
                         stroke="#00C49F"
-                        strokeWidth={2}
+                        strokeWidth={3}
+                        fillOpacity={0.3}
+                        fill="url(#colorAvg)"
                         name="Avg Revenue Per Invoice"
+                        activeDot={{ r: 6, strokeWidth: 0 }}
                       />
-                    </RechartsLineChart>
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
               )}
             </CardContent>
+            <CardFooter className="border-t p-4 bg-gray-50 dark:bg-gray-900">
+              <div className="flex justify-between items-center w-full">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium">Revenue Trend:</span>
+                  <span className={`text-sm font-bold ${isPositiveGrowth ? "text-green-600" : "text-red-600"}`}>
+                    {isPositiveGrowth ? "+" : ""}
+                    {revenueGrowth.toFixed(1)}%
+                  </span>
+                </div>
+                <Link href="/admin/billing/invoices">
+                  <Button variant="outline" size="sm" className="flex items-center gap-1">
+                    View Detailed Reports
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </CardFooter>
           </Card>
         </div>
 
