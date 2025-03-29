@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
         branchCode: data.branchCode || null,
         isDefault: data.isDefault || false,
         createdBy: userId,
-        userId: userId, // Make sure userId is set explicitly
+        // Remove userId field as it's not in the Prisma model
       },
     })
 
