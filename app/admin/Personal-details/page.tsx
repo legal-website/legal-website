@@ -92,6 +92,7 @@ export default function AdminPersonalDetailsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -103,9 +104,20 @@ export default function AdminPersonalDetailsPage() {
     fetchPersonalDetails(1)
   }, [activeTab])
 
+  // Add background refresh every 60 seconds
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      console.log("Background refresh triggered")
+      fetchPersonalDetails(currentPage)
+    }, 60000) // Refresh every 60 seconds
+
+    return () => clearInterval(intervalId) // Clean up on unmount
+  }, [currentPage, activeTab])
+
   // Update the fetchPersonalDetails function to log the response data
   const fetchPersonalDetails = async (page: number) => {
-    setIsLoading(true)
+    if (!isRefreshing) setIsLoading(true)
+    setIsRefreshing(true)
     try {
       const response = await fetch(`/api/admin/personal-details?status=${activeTab}&page=${page}&limit=${itemsPerPage}`)
       if (!response.ok) {
@@ -126,6 +138,7 @@ export default function AdminPersonalDetailsPage() {
       })
     } finally {
       setIsLoading(false)
+      setIsRefreshing(false)
     }
   }
 
@@ -414,7 +427,39 @@ export default function AdminPersonalDetailsPage() {
 
   return (
     <div className="px-[3%] py-10 mb-40">
-      <h1 className="text-3xl font-bold mb-6 text-center">Personal Details Verification</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-center">Personal Details Verification</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fetchPersonalDetails(currentPage)}
+          disabled={isRefreshing}
+          className="flex items-center gap-2"
+        >
+          {isRefreshing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+            >
+              <path d="M21 2v6h-6"></path>
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+              <path d="M3 22v-6h6"></path>
+              <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+            </svg>
+          )}
+          {isRefreshing ? "Refreshing..." : "Refresh"}
+        </Button>
+      </div>
 
       <Tabs defaultValue="pending" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-6">
