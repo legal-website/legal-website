@@ -271,6 +271,7 @@ export default function AdminDashboard() {
           .then((data) => {
             console.log("Received data:", { endpoint: "/api/community/recent-comments", data })
             if (data.success && data.comments) {
+              // The API now provides comments with a status field
               setComments(data.comments)
             } else {
               console.error("Error in comments response:", data.error)

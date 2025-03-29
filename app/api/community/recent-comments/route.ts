@@ -40,19 +40,36 @@ export async function GET(request: Request) {
     })
 
     // Format the comments for the response
-    const formattedComments = comments.map((comment) => ({
-      id: comment.id,
-      content: comment.content,
-      postTitle: comment.post?.title || "Unknown Post",
-      postId: comment.postId,
-      author: {
-        id: comment.author?.id || "unknown",
-        name: comment.author?.name || "Anonymous",
-        avatar: comment.author?.image || null,
-      },
-      createdAt: comment.createdAt,
-      status: comment.status || "pending",
-    }))
+    const formattedComments = comments.map((comment) => {
+      // Determine comment status based on available properties
+      // Since 'status' doesn't exist on the Comment model, we'll infer it
+      let status = "approved" // Default status
+
+      // If the comment has isHidden or isDeleted properties, use them to determine status
+      if (comment.hasOwnProperty("isHidden") && (comment as any).isHidden) {
+        status = "rejected"
+      } else if (comment.hasOwnProperty("isPending") && (comment as any).isPending) {
+        status = "pending"
+      } else if (comment.hasOwnProperty("isDeleted") && (comment as any).isDeleted) {
+        status = "deleted"
+      } else if (comment.hasOwnProperty("isApproved") && !(comment as any).isApproved) {
+        status = "pending"
+      }
+
+      return {
+        id: comment.id,
+        content: comment.content,
+        postTitle: comment.post?.title || "Unknown Post",
+        postId: comment.postId,
+        author: {
+          id: comment.author?.id || "unknown",
+          name: comment.author?.name || "Anonymous",
+          avatar: comment.author?.image || null,
+        },
+        createdAt: comment.createdAt,
+        status: status, // Use the inferred status
+      }
+    })
 
     return NextResponse.json({
       success: true,
