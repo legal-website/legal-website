@@ -591,6 +591,8 @@ model PaymentMethod {
   updatedAt     DateTime @updatedAt
   creator       User     @relation(fields: [createdBy], references: [id])
 
+  @@index([createdBy])
+}
 
 
 
