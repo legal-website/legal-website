@@ -7,6 +7,20 @@ import { Building, CreditCard, Copy, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
+// Default bank details to use when API fails
+const fallbackBankDetails = {
+  id: "default",
+  accountName: "ORIZEN INC",
+  accountNumber: "08751010024993",
+  routingNumber: "PK51ALFH0875001010024993",
+  bankName: "Bank Alfalah",
+  accountType: "checking",
+  swiftCode: "ALFHPKKAXXX",
+  branchName: "EME DHA Br.LHR",
+  branchCode: "0875",
+  isDefault: true,
+}
+
 type BankDetails = {
   id: string
   accountName: string
@@ -43,36 +57,14 @@ export default function PaymentMethodPage() {
         if (data.bankDetails) {
           setBankDetails(data.bankDetails)
         } else {
-          // Use default ORIZEN INC details if none returned
-          setBankDetails({
-            id: "default",
-            accountName: "ORIZEN INC",
-            accountNumber: "08751010024993",
-            routingNumber: "PK51ALFH0875001010024993",
-            bankName: "Bank Alfalah",
-            accountType: "checking",
-            swiftCode: "ALFHPKKAXXX",
-            branchName: "EME DHA Br.LHR",
-            branchCode: "0875",
-            isDefault: true,
-          })
+          // Use fallback details if none returned
+          setBankDetails(fallbackBankDetails)
         }
       } catch (error) {
         console.error("Error fetching bank details:", error)
         setError(String(error))
-        // Use default ORIZEN INC details if there's an error
-        setBankDetails({
-          id: "default",
-          accountName: "ORIZEN INC",
-          accountNumber: "08751010024993",
-          routingNumber: "PK51ALFH0875001010024993",
-          bankName: "Bank Alfalah",
-          accountType: "checking",
-          swiftCode: "ALFHPKKAXXX",
-          branchName: "EME DHA Br.LHR",
-          branchCode: "0875",
-          isDefault: true,
-        })
+        // Use fallback details if there's an error
+        setBankDetails(fallbackBankDetails)
       } finally {
         setIsLoading(false)
       }
@@ -93,6 +85,7 @@ export default function PaymentMethodPage() {
       })
   }
 
+  // Rest of the component remains the same...
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
