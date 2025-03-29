@@ -82,6 +82,7 @@ interface Comment {
   author: {
     name: string
     id: string
+    avatar?: string | null
   }
   createdAt: string
   status: string
@@ -264,25 +265,17 @@ export default function AdminDashboard() {
           setLoading((prev) => ({ ...prev, tickets: false }))
         }
 
-        // Fetch comments
-        fetch("/api/admin/community/comments")
+        // Fetch recent comments from our new API endpoint
+        fetch("/api/community/recent-comments?limit=3")
           .then((res) => res.json())
           .then((data) => {
-            console.log("Received data:", { endpoint: "/api/admin/community/comments", data })
-            const processedComments = (data.comments || []).map((comment: any) => ({
-              id: comment.id || `comment-${Math.random().toString(36).substring(2, 9)}`,
-              content: comment.content || comment.text || "Comment content",
-              postTitle: comment.postTitle || comment.post?.title || "Post Title",
-              author: comment.author || {
-                name: comment.authorName || "Anonymous",
-                id: comment.authorId || `user-${Math.random().toString(36).substring(2, 9)}`,
-              },
-              createdAt: comment.createdAt || new Date().toISOString(),
-              status: comment.status || "pending",
-              postId: comment.postId || comment.post?.id || `post-${Math.random().toString(36).substring(2, 9)}`,
-            }))
-
-            setComments(processedComments)
+            console.log("Received data:", { endpoint: "/api/community/recent-comments", data })
+            if (data.success && data.comments) {
+              setComments(data.comments)
+            } else {
+              console.error("Error in comments response:", data.error)
+              setComments([])
+            }
             setLoading((prev) => ({ ...prev, comments: false }))
           })
           .catch((err) => {
