@@ -15,7 +15,7 @@ const bankDetailsSchema = z.object({
   }),
 })
 
-// GET handler to fetch user's bank details
+// GET handler to fetch bank details (for both admin and client)
 export async function GET(req: NextRequest) {
   try {
     const { isValid, response, userId } = await validateSession()
@@ -24,9 +24,11 @@ export async function GET(req: NextRequest) {
       return response || NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    // Fetch bank details from database
-    const bankDetails = await db.bankAccount.findUnique({
-      where: { userId },
+    // Fetch the default bank account (the one admin has set up)
+    const bankDetails = await db.bankAccount.findFirst({
+      where: {
+        isDefault: true,
+      },
     })
 
     // If no bank details found, return default ORIZEN INC details
@@ -52,7 +54,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST handler to create new bank details
+// The following routes are for admin use only
+
+// POST handler to create new bank details (admin only)
 export async function POST(req: NextRequest) {
   try {
     const { isValid, response, userId } = await validateSession()
@@ -61,25 +65,42 @@ export async function POST(req: NextRequest) {
       return response || NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
+    // Check if user is admin
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    })
+
+    if (user?.role !== "ADMIN") {
+      return NextResponse.json({ message: "Only administrators can create bank details" }, { status: 403 })
+    }
+
     const data = await req.json()
 
     // Validate the request body
     const validatedData = bankDetailsSchema.parse(data)
 
-    // Check if user already has bank details
-    const existingDetails = await db.bankAccount.findUnique({
-      where: { userId },
-    })
+    // If this is set as default, unset any existing default
+    if (data.isDefault) {
+      const currentDefaultAccounts = await db.bankAccount.findMany({
+        where: { isDefault: true },
+      })
 
-    if (existingDetails) {
-      return NextResponse.json({ message: "Bank details already exist. Use PUT to update." }, { status: 400 })
+      // Update each account individually
+      for (const account of currentDefaultAccounts) {
+        await db.bankAccount.update({
+          where: { id: account.id },
+          data: { isDefault: false },
+        })
+      }
     }
 
     // Create new bank details
     const bankDetails = await db.bankAccount.create({
       data: {
-        userId,
         ...validatedData,
+        createdBy: userId,
+        isDefault: data.isDefault || false,
       },
     })
 
@@ -94,7 +115,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PUT handler to update existing bank details
+// PUT handler to update existing bank details (admin only)
 export async function PUT(req: NextRequest) {
   try {
     const { isValid, response, userId } = await validateSession()
@@ -103,24 +124,60 @@ export async function PUT(req: NextRequest) {
       return response || NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
+    // Check if user is admin
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    })
+
+    if (user?.role !== "ADMIN") {
+      return NextResponse.json({ message: "Only administrators can update bank details" }, { status: 403 })
+    }
+
     const data = await req.json()
+    const bankId = data.id
+
+    if (!bankId) {
+      return NextResponse.json({ message: "Bank account ID is required" }, { status: 400 })
+    }
 
     // Validate the request body
     const validatedData = bankDetailsSchema.parse(data)
 
     // Check if bank details exist
     const existingDetails = await db.bankAccount.findUnique({
-      where: { userId },
+      where: { id: bankId },
     })
 
     if (!existingDetails) {
-      return NextResponse.json({ message: "Bank details not found. Use POST to create." }, { status: 404 })
+      return NextResponse.json({ message: "Bank details not found" }, { status: 404 })
+    }
+
+    // If this is set as default, unset any existing default
+    if (data.isDefault) {
+      const currentDefaultAccounts = await db.bankAccount.findMany({
+        where: {
+          isDefault: true,
+          id: { not: bankId },
+        },
+      })
+
+      // Update each account individually
+      for (const account of currentDefaultAccounts) {
+        await db.bankAccount.update({
+          where: { id: account.id },
+          data: { isDefault: false },
+        })
+      }
     }
 
     // Update bank details
     const bankDetails = await db.bankAccount.update({
-      where: { userId },
-      data: validatedData,
+      where: { id: bankId },
+      data: {
+        ...validatedData,
+        isDefault: data.isDefault || false,
+      },
     })
 
     return NextResponse.json({ bankDetails })
@@ -134,7 +191,7 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE handler to remove bank details
+// DELETE handler to remove bank details (admin only)
 export async function DELETE(req: NextRequest) {
   try {
     const { isValid, response, userId } = await validateSession()
@@ -143,9 +200,26 @@ export async function DELETE(req: NextRequest) {
       return response || NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
+    // Check if user is admin
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    })
+
+    if (user?.role !== "ADMIN") {
+      return NextResponse.json({ message: "Only administrators can delete bank details" }, { status: 403 })
+    }
+
+    const url = new URL(req.url)
+    const id = url.searchParams.get("id")
+
+    if (!id) {
+      return NextResponse.json({ message: "Bank account ID is required" }, { status: 400 })
+    }
+
     // Check if bank details exist
     const existingDetails = await db.bankAccount.findUnique({
-      where: { userId },
+      where: { id },
     })
 
     if (!existingDetails) {
@@ -154,7 +228,7 @@ export async function DELETE(req: NextRequest) {
 
     // Delete bank details
     await db.bankAccount.delete({
-      where: { userId },
+      where: { id },
     })
 
     return NextResponse.json({ message: "Bank details deleted successfully" })

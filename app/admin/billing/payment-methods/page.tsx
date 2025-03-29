@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { toast } from "sonner"
-import { Loader2, Plus, Settings, Trash2 } from "lucide-react"
+import { Loader2, Plus, Settings, Trash2, Check } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,7 +21,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Switch } from "@/components/ui/switch"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,131 +32,173 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { CustomBadge as Badge } from "@/components/ui/custom-badge"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Define the form schema
-const paymentMethodSchema = z.object({
-  name: z.string().min(2, { message: "Name is required" }),
-  description: z.string().optional(),
-  isActive: z.boolean().default(true),
+const bankAccountSchema = z.object({
+  accountName: z.string().min(2, { message: "Account name is required" }),
+  accountNumber: z.string().min(8, { message: "Valid account number is required" }),
+  routingNumber: z.string().min(9, { message: "Valid routing number is required" }),
+  bankName: z.string().min(2, { message: "Bank name is required" }),
+  accountType: z.enum(["checking", "savings"], {
+    required_error: "Please select an account type",
+  }),
+  swiftCode: z.string().optional(),
+  branchName: z.string().optional(),
+  branchCode: z.string().optional(),
+  isDefault: z.boolean().default(false),
 })
 
-type PaymentMethod = z.infer<typeof paymentMethodSchema> & {
+type BankAccount = z.infer<typeof bankAccountSchema> & {
   id: string
   createdAt: string
   updatedAt: string
   createdBy: string
 }
 
-export default function PaymentMethodsPage() {
+export default function BankAccountsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null)
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
+  const [selectedAccount, setSelectedAccount] = useState<BankAccount | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   // Initialize form
-  const form = useForm<z.infer<typeof paymentMethodSchema>>({
-    resolver: zodResolver(paymentMethodSchema),
+  const form = useForm<z.infer<typeof bankAccountSchema>>({
+    resolver: zodResolver(bankAccountSchema),
     defaultValues: {
-      name: "",
-      description: "",
-      isActive: true,
+      accountName: "",
+      accountNumber: "",
+      routingNumber: "",
+      bankName: "",
+      accountType: "checking",
+      swiftCode: "",
+      branchName: "",
+      branchCode: "",
+      isDefault: false,
     },
   })
 
-  // Fetch payment methods
+  // Fetch bank accounts
   useEffect(() => {
-    const fetchPaymentMethods = async () => {
+    const fetchBankAccounts = async () => {
       setIsLoading(true)
       try {
-        const response = await fetch("/api/admin/payment-methods")
+        const response = await fetch("/api/admin/bank-accounts")
         if (response.ok) {
           const data = await response.json()
-          setPaymentMethods(data.paymentMethods)
+          setBankAccounts(data.bankAccounts)
         }
       } catch (error) {
-        console.error("Error fetching payment methods:", error)
-        toast.error("Failed to load payment methods")
+        console.error("Error fetching bank accounts:", error)
+        toast.error("Failed to load bank accounts")
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchPaymentMethods()
+    fetchBankAccounts()
   }, [])
 
   // Handle form submission
-  const onSubmit = async (data: z.infer<typeof paymentMethodSchema>) => {
+  const onSubmit = async (data: z.infer<typeof bankAccountSchema>) => {
     setIsSaving(true)
     try {
-      const url = selectedMethod ? `/api/admin/payment-methods/${selectedMethod.id}` : "/api/admin/payment-methods"
+      const url = selectedAccount ? `/api/user/bank-details?id=${selectedAccount.id}` : "/api/user/bank-details"
 
-      const method = selectedMethod ? "PUT" : "POST"
+      const method = selectedAccount ? "PUT" : "POST"
 
       const response = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(selectedAccount ? { ...data, id: selectedAccount.id } : data),
       })
 
       if (response.ok) {
         const result = await response.json()
 
-        if (selectedMethod) {
-          setPaymentMethods((prev) =>
-            prev.map((method) => (method.id === selectedMethod.id ? result.paymentMethod : method)),
-          )
-          toast.success("Payment method updated")
+        if (selectedAccount) {
+          setBankAccounts((prev) => {
+            const updated = prev.map((account) => (account.id === selectedAccount.id ? result.bankDetails : account))
+
+            // If the updated account is now default, make sure others are not
+            if (data.isDefault) {
+              return updated.map((account) =>
+                account.id !== selectedAccount.id ? { ...account, isDefault: false } : account,
+              )
+            }
+
+            return updated
+          })
+          toast.success("Bank account updated")
         } else {
-          setPaymentMethods((prev) => [...prev, result.paymentMethod])
-          toast.success("Payment method added")
+          setBankAccounts((prev) => {
+            const newAccounts = [...prev, result.bankDetails]
+
+            // If the new account is default, make sure others are not
+            if (data.isDefault) {
+              return newAccounts.map((account) =>
+                account.id !== result.bankDetails.id ? { ...account, isDefault: false } : account,
+              )
+            }
+
+            return newAccounts
+          })
+          toast.success("Bank account added")
         }
 
         setIsDialogOpen(false)
-        setSelectedMethod(null)
+        setSelectedAccount(null)
         form.reset({
-          name: "",
-          description: "",
-          isActive: true,
+          accountName: "",
+          accountNumber: "",
+          routingNumber: "",
+          bankName: "",
+          accountType: "checking",
+          swiftCode: "",
+          branchName: "",
+          branchCode: "",
+          isDefault: false,
         })
       } else {
         const errorData = await response.json()
-        toast.error(errorData.message || "Failed to save payment method")
+        toast.error(errorData.message || "Failed to save bank account")
       }
     } catch (error) {
-      console.error("Error saving payment method:", error)
+      console.error("Error saving bank account:", error)
       toast.error("An unexpected error occurred")
     } finally {
       setIsSaving(false)
     }
   }
 
-  // Handle payment method deletion
+  // Handle bank account deletion
   const handleDelete = async () => {
-    if (!selectedMethod) return
+    if (!selectedAccount) return
 
     setIsDeleting(true)
     try {
-      const response = await fetch(`/api/admin/payment-methods/${selectedMethod.id}`, {
+      const response = await fetch(`/api/user/bank-details?id=${selectedAccount.id}`, {
         method: "DELETE",
       })
 
       if (response.ok) {
-        setPaymentMethods((prev) => prev.filter((method) => method.id !== selectedMethod.id))
-        toast.success("Payment method deleted")
+        setBankAccounts((prev) => prev.filter((account) => account.id !== selectedAccount.id))
+        toast.success("Bank account deleted")
         setIsDeleteDialogOpen(false)
-        setSelectedMethod(null)
+        setSelectedAccount(null)
       } else {
         const errorData = await response.json()
-        toast.error(errorData.message || "Failed to delete payment method")
+        toast.error(errorData.message || "Failed to delete bank account")
       }
     } catch (error) {
-      console.error("Error deleting payment method:", error)
+      console.error("Error deleting bank account:", error)
       toast.error("An unexpected error occurred")
     } finally {
       setIsDeleting(false)
@@ -165,12 +206,18 @@ export default function PaymentMethodsPage() {
   }
 
   // Handle edit button click
-  const handleEdit = (method: PaymentMethod) => {
-    setSelectedMethod(method)
+  const handleEdit = (account: BankAccount) => {
+    setSelectedAccount(account)
     form.reset({
-      name: method.name,
-      description: method.description || "",
-      isActive: method.isActive,
+      accountName: account.accountName,
+      accountNumber: account.accountNumber,
+      routingNumber: account.routingNumber,
+      bankName: account.bankName,
+      accountType: account.accountType,
+      swiftCode: account.swiftCode || "",
+      branchName: account.branchName || "",
+      branchCode: account.branchCode || "",
+      isDefault: account.isDefault || false,
     })
     setIsDialogOpen(true)
   }
@@ -187,42 +234,48 @@ export default function PaymentMethodsPage() {
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Payment Methods</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Bank Accounts</h1>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button
               onClick={() => {
-                setSelectedMethod(null)
+                setSelectedAccount(null)
                 form.reset({
-                  name: "",
-                  description: "",
-                  isActive: true,
+                  accountName: "",
+                  accountNumber: "",
+                  routingNumber: "",
+                  bankName: "",
+                  accountType: "checking",
+                  swiftCode: "",
+                  branchName: "",
+                  branchCode: "",
+                  isDefault: false,
                 })
               }}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Add Payment Method
+              Add Bank Account
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>{selectedMethod ? "Edit Payment Method" : "Add Payment Method"}</DialogTitle>
+              <DialogTitle>{selectedAccount ? "Edit Bank Account" : "Add Bank Account"}</DialogTitle>
               <DialogDescription>
-                {selectedMethod
-                  ? "Update the payment method details below"
-                  : "Fill in the details to add a new payment method"}
+                {selectedAccount
+                  ? "Update the bank account details below"
+                  : "Fill in the details to add a new bank account"}
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="name"
+                  name="accountName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Name</FormLabel>
+                      <FormLabel>Account Holder Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Credit Card" {...field} />
+                        <Input placeholder="ORIZEN INC" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -230,30 +283,118 @@ export default function PaymentMethodsPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="description"
+                  name="accountNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description</FormLabel>
+                      <FormLabel>Account Number</FormLabel>
                       <FormControl>
-                        <Input placeholder="Payment via credit card" {...field} />
+                        <Input placeholder="08751010024993" {...field} />
                       </FormControl>
-                      <FormDescription>Optional description of the payment method</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 <FormField
                   control={form.control}
-                  name="isActive"
+                  name="routingNumber"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                      <div className="space-y-0.5">
-                        <FormLabel>Active</FormLabel>
-                        <FormDescription>Enable or disable this payment method</FormDescription>
+                    <FormItem>
+                      <FormLabel>Routing Number / IBAN</FormLabel>
+                      <FormControl>
+                        <Input placeholder="PK51ALFH0875001010024993" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="bankName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bank Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Bank Alfalah" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="accountType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Account Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select account type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="checking">Checking</SelectItem>
+                          <SelectItem value="savings">Savings</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="swiftCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Swift Code</FormLabel>
+                      <FormControl>
+                        <Input placeholder="ALFHPKKAXXX" {...field} />
+                      </FormControl>
+                      <FormDescription>Optional international bank code</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="branchName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Branch Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="EME DHA Br.LHR" {...field} />
+                      </FormControl>
+                      <FormDescription>Optional branch name</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="branchCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Branch Code</FormLabel>
+                      <FormControl>
+                        <Input placeholder="0875" {...field} />
+                      </FormControl>
+                      <FormDescription>Optional branch code</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="isDefault"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Set as Default Account</FormLabel>
+                        <FormDescription>This account will be shown to clients for payments</FormDescription>
                       </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
                     </FormItem>
                   )}
                 />
@@ -264,10 +405,10 @@ export default function PaymentMethodsPage() {
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Saving...
                       </>
-                    ) : selectedMethod ? (
-                      "Update Method"
+                    ) : selectedAccount ? (
+                      "Update Account"
                     ) : (
-                      "Add Method"
+                      "Add Account"
                     )}
                   </Button>
                 </DialogFooter>
@@ -279,69 +420,80 @@ export default function PaymentMethodsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Available Payment Methods</CardTitle>
-          <CardDescription>Manage the payment methods available to your customers</CardDescription>
+          <CardTitle>Available Bank Accounts</CardTitle>
+          <CardDescription>Manage the bank accounts that clients can use for payments</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center items-center h-40">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : paymentMethods.length === 0 ? (
+          ) : bankAccounts.length === 0 ? (
             <div className="text-center py-10">
-              <p className="text-muted-foreground">No payment methods found</p>
+              <p className="text-muted-foreground">No bank accounts found</p>
               <Button variant="outline" className="mt-4" onClick={() => setIsDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                Add Your First Payment Method
+                Add Your First Bank Account
               </Button>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Default</TableHead>
+                  <TableHead>Account Name</TableHead>
+                  <TableHead>Bank Name</TableHead>
+                  <TableHead>Account Number</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paymentMethods.map((method) => (
-                  <TableRow key={method.id}>
-                    <TableCell className="font-medium">{method.name}</TableCell>
-                    <TableCell>{method.description || "—"}</TableCell>
+                {bankAccounts.map((account) => (
+                  <TableRow key={account.id}>
                     <TableCell>
-                      <Badge variant={method.isActive ? "success" : "secondary"}>
-                        {method.isActive ? "Active" : "Inactive"}
-                      </Badge>
+                      {account.isDefault && (
+                        <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100">
+                          <Check className="h-3 w-3 mr-1" />
+                          Default
+                        </Badge>
+                      )}
                     </TableCell>
-                    <TableCell>{formatDate(method.createdAt)}</TableCell>
+                    <TableCell className="font-medium">{account.accountName}</TableCell>
+                    <TableCell>{account.bankName}</TableCell>
+                    <TableCell>•••• {account.accountNumber.slice(-4)}</TableCell>
+                    <TableCell>{formatDate(account.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(method)}>
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(account)}>
                           <Settings className="h-4 w-4" />
                           <span className="sr-only">Edit</span>
                         </Button>
                         <AlertDialog
-                          open={isDeleteDialogOpen && selectedMethod?.id === method.id}
+                          open={isDeleteDialogOpen && selectedAccount?.id === account.id}
                           onOpenChange={(open) => {
                             setIsDeleteDialogOpen(open)
-                            if (!open) setSelectedMethod(null)
+                            if (!open) setSelectedAccount(null)
                           }}
                         >
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => setSelectedMethod(method)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setSelectedAccount(account)}
+                              disabled={account.isDefault}
+                              title={account.isDefault ? "Cannot delete default account" : "Delete account"}
+                            >
                               <Trash2 className="h-4 w-4 text-destructive" />
                               <span className="sr-only">Delete</span>
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Payment Method</AlertDialogTitle>
+                              <AlertDialogTitle>Delete Bank Account</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete the "{method.name}" payment method? This action cannot
-                                be undone.
+                                Are you sure you want to delete the "{account.accountName}" bank account? This action
+                                cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
