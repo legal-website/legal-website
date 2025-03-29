@@ -103,6 +103,7 @@ interface Amendment {
   userId: string
   amount?: number
   paymentStatus?: string
+  paymentReceived?: boolean
 }
 
 interface AnnualReport {
@@ -326,12 +327,13 @@ export default function AdminDashboard() {
 
         // Update the amendments fetch to include payment information
         try {
-          const response = await fetch("/api/admin/compliance/amendments?includePayments=true")
+          // Make sure we're requesting payment information in the API call
+          const response = await fetch("/api/admin/compliance/amendments?includePayments=true&status=all")
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`)
           }
           const data = await response.json()
-          console.log("Received data:", { endpoint: "/api/admin/compliance/amendments", data })
+          console.log("Received amendments data:", data)
 
           if (data.success && data.amendments) {
             const processedAmendments = data.amendments.map((amendment: any) => ({
@@ -341,16 +343,21 @@ export default function AdminDashboard() {
               createdAt: amendment.createdAt || new Date().toISOString(),
               userName: amendment.user?.name || amendment.user?.email || amendment.client?.name || "Unknown User",
               userId: amendment.userId || amendment.clientId || "unknown-user",
-              amount: Number(amendment.amount) || Number(amendment.fee) || 0,
-              paymentStatus: amendment.paymentStatus || amendment.payment?.status || "unpaid",
+              amount: Number(amendment.amount) || Number(amendment.fee) || Number(amendment.price) || 0,
+              paymentStatus: amendment.paymentReceived
+                ? "paid"
+                : amendment.paymentStatus || (amendment.payment && amendment.payment.status) || "unpaid",
             }))
+
+            // Log the processed amendments to help with debugging
+            console.log("Processed amendments:", processedAmendments)
+
             setAmendments(processedAmendments)
           } else {
             throw new Error(data.error || "Failed to fetch amendments")
           }
         } catch (err) {
           console.error("Error fetching amendments:", err)
-          // Fallback to empty array instead of sample data
           setAmendments([])
         } finally {
           setLoading((prev) => ({ ...prev, amendments: false }))
@@ -567,11 +574,34 @@ export default function AdminDashboard() {
 
   // Replace the getAmendmentRevenueData function with this real data implementation
   const getAmendmentRevenueData = () => {
+    console.log("All amendments:", amendments)
+
     // Filter amendments to only include approved ones with payment received
-    const approvedAmendments = amendments.filter(
-      (amendment) =>
-        amendment.status?.toLowerCase() === "approved" && amendment.paymentStatus?.toLowerCase() === "paid",
-    )
+    // Check for various possible status and payment indicators
+    const approvedAmendments = amendments.filter((amendment) => {
+      const isApproved =
+        amendment.status?.toLowerCase() === "approved" ||
+        amendment.status?.toLowerCase() === "completed" ||
+        amendment.status?.toLowerCase() === "paid"
+
+      const isPaymentReceived =
+        amendment.paymentStatus?.toLowerCase() === "paid" ||
+        amendment.paymentStatus?.toLowerCase() === "completed" ||
+        amendment.paymentReceived === true
+
+      const hasAmount = amendment.amount > 0
+
+      const result = isApproved && isPaymentReceived && hasAmount
+
+      // Log each amendment evaluation for debugging
+      console.log(
+        `Amendment ${amendment.id}: approved=${isApproved}, payment=${isPaymentReceived}, amount=${hasAmount}, included=${result}`,
+      )
+
+      return result
+    })
+
+    console.log("Filtered approved amendments with payment:", approvedAmendments)
 
     // Group by month for a more meaningful chart
     const revenueByMonth: Record<string, number> = {}
@@ -590,10 +620,13 @@ export default function AdminDashboard() {
     })
 
     // Convert to array format for the chart
-    return Object.entries(revenueByMonth).map(([name, amount]) => ({
+    const result = Object.entries(revenueByMonth).map(([name, amount]) => ({
       name,
       amount,
     }))
+
+    console.log("Amendment revenue data for chart:", result)
+    return result
   }
 
   // Format currency
