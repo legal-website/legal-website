@@ -17,47 +17,46 @@ export async function getRecentAmendments(limit = 3) {
   }
 
   try {
-    // Fetch all amendments and then limit them in JavaScript
-    // This avoids using properties that might not exist in the Prisma model
+    // Fetch amendments with only user information
     // @ts-ignore - Prisma client type issue
     const allAmendments = await db.amendment.findMany({
       orderBy: {
         createdAt: "desc",
       },
+      include: {
+        // Only include user since we know it exists
+        user: true,
+      },
     })
 
-    // Limit the results in JavaScript
-    const amendments = allAmendments.slice(0, limit)
+    // Filter for pending amendments
+    const pendingAmendments = allAmendments
+      .filter((amendment: any) => {
+        const status = amendment.status || ""
+        return (
+          status.toLowerCase() === "pending" ||
+          status.toLowerCase() === "waiting_for_approval" ||
+          status.toLowerCase() === "in_review"
+        )
+      })
+      .slice(0, limit)
 
     // Process amendments to ensure consistent format
-    const processedAmendments = amendments.map((amendment: any) => {
-      // Extract business name from various possible locations in the data structure
-      const businessName =
-        amendment.businessName || amendment.business?.name || amendment.client?.name || "Unknown Business"
+    const processedAmendments = pendingAmendments.map((amendment: any) => {
+      // Get user information from user property
+      const userName = amendment.user?.name || amendment.user?.email || "Unknown User"
 
-      // Extract business ID from various possible locations
-      const businessId = amendment.businessId || amendment.business?.id || amendment.client?.id || "unknown-business"
-
-      // Try to find an amount field
-      const amount =
-        typeof amendment.amount === "number"
-          ? amendment.amount
-          : typeof amendment.fee === "number"
-            ? amendment.fee
-            : typeof amendment.cost === "number"
-              ? amendment.cost
-              : 0
+      const userId = amendment.userId || "unknown-user"
 
       return {
         id: amendment.id,
         // Use type as title if it exists, otherwise use a default
         title: amendment.title || amendment.type || amendment.name || "Amendment",
-        // Use status if it exists, otherwise default to pending
-        status: amendment.status || "pending",
-        amount,
+        // Always set status to pending for this view
+        status: "pending",
         createdAt: amendment.createdAt.toISOString(),
-        businessName,
-        businessId,
+        userName,
+        userId,
       }
     })
 

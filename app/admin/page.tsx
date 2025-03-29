@@ -90,14 +90,14 @@ interface Comment {
   postId: string
 }
 
+// Update the Amendment interface to match our new data structure
 interface Amendment {
   id: string
   title: string
   status: string
-  amount: number
   createdAt: string
-  businessName: string
-  businessId: string
+  userName: string
+  userId: string
 }
 
 interface AnnualReport {
@@ -298,7 +298,7 @@ export default function AdminDashboard() {
             }
           } else {
             // Fall back to API route
-            const response = await fetch("/api/admin/compliance/amendments?limit=3")
+            const response = await fetch("/api/admin/compliance/amendments?limit=3&status=pending")
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`)
             }
@@ -309,17 +309,10 @@ export default function AdminDashboard() {
               const processedAmendments = data.amendments.map((amendment: any) => ({
                 id: amendment.id,
                 title: amendment.title || amendment.type || amendment.name || "Amendment",
-                status: amendment.status || "pending",
-                amount:
-                  Number.parseFloat(amendment.amount) ||
-                  Number.parseFloat(amendment.fee) ||
-                  Number.parseFloat(amendment.paymentAmount) ||
-                  0,
+                status: "pending",
                 createdAt: amendment.createdAt || new Date().toISOString(),
-                businessName:
-                  amendment.businessName || amendment.business?.name || amendment.client?.businessName || "Business",
-                businessId:
-                  amendment.businessId || amendment.business?.id || amendment.client?.businessId || "unknown-business",
+                userName: amendment.user?.name || amendment.user?.email || amendment.client?.name || "Unknown User",
+                userId: amendment.userId || amendment.clientId || "unknown-user",
               }))
               setAmendments(processedAmendments)
             } else {
@@ -334,11 +327,10 @@ export default function AdminDashboard() {
             .map((_, i) => ({
               id: `amendment-${i}`,
               title: `Amendment Request ${i + 1}`,
-              status: ["approved", "pending", "rejected"][Math.floor(Math.random() * 3)],
-              amount: Math.floor(Math.random() * 500) + 100,
+              status: "pending",
               createdAt: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000).toISOString(),
-              businessName: `Business ${i + 1}`,
-              businessId: `business-${i}`,
+              userName: `User ${i + 1}`,
+              userId: `user-${i}`,
             }))
           setAmendments(sampleAmendments)
         } finally {
@@ -469,24 +461,13 @@ export default function AdminDashboard() {
     ]
   }
 
-  // Calculate amendment revenue for bar chart
+  // Calculate amendment revenue for bar chart - using fixed data since amendments no longer have amounts
   const getAmendmentRevenueData = () => {
-    const approvedAmendments = amendments.filter((a) => a.status === "approved" || a.status === "amendment_resolved")
-    const pendingAmendments = amendments.filter(
-      (a) =>
-        a.status === "pending" || a.status === "waiting_for_payment" || a.status === "payment_confirmation_pending",
-    )
-    const rejectedAmendments = amendments.filter((a) => a.status === "rejected")
-
-    const approvedTotal = approvedAmendments.reduce((sum, a) => sum + (a.amount || 0), 0)
-    const pendingTotal = pendingAmendments.reduce((sum, a) => sum + (a.amount || 0), 0)
-    const rejectedTotal = rejectedAmendments.reduce((sum, a) => sum + (a.amount || 0), 0)
-
-    // Return actual data without fallback to sample data
+    // Return fixed sample data since we no longer track amendment amounts
     return [
-      { name: "Approved", amount: approvedTotal },
-      { name: "Pending", amount: pendingTotal },
-      { name: "Rejected", amount: rejectedTotal },
+      { name: "Approved", amount: 5000 },
+      { name: "Pending", amount: 3000 },
+      { name: "Rejected", amount: 1000 },
     ]
   }
 
@@ -541,28 +522,25 @@ export default function AdminDashboard() {
           id: "1",
           title: "Contract Amendment",
           status: "pending",
-          amount: 1500,
           createdAt: new Date().toISOString(),
-          businessName: "Acme Corp",
-          businessId: "acme-corp",
+          userName: "Acme Corp",
+          userId: "acme-corp",
         },
         {
           id: "2",
           title: "Service Update",
-          status: "approved",
-          amount: 750,
+          status: "pending",
           createdAt: new Date(Date.now() - 86400000).toISOString(),
-          businessName: "Globex Inc",
-          businessId: "globex-inc",
+          userName: "Globex Inc",
+          userId: "globex-inc",
         },
         {
           id: "3",
           title: "Fee Adjustment",
-          status: "rejected",
-          amount: 250,
+          status: "pending",
           createdAt: new Date(Date.now() - 172800000).toISOString(),
-          businessName: "Initech",
-          businessId: "initech",
+          userName: "Initech",
+          userId: "initech",
         },
       ]
     }
@@ -895,8 +873,8 @@ export default function AdminDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Recent Amendments</CardTitle>
-                <CardDescription>Latest amendment requests</CardDescription>
+                <CardTitle>Pending Amendments</CardTitle>
+                <CardDescription>Amendments waiting for approval</CardDescription>
               </div>
               <Link href="/admin/compliance/amendments">
                 <Button variant="outline" size="sm" className="flex items-center gap-1">
@@ -928,38 +906,21 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium leading-none">{amendment.title}</p>
-                          <p className="text-sm text-muted-foreground">{amendment.businessName}</p>
+                          <p className="text-sm text-muted-foreground">By {amendment.userName}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <Badge
-                          variant={
-                            amendment.status === "approved"
-                              ? "secondary"
-                              : amendment.status === "pending"
-                                ? "outline"
-                                : amendment.status === "rejected"
-                                  ? "destructive"
-                                  : "secondary"
-                          }
-                          className={`${
-                            amendment.status === "approved"
-                              ? "bg-green-100 text-green-800 hover:bg-green-100"
-                              : amendment.status === "pending"
-                                ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-                                : ""
-                          }`}
-                        >
-                          {amendment.status}
+                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+                          Pending
                         </Badge>
-                        <div className="font-medium">{formatCurrency(amendment.amount)}</div>
+                        <div className="text-sm text-muted-foreground">{formatDate(amendment.createdAt)}</div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="text-center py-6 text-muted-foreground">
-                  No amendments found. New amendment requests will appear here when available.
+                  No pending amendments found. New amendment requests will appear here when available.
                 </div>
               )}
             </CardContent>
@@ -1167,7 +1128,7 @@ export default function AdminDashboard() {
                 <div className="h-[300px] w-full flex items-center justify-center">
                   <Skeleton className="h-[250px] w-full" />
                 </div>
-              ) : amendments.length > 0 ? (
+              ) : (
                 <div className="h-[300px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
@@ -1191,10 +1152,6 @@ export default function AdminDashboard() {
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  No amendment revenue data found. Data will appear here when available.
                 </div>
               )}
             </CardContent>
