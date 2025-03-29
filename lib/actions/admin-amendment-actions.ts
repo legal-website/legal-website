@@ -17,17 +17,19 @@ export async function getRecentAmendments(limit = 3) {
   }
 
   try {
-    // Fetch amendments with minimal includes to avoid type errors
+    // Fetch all amendments and then limit them in JavaScript
+    // This avoids using properties that might not exist in the Prisma model
     // @ts-ignore - Prisma client type issue
-    const amendments = await db.amendment.findMany({
-      take: limit,
+    const allAmendments = await db.amendment.findMany({
       orderBy: {
         createdAt: "desc",
       },
     })
 
-    // Process amendments to ensure consistent format, using optional chaining
-    // to safely access properties that might not exist
+    // Limit the results in JavaScript
+    const amendments = allAmendments.slice(0, limit)
+
+    // Process amendments to ensure consistent format
     const processedAmendments = amendments.map((amendment: any) => {
       // Extract business name from various possible locations in the data structure
       const businessName =
