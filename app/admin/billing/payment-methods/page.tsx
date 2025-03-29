@@ -1,17 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
 import { toast } from "sonner"
-import { Loader2, Plus, Settings, Trash2, Check } from "lucide-react"
+import { Building, CreditCard, Plus, Pencil, Trash2, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Dialog,
   DialogContent,
@@ -19,25 +13,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 
-// Define the form schema
-const bankAccountSchema = z.object({
+// Define the schema for validation
+const bankDetailsSchema = z.object({
   accountName: z.string().min(2, { message: "Account name is required" }),
   accountNumber: z.string().min(8, { message: "Valid account number is required" }),
   routingNumber: z.string().min(9, { message: "Valid routing number is required" }),
@@ -51,26 +37,142 @@ const bankAccountSchema = z.object({
   isDefault: z.boolean().default(false),
 })
 
-type BankAccount = z.infer<typeof bankAccountSchema> & {
+type BankDetailsFormValues = z.infer<typeof bankDetailsSchema>
+
+type BankAccount = {
   id: string
+  accountName: string
+  accountNumber: string
+  routingNumber: string
+  bankName: string
+  accountType: string
+  swiftCode?: string
+  branchName?: string
+  branchCode?: string
+  isDefault: boolean
   createdAt: string
   updatedAt: string
-  createdBy: string
 }
 
-export default function BankAccountsPage() {
+export default function PaymentMethodsPage() {
   const [isLoading, setIsLoading] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
-  const [selectedAccount, setSelectedAccount] = useState<BankAccount | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null)
 
-  // Initialize form
-  const form = useForm<z.infer<typeof bankAccountSchema>>({
-    resolver: zodResolver(bankAccountSchema),
+  const form = useForm<BankDetailsFormValues>({
+    resolver: zodResolver(bankDetailsSchema),
     defaultValues: {
+      accountName: "",
+      accountNumber: "",
+      routingNumber: "",
+      bankName: "",
+      accountType: "checking",
+      isDefault: false,
+    },
+  })
+
+  // Fetch bank accounts
+  const fetchBankAccounts = async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch("/api/admin/bank-accounts")
+      if (response.ok) {
+        const data = await response.json()
+        setBankAccounts(data.bankAccounts || [])
+      } else {
+        toast.error("Failed to fetch bank accounts")
+      }
+    } catch (error) {
+      console.error("Error fetching bank accounts:", error)
+      toast.error("An error occurred while fetching bank accounts")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchBankAccounts()
+  }, [])
+
+  // Handle form submission
+  const onSubmit = async (values: BankDetailsFormValues) => {
+    try {
+      const url = editingAccount ? "/api/user/bank-details" : "/api/user/bank-details"
+
+      const method = editingAccount ? "PUT" : "POST"
+
+      const payload = editingAccount ? { ...values, id: editingAccount.id } : values
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (response.ok) {
+        toast.success(editingAccount ? "Bank account updated successfully" : "Bank account added successfully")
+        setIsDialogOpen(false)
+        form.reset()
+        setEditingAccount(null)
+        fetchBankAccounts()
+      } else {
+        const data = await response.json()
+        toast.error(data.message || "Failed to save bank account")
+      }
+    } catch (error) {
+      console.error("Error saving bank account:", error)
+      toast.error("An error occurred while saving bank account")
+    }
+  }
+
+  // Handle account deletion
+  const handleDeleteAccount = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this bank account?")) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/user/bank-details?id=${id}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        toast.success("Bank account deleted successfully")
+        fetchBankAccounts()
+      } else {
+        const data = await response.json()
+        toast.error(data.message || "Failed to delete bank account")
+      }
+    } catch (error) {
+      console.error("Error deleting bank account:", error)
+      toast.error("An error occurred while deleting bank account")
+    }
+  }
+
+  // Handle edit button click
+  const handleEditAccount = (account: BankAccount) => {
+    setEditingAccount(account)
+    form.reset({
+      accountName: account.accountName,
+      accountNumber: account.accountNumber,
+      routingNumber: account.routingNumber,
+      bankName: account.bankName,
+      accountType: account.accountType as "checking" | "savings",
+      swiftCode: account.swiftCode || "",
+      branchName: account.branchName || "",
+      branchCode: account.branchCode || "",
+      isDefault: account.isDefault,
+    })
+    setIsDialogOpen(true)
+  }
+
+  // Handle add button click
+  const handleAddAccount = () => {
+    setEditingAccount(null)
+    form.reset({
       accountName: "",
       accountNumber: "",
       routingNumber: "",
@@ -80,202 +182,147 @@ export default function BankAccountsPage() {
       branchName: "",
       branchCode: "",
       isDefault: false,
-    },
-  })
-
-  // Fetch bank accounts
-  useEffect(() => {
-    const fetchBankAccounts = async () => {
-      setIsLoading(true)
-      try {
-        const response = await fetch("/api/admin/bank-accounts")
-        if (response.ok) {
-          const data = await response.json()
-          setBankAccounts(data.bankAccounts)
-        }
-      } catch (error) {
-        console.error("Error fetching bank accounts:", error)
-        toast.error("Failed to load bank accounts")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchBankAccounts()
-  }, [])
-
-  // Handle form submission
-  const onSubmit = async (data: z.infer<typeof bankAccountSchema>) => {
-    setIsSaving(true)
-    try {
-      const url = selectedAccount ? `/api/user/bank-details?id=${selectedAccount.id}` : "/api/user/bank-details"
-
-      const method = selectedAccount ? "PUT" : "POST"
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(selectedAccount ? { ...data, id: selectedAccount.id } : data),
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-
-        if (selectedAccount) {
-          setBankAccounts((prev) => {
-            const updated = prev.map((account) => (account.id === selectedAccount.id ? result.bankDetails : account))
-
-            // If the updated account is now default, make sure others are not
-            if (data.isDefault) {
-              return updated.map((account) =>
-                account.id !== selectedAccount.id ? { ...account, isDefault: false } : account,
-              )
-            }
-
-            return updated
-          })
-          toast.success("Bank account updated")
-        } else {
-          setBankAccounts((prev) => {
-            const newAccounts = [...prev, result.bankDetails]
-
-            // If the new account is default, make sure others are not
-            if (data.isDefault) {
-              return newAccounts.map((account) =>
-                account.id !== result.bankDetails.id ? { ...account, isDefault: false } : account,
-              )
-            }
-
-            return newAccounts
-          })
-          toast.success("Bank account added")
-        }
-
-        setIsDialogOpen(false)
-        setSelectedAccount(null)
-        form.reset({
-          accountName: "",
-          accountNumber: "",
-          routingNumber: "",
-          bankName: "",
-          accountType: "checking",
-          swiftCode: "",
-          branchName: "",
-          branchCode: "",
-          isDefault: false,
-        })
-      } else {
-        const errorData = await response.json()
-        toast.error(errorData.message || "Failed to save bank account")
-      }
-    } catch (error) {
-      console.error("Error saving bank account:", error)
-      toast.error("An unexpected error occurred")
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  // Handle bank account deletion
-  const handleDelete = async () => {
-    if (!selectedAccount) return
-
-    setIsDeleting(true)
-    try {
-      const response = await fetch(`/api/user/bank-details?id=${selectedAccount.id}`, {
-        method: "DELETE",
-      })
-
-      if (response.ok) {
-        setBankAccounts((prev) => prev.filter((account) => account.id !== selectedAccount.id))
-        toast.success("Bank account deleted")
-        setIsDeleteDialogOpen(false)
-        setSelectedAccount(null)
-      } else {
-        const errorData = await response.json()
-        toast.error(errorData.message || "Failed to delete bank account")
-      }
-    } catch (error) {
-      console.error("Error deleting bank account:", error)
-      toast.error("An unexpected error occurred")
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
-  // Handle edit button click
-  const handleEdit = (account: BankAccount) => {
-    setSelectedAccount(account)
-    form.reset({
-      accountName: account.accountName,
-      accountNumber: account.accountNumber,
-      routingNumber: account.routingNumber,
-      bankName: account.bankName,
-      accountType: account.accountType,
-      swiftCode: account.swiftCode || "",
-      branchName: account.branchName || "",
-      branchCode: account.branchCode || "",
-      isDefault: account.isDefault || false,
     })
     setIsDialogOpen(true)
   }
 
-  // Format date
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
+  // Handle add default ORIZEN INC account
+  const handleAddDefaultAccount = () => {
+    setEditingAccount(null)
+    form.reset({
+      accountName: "ORIZEN INC",
+      accountNumber: "08751010024993",
+      routingNumber: "PK51ALFH0875001010024993",
+      bankName: "Bank Alfalah",
+      accountType: "checking",
+      swiftCode: "ALFHPKKAXXX",
+      branchName: "EME DHA Br.LHR",
+      branchCode: "0875",
+      isDefault: true,
     })
+    setIsDialogOpen(true)
+  }
+
+  // Close dialog and reset form
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false)
+    setEditingAccount(null)
+    form.reset()
   }
 
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Bank Accounts</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              onClick={() => {
-                setSelectedAccount(null)
-                form.reset({
-                  accountName: "",
-                  accountNumber: "",
-                  routingNumber: "",
-                  bankName: "",
-                  accountType: "checking",
-                  swiftCode: "",
-                  branchName: "",
-                  branchCode: "",
-                  isDefault: false,
-                })
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Bank Account
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>{selectedAccount ? "Edit Bank Account" : "Add Bank Account"}</DialogTitle>
-              <DialogDescription>
-                {selectedAccount
-                  ? "Update the bank account details below"
-                  : "Fill in the details to add a new bank account"}
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <h1 className="text-3xl font-bold tracking-tight">Payment Methods</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleAddDefaultAccount}>
+            Add ORIZEN Default
+          </Button>
+          <Button onClick={handleAddAccount}>
+            <Plus className="mr-2 h-4 w-4" /> Add Bank Account
+          </Button>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building className="h-5 w-5" />
+            Bank Accounts
+          </CardTitle>
+          <CardDescription>Manage bank accounts for receiving payments</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center items-center h-40">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : bankAccounts.length > 0 ? (
+            <div className="space-y-4">
+              {bankAccounts.map((account) => (
+                <div key={account.id} className={`border rounded-lg p-4 ${account.isDefault ? "border-primary" : ""}`}>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-medium">{account.accountName}</h3>
+                        {account.isDefault && (
+                          <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">Default</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {account.bankName} • {account.accountNumber}
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 mt-2">
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Account Type:</span>{" "}
+                          <span className="capitalize">{account.accountType}</span>
+                        </p>
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Routing Number:</span> {account.routingNumber}
+                        </p>
+                        {account.swiftCode && (
+                          <p className="text-sm">
+                            <span className="text-muted-foreground">Swift Code:</span> {account.swiftCode}
+                          </p>
+                        )}
+                        {account.branchName && (
+                          <p className="text-sm">
+                            <span className="text-muted-foreground">Branch:</span> {account.branchName}
+                          </p>
+                        )}
+                        {account.branchCode && (
+                          <p className="text-sm">
+                            <span className="text-muted-foreground">Branch Code:</span> {account.branchCode}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleEditAccount(account)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteAccount(account.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-40 space-y-4">
+              <div className="text-center">
+                <CreditCard className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="mt-2 text-lg font-medium">No Bank Accounts</h3>
+                <p className="text-sm text-muted-foreground">Add a bank account to receive payments</p>
+              </div>
+              <Button onClick={handleAddAccount}>
+                <Plus className="mr-2 h-4 w-4" /> Add Bank Account
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-md md:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingAccount ? "Edit Bank Account" : "Add Bank Account"}</DialogTitle>
+            <DialogDescription>
+              {editingAccount ? "Update the bank account details below" : "Enter the bank account details below"}
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="accountName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Account Holder Name</FormLabel>
+                      <FormLabel>Account Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="ORIZEN INC" {...field} />
+                        <Input placeholder="Account holder name" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -288,20 +335,7 @@ export default function BankAccountsPage() {
                     <FormItem>
                       <FormLabel>Account Number</FormLabel>
                       <FormControl>
-                        <Input placeholder="08751010024993" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="routingNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Routing Number / IBAN</FormLabel>
-                      <FormControl>
-                        <Input placeholder="PK51ALFH0875001010024993" {...field} />
+                        <Input placeholder="Account number" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -314,7 +348,7 @@ export default function BankAccountsPage() {
                     <FormItem>
                       <FormLabel>Bank Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Bank Alfalah" {...field} />
+                        <Input placeholder="Bank name" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -343,14 +377,26 @@ export default function BankAccountsPage() {
                 />
                 <FormField
                   control={form.control}
+                  name="routingNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Routing Number / IBAN</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Routing number or IBAN" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="swiftCode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Swift Code</FormLabel>
+                      <FormLabel>Swift Code (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="ALFHPKKAXXX" {...field} />
+                        <Input placeholder="Swift code" {...field} />
                       </FormControl>
-                      <FormDescription>Optional international bank code</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -360,11 +406,10 @@ export default function BankAccountsPage() {
                   name="branchName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Branch Name</FormLabel>
+                      <FormLabel>Branch Name (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="EME DHA Br.LHR" {...field} />
+                        <Input placeholder="Branch name" {...field} />
                       </FormControl>
-                      <FormDescription>Optional branch name</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -374,155 +419,40 @@ export default function BankAccountsPage() {
                   name="branchCode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Branch Code</FormLabel>
+                      <FormLabel>Branch Code (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="0875" {...field} />
+                        <Input placeholder="Branch code" {...field} />
                       </FormControl>
-                      <FormDescription>Optional branch code</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="isDefault"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Set as Default Account</FormLabel>
-                        <FormDescription>This account will be shown to clients for payments</FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : selectedAccount ? (
-                      "Update Account"
-                    ) : (
-                      "Add Account"
-                    )}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Available Bank Accounts</CardTitle>
-          <CardDescription>Manage the bank accounts that clients can use for payments</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center items-center h-40">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : bankAccounts.length === 0 ? (
-            <div className="text-center py-10">
-              <p className="text-muted-foreground">No bank accounts found</p>
-              <Button variant="outline" className="mt-4" onClick={() => setIsDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Your First Bank Account
-              </Button>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Default</TableHead>
-                  <TableHead>Account Name</TableHead>
-                  <TableHead>Bank Name</TableHead>
-                  <TableHead>Account Number</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {bankAccounts.map((account) => (
-                  <TableRow key={account.id}>
-                    <TableCell>
-                      {account.isDefault && (
-                        <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100">
-                          <Check className="h-3 w-3 mr-1" />
-                          Default
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">{account.accountName}</TableCell>
-                    <TableCell>{account.bankName}</TableCell>
-                    <TableCell>•••• {account.accountNumber.slice(-4)}</TableCell>
-                    <TableCell>{formatDate(account.createdAt)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(account)}>
-                          <Settings className="h-4 w-4" />
-                          <span className="sr-only">Edit</span>
-                        </Button>
-                        <AlertDialog
-                          open={isDeleteDialogOpen && selectedAccount?.id === account.id}
-                          onOpenChange={(open) => {
-                            setIsDeleteDialogOpen(open)
-                            if (!open) setSelectedAccount(null)
-                          }}
-                        >
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setSelectedAccount(account)}
-                              disabled={account.isDefault}
-                              title={account.isDefault ? "Cannot delete default account" : "Delete account"}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                              <span className="sr-only">Delete</span>
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Bank Account</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete the "{account.accountName}" bank account? This action
-                                cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={handleDelete}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                {isDeleting ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Deleting...
-                                  </>
-                                ) : (
-                                  "Delete"
-                                )}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+              <FormField
+                control={form.control}
+                name="isDefault"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Default Account</FormLabel>
+                      <FormDescription>Make this the default account for receiving payments</FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <DialogFooter className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                  Cancel
+                </Button>
+                <Button type="submit">{editingAccount ? "Update Account" : "Add Account"}</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
