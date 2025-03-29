@@ -27,34 +27,28 @@ export async function getUpcomingAnnualReports(limit = 3) {
     const currentDate = new Date()
 
     try {
-      // Check if the annualReport table exists
-      const tableExists = await checkIfTableExists("annualReport")
+      // Check if the AnnualReportDeadline table exists (using the correct table name)
+      const tableExists = await checkIfTableExists("AnnualReportDeadline")
       if (!tableExists) {
-        console.log("annualReport table does not exist")
+        console.log("AnnualReportDeadline table does not exist")
         // Return empty array instead of error to avoid breaking the UI
         return { reports: [] }
       }
 
       console.log("Attempting to fetch annual reports from database")
 
-      // Fetch all annual reports with related business and user data
-      // Using raw query to avoid Prisma type issues
+      // Fetch all annual reports from the correct table
+      // Using raw query with the correct table name
       const allReports = await db.$queryRaw`
         SELECT 
-          ar.id, 
-          ar.title, 
-          ar.status, 
-          ar.createdAt, 
-          ar.dueDate,
-          ar.year,
-          ar.businessId,
-          b.name as businessName,
-          u.name as userName,
-          u.id as userId
-        FROM "annualReport" ar
-        LEFT JOIN "business" b ON ar."businessId" = b.id
-        LEFT JOIN "user" u ON ar."userId" = u.id
-        ORDER BY ar."dueDate" ASC
+          id, 
+          title, 
+          status, 
+          dueDate,
+          userId,
+          description
+        FROM "AnnualReportDeadline"
+        ORDER BY "dueDate" ASC
         LIMIT ${limit * 2}
       `
 
@@ -80,22 +74,27 @@ export async function getUpcomingAnnualReports(limit = 3) {
 
       // Process reports to ensure consistent format
       const processedReports = upcomingReports.map((report: any) => {
-        const businessName = report.businessName || "Unknown Business"
-        const businessId = report.businessId || "unknown-business"
+        // Get user information if available
+        const userId = report.userId || "unknown-user"
+
+        // Format the title
+        const title = report.title || `Annual Report ${new Date(report.dueDate).getFullYear()}`
 
         return {
           id: report.id,
-          title: report.title || `Annual Report ${report.year || new Date().getFullYear()}`,
+          title: title,
           status: report.status || "pending",
-          createdAt: report.createdAt instanceof Date ? report.createdAt.toISOString() : report.createdAt,
+          createdAt: new Date().toISOString(), // Use current date if not available
           dueDate: report.dueDate
             ? report.dueDate instanceof Date
               ? report.dueDate.toISOString()
               : report.dueDate
             : null,
-          businessName,
-          businessId,
-          year: report.year || new Date().getFullYear().toString(),
+          businessName: report.description || "Business", // Use description as business name if available
+          businessId: userId,
+          year: report.dueDate
+            ? new Date(report.dueDate).getFullYear().toString()
+            : new Date().getFullYear().toString(),
         }
       })
 
