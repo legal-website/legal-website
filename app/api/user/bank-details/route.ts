@@ -7,12 +7,16 @@ import { db } from "@/lib/db"
 // Define the schema for validation
 const bankDetailsSchema = z.object({
   accountName: z.string().min(2, { message: "Account name is required" }),
-  accountNumber: z.string().min(8, { message: "Valid account number is required" }),
-  routingNumber: z.string().min(9, { message: "Valid routing number is required" }),
+  accountNumber: z.string().min(1, { message: "Account number is required" }),
+  routingNumber: z.string().min(1, { message: "Routing number is required" }),
   bankName: z.string().min(2, { message: "Bank name is required" }),
   accountType: z.enum(["checking", "savings"], {
     required_error: "Please select an account type",
   }),
+  swiftCode: z.string().optional(),
+  branchName: z.string().optional(),
+  branchCode: z.string().optional(),
+  isDefault: z.boolean().optional().default(false),
 })
 
 // GET handler to fetch bank details (for both admin and client)
@@ -35,6 +39,7 @@ export async function GET(req: NextRequest) {
     if (!bankDetails) {
       return NextResponse.json({
         bankDetails: {
+          id: "default",
           accountName: "ORIZEN INC",
           accountNumber: "08751010024993",
           routingNumber: "PK51ALFH0875001010024993", // Using IBAN as routing number
@@ -43,6 +48,9 @@ export async function GET(req: NextRequest) {
           swiftCode: "ALFHPKKAXXX",
           branchName: "EME DHA Br.LHR",
           branchCode: "0875",
+          isDefault: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         },
       })
     }
@@ -50,7 +58,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ bankDetails })
   } catch (error) {
     console.error("Error fetching bank details:", error)
-    return NextResponse.json({ message: "Failed to fetch bank details" }, { status: 500 })
+    return NextResponse.json({ message: "Failed to fetch bank details", error: String(error) }, { status: 500 })
   }
 }
 
@@ -82,16 +90,21 @@ export async function POST(req: NextRequest) {
 
     // If this is set as default, unset any existing default
     if (data.isDefault) {
-      const currentDefaultAccounts = await db.bankAccount.findMany({
-        where: { isDefault: true },
-      })
-
-      // Update each account individually
-      for (const account of currentDefaultAccounts) {
-        await db.bankAccount.update({
-          where: { id: account.id },
-          data: { isDefault: false },
+      try {
+        const currentDefaultAccounts = await db.bankAccount.findMany({
+          where: { isDefault: true },
         })
+
+        // Update each account individually
+        for (const account of currentDefaultAccounts) {
+          await db.bankAccount.update({
+            where: { id: account.id },
+            data: { isDefault: false },
+          })
+        }
+      } catch (error) {
+        console.error("Error updating existing default accounts:", error)
+        // Continue with the creation even if this fails
       }
     }
 
@@ -101,6 +114,9 @@ export async function POST(req: NextRequest) {
         ...validatedData,
         createdBy: userId,
         isDefault: data.isDefault || false,
+        swiftCode: data.swiftCode || null,
+        branchName: data.branchName || null,
+        branchCode: data.branchCode || null,
       },
     })
 
@@ -111,7 +127,13 @@ export async function POST(req: NextRequest) {
     }
 
     console.error("Error creating bank details:", error)
-    return NextResponse.json({ message: "Failed to create bank details" }, { status: 500 })
+    return NextResponse.json(
+      {
+        message: "Failed to create bank details",
+        error: String(error),
+      },
+      { status: 500 },
+    )
   }
 }
 
@@ -155,19 +177,24 @@ export async function PUT(req: NextRequest) {
 
     // If this is set as default, unset any existing default
     if (data.isDefault) {
-      const currentDefaultAccounts = await db.bankAccount.findMany({
-        where: {
-          isDefault: true,
-          id: { not: bankId },
-        },
-      })
-
-      // Update each account individually
-      for (const account of currentDefaultAccounts) {
-        await db.bankAccount.update({
-          where: { id: account.id },
-          data: { isDefault: false },
+      try {
+        const currentDefaultAccounts = await db.bankAccount.findMany({
+          where: {
+            isDefault: true,
+            id: { not: bankId },
+          },
         })
+
+        // Update each account individually
+        for (const account of currentDefaultAccounts) {
+          await db.bankAccount.update({
+            where: { id: account.id },
+            data: { isDefault: false },
+          })
+        }
+      } catch (error) {
+        console.error("Error updating existing default accounts:", error)
+        // Continue with the update even if this fails
       }
     }
 
@@ -177,6 +204,9 @@ export async function PUT(req: NextRequest) {
       data: {
         ...validatedData,
         isDefault: data.isDefault || false,
+        swiftCode: data.swiftCode || null,
+        branchName: data.branchName || null,
+        branchCode: data.branchCode || null,
       },
     })
 
@@ -187,7 +217,13 @@ export async function PUT(req: NextRequest) {
     }
 
     console.error("Error updating bank details:", error)
-    return NextResponse.json({ message: "Failed to update bank details" }, { status: 500 })
+    return NextResponse.json(
+      {
+        message: "Failed to update bank details",
+        error: String(error),
+      },
+      { status: 500 },
+    )
   }
 }
 
@@ -234,7 +270,13 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ message: "Bank details deleted successfully" })
   } catch (error) {
     console.error("Error deleting bank details:", error)
-    return NextResponse.json({ message: "Failed to delete bank details" }, { status: 500 })
+    return NextResponse.json(
+      {
+        message: "Failed to delete bank details",
+        error: String(error),
+      },
+      { status: 500 },
+    )
   }
 }
 

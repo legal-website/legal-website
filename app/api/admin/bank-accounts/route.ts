@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from "next/server"
 import { validateSession } from "@/lib/session-utils"
 import { db } from "@/lib/db"
 
-// GET handler to fetch all bank accounts (admin only)
 export async function GET(req: NextRequest) {
   try {
     const { isValid, response, userId } = await validateSession()
@@ -21,7 +20,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "Only administrators can access bank accounts" }, { status: 403 })
     }
 
-    // Fetch all bank accounts
+    // Fetch all bank accounts, ordered by isDefault (true first) and then by createdAt
     const bankAccounts = await db.bankAccount.findMany({
       orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     })
@@ -29,7 +28,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ bankAccounts })
   } catch (error) {
     console.error("Error fetching bank accounts:", error)
-    return NextResponse.json({ message: "Failed to fetch bank accounts" }, { status: 500 })
+    return NextResponse.json(
+      {
+        message: "Failed to fetch bank accounts",
+        error: String(error),
+      },
+      { status: 500 },
+    )
   }
 }
 

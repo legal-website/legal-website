@@ -21,23 +21,58 @@ type BankDetails = {
 }
 
 export default function PaymentMethodPage() {
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [bankDetails, setBankDetails] = useState<BankDetails | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Fetch bank details
   useEffect(() => {
     const fetchBankDetails = async () => {
       setIsLoading(true)
+      setError(null)
       try {
         const response = await fetch("/api/user/bank-details")
-        if (response.ok) {
-          const data = await response.json()
-          if (data.bankDetails) {
-            setBankDetails(data.bankDetails)
-          }
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error("Error response:", errorData)
+          throw new Error(errorData.message || "Failed to fetch bank details")
+        }
+
+        const data = await response.json()
+        if (data.bankDetails) {
+          setBankDetails(data.bankDetails)
+        } else {
+          // Use default ORIZEN INC details if none returned
+          setBankDetails({
+            id: "default",
+            accountName: "ORIZEN INC",
+            accountNumber: "08751010024993",
+            routingNumber: "PK51ALFH0875001010024993",
+            bankName: "Bank Alfalah",
+            accountType: "checking",
+            swiftCode: "ALFHPKKAXXX",
+            branchName: "EME DHA Br.LHR",
+            branchCode: "0875",
+            isDefault: true,
+          })
         }
       } catch (error) {
         console.error("Error fetching bank details:", error)
+        setError(String(error))
+        // Use default ORIZEN INC details if there's an error
+        setBankDetails({
+          id: "default",
+          accountName: "ORIZEN INC",
+          accountNumber: "08751010024993",
+          routingNumber: "PK51ALFH0875001010024993",
+          bankName: "Bank Alfalah",
+          accountType: "checking",
+          swiftCode: "ALFHPKKAXXX",
+          branchName: "EME DHA Br.LHR",
+          branchCode: "0875",
+          isDefault: true,
+        })
       } finally {
         setIsLoading(false)
       }

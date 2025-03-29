@@ -25,8 +25,8 @@ import * as z from "zod"
 // Define the schema for validation
 const bankDetailsSchema = z.object({
   accountName: z.string().min(2, { message: "Account name is required" }),
-  accountNumber: z.string().min(8, { message: "Valid account number is required" }),
-  routingNumber: z.string().min(9, { message: "Valid routing number is required" }),
+  accountNumber: z.string().min(1, { message: "Account number is required" }),
+  routingNumber: z.string().min(1, { message: "Routing number is required" }),
   bankName: z.string().min(2, { message: "Bank name is required" }),
   accountType: z.enum(["checking", "savings"], {
     required_error: "Please select an account type",
@@ -56,9 +56,11 @@ type BankAccount = {
 
 export default function PaymentMethodsPage() {
   const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const form = useForm<BankDetailsFormValues>({
     resolver: zodResolver(bankDetailsSchema),
@@ -68,6 +70,9 @@ export default function PaymentMethodsPage() {
       routingNumber: "",
       bankName: "",
       accountType: "checking",
+      swiftCode: "",
+      branchName: "",
+      branchCode: "",
       isDefault: false,
     },
   })
@@ -75,17 +80,22 @@ export default function PaymentMethodsPage() {
   // Fetch bank accounts
   const fetchBankAccounts = async () => {
     setIsLoading(true)
+    setError(null)
     try {
       const response = await fetch("/api/admin/bank-accounts")
-      if (response.ok) {
-        const data = await response.json()
-        setBankAccounts(data.bankAccounts || [])
-      } else {
-        toast.error("Failed to fetch bank accounts")
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Error response:", errorData)
+        throw new Error(errorData.message || "Failed to fetch bank accounts")
       }
+
+      const data = await response.json()
+      setBankAccounts(data.bankAccounts || [])
     } catch (error) {
       console.error("Error fetching bank accounts:", error)
-      toast.error("An error occurred while fetching bank accounts")
+      setError(String(error))
+      toast.error("Failed to fetch bank accounts")
     } finally {
       setIsLoading(false)
     }
@@ -97,12 +107,15 @@ export default function PaymentMethodsPage() {
 
   // Handle form submission
   const onSubmit = async (values: BankDetailsFormValues) => {
+    setIsSubmitting(true)
+    setError(null)
     try {
-      const url = editingAccount ? "/api/user/bank-details" : "/api/user/bank-details"
-
+      const url = "/api/user/bank-details"
       const method = editingAccount ? "PUT" : "POST"
 
       const payload = editingAccount ? { ...values, id: editingAccount.id } : values
+
+      console.log("Submitting payload:", payload)
 
       const response = await fetch(url, {
         method,
@@ -112,19 +125,25 @@ export default function PaymentMethodsPage() {
         body: JSON.stringify(payload),
       })
 
-      if (response.ok) {
-        toast.success(editingAccount ? "Bank account updated successfully" : "Bank account added successfully")
-        setIsDialogOpen(false)
-        form.reset()
-        setEditingAccount(null)
-        fetchBankAccounts()
-      } else {
-        const data = await response.json()
-        toast.error(data.message || "Failed to save bank account")
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Error response:", errorData)
+        throw new Error(errorData.message || `Failed to ${editingAccount ? "update" : "create"} bank account`)
       }
+
+      const data = await response.json()
+
+      toast.success(editingAccount ? "Bank account updated successfully" : "Bank account added successfully")
+      setIsDialogOpen(false)
+      form.reset()
+      setEditingAccount(null)
+      fetchBankAccounts()
     } catch (error) {
       console.error("Error saving bank account:", error)
-      toast.error("An error occurred while saving bank account")
+      setError(String(error))
+      toast.error(String(error) || "An error occurred while saving bank account")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -134,21 +153,27 @@ export default function PaymentMethodsPage() {
       return
     }
 
+    setIsLoading(true)
+    setError(null)
     try {
       const response = await fetch(`/api/user/bank-details?id=${id}`, {
         method: "DELETE",
       })
 
-      if (response.ok) {
-        toast.success("Bank account deleted successfully")
-        fetchBankAccounts()
-      } else {
-        const data = await response.json()
-        toast.error(data.message || "Failed to delete bank account")
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Error response:", errorData)
+        throw new Error(errorData.message || "Failed to delete bank account")
       }
+
+      toast.success("Bank account deleted successfully")
+      fetchBankAccounts()
     } catch (error) {
       console.error("Error deleting bank account:", error)
-      toast.error("An error occurred while deleting bank account")
+      setError(String(error))
+      toast.error(String(error) || "An error occurred while deleting bank account")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -223,6 +248,13 @@ export default function PaymentMethodsPage() {
           </Button>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-destructive/10 text-destructive p-4 rounded-md">
+          <p className="font-medium">Error</p>
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -447,7 +479,16 @@ export default function PaymentMethodsPage() {
                 <Button type="button" variant="outline" onClick={handleCloseDialog}>
                   Cancel
                 </Button>
-                <Button type="submit">{editingAccount ? "Update Account" : "Add Account"}</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {editingAccount ? "Updating..." : "Adding..."}
+                    </>
+                  ) : (
+                    <>{editingAccount ? "Update Account" : "Add Account"}</>
+                  )}
+                </Button>
               </DialogFooter>
             </form>
           </Form>

@@ -562,21 +562,23 @@ model PersonalDetailsMember {
 
   @@index([personalDetailsId])
 }
-// Add BankAccount model
 model BankAccount {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  accountName   String
+  id           String   @id @default(cuid())
+  accountName  String
   accountNumber String
   routingNumber String
-  bankName      String
-  accountType   String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
+  bankName     String
+  accountType  String
+  swiftCode    String?
+  branchName   String?
+  branchCode   String?
+  isDefault    Boolean  @default(false)
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-// Add PaymentMethod model
+  @@index([isDefault])
+}
 model PaymentMethod {
   id            String   @id @default(cuid())
   name          String
