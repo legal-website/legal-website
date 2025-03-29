@@ -54,29 +54,7 @@ export interface VerificationTokenModel {
   user?: UserModel
 }
 
-// Add these interfaces after the UserModel interface
-
-// PersonalDetails model
-export interface PersonalDetailsModel {
-  id: string
-  userId: string
-  clientName: string
-  companyName: string
-  currentAddress: string
-  businessPurpose: string
-  idCardFrontUrl: string
-  idCardBackUrl: string
-  passportUrl: string
-  status: string // pending, approved, rejected
-  adminNotes?: string | null
-  isRedirectDisabled: boolean
-  createdAt: Date
-  updatedAt: Date
-  user?: UserModel
-}
-
-// Add this to the UserModel interface
-// Update the UserModel interface to include personalDetails
+// Define User model for relationships
 export interface UserModel {
   id: string
   name: string | null
@@ -86,6 +64,8 @@ export interface UserModel {
   businessId?: string | null
   business?: BusinessModel | null
   personalDetails?: PersonalDetailsModel | null
+  bankAccount?: BankAccountModel | null
+  createdPaymentMethods?: PaymentMethodModel[]
   // Add other fields as needed
 }
 
@@ -217,8 +197,6 @@ export interface CommentModel {
   authorId: string
   createdAt: Date
   updatedAt: Date
-  isBestAnswer?: boolean // Add this field
-  moderationNotes?: string | null // Add this field
   post?: PostModel
   author?: UserModel
   likes?: LikeModel[]
@@ -388,21 +366,6 @@ export interface UserDelegate {
   create: (args: { data: any; include?: any }) => Promise<UserModel>
   update: (args: { where: { id: string }; data: any }) => Promise<UserModel>
   delete: (args: { where: { id: string } }) => Promise<UserModel>
-  count: (args?: any) => Promise<number>
-}
-
-// Add this delegate after the UserDelegate
-export interface PersonalDetailsDelegate {
-  findUnique: (args: {
-    where: { id: string } | { userId: string }
-    include?: any
-  }) => Promise<PersonalDetailsModel | null>
-  findFirst: (args: { where: any; include?: any }) => Promise<PersonalDetailsModel | null>
-  findMany: (args?: any) => Promise<PersonalDetailsModel[]>
-  create: (args: { data: any; include?: any }) => Promise<PersonalDetailsModel>
-  update: (args: { where: { id: string } | { userId: string }; data: any }) => Promise<PersonalDetailsModel>
-  upsert: (args: { where: any; create: any; update: any }) => Promise<PersonalDetailsModel>
-  delete: (args: { where: { id: string } }) => Promise<PersonalDetailsModel>
   count: (args?: any) => Promise<number>
 }
 
@@ -604,29 +567,109 @@ export interface CouponUsageDelegate {
   count: (args?: any) => Promise<number>
 }
 
-// Notification model and delegate
+// Add these interfaces to your existing interfaces in prisma-types.ts
+
+// Notification model
 export interface NotificationModel {
   id: string
-  userId: string
-  type: string
   title: string
-  body: string
-  data: string | null
+  message: string
+  type: string // "info", "success", "warning", "error"
   read: boolean
+  link?: string | null
+  userId: string
   createdAt: Date
   updatedAt: Date
+  user?: UserModel
 }
 
+// Notification delegate
 export interface NotificationDelegate {
   findMany: (args?: any) => Promise<NotificationModel[]>
   findUnique: (args: { where: { id: string } }) => Promise<NotificationModel | null>
   create: (args: { data: any }) => Promise<NotificationModel>
   update: (args: { where: { id: string }; data: any }) => Promise<NotificationModel>
   delete: (args: { where: { id: string } }) => Promise<NotificationModel>
+  deleteMany: (args: { where: any }) => Promise<{ count: number }>
+  updateMany: (args: { where: any; data: any }) => Promise<{ count: number }>
+  count: (args?: any) => Promise<number>
+}
+
+// Add these interfaces to your existing interfaces
+
+// BankAccount model
+export interface BankAccountModel {
+  id: string
+  userId: string
+  accountName: string
+  accountNumber: string
+  routingNumber: string
+  bankName: string
+  accountType: string
+  createdAt: Date
+  updatedAt: Date
+  user?: UserModel
+}
+
+// PaymentMethod model
+export interface PaymentMethodModel {
+  id: string
+  name: string
+  description: string | null
+  isActive: boolean
+  createdBy: string
+  createdAt: Date
+  updatedAt: Date
+  creator?: UserModel
+}
+
+// Add these delegates to your ExtendedPrismaClient interface
+export interface BankAccountDelegate {
+  findUnique: (args: { where: { id: string } | { userId: string } }) => Promise<BankAccountModel | null>
+  findFirst: (args: { where: any }) => Promise<BankAccountModel | null>
+  findMany: (args?: any) => Promise<BankAccountModel[]>
+  create: (args: { data: any }) => Promise<BankAccountModel>
+  update: (args: { where: { id: string } | { userId: string }; data: any }) => Promise<BankAccountModel>
+  delete: (args: { where: { id: string } | { userId: string } }) => Promise<BankAccountModel>
+  upsert: (args: { where: any; create: any; update: any }) => Promise<BankAccountModel>
+}
+
+export interface PaymentMethodDelegate {
+  findUnique: (args: { where: { id: string } }) => Promise<PaymentMethodModel | null>
+  findFirst: (args: { where: any }) => Promise<PaymentMethodModel | null>
+  findMany: (args?: any) => Promise<PaymentMethodModel[]>
+  create: (args: { data: any }) => Promise<PaymentMethodModel>
+  update: (args: { where: { id: string }; data: any }) => Promise<PaymentMethodModel>
+  delete: (args: { where: { id: string } }) => Promise<PaymentMethodModel>
   count: (args?: any) => Promise<number>
 }
 
 // Then update your ExtendedPrismaClient type to include the user property
+export interface PersonalDetailsModel {
+  id: string
+  userId: string
+  firstName?: string | null
+  lastName?: string | null
+  dob?: Date | null
+  phone?: string | null
+  address1?: string | null
+  address2?: string | null
+  city?: string | null
+  state?: string | null
+  zip?: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface PersonalDetailsDelegate {
+  findUnique: (args: { where: { id: string } }) => Promise<PersonalDetailsModel | null>
+  findFirst: (args: { where: any }) => Promise<PersonalDetailsModel | null>
+  findMany: (args?: any) => Promise<PersonalDetailsModel[]>
+  create: (args: { data: any }) => Promise<PersonalDetailsModel>
+  update: (args: { where: { id: string }; data: any }) => Promise<PersonalDetailsModel>
+  delete: (args: { where: { id: string } }) => Promise<PersonalDetailsModel>
+}
+
 export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   amendment: AmendmentDelegate
   amendmentStatusHistory: AmendmentStatusHistoryDelegate
@@ -650,8 +693,6 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   systemSettings: SystemSettingsDelegate
   // Add pricing settings model
   pricingSettings: PricingSettingsDelegate
-  // Add personal details model
-  personalDetails: PersonalDetailsDelegate
 
   // Add affiliate delegates
   affiliateLink: AffiliateLinkDelegate
@@ -662,6 +703,10 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
 
   // Add notification delegate
   notification: NotificationDelegate
+
+  // Add bank account and payment method delegates
+  bankAccount: BankAccountDelegate
+  paymentMethod: PaymentMethodDelegate
 
   // ... existing delegates
   coupon: CouponDelegate

@@ -1,741 +1,376 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
+import { toast } from "sonner"
+import { Loader2, Plus, Settings, Trash2 } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
-import { Check, Edit, Plus, Trash } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { CustomBadge as Badge } from "@/components/ui/custom-badge"
 
-// Define types for our pricing data
-interface PricingTier {
-  id: number | string
-  name: string
-  price: number
-  displayPrice?: string
-  description: string
-  features: string[]
-  isRecommended?: boolean
-  includesPackage?: string
-  hasAssistBadge?: boolean
-  billingCycle: string
+// Define the form schema
+const paymentMethodSchema = z.object({
+  name: z.string().min(2, { message: "Name is required" }),
+  description: z.string().optional(),
+  isActive: z.boolean().default(true),
+})
+
+type PaymentMethod = z.infer<typeof paymentMethodSchema> & {
+  id: string
+  createdAt: string
+  updatedAt: string
+  createdBy: string
 }
 
-interface StateFilingFees {
-  [state: string]: number
-}
+export default function PaymentMethodsPage() {
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
-interface StateDiscounts {
-  [state: string]: number
-}
-
-interface StateDescriptions {
-  [state: string]: string
-}
-
-interface PricingData {
-  plans: PricingTier[]
-  stateFilingFees: StateFilingFees
-  stateDiscounts: StateDiscounts
-  stateDescriptions: StateDescriptions
-}
-
-export default function PricingManagementPage() {
-  const { toast } = useToast()
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [pricingData, setPricingData] = useState<PricingData>({
-    plans: [],
-    stateFilingFees: {},
-    stateDiscounts: {},
-    stateDescriptions: {},
+  // Initialize form
+  const form = useForm<z.infer<typeof paymentMethodSchema>>({
+    resolver: zodResolver(paymentMethodSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      isActive: true,
+    },
   })
 
-  // State for editing plans
-  const [editingPlanId, setEditingPlanId] = useState<number | string | null>(null)
-  const [planName, setPlanName] = useState("")
-  const [planPrice, setPlanPrice] = useState(0)
-  const [planDescription, setPlanDescription] = useState("")
-  const [planFeatures, setPlanFeatures] = useState<string[]>([])
-  const [planIsRecommended, setPlanIsRecommended] = useState(false)
-  const [planIncludesPackage, setPlanIncludesPackage] = useState("")
-  const [planHasAssistBadge, setPlanHasAssistBadge] = useState(false)
-  const [planBillingCycle, setPlanBillingCycle] = useState("one-time")
-  const [newFeature, setNewFeature] = useState("")
-
-  // State for editing states
-  const [editingState, setEditingState] = useState<string | null>(null)
-  const [stateFee, setStateFee] = useState(0)
-  const [stateDiscount, setStateDiscount] = useState<number | null>(null)
-  const [stateDescription, setStateDescription] = useState("")
-
-  // State for adding new plan
-  const [showAddPlan, setShowAddPlan] = useState(false)
-
-  // State for adding new state
-  const [showAddState, setShowAddState] = useState(false)
-  const [newStateName, setNewStateName] = useState("")
-  const [newStateFee, setNewStateFee] = useState(0)
-  const [newStateDiscount, setNewStateDiscount] = useState<number | null>(null)
-  const [newStateDescription, setNewStateDescription] = useState("")
-
-  // Fetch pricing data
+  // Fetch payment methods
   useEffect(() => {
-    const fetchPricingData = async () => {
+    const fetchPaymentMethods = async () => {
+      setIsLoading(true)
       try {
-        setLoading(true)
-        const response = await fetch("/api/pricing")
-        if (!response.ok) {
-          throw new Error("Failed to fetch pricing data")
+        const response = await fetch("/api/admin/payment-methods")
+        if (response.ok) {
+          const data = await response.json()
+          setPaymentMethods(data.paymentMethods)
         }
-        const data = await response.json()
-        setPricingData(data)
       } catch (error) {
-        console.error("Error fetching pricing data:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load pricing data",
-          variant: "destructive",
-        })
+        console.error("Error fetching payment methods:", error)
+        toast.error("Failed to load payment methods")
       } finally {
-        setLoading(false)
+        setIsLoading(false)
       }
     }
 
-    fetchPricingData()
-  }, [toast])
+    fetchPaymentMethods()
+  }, [])
 
-  // Save pricing data
-  const savePricingData = async () => {
+  // Handle form submission
+  const onSubmit = async (data: z.infer<typeof paymentMethodSchema>) => {
+    setIsSaving(true)
     try {
-      setSaving(true)
-      const response = await fetch("/api/pricing", {
-        method: "POST",
+      const url = selectedMethod ? `/api/admin/payment-methods/${selectedMethod.id}` : "/api/admin/payment-methods"
+
+      const method = selectedMethod ? "PUT" : "POST"
+
+      const response = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(pricingData),
+        body: JSON.stringify(data),
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to save pricing data")
-      }
+      if (response.ok) {
+        const result = await response.json()
 
-      toast({
-        title: "Success",
-        description: "Pricing data saved successfully",
-      })
-    } catch (error) {
-      console.error("Error saving pricing data:", error)
-      toast({
-        title: "Error",
-        description: "Failed to save pricing data",
-        variant: "destructive",
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
+        if (selectedMethod) {
+          setPaymentMethods((prev) =>
+            prev.map((method) => (method.id === selectedMethod.id ? result.paymentMethod : method)),
+          )
+          toast.success("Payment method updated")
+        } else {
+          setPaymentMethods((prev) => [...prev, result.paymentMethod])
+          toast.success("Payment method added")
+        }
 
-  // Start editing a plan
-  const startEditingPlan = (plan: PricingTier) => {
-    setEditingPlanId(plan.id)
-    setPlanName(plan.name)
-    setPlanPrice(plan.price)
-    setPlanDescription(plan.description)
-    setPlanFeatures([...plan.features])
-    setPlanIsRecommended(plan.isRecommended || false)
-    setPlanIncludesPackage(plan.includesPackage || "")
-    setPlanHasAssistBadge(plan.hasAssistBadge || false)
-    setPlanBillingCycle(plan.billingCycle)
-    setShowAddPlan(true)
-  }
-
-  // Save plan changes
-  const savePlanChanges = () => {
-    if (editingPlanId) {
-      // Update existing plan
-      setPricingData((prev) => ({
-        ...prev,
-        plans: prev.plans.map((plan) =>
-          plan.id === editingPlanId
-            ? {
-                ...plan,
-                name: planName,
-                price: planPrice,
-                displayPrice: `$${planPrice}`,
-                description: planDescription,
-                features: planFeatures,
-                isRecommended: planIsRecommended,
-                includesPackage: planIncludesPackage || undefined,
-                hasAssistBadge: planHasAssistBadge,
-                billingCycle: planBillingCycle,
-              }
-            : plan,
-        ),
-      }))
-    } else {
-      // Add new plan
-      const newPlan: PricingTier = {
-        id: Date.now(),
-        name: planName,
-        price: planPrice,
-        displayPrice: `$${planPrice}`,
-        description: planDescription,
-        features: planFeatures,
-        isRecommended: planIsRecommended,
-        includesPackage: planIncludesPackage || undefined,
-        hasAssistBadge: planHasAssistBadge,
-        billingCycle: planBillingCycle,
-      }
-
-      setPricingData((prev) => ({
-        ...prev,
-        plans: [...prev.plans, newPlan],
-      }))
-    }
-
-    // Reset form
-    resetPlanForm()
-    setShowAddPlan(false)
-
-    toast({
-      title: "Success",
-      description: editingPlanId ? "Plan updated successfully" : "Plan added successfully",
-    })
-  }
-
-  // Reset plan form
-  const resetPlanForm = () => {
-    setEditingPlanId(null)
-    setPlanName("")
-    setPlanPrice(0)
-    setPlanDescription("")
-    setPlanFeatures([])
-    setPlanIsRecommended(false)
-    setPlanIncludesPackage("")
-    setPlanHasAssistBadge(false)
-    setPlanBillingCycle("one-time")
-    setNewFeature("")
-  }
-
-  // Add feature to plan
-  const addFeature = () => {
-    if (newFeature.trim()) {
-      setPlanFeatures((prev) => [...prev, newFeature.trim()])
-      setNewFeature("")
-    }
-  }
-
-  // Remove feature from plan
-  const removeFeature = (index: number) => {
-    setPlanFeatures((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  // Delete plan
-  const deletePlan = (id: number | string) => {
-    setPricingData((prev) => ({
-      ...prev,
-      plans: prev.plans.filter((plan) => plan.id !== id),
-    }))
-
-    toast({
-      title: "Success",
-      description: "Plan deleted successfully",
-    })
-  }
-
-  // Start editing a state
-  const startEditingState = (state: string) => {
-    setEditingState(state)
-    setStateFee(pricingData.stateFilingFees[state])
-    setStateDiscount(pricingData.stateDiscounts[state] || null)
-    setStateDescription(pricingData.stateDescriptions[state] || "")
-  }
-
-  // Save state changes
-  const saveStateChanges = () => {
-    if (editingState) {
-      // Update existing state
-      const updatedFilingFees = { ...pricingData.stateFilingFees }
-      updatedFilingFees[editingState] = stateFee
-
-      const updatedDiscounts = { ...pricingData.stateDiscounts }
-      if (stateDiscount !== null) {
-        updatedDiscounts[editingState] = stateDiscount
+        setIsDialogOpen(false)
+        setSelectedMethod(null)
+        form.reset({
+          name: "",
+          description: "",
+          isActive: true,
+        })
       } else {
-        delete updatedDiscounts[editingState]
+        const errorData = await response.json()
+        toast.error(errorData.message || "Failed to save payment method")
       }
-
-      const updatedDescriptions = { ...pricingData.stateDescriptions }
-      updatedDescriptions[editingState] = stateDescription
-
-      setPricingData((prev) => ({
-        ...prev,
-        stateFilingFees: updatedFilingFees,
-        stateDiscounts: updatedDiscounts,
-        stateDescriptions: updatedDescriptions,
-      }))
-
-      // Reset form
-      setEditingState(null)
-      setStateFee(0)
-      setStateDiscount(null)
-      setStateDescription("")
-
-      toast({
-        title: "Success",
-        description: "State updated successfully",
-      })
+    } catch (error) {
+      console.error("Error saving payment method:", error)
+      toast.error("An unexpected error occurred")
+    } finally {
+      setIsSaving(false)
     }
   }
 
-  // Add new state
-  const addNewState = () => {
-    if (newStateName.trim()) {
-      const updatedFilingFees = { ...pricingData.stateFilingFees }
-      updatedFilingFees[newStateName] = newStateFee
+  // Handle payment method deletion
+  const handleDelete = async () => {
+    if (!selectedMethod) return
 
-      const updatedDiscounts = { ...pricingData.stateDiscounts }
-      if (newStateDiscount !== null) {
-        updatedDiscounts[newStateName] = newStateDiscount
-      }
-
-      const updatedDescriptions = { ...pricingData.stateDescriptions }
-      updatedDescriptions[newStateName] = newStateDescription
-
-      setPricingData((prev) => ({
-        ...prev,
-        stateFilingFees: updatedFilingFees,
-        stateDiscounts: updatedDiscounts,
-        stateDescriptions: updatedDescriptions,
-      }))
-
-      // Reset form
-      setNewStateName("")
-      setNewStateFee(0)
-      setNewStateDiscount(null)
-      setNewStateDescription("")
-      setShowAddState(false)
-
-      toast({
-        title: "Success",
-        description: "State added successfully",
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/admin/payment-methods/${selectedMethod.id}`, {
+        method: "DELETE",
       })
+
+      if (response.ok) {
+        setPaymentMethods((prev) => prev.filter((method) => method.id !== selectedMethod.id))
+        toast.success("Payment method deleted")
+        setIsDeleteDialogOpen(false)
+        setSelectedMethod(null)
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.message || "Failed to delete payment method")
+      }
+    } catch (error) {
+      console.error("Error deleting payment method:", error)
+      toast.error("An unexpected error occurred")
+    } finally {
+      setIsDeleting(false)
     }
   }
 
-  // Delete state
-  const deleteState = (state: string) => {
-    const updatedFilingFees = { ...pricingData.stateFilingFees }
-    delete updatedFilingFees[state]
-
-    const updatedDiscounts = { ...pricingData.stateDiscounts }
-    delete updatedDiscounts[state]
-
-    const updatedDescriptions = { ...pricingData.stateDescriptions }
-    delete updatedDescriptions[state]
-
-    setPricingData((prev) => ({
-      ...prev,
-      stateFilingFees: updatedFilingFees,
-      stateDiscounts: updatedDiscounts,
-      stateDescriptions: updatedDescriptions,
-    }))
-
-    toast({
-      title: "Success",
-      description: "State deleted successfully",
+  // Handle edit button click
+  const handleEdit = (method: PaymentMethod) => {
+    setSelectedMethod(method)
+    form.reset({
+      name: method.name,
+      description: method.description || "",
+      isActive: method.isActive,
     })
+    setIsDialogOpen(true)
   }
 
-  if (loading) {
-    return (
-      <div className="container mx-auto py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        </div>
-      </div>
-    )
+  // Format date
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Pricing Management</h1>
-        <Button onClick={savePricingData} disabled={saving}>
-          {saving ? "Saving..." : "Save All Changes"}
-        </Button>
-      </div>
-
-      <Tabs defaultValue="plans">
-        <TabsList className="mb-4">
-          <TabsTrigger value="plans">Pricing Plans</TabsTrigger>
-          <TabsTrigger value="states">State Filing Fees</TabsTrigger>
-        </TabsList>
-
-        {/* Plans Tab */}
-        <TabsContent value="plans">
-          <div className="mb-4 flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Manage Pricing Plans</h2>
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold tracking-tight">Payment Methods</h1>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
             <Button
               onClick={() => {
-                resetPlanForm()
-                setShowAddPlan(true)
+                setSelectedMethod(null)
+                form.reset({
+                  name: "",
+                  description: "",
+                  isActive: true,
+                })
               }}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Add New Plan
+              Add Payment Method
             </Button>
-          </div>
-
-          {/* Plans List */}
-          <div className="grid gap-4">
-            {pricingData.plans.map((plan) => (
-              <Card key={plan.id} className="overflow-hidden">
-                <CardHeader className="pb-2 flex flex-row justify-between items-start">
-                  <div>
-                    <CardTitle className="flex items-center">
-                      {plan.name}
-                      {plan.isRecommended && (
-                        <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                          Recommended
-                        </span>
-                      )}
-                      {plan.hasAssistBadge && (
-                        <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                          Assist
-                        </span>
-                      )}
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      ${plan.price} - {plan.billingCycle}
-                    </p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => startEditingPlan(plan)}>
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={() => deletePlan(plan.id)}>
-                      <Trash className="h-4 w-4 mr-1" />
-                      Delete
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm mb-2">{plan.description}</p>
-                  {plan.includesPackage && (
-                    <p className="text-sm font-medium mb-2">Includes {plan.includesPackage} package</p>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{selectedMethod ? "Edit Payment Method" : "Add Payment Method"}</DialogTitle>
+              <DialogDescription>
+                {selectedMethod
+                  ? "Update the payment method details below"
+                  : "Fill in the details to add a new payment method"}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Credit Card" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                  <h4 className="font-medium mb-1">Features:</h4>
-                  <ul className="space-y-1">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-start text-sm">
-                        <Check className="h-4 w-4 text-green-500 mr-2 mt-0.5" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Payment via credit card" {...field} />
+                      </FormControl>
+                      <FormDescription>Optional description of the payment method</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <div className="space-y-0.5">
+                        <FormLabel>Active</FormLabel>
+                        <FormDescription>Enable or disable this payment method</FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button type="submit" disabled={isSaving}>
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : selectedMethod ? (
+                      "Update Method"
+                    ) : (
+                      "Add Method"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-          {/* Add/Edit Plan Form */}
-          {showAddPlan && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                <h2 className="text-xl font-bold mb-4">{editingPlanId ? "Edit Plan" : "Add New Plan"}</h2>
-                <div className="grid gap-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="plan-name">Plan Name</Label>
-                      <Input
-                        id="plan-name"
-                        value={planName}
-                        onChange={(e) => setPlanName(e.target.value)}
-                        placeholder="e.g., STARTER"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="plan-price">Price ($)</Label>
-                      <Input
-                        id="plan-price"
-                        type="number"
-                        value={planPrice}
-                        onChange={(e) => setPlanPrice(Number(e.target.value))}
-                        placeholder="e.g., 129"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="plan-description">Description</Label>
-                    <Textarea
-                      id="plan-description"
-                      value={planDescription}
-                      onChange={(e) => setPlanDescription(e.target.value)}
-                      placeholder="Brief description of the plan"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="plan-package">Included Package</Label>
-                      <Input
-                        id="plan-package"
-                        value={planIncludesPackage}
-                        onChange={(e) => setPlanIncludesPackage(e.target.value)}
-                        placeholder="e.g., Basic"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="plan-billing">Billing Cycle</Label>
-                      <select
-                        id="plan-billing"
-                        className="w-full p-2 border rounded"
-                        value={planBillingCycle}
-                        onChange={(e) => setPlanBillingCycle(e.target.value)}
-                      >
-                        <option value="one-time">One-time</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="annual">Annual</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="plan-recommended" checked={planIsRecommended} onCheckedChange={setPlanIsRecommended} />
-                    <Label htmlFor="plan-recommended">Recommended Plan</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="plan-assist" checked={planHasAssistBadge} onCheckedChange={setPlanHasAssistBadge} />
-                    <Label htmlFor="plan-assist">Show Assist Badge</Label>
-                  </div>
-                  <div>
-                    <Label>Features</Label>
-                    <div className="flex space-x-2 mt-1">
-                      <Input
-                        value={newFeature}
-                        onChange={(e) => setNewFeature(e.target.value)}
-                        placeholder="Add a feature"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault()
-                            addFeature()
-                          }
-                        }}
-                      />
-                      <Button type="button" onClick={addFeature}>
-                        Add
-                      </Button>
-                    </div>
-                    <div className="mt-2 space-y-2 max-h-40 overflow-y-auto">
-                      {planFeatures.map((feature, index) => (
-                        <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                          <span className="text-sm">{feature}</span>
-                          <Button variant="ghost" size="sm" onClick={() => removeFeature(index)}>
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex justify-end space-x-2 mt-4">
-                    <Button variant="outline" onClick={() => setShowAddPlan(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={savePlanChanges}>{editingPlanId ? "Update Plan" : "Add Plan"}</Button>
-                  </div>
-                </div>
-              </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Available Payment Methods</CardTitle>
+          <CardDescription>Manage the payment methods available to your customers</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center items-center h-40">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          )}
-        </TabsContent>
-
-        {/* States Tab */}
-        <TabsContent value="states">
-          <div className="mb-4 flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Manage State Filing Fees</h2>
-            <Button onClick={() => setShowAddState(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add New State
-            </Button>
-          </div>
-
-          {/* States Table */}
-          <div className="border rounded-lg overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    State
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Filing Fee
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Discount
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Description
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {Object.keys(pricingData.stateFilingFees)
-                  .sort()
-                  .map((state) => (
-                    <tr key={state}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{state}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${pricingData.stateFilingFees[state]}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {pricingData.stateDiscounts[state] ? (
-                          <span className="text-green-600">${pricingData.stateDiscounts[state]}</span>
-                        ) : (
-                          <span className="text-gray-400">None</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                        {pricingData.stateDescriptions[state]}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Button variant="ghost" size="sm" onClick={() => startEditingState(state)} className="mr-2">
-                          <Edit className="h-4 w-4" />
+          ) : paymentMethods.length === 0 ? (
+            <div className="text-center py-10">
+              <p className="text-muted-foreground">No payment methods found</p>
+              <Button variant="outline" className="mt-4" onClick={() => setIsDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Your First Payment Method
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paymentMethods.map((method) => (
+                  <TableRow key={method.id}>
+                    <TableCell className="font-medium">{method.name}</TableCell>
+                    <TableCell>{method.description || "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant={method.isActive ? "success" : "secondary"}>
+                        {method.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{formatDate(method.createdAt)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(method)}>
+                          <Settings className="h-4 w-4" />
+                          <span className="sr-only">Edit</span>
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => deleteState(state)}>
-                          <Trash className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Edit State Form */}
-          {editingState && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg p-6 w-full max-w-md">
-                <h2 className="text-xl font-bold mb-4">Edit State: {editingState}</h2>
-                <div className="grid gap-4">
-                  <div>
-                    <Label htmlFor="state-fee">Filing Fee ($)</Label>
-                    <Input
-                      id="state-fee"
-                      type="number"
-                      value={stateFee}
-                      onChange={(e) => setStateFee(Number(e.target.value))}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="state-discount">Discount ($) (Optional)</Label>
-                    <Input
-                      id="state-discount"
-                      type="number"
-                      value={stateDiscount === null ? "" : stateDiscount}
-                      onChange={(e) => setStateDiscount(e.target.value === "" ? null : Number(e.target.value))}
-                      placeholder="Leave empty for no discount"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="state-description">Description</Label>
-                    <Textarea
-                      id="state-description"
-                      value={stateDescription}
-                      onChange={(e) => setStateDescription(e.target.value)}
-                      placeholder="e.g., Annual Report: $50 (10th April)"
-                    />
-                  </div>
-                  <div className="flex justify-end space-x-2 mt-4">
-                    <Button variant="outline" onClick={() => setEditingState(null)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={saveStateChanges}>Save Changes</Button>
-                  </div>
-                </div>
-              </div>
-            </div>
+                        <AlertDialog
+                          open={isDeleteDialogOpen && selectedMethod?.id === method.id}
+                          onOpenChange={(open) => {
+                            setIsDeleteDialogOpen(open)
+                            if (!open) setSelectedMethod(null)
+                          }}
+                        >
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => setSelectedMethod(method)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <span className="sr-only">Delete</span>
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Payment Method</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete the "{method.name}" payment method? This action cannot
+                                be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={handleDelete}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                {isDeleting ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  "Delete"
+                                )}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
-
-          {/* Add State Form */}
-          {showAddState && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg p-6 w-full max-w-md">
-                <h2 className="text-xl font-bold mb-4">Add New State</h2>
-                <div className="grid gap-4">
-                  <div>
-                    <Label htmlFor="new-state-name">State Name</Label>
-                    <Input
-                      id="new-state-name"
-                      value={newStateName}
-                      onChange={(e) => setNewStateName(e.target.value)}
-                      placeholder="e.g., California"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="new-state-fee">Filing Fee ($)</Label>
-                    <Input
-                      id="new-state-fee"
-                      type="number"
-                      value={newStateFee}
-                      onChange={(e) => setNewStateFee(Number(e.target.value))}
-                      placeholder="e.g., 70"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="new-state-discount">Discount ($) (Optional)</Label>
-                    <Input
-                      id="new-state-discount"
-                      type="number"
-                      value={newStateDiscount === null ? "" : newStateDiscount}
-                      onChange={(e) => setNewStateDiscount(e.target.value === "" ? null : Number(e.target.value))}
-                      placeholder="Leave empty for no discount"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="new-state-description">Description</Label>
-                    <Textarea
-                      id="new-state-description"
-                      value={newStateDescription}
-                      onChange={(e) => setNewStateDescription(e.target.value)}
-                      placeholder="e.g., Annual Report: $800 minimum tax + $20 filing fee (15th day of 4th month)"
-                    />
-                  </div>
-                  <div className="flex justify-end space-x-2 mt-4">
-                    <Button variant="outline" onClick={() => setShowAddState(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={addNewState}>Add State</Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+        </CardContent>
+      </Card>
     </div>
   )
 }

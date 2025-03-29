@@ -41,6 +41,8 @@ model User {
   loginSessions      LoginSession[]
   personalDetails    PersonalDetails?
   accountManagerRequest AccountManagerRequest?
+  bankAccount        BankAccount?        
+  createdPaymentMethods PaymentMethod[]  
   @@index([businessId], map: "User_businessId_fkey")
 }
 
@@ -560,3 +562,29 @@ model PersonalDetailsMember {
 
   @@index([personalDetailsId])
 }
+// Add BankAccount model
+model BankAccount {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  accountName   String
+  accountNumber String
+  routingNumber String
+  bankName      String
+  accountType   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Add PaymentMethod model
+model PaymentMethod {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  isActive      Boolean  @default(true)
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+  creator       User     @relation(fields: [createdBy], references: [id])
+}
+
