@@ -362,11 +362,13 @@ export default function CheckoutPage() {
         }),
       )
 
-      // Clear the cart after storing checkout data
-      clearCart()
-
-      // Redirect to payment page
+      // First navigate to the payment page
       router.push("/checkout/payment")
+
+      // Then clear the cart after navigation has started
+      setTimeout(() => {
+        clearCart()
+      }, 500)
     } catch (error: any) {
       console.error("Checkout error:", error)
       toast({
@@ -901,6 +903,12 @@ export default function CheckoutPage() {
               <p className="text-sm text-gray-500 mb-4">
                 By completing your purchase, you agree to our Terms of Service and Privacy Policy.
               </p>
+              <div className="flex items-center justify-center space-x-4">
+                <Image src="/Visa.svg" alt="Visa" className="h-20" width={80} height={80} />
+                <Image src="/mastercard.svg" alt="Mastercard" className="h-20" width={80} height={80} />
+                <Image src="/amex.svg" alt="Amex" className="h-20" width={80} height={80} />
+                <Image src="/stripe.svg" alt="Stripe" className="h-20" width={80} height={80} />
+              </div>
             </CardFooter>
           </Card>
         </div>
