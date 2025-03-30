@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, CheckCircle2, Clock, AlertCircle, Download } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Clock, AlertCircle, Download, LayoutDashboard } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import Image from "next/image"
 
@@ -53,6 +53,23 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [loading, setLoading] = useState(true)
   const [currencyInfo, setCurrencyInfo] = useState<CurrencyInfo | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    // Check if user is logged in
+    async function checkAuthStatus() {
+      try {
+        const response = await fetch("/api/auth/me")
+        if (response.ok) {
+          setIsLoggedIn(true)
+        }
+      } catch (error) {
+        console.error("Error checking auth status:", error)
+      }
+    }
+
+    checkAuthStatus()
+  }, [])
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null
@@ -173,6 +190,9 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
       </div>
     )
   }
+
+  // Check if the user has uploaded a receipt
+  const hasUploadedReceipt = Boolean(invoice.paymentReceipt)
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-36 mb-44">
@@ -418,91 +438,120 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
           </CardContent>
         </Card>
 
-        {invoice.status === "pending" && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
+        {/* For logged-in users with uploaded receipt, show dashboard access button */}
+        {isLoggedIn && hasUploadedReceipt && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
             <div className="flex items-start">
-              <Clock className="h-6 w-6 text-yellow-500 mr-3 mt-0.5" />
-              <div className="w-full">
-                <h3 className="font-semibold text-yellow-800 mb-2">Payment Under Review</h3>
-                <p className="text-yellow-700 mb-3">
-                  Your payment receipt is currently being reviewed by our team. This typically takes 1-2 business days.
+              <LayoutDashboard className="h-6 w-6 text-blue-500 mr-3 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-blue-800 mb-2">Access Your Dashboard</h3>
+                <p className="text-blue-700 mb-3">
+                  You can access your dashboard while we review your payment. Your receipt has been uploaded
+                  successfully.
                 </p>
-                <div className="w-full bg-yellow-200 rounded-full h-2.5 mb-2 overflow-hidden">
-                  <div
-                    className="bg-yellow-500 h-2.5 rounded-full animate-pulse"
-                    style={{
-                      width: "30%",
-                      animation: "progress 2s ease-in-out infinite alternate",
-                    }}
-                  ></div>
-                </div>
-                <p className="text-sm text-yellow-600">
-                  This page will automatically update when your payment is approved. No need to refresh.
-                </p>
-                <div className="mt-4 flex items-center text-yellow-700">
-                  <div className="animate-spin mr-2 h-4 w-4 border-2 border-yellow-500 border-t-transparent rounded-full"></div>
-                  <span>Checking for updates...</span>
-                </div>
+                <Button onClick={() => router.push("/dashboard")} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <LayoutDashboard className="mr-2 h-4 w-4" />
+                  Access Dashboard
+                </Button>
               </div>
             </div>
           </div>
         )}
 
-        {invoice.status === "paid" && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-8">
-            <div className="flex items-start">
-              <CheckCircle2 className="h-6 w-6 text-green-500 mr-3 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-green-800 mb-2">Payment Approved</h3>
-                <p className="text-green-700">Your payment has been approved. Thank you for your purchase!</p>
-                {invoice.paymentDate && (
-                  <p className="text-green-700 text-sm mt-1">
-                    Payment processed on{" "}
-                    {new Date(invoice.paymentDate).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </p>
-                )}
-                <div className="mt-4">
-                  <Button
-                    onClick={() => router.push(`/register?invoice=${invoice.id}`)}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    Continue to Registration
-                  </Button>
+        {/* Only show these status sections for non-logged in users or logged-in users without receipt */}
+        {(!isLoggedIn || !hasUploadedReceipt) && (
+          <>
+            {invoice.status === "pending" && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
+                <div className="flex items-start">
+                  <Clock className="h-6 w-6 text-yellow-500 mr-3 mt-0.5" />
+                  <div className="w-full">
+                    <h3 className="font-semibold text-yellow-800 mb-2">Payment Under Review</h3>
+                    <p className="text-yellow-700 mb-3">
+                      Your payment receipt is currently being reviewed by our team. This typically takes 1-2 business
+                      days.
+                    </p>
+                    <div className="w-full bg-yellow-200 rounded-full h-2.5 mb-2 overflow-hidden">
+                      <div
+                        className="bg-yellow-500 h-2.5 rounded-full animate-pulse"
+                        style={{
+                          width: "30%",
+                          animation: "progress 2s ease-in-out infinite alternate",
+                        }}
+                      ></div>
+                    </div>
+                    <p className="text-sm text-yellow-600">
+                      This page will automatically update when your payment is approved. No need to refresh.
+                    </p>
+                    <div className="mt-4 flex items-center text-yellow-700">
+                      <div className="animate-spin mr-2 h-4 w-4 border-2 border-yellow-500 border-t-transparent rounded-full"></div>
+                      <span>Checking for updates...</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {invoice.status === "cancelled" && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
-            <div className="flex items-start">
-              <AlertCircle className="h-6 w-6 text-red-500 mr-3 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-red-800 mb-2">Payment Rejected</h3>
-                <p className="text-red-700 mb-3">
-                  Your payment has been rejected. This may be due to an unclear receipt image or incorrect payment
-                  information.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 mt-4">
-                  <Button
-                    variant="outline"
-                    className="border-red-300 text-red-700 hover:bg-red-50"
-                    onClick={() => router.push("/checkout/payment")}
-                  >
-                    Try Again
-                  </Button>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => router.push("/contact")}>
-                    Contact Support
-                  </Button>
+            {invoice.status === "paid" && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-8">
+                <div className="flex items-start">
+                  <CheckCircle2 className="h-6 w-6 text-green-500 mr-3 mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-green-800 mb-2">Payment Approved</h3>
+                    <p className="text-green-700">Your payment has been approved. Thank you for your purchase!</p>
+                    {invoice.paymentDate && (
+                      <p className="text-green-700 text-sm mt-1">
+                        Payment processed on{" "}
+                        {new Date(invoice.paymentDate).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      </p>
+                    )}
+                    <div className="mt-4">
+                      <Button
+                        onClick={() => router.push(`/register?invoice=${invoice.id}`)}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        Continue to Registration
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
+            )}
+
+            {invoice.status === "cancelled" && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
+                <div className="flex items-start">
+                  <AlertCircle className="h-6 w-6 text-red-500 mr-3 mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-red-800 mb-2">Payment Rejected</h3>
+                    <p className="text-red-700 mb-3">
+                      Your payment has been rejected. This may be due to an unclear receipt image or incorrect payment
+                      information.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                      <Button
+                        variant="outline"
+                        className="border-red-300 text-red-700 hover:bg-red-50"
+                        onClick={() => router.push("/checkout/payment")}
+                      >
+                        Try Again
+                      </Button>
+                      <Button
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => router.push("/contact")}
+                      >
+                        Contact Support
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {invoice.paymentReceipt && (
