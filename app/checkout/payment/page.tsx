@@ -541,14 +541,6 @@ export default function PaymentPage() {
                   </TabsContent>
                 </Tabs>
               )}
-
-              <div className="mt-6 pt-4 border-t">
-                <h3 className="font-medium mb-2">Other Payment Options</h3>
-                <p className="text-sm text-gray-600">
-                  For credit/debit card payments or other payment methods, please contact our support team at
-                  support@orizen.com or call +1 123 456 789.
-                </p>
-              </div>
             </CardContent>
           </Card>
 
@@ -763,10 +755,10 @@ export default function PaymentPage() {
               If you have any questions or need assistance with your payment, please contact our support team.
             </p>
             <div className="flex space-x-4">
-              <Button variant="outline" onClick={() => window.open("mailto:support@orizen.com")}>
+              <Button variant="outline" onClick={() => window.open("mailto:Info@orizeninc.com")}>
                 Email Support
               </Button>
-              <Button variant="outline" onClick={() => window.open("tel:+11234567890")}>
+              <Button variant="outline" onClick={() => window.open("tel:+923299438557")}>
                 Call Us
               </Button>
             </div>
