@@ -34,6 +34,9 @@ import { signIn, signOut, useSession } from "next-auth/react"
 import { useToast } from "@/components/ui/use-toast"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useDebounce } from "@/hooks/use-debounce"
+import { SearchResults } from "./search-results"
+import { search } from "@/actions/search"
 
 // Add a function to fetch the latest user data
 async function fetchUserProfile() {
@@ -79,6 +82,10 @@ export default function Navbar() {
   const [timestamp, setTimestamp] = useState(Date.now()) // For cache busting
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileUserMenuOpen, setMobileUserMenuOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [isSearching, setIsSearching] = useState(false)
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -432,6 +439,35 @@ export default function Navbar() {
     }
   }
 
+  // Live Search
+  useEffect(() => {
+    const performSearch = async () => {
+      if (!debouncedSearchQuery) {
+        setSearchResults([])
+        setIsSearching(false)
+        return
+      }
+
+      setIsSearching(true)
+      try {
+        const results = await search({ query: debouncedSearchQuery })
+        setSearchResults(results)
+      } catch (error) {
+        console.error("Search error:", error)
+        toast({
+          title: "Error",
+          description: "Failed to perform search. Please try again.",
+          variant: "destructive",
+        })
+        setSearchResults([])
+      } finally {
+        setIsSearching(false)
+      }
+    }
+
+    performSearch()
+  }, [debouncedSearchQuery, toast])
+
   return (
     <>
       {/* Desktop Navigation */}
@@ -760,7 +796,12 @@ export default function Navbar() {
                 type="text"
                 placeholder="Type to search..."
                 className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#22c984]"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
+              {debouncedSearchQuery && (
+                <SearchResults results={searchResults} isLoading={isSearching} onClose={() => setSearchOpen(false)} />
+              )}
             </motion.div>
           </motion.div>
         )}

@@ -6,6 +6,9 @@ import * as bcryptjs from "bcryptjs"
 // Export the authOptions for use in other files
 export const authOptions = nextAuthOptions
 
+// Export the auth function
+export const auth = () => getServerSession(authOptions)
+
 // Hash password function for user creation/authentication
 export async function hashPassword(password: string): Promise<string> {
   const saltRounds = 10
