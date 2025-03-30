@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui/use-toast"
 import type { CouponType } from "@/lib/prisma-types"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandGroup, CommandItem } from "@/components/ui/command"
+import { Badge } from "@/components/ui/badge"
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -290,6 +291,7 @@ export default function CheckoutPage() {
             code: selectedCurrency,
             rate: conversionRates[selectedCurrency],
             symbol: currentCurrency.symbol,
+            flag: currentCurrency.flag,
             convertedTotal: convertPrice(finalTotal),
           },
           coupon: appliedCoupon
@@ -335,6 +337,22 @@ export default function CheckoutPage() {
       <Button variant="ghost" className="mb-8" onClick={() => router.back()}>
         <ArrowLeft className="mr-2 h-4 w-4" /> Back
       </Button>
+
+      {/* Currency indicator at the top of the page */}
+      <div className="mb-6">
+        <Badge variant="outline" className="px-3 py-1 text-sm bg-blue-50 border-blue-200 flex items-center gap-2">
+          <span className="text-base">{currentCurrency.flag}</span>
+          <span>Paying in {currentCurrency.code}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs ml-2 hover:bg-blue-100"
+            onClick={() => setOpenCurrencySelector(true)}
+          >
+            Change
+          </Button>
+        </Badge>
+      </div>
 
       <div className="grid md:grid-cols-2 gap-8">
         {/* Checkout Form */}
@@ -421,7 +439,14 @@ export default function CheckoutPage() {
             </div>
 
             <Button type="submit" className="w-full bg-[#22c984] hover:bg-[#1eac73] text-white" disabled={loading}>
-              {loading ? "Processing..." : "Continue to Payment"}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <>
+                  <span className="mr-2">Continue to Payment</span>
+                  <span className="text-lg">{currentCurrency.flag}</span>
+                </>
+              )}
             </Button>
           </form>
         </div>
@@ -430,7 +455,13 @@ export default function CheckoutPage() {
         <div>
           <Card>
             <CardHeader>
-              <CardTitle>Order Summary</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Order Summary</CardTitle>
+                <div className="flex items-center bg-blue-50 px-3 py-1 rounded-full">
+                  <span className="text-lg mr-2">{currentCurrency.flag}</span>
+                  <span className="text-sm font-medium text-blue-700">{currentCurrency.code}</span>
+                </div>
+              </div>
               <CardDescription>Review your order details</CardDescription>
             </CardHeader>
             <CardContent>
@@ -512,11 +543,14 @@ export default function CheckoutPage() {
                   </Popover>
 
                   {selectedCurrency !== "USD" && (
-                    <div className="mt-3 text-sm text-blue-700 bg-blue-100 p-2 rounded">
-                      <p>
-                        Exchange rate: 1 USD = {conversionRates[selectedCurrency]} {selectedCurrency}
-                      </p>
-                      <p className="text-xs mt-1">Rates updated: {new Date().toLocaleString()}</p>
+                    <div className="mt-3 text-sm text-blue-700 bg-blue-100 p-2 rounded flex items-center">
+                      <span className="text-lg mr-2">{currentCurrency.flag}</span>
+                      <div>
+                        <p>
+                          Exchange rate: 1 USD = {conversionRates[selectedCurrency]} {selectedCurrency}
+                        </p>
+                        <p className="text-xs mt-1">Rates updated: {new Date().toLocaleString()}</p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -527,10 +561,13 @@ export default function CheckoutPage() {
                   <div key={item.id} className="border-b pb-4">
                     <div className="flex justify-between">
                       <span className="font-medium">{item.tier} Package</span>
-                      <span>
-                        {currentCurrency.symbol}
-                        {convertPrice(item.price).toFixed(2)}
-                      </span>
+                      <div className="flex items-center">
+                        <span>
+                          {currentCurrency.symbol}
+                          {convertPrice(item.price).toFixed(2)}
+                        </span>
+                        <span className="text-sm ml-1">{currentCurrency.flag}</span>
+                      </div>
                     </div>
 
                     {item.state && item.stateFee && (
@@ -593,10 +630,13 @@ export default function CheckoutPage() {
                 <div className="pt-4">
                   <div className="flex justify-between font-medium">
                     <span>Subtotal</span>
-                    <span>
-                      {currentCurrency.symbol}
-                      {convertPrice(cartTotal).toFixed(2)}
-                    </span>
+                    <div className="flex items-center">
+                      <span>
+                        {currentCurrency.symbol}
+                        {convertPrice(cartTotal).toFixed(2)}
+                      </span>
+                      <span className="text-sm ml-1">{currentCurrency.flag}</span>
+                    </div>
                   </div>
 
                   {appliedCoupon && (
@@ -611,10 +651,13 @@ export default function CheckoutPage() {
 
                   <div className="flex justify-between font-bold text-lg mt-2 pt-2 border-t">
                     <span>Total</span>
-                    <span>
-                      {currentCurrency.symbol}
-                      {convertPrice(finalTotal).toFixed(2)}
-                    </span>
+                    <div className="flex items-center">
+                      <span className="text-lg mr-1">{currentCurrency.flag}</span>
+                      <span>
+                        {currentCurrency.symbol}
+                        {convertPrice(finalTotal).toFixed(2)}
+                      </span>
+                    </div>
                   </div>
 
                   {selectedCurrency !== "USD" && (
@@ -627,9 +670,12 @@ export default function CheckoutPage() {
             </CardContent>
             <CardFooter className="flex flex-col">
               {selectedCurrency !== "USD" && (
-                <p className="text-sm text-gray-500 mb-2">
-                  You'll be charged in {selectedCurrency} at the current exchange rate.
-                </p>
+                <div className="bg-blue-50 p-3 rounded-lg mb-4 flex items-center">
+                  <span className="text-lg mr-2">{currentCurrency.flag}</span>
+                  <p className="text-sm text-blue-700">
+                    You'll be charged in {currentCurrency.code} at the current exchange rate.
+                  </p>
+                </div>
               )}
               <p className="text-sm text-gray-500 mb-4">
                 By completing your purchase, you agree to our Terms of Service and Privacy Policy.
