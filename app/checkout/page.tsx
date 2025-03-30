@@ -398,7 +398,10 @@ export default function CheckoutPage() {
 
       {/* Currency indicator at the top of the page */}
       <div className="mb-6">
-        <Badge variant="outline" className="px-3 py-1 text-sm bg-blue-50 border-blue-200 flex items-center gap-2">
+        <Badge
+          variant="outline"
+          className="px-3 py-1 text-sm bg-[#21C582] text-white border-0 rounded-[7px] flex items-center gap-2"
+        >
           <Image
             src={currentCurrency.flag || "/placeholder.svg"}
             alt={`${currentCurrency.code} flag`}
@@ -410,7 +413,7 @@ export default function CheckoutPage() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs ml-2 hover:bg-blue-100"
+            className="h-6 px-2 text-xs ml-2 hover:bg-[#1eac73] text-white"
             onClick={() => setOpenCurrencySelector(true)}
           >
             Change
@@ -596,7 +599,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full bg-[#22c984] hover:bg-[#1eac73] text-white" disabled={loading}>
+              <Button type="submit" className="w-full bg-[#21C582] hover:bg-[#1eac73] text-white" disabled={loading}>
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
@@ -830,7 +833,13 @@ export default function CheckoutPage() {
                         {currentCurrency.symbol}
                         {convertPrice(cartTotal).toFixed(2)}
                       </span>
-                      <span className="text-sm ml-1">{currentCurrency.flag}</span>
+                      <Image
+                        src={currentCurrency.flag || "/placeholder.svg"}
+                        alt={`${currentCurrency.code} flag`}
+                        width={16}
+                        height={12}
+                        className="ml-1"
+                      />
                     </div>
                   </div>
 
