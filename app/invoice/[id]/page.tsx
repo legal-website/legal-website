@@ -338,30 +338,19 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {invoice.items.map((item, index) => (
-                    <tr key={index} className="border-b">
-                      <td className="py-3 px-4">
-                        <div className="font-medium">{item.tier} Package</div>
-                        {item.state && item.stateFee && (
-                          <div className="text-sm text-gray-600">{item.state} State Filing Fee</div>
-                        )}
-                        {item.discount && <div className="text-sm text-green-600">Discount</div>}
-                      </td>
-                      <td className="text-right py-3 px-4">
-                        <div className="flex items-center justify-end">
-                          {currencyInfo && (
-                            <Image
-                              src={currencyInfo.flag || "/placeholder.svg"}
-                              alt={currencyInfo.code}
-                              width={16}
-                              height={12}
-                              className="mr-1 rounded-sm"
-                            />
+                  {invoice.items
+                    .filter((item: any) => item.type !== "currency-info" && item.tier !== "CURRENCY_INFO")
+                    .map((item: any, index: number) => (
+                      <tr key={index} className="border-b">
+                        <td className="py-3 px-4">
+                          <div className="font-medium">{item.tier} Package</div>
+                          {item.state && item.stateFee && (
+                            <div className="text-sm text-gray-600">{item.state} State Filing Fee</div>
                           )}
-                          <span>{formatCurrency(item.price)}</span>
-                        </div>
-                        {item.state && item.stateFee && (
-                          <div className="text-sm text-gray-600 flex items-center justify-end">
+                          {item.discount && <div className="text-sm text-green-600">Discount</div>}
+                        </td>
+                        <td className="text-right py-3 px-4">
+                          <div className="flex items-center justify-end">
                             {currencyInfo && (
                               <Image
                                 src={currencyInfo.flag || "/placeholder.svg"}
@@ -371,26 +360,39 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
                                 className="mr-1 rounded-sm"
                               />
                             )}
-                            <span>{formatCurrency(item.stateFee)}</span>
+                            <span>{formatCurrency(item.price)}</span>
                           </div>
-                        )}
-                        {item.discount && (
-                          <div className="text-sm text-green-600 flex items-center justify-end">
-                            {currencyInfo && (
-                              <Image
-                                src={currencyInfo.flag || "/placeholder.svg"}
-                                alt={currencyInfo.code}
-                                width={16}
-                                height={12}
-                                className="mr-1 rounded-sm"
-                              />
-                            )}
-                            <span>-{formatCurrency(item.discount)}</span>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                          {item.state && item.stateFee && (
+                            <div className="text-sm text-gray-600 flex items-center justify-end">
+                              {currencyInfo && (
+                                <Image
+                                  src={currencyInfo.flag || "/placeholder.svg"}
+                                  alt={currencyInfo.code}
+                                  width={16}
+                                  height={12}
+                                  className="mr-1 rounded-sm"
+                                />
+                              )}
+                              <span>{formatCurrency(item.stateFee)}</span>
+                            </div>
+                          )}
+                          {item.discount && (
+                            <div className="text-sm text-green-600 flex items-center justify-end">
+                              {currencyInfo && (
+                                <Image
+                                  src={currencyInfo.flag || "/placeholder.svg"}
+                                  alt={currencyInfo.code}
+                                  width={16}
+                                  height={12}
+                                  className="mr-1 rounded-sm"
+                                />
+                              )}
+                              <span>-{formatCurrency(item.discount)}</span>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
                 <tfoot>
                   <tr>

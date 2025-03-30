@@ -357,39 +357,43 @@ export default function PaymentPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {checkoutData.items.map((item: any) => (
-                  <div key={item.id} className="border-b pb-4">
-                    <div className="flex justify-between">
-                      <span className="font-medium">{item.tier} Package</span>
-                      <div className="flex items-center">
-                        <span>{formatPrice(item.price)}</span>
-                        {currencyInfo && (
-                          <Image
-                            src={currencyInfo.flag || "/placeholder.svg"}
-                            alt={currencyInfo.code}
-                            width={16}
-                            height={12}
-                            className="ml-1"
-                          />
-                        )}
+                {checkoutData.items
+                  .filter(
+                    (item: any) => item.type !== "currency-info" && item.tier !== "CURRENCY_INFO" && !item._hidden,
+                  )
+                  .map((item: any) => (
+                    <div key={item.id} className="border-b pb-4">
+                      <div className="flex justify-between">
+                        <span className="font-medium">{item.tier} Package</span>
+                        <div className="flex items-center">
+                          <span>{formatPrice(item.price)}</span>
+                          {currencyInfo && (
+                            <Image
+                              src={currencyInfo.flag || "/placeholder.svg"}
+                              alt={currencyInfo.code}
+                              width={16}
+                              height={12}
+                              className="ml-1"
+                            />
+                          )}
+                        </div>
                       </div>
+
+                      {item.state && item.stateFee && (
+                        <div className="flex justify-between mt-1 text-sm text-gray-600">
+                          <span>{item.state} State Filing Fee</span>
+                          <span>{formatPrice(item.stateFee)}</span>
+                        </div>
+                      )}
+
+                      {item.discount && (
+                        <div className="flex justify-between mt-1 text-sm text-[#22c984]">
+                          <span>Discounted Price</span>
+                          <span>{formatPrice(item.discount)}</span>
+                        </div>
+                      )}
                     </div>
-
-                    {item.state && item.stateFee && (
-                      <div className="flex justify-between mt-1 text-sm text-gray-600">
-                        <span>{item.state} State Filing Fee</span>
-                        <span>{formatPrice(item.stateFee)}</span>
-                      </div>
-                    )}
-
-                    {item.discount && (
-                      <div className="flex justify-between mt-1 text-sm text-[#22c984]">
-                        <span>Discounted Price</span>
-                        <span>{formatPrice(item.discount)}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  ))}
 
                 {checkoutData.discount > 0 && (
                   <div className="flex justify-between text-green-600 pt-2">

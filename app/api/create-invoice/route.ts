@@ -16,6 +16,7 @@ interface InvoiceItem {
   description: string | null
   isTemplateInvoice?: boolean // Make this optional
   currency?: any // Add currency information
+  _hidden?: boolean // Add hidden flag
 }
 
 export async function POST(req: Request) {
@@ -178,16 +179,17 @@ export async function POST(req: Request) {
       // Add a special item that just contains currency info
       itemsWithCurrency.push({
         id: "currency-info",
-        tier: "CURRENCY_INFO",
+        tier: "_currency_info_", // Changed from "CURRENCY_INFO" to make it less visible
         price: 0,
         stateFee: null,
         state: null,
         discount: null,
         templateId: null,
         type: "currency-info",
-        name: "Currency Information",
+        name: "_Currency Information_", // Added underscores to make it clear this is a system item
         description: null,
         currency: currencyInfo,
+        _hidden: true, // Add a flag to indicate this should be hidden in UI
       })
     }
 

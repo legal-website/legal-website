@@ -400,7 +400,7 @@ export default function CheckoutPage() {
       <div className="mb-6">
         <Badge
           variant="outline"
-          className="px-3 py-1 text-sm bg-[#21C582] text-white border-0 rounded-[4px] flex items-center gap-2"
+          className="px-3 py-1 text-sm bg-[#21C582] text-white border-0 rounded-[7px] flex items-center gap-2"
         >
           <Image
             src={currentCurrency.flag || "/placeholder.svg"}
@@ -749,46 +749,48 @@ export default function CheckoutPage() {
               </div>
 
               <div className="space-y-4">
-                {items.map((item) => (
-                  <div key={item.id} className="border-b pb-4">
-                    <div className="flex justify-between">
-                      <span className="font-medium">{item.tier} Package</span>
-                      <div className="flex items-center">
-                        <span>
-                          {currentCurrency.symbol}
-                          {convertPrice(item.price).toFixed(2)}
-                        </span>
-                        <Image
-                          src={currentCurrency.flag || "/placeholder.svg"}
-                          alt={`${currentCurrency.code} flag`}
-                          width={16}
-                          height={12}
-                          className="ml-1"
-                        />
+                {items
+                  .filter((item: any) => item.type !== "currency-info" && !item._hidden)
+                  .map((item) => (
+                    <div key={item.id} className="border-b pb-4">
+                      <div className="flex justify-between">
+                        <span className="font-medium">{item.tier} Package</span>
+                        <div className="flex items-center">
+                          <span>
+                            {currentCurrency.symbol}
+                            {convertPrice(item.price).toFixed(2)}
+                          </span>
+                          <Image
+                            src={currentCurrency.flag || "/placeholder.svg"}
+                            alt={`${currentCurrency.code} flag`}
+                            width={16}
+                            height={12}
+                            className="ml-1"
+                          />
+                        </div>
                       </div>
+
+                      {item.state && item.stateFee && (
+                        <div className="flex justify-between mt-1 text-sm text-gray-600">
+                          <span>{item.state} State Filing Fee</span>
+                          <span>
+                            {currentCurrency.symbol}
+                            {convertPrice(item.stateFee).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+
+                      {item.discount && (
+                        <div className="flex justify-between mt-1 text-sm text-[#22c984]">
+                          <span>Discounted Price</span>
+                          <span>
+                            {currentCurrency.symbol}
+                            {convertPrice(item.discount).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
                     </div>
-
-                    {item.state && item.stateFee && (
-                      <div className="flex justify-between mt-1 text-sm text-gray-600">
-                        <span>{item.state} State Filing Fee</span>
-                        <span>
-                          {currentCurrency.symbol}
-                          {convertPrice(item.stateFee).toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-
-                    {item.discount && (
-                      <div className="flex justify-between mt-1 text-sm text-[#22c984]">
-                        <span>Discounted Price</span>
-                        <span>
-                          {currentCurrency.symbol}
-                          {convertPrice(item.discount).toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  ))}
 
                 {/* Coupon Code Input */}
                 <div className="pt-4 border-t">
@@ -896,6 +898,12 @@ export default function CheckoutPage() {
               <p className="text-sm text-gray-500 mb-4">
                 By completing your purchase, you agree to our Terms of Service and Privacy Policy.
               </p>
+              <div className="flex items-center justify-center space-x-4">
+                <Image src="/Visa.svg" alt="Visa" className="h-20" width={80} height={80} />
+                <Image src="/mastercard.svg" alt="Mastercard" className="h-20" width={80} height={80} />
+                <Image src="/amex.svg" alt="Amex" className="h-20" width={80} height={80} />
+                <Image src="/stripe.svg" alt="Stripe" className="h-20" width={80} height={80} />
+              </div>
             </CardFooter>
           </Card>
         </div>
