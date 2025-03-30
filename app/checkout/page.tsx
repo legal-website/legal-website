@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui/use-toast"
 import type { CouponType } from "@/lib/prisma-types"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandGroup, CommandItem } from "@/components/ui/command"
+import { Badge } from "@/components/ui/badge"
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -64,12 +65,12 @@ export default function CheckoutPage() {
 
   // Currency data with flags and names
   const currencies = [
-    { code: "USD", name: "US Dollar", symbol: "$", flag: "/flags/us.png" },
-    { code: "PKR", name: "Pakistani Rupee", symbol: "₨", flag: "/flags/pk.png" },
-    { code: "CAD", name: "Canadian Dollar", symbol: "C$", flag: "/flags/ca.png" },
-    { code: "GBP", name: "British Pound", symbol: "£", flag: "/flags/gb.png" },
-    { code: "EUR", name: "Euro", symbol: "€", flag: "/flags/eu.png" },
-    { code: "AED", name: "UAE Dirham", symbol: "د.إ", flag: "/flags/ae.png" },
+    { code: "USD", name: "US Dollar", symbol: "$", flag: "https://flagcdn.com/us.svg" },
+    { code: "PKR", name: "Pakistani Rupee", symbol: "₨", flag: "https://flagcdn.com/pk.svg" },
+    { code: "CAD", name: "Canadian Dollar", symbol: "C$", flag: "https://flagcdn.com/ca.svg" },
+    { code: "GBP", name: "British Pound", symbol: "£", flag: "https://flagcdn.com/gb.svg" },
+    { code: "EUR", name: "Euro", symbol: "€", flag: "https://flagcdn.com/eu.svg" },
+    { code: "AED", name: "UAE Dirham", symbol: "د.إ", flag: "https://flagcdn.com/ae.svg" },
   ]
 
   // Get current currency data
@@ -84,7 +85,7 @@ export default function CheckoutPage() {
       currency.name.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
-  // Fetch user data from the actual API endpoints used by the pages
+  // Fetch user data
   const fetchUserData = async () => {
     setIsLoadingUserData(true)
     try {
@@ -103,58 +104,28 @@ export default function CheckoutPage() {
         return
       }
 
-      // User is logged in
+      // User is logged in, fetch profile data
       setIsUserLoggedIn(true)
 
-      try {
-        // Fetch user profile data - same endpoint used in dashboard
-        const userResponse = await fetch("/api/user")
-        if (!userResponse.ok) throw new Error("Failed to fetch user data")
-        const userData = await userResponse.json()
-
-        // Fetch business data - same endpoint used in dashboard/page.tsx
-        const businessResponse = await fetch("/api/business")
-        if (!businessResponse.ok) throw new Error("Failed to fetch business data")
-        const businessData = await businessResponse.json()
-
-        // Fetch business profile - same endpoint used in dashboard/business/profile/page.tsx
-        const profileResponse = await fetch("/api/business/profile")
-        if (!profileResponse.ok) throw new Error("Failed to fetch business profile")
-        const profileData = await profileResponse.json()
-
-        // Update form data with all fetched information
-        setFormData({
-          name: userData.name || sessionData.user.name || "",
-          email: userData.email || sessionData.user.email || "",
-          address: businessData.address || "",
-          city: businessData.city || "",
-          state: businessData.state || "",
-          zip: businessData.zipCode || "",
-          country: businessData.country || "",
-          phone: profileData.phoneNumber || "",
-          company: businessData.businessName || "",
-        })
-
-        console.log("User data loaded successfully:", {
-          userData,
-          businessData,
-          profileData,
-        })
-      } catch (error) {
-        console.error("Error fetching specific user data:", error)
-        // Fallback to basic session data if specific endpoints fail
-        setFormData({
-          name: sessionData.user.name || "",
-          email: sessionData.user.email || "",
-          address: "",
-          city: "",
-          state: "",
-          zip: "",
-          country: "",
-          phone: "",
-          company: "",
-        })
+      const profileResponse = await fetch("/api/user/profile")
+      if (!profileResponse.ok) {
+        throw new Error("Failed to fetch user profile")
       }
+
+      const profileData = await profileResponse.json()
+
+      // Update form data with user profile information
+      setFormData({
+        name: profileData.name || sessionData.user.name || "",
+        email: profileData.email || sessionData.user.email || "",
+        address: profileData.address || "",
+        city: profileData.city || "",
+        state: profileData.state || "",
+        zip: profileData.zip || "",
+        country: profileData.country || "",
+        phone: profileData.phone || "",
+        company: profileData.company || "",
+      })
     } catch (error) {
       console.error("Error fetching user data:", error)
       // If there's an error, assume user is not logged in
@@ -427,24 +398,24 @@ export default function CheckoutPage() {
 
       {/* Currency indicator at the top of the page */}
       <div className="mb-6">
-        <div className="flex items-center bg-[#21C582] text-white rounded-[7px] py-2 px-4">
+        <Badge variant="outline" className="px-3 py-1 text-sm bg-blue-50 border-blue-200 flex items-center gap-2">
           <Image
             src={currentCurrency.flag || "/placeholder.svg"}
             alt={`${currentCurrency.code} flag`}
             width={20}
             height={15}
-            className="inline-block mr-2"
+            className="inline-block"
           />
-          <span className="font-medium">Paying in {currentCurrency.code}</span>
+          <span>Paying in {currentCurrency.code}</span>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs ml-2 hover:bg-[#1eac73] text-white"
+            className="h-6 px-2 text-xs ml-2 hover:bg-blue-100"
             onClick={() => setOpenCurrencySelector(true)}
           >
             Change
           </Button>
-        </div>
+        </Badge>
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
@@ -625,7 +596,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full bg-[#21C582] hover:bg-[#1eac73] text-white" disabled={loading}>
+              <Button type="submit" className="w-full bg-[#22c984] hover:bg-[#1eac73] text-white" disabled={loading}>
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
@@ -651,7 +622,7 @@ export default function CheckoutPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Order Summary</CardTitle>
-                <div className="flex items-center bg-[#21C582] text-white px-3 py-1 rounded-[7px]">
+                <div className="flex items-center bg-blue-50 px-3 py-1 rounded-full">
                   <Image
                     src={currentCurrency.flag || "/placeholder.svg"}
                     alt={`${currentCurrency.code} flag`}
@@ -659,7 +630,7 @@ export default function CheckoutPage() {
                     height={15}
                     className="mr-2"
                   />
-                  <span className="text-sm font-medium">{currentCurrency.code}</span>
+                  <span className="text-sm font-medium text-blue-700">{currentCurrency.code}</span>
                 </div>
               </div>
               <CardDescription>Review your order details</CardDescription>
@@ -694,7 +665,7 @@ export default function CheckoutPage() {
                         variant="outline"
                         role="combobox"
                         aria-expanded={openCurrencySelector}
-                        className="w-full justify-between bg-white border-gray-200"
+                        className="w-full justify-between bg-white border-blue-200"
                       >
                         <div className="flex items-center">
                           <Image
@@ -859,13 +830,7 @@ export default function CheckoutPage() {
                         {currentCurrency.symbol}
                         {convertPrice(cartTotal).toFixed(2)}
                       </span>
-                      <Image
-                        src={currentCurrency.flag || "/placeholder.svg"}
-                        alt={`${currentCurrency.code} flag`}
-                        width={16}
-                        height={12}
-                        className="ml-1"
-                      />
+                      <span className="text-sm ml-1">{currentCurrency.flag}</span>
                     </div>
                   </div>
 
