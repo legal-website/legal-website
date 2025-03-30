@@ -583,8 +583,16 @@ model BankAccount {
 }
 model PaymentMethod {
   id            String   @id @default(cuid())
+  type          String   // "bank" or "mobile_wallet"
   name          String
-  description   String?
+  accountTitle  String
+  accountNumber String
+  iban          String?
+  swiftCode     String?
+  branchName    String?
+  branchCode    String?
+  bankName      String?
+  providerName  String?  // For mobile wallets: jazzcash, easypaisa, nayapay, sadapay
   isActive      Boolean  @default(true)
   createdBy     String
   createdAt     DateTime @default(now())
@@ -592,6 +600,7 @@ model PaymentMethod {
   creator       User     @relation(fields: [createdBy], references: [id])
 
   @@index([createdBy])
+  @@index([type])
 }
 
 

@@ -1,13 +1,13 @@
 import { Skeleton } from "@/components/ui/skeleton"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function Loading() {
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
+      <div>
         <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-10 w-40" />
+        <Skeleton className="h-5 w-96 mt-2" />
       </div>
 
       <Tabs defaultValue="bank">
@@ -28,20 +28,19 @@ export default function Loading() {
                   <Skeleton className="h-6 w-3/4 mb-2" />
                   <Skeleton className="h-4 w-1/2" />
                 </CardHeader>
-                <CardContent className="pb-2">
-                  <div className="space-y-2">
+                <CardContent>
+                  <div className="space-y-3">
                     {[1, 2, 3, 4].map((j) => (
-                      <div key={j}>
-                        <Skeleton className="h-4 w-1/3 mb-1" />
-                        <Skeleton className="h-5 w-full" />
+                      <div key={j} className="flex justify-between items-center">
+                        <div className="w-full">
+                          <Skeleton className="h-4 w-1/3 mb-1" />
+                          <Skeleton className="h-5 w-full" />
+                        </div>
+                        <Skeleton className="h-8 w-8 ml-2" />
                       </div>
                     ))}
                   </div>
                 </CardContent>
-                <CardFooter className="flex justify-end gap-2">
-                  <Skeleton className="h-9 w-20" />
-                  <Skeleton className="h-9 w-20" />
-                </CardFooter>
               </Card>
             ))}
           </div>

@@ -1,113 +1,104 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
-
-import { validateSession } from "@/lib/session-utils"
+import { NextResponse, type NextRequest } from "next/server"
 import { db } from "@/lib/db"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
 
-// Define the schema for validation
-const paymentMethodSchema = z.object({
-  name: z.string().min(2, { message: "Name is required" }),
-  description: z.string().optional(),
-  isActive: z.boolean().default(true),
-})
-
-// GET handler to fetch a specific payment method
+// GET - Fetch a specific payment method
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { isValid, response } = await validateSession()
-
-    if (!isValid) {
-      return response
+    // Check authentication
+    const session = await getServerSession(authOptions)
+    if (!session || (session.user as any).role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const id = params.id
-
-    // Fetch payment method from database
     const paymentMethod = await db.paymentMethod.findUnique({
-      where: { id },
+      where: { id: params.id },
     })
 
     if (!paymentMethod) {
-      return NextResponse.json({ message: "Payment method not found" }, { status: 404 })
+      return NextResponse.json({ error: "Payment method not found" }, { status: 404 })
     }
 
     return NextResponse.json({ paymentMethod })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching payment method:", error)
-    return NextResponse.json({ message: "Failed to fetch payment method" }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
-// PUT handler to update a payment method
+// PUT - Update a payment method
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { isValid, response } = await validateSession()
-
-    if (!isValid) {
-      return response
+    // Check authentication
+    const session = await getServerSession(authOptions)
+    if (!session || (session.user as any).role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const id = params.id
     const data = await req.json()
 
-    // Validate the request body
-    const validatedData = paymentMethodSchema.parse(data)
+    // Validate required fields
+    if (!data.name || !data.accountTitle || !data.accountNumber) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
 
-    // Check if payment method exists
+    // Validate mobile wallet account number (must be 11 digits)
+    if (data.type === "mobile_wallet" && !/^\d{11}$/.test(data.accountNumber)) {
+      return NextResponse.json({ error: "Mobile wallet account number must be 11 digits" }, { status: 400 })
+    }
+
+    // Get existing payment method
     const existingMethod = await db.paymentMethod.findUnique({
-      where: { id },
+      where: { id: params.id },
     })
 
     if (!existingMethod) {
-      return NextResponse.json({ message: "Payment method not found" }, { status: 404 })
+      return NextResponse.json({ error: "Payment method not found" }, { status: 404 })
     }
 
-    // Update payment method
-    const paymentMethod = await db.paymentMethod.update({
-      where: { id },
-      data: validatedData,
+    // Update the payment method
+    const updatedMethod = await db.paymentMethod.update({
+      where: { id: params.id },
+      data: {
+        name: data.name,
+        accountTitle: data.accountTitle,
+        accountNumber: data.accountNumber,
+        iban: data.iban || null,
+        swiftCode: data.swiftCode || null,
+        branchName: data.branchName || null,
+        branchCode: data.branchCode || null,
+        bankName: data.bankName || null,
+        providerName: data.providerName || null,
+        isActive: data.isActive,
+      },
     })
 
-    return NextResponse.json({ paymentMethod })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: "Invalid data", errors: error.errors }, { status: 400 })
-    }
-
+    return NextResponse.json({ paymentMethod: updatedMethod })
+  } catch (error: any) {
     console.error("Error updating payment method:", error)
-    return NextResponse.json({ message: "Failed to update payment method" }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
-// DELETE handler to remove a payment method
+// DELETE - Delete a payment method
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { isValid, response } = await validateSession()
-
-    if (!isValid) {
-      return response
+    // Check authentication
+    const session = await getServerSession(authOptions)
+    if (!session || (session.user as any).role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const id = params.id
-
-    // Check if payment method exists
-    const existingMethod = await db.paymentMethod.findUnique({
-      where: { id },
-    })
-
-    if (!existingMethod) {
-      return NextResponse.json({ message: "Payment method not found" }, { status: 404 })
-    }
-
-    // Delete payment method
+    // Delete the payment method
     await db.paymentMethod.delete({
-      where: { id },
+      where: { id: params.id },
     })
 
-    return NextResponse.json({ message: "Payment method deleted successfully" })
-  } catch (error) {
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
     console.error("Error deleting payment method:", error)
-    return NextResponse.json({ message: "Failed to delete payment method" }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 

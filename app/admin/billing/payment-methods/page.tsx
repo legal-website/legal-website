@@ -1,11 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { toast } from "sonner"
-import { Building, CreditCard, Plus, Pencil, Trash2, Loader2 } from "lucide-react"
-
+import { useRouter } from "next/navigation"
+import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -13,353 +12,763 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
-import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
 import * as z from "zod"
+import type { PaymentMethod } from "@/types/payment-method"
+import { BanknoteIcon as Bank, Wallet, Plus, Edit, Trash2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
-// Define the schema for validation
-const bankDetailsSchema = z.object({
-  accountName: z.string().min(2, { message: "Account name is required" }),
-  accountNumber: z.string().min(1, { message: "Account number is required" }),
-  routingNumber: z.string().min(1, { message: "Routing number is required" }),
-  bankName: z.string().min(2, { message: "Bank name is required" }),
-  accountType: z.enum(["checking", "savings"], {
-    required_error: "Please select an account type",
-  }),
+// Form schema for bank accounts
+const bankAccountSchema = z.object({
+  type: z.literal("bank"),
+  name: z.string().min(2, "Name is required"),
+  accountTitle: z.string().min(2, "Account title is required"),
+  accountNumber: z.string().min(5, "Account number is required"),
+  iban: z.string().optional(),
   swiftCode: z.string().optional(),
   branchName: z.string().optional(),
   branchCode: z.string().optional(),
-  isDefault: z.boolean().default(false),
+  bankName: z.string().min(2, "Bank name is required"),
+  isActive: z.boolean().default(true),
 })
 
-type BankDetailsFormValues = z.infer<typeof bankDetailsSchema>
+// Form schema for mobile wallets
+const mobileWalletSchema = z.object({
+  type: z.literal("mobile_wallet"),
+  name: z.string().min(2, "Name is required"),
+  accountTitle: z.string().min(2, "Account title is required"),
+  accountNumber: z.string().regex(/^\d{11}$/, "Account number must be 11 digits"),
+  iban: z.string().optional(),
+  providerName: z.enum(["jazzcash", "easypaisa", "nayapay", "sadapay"], {
+    required_error: "Provider is required",
+  }),
+  isActive: z.boolean().default(true),
+})
 
-type BankAccount = {
-  id: string
-  accountName: string
-  accountNumber: string
-  routingNumber: string
-  bankName: string
-  accountType: string
-  swiftCode?: string
-  branchName?: string
-  branchCode?: string
-  isDefault: boolean
-  createdAt: string
-  updatedAt: string
-}
+// Combined schema with discriminated union
+const paymentMethodSchema = z.discriminatedUnion("type", [bankAccountSchema, mobileWalletSchema])
+
+// Type for form values
+type FormValues = z.infer<typeof paymentMethodSchema>
+type BankAccountFormValues = z.infer<typeof bankAccountSchema>
+type MobileWalletFormValues = z.infer<typeof mobileWalletSchema>
 
 export default function PaymentMethodsPage() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
+  const router = useRouter()
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [currentMethod, setCurrentMethod] = useState<PaymentMethod | null>(null)
+  const [methodType, setMethodType] = useState<"bank" | "mobile_wallet">("bank")
+  const [activeTab, setActiveTab] = useState("bank")
 
-  const form = useForm<BankDetailsFormValues>({
-    resolver: zodResolver(bankDetailsSchema),
+  // Initialize form with default bank account values
+  const form = useForm<FormValues>({
+    resolver: zodResolver(paymentMethodSchema),
     defaultValues: {
-      accountName: "",
+      type: "bank",
+      name: "",
+      accountTitle: "",
       accountNumber: "",
-      routingNumber: "",
-      bankName: "",
-      accountType: "checking",
+      iban: "",
       swiftCode: "",
       branchName: "",
       branchCode: "",
-      isDefault: false,
-    },
+      bankName: "",
+      isActive: true,
+    } as BankAccountFormValues,
   })
 
-  // Fetch bank accounts
-  const fetchBankAccounts = async () => {
-    setIsLoading(true)
-    setError(null)
+  // Fetch payment methods
+  const fetchPaymentMethods = async () => {
     try {
-      const response = await fetch("/api/admin/bank-accounts")
-
+      setLoading(true)
+      const response = await fetch("/api/admin/payment-methods")
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error("Error response:", errorData)
-        throw new Error(errorData.message || "Failed to fetch bank accounts")
+        throw new Error("Failed to fetch payment methods")
       }
-
       const data = await response.json()
-      setBankAccounts(data.bankAccounts || [])
+      setPaymentMethods(data.paymentMethods)
     } catch (error) {
-      console.error("Error fetching bank accounts:", error)
-      setError(String(error))
-      toast.error("Failed to fetch bank accounts")
+      console.error("Error fetching payment methods:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load payment methods",
+        variant: "destructive",
+      })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
+  // Load payment methods on mount
   useEffect(() => {
-    fetchBankAccounts()
+    fetchPaymentMethods()
   }, [])
 
-  // Handle form submission
-  const onSubmit = async (values: BankDetailsFormValues) => {
-    setIsSubmitting(true)
-    setError(null)
+  // Handle form submission for adding a new payment method
+  const onSubmit = async (values: FormValues) => {
     try {
-      const url = "/api/user/bank-details"
-      const method = editingAccount ? "PUT" : "POST"
-
-      const payload = editingAccount ? { ...values, id: editingAccount.id } : values
-
-      console.log("Submitting payload:", payload)
-
-      const response = await fetch(url, {
-        method,
+      const response = await fetch("/api/admin/payment-methods", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(values),
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error("Error response:", errorData)
-        throw new Error(errorData.message || `Failed to ${editingAccount ? "update" : "create"} bank account`)
+        const error = await response.json()
+        throw new Error(error.error || "Failed to create payment method")
       }
 
-      const data = await response.json()
+      toast({
+        title: "Success",
+        description: "Payment method created successfully",
+      })
 
-      toast.success(editingAccount ? "Bank account updated successfully" : "Bank account added successfully")
-      setIsDialogOpen(false)
-      form.reset()
-      setEditingAccount(null)
-      fetchBankAccounts()
-    } catch (error) {
-      console.error("Error saving bank account:", error)
-      setError(String(error))
-      toast.error(String(error) || "An error occurred while saving bank account")
-    } finally {
-      setIsSubmitting(false)
+      setIsAddDialogOpen(false)
+      resetForm()
+      fetchPaymentMethods()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
     }
   }
 
-  // Handle account deletion
-  const handleDeleteAccount = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this bank account?")) {
-      return
-    }
+  // Handle form submission for editing a payment method
+  const onEdit = async (values: FormValues) => {
+    if (!currentMethod) return
 
-    setIsLoading(true)
-    setError(null)
     try {
-      const response = await fetch(`/api/user/bank-details?id=${id}`, {
+      const response = await fetch(`/api/admin/payment-methods/${currentMethod.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to update payment method")
+      }
+
+      toast({
+        title: "Success",
+        description: "Payment method updated successfully",
+      })
+
+      setIsEditDialogOpen(false)
+      setCurrentMethod(null)
+      fetchPaymentMethods()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Handle deleting a payment method
+  const handleDelete = async () => {
+    if (!currentMethod) return
+
+    try {
+      const response = await fetch(`/api/admin/payment-methods/${currentMethod.id}`, {
         method: "DELETE",
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error("Error response:", errorData)
-        throw new Error(errorData.message || "Failed to delete bank account")
+        const error = await response.json()
+        throw new Error(error.error || "Failed to delete payment method")
       }
 
-      toast.success("Bank account deleted successfully")
-      fetchBankAccounts()
-    } catch (error) {
-      console.error("Error deleting bank account:", error)
-      setError(String(error))
-      toast.error(String(error) || "An error occurred while deleting bank account")
-    } finally {
-      setIsLoading(false)
+      toast({
+        title: "Success",
+        description: "Payment method deleted successfully",
+      })
+
+      setIsDeleteDialogOpen(false)
+      setCurrentMethod(null)
+      fetchPaymentMethods()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
     }
   }
 
-  // Handle edit button click
-  const handleEditAccount = (account: BankAccount) => {
-    setEditingAccount(account)
-    form.reset({
-      accountName: account.accountName,
-      accountNumber: account.accountNumber,
-      routingNumber: account.routingNumber,
-      bankName: account.bankName,
-      accountType: account.accountType as "checking" | "savings",
-      swiftCode: account.swiftCode || "",
-      branchName: account.branchName || "",
-      branchCode: account.branchCode || "",
-      isDefault: account.isDefault,
-    })
-    setIsDialogOpen(true)
+  // Reset form based on method type
+  const resetForm = (type: "bank" | "mobile_wallet" = "bank") => {
+    if (type === "bank") {
+      form.reset({
+        type: "bank",
+        name: "",
+        accountTitle: "",
+        accountNumber: "",
+        iban: "",
+        swiftCode: "",
+        branchName: "",
+        branchCode: "",
+        bankName: "",
+        isActive: true,
+      } as BankAccountFormValues)
+    } else {
+      // For mobile wallet, we must provide a valid providerName value
+      form.reset({
+        type: "mobile_wallet",
+        name: "",
+        accountTitle: "",
+        accountNumber: "",
+        iban: "",
+        providerName: "jazzcash", // Default to a valid value from the enum
+        isActive: true,
+      } as MobileWalletFormValues)
+    }
   }
 
-  // Handle add button click
-  const handleAddAccount = () => {
-    setEditingAccount(null)
-    form.reset({
-      accountName: "",
-      accountNumber: "",
-      routingNumber: "",
-      bankName: "",
-      accountType: "checking",
-      swiftCode: "",
-      branchName: "",
-      branchCode: "",
-      isDefault: false,
-    })
-    setIsDialogOpen(true)
+  // Open edit dialog and populate form
+  const openEditDialog = (method: PaymentMethod) => {
+    setCurrentMethod(method)
+    setMethodType(method.type)
+
+    // Reset form with current values based on method type
+    if (method.type === "bank") {
+      form.reset({
+        type: "bank",
+        name: method.name,
+        accountTitle: method.accountTitle,
+        accountNumber: method.accountNumber,
+        iban: method.iban || undefined,
+        swiftCode: method.swiftCode || undefined,
+        branchName: method.branchName || undefined,
+        branchCode: method.branchCode || undefined,
+        bankName: method.bankName || "",
+        isActive: method.isActive,
+      } as BankAccountFormValues)
+    } else {
+      form.reset({
+        type: "mobile_wallet",
+        name: method.name,
+        accountTitle: method.accountTitle,
+        accountNumber: method.accountNumber,
+        iban: method.iban || undefined,
+        // Ensure providerName is one of the allowed values
+        providerName: method.providerName as "jazzcash" | "easypaisa" | "nayapay" | "sadapay",
+        isActive: method.isActive,
+      } as MobileWalletFormValues)
+    }
+
+    setIsEditDialogOpen(true)
   }
 
-  // Handle add default ORIZEN INC account
-  const handleAddDefaultAccount = () => {
-    setEditingAccount(null)
-    form.reset({
-      accountName: "ORIZEN INC",
-      accountNumber: "08751010024993",
-      routingNumber: "PK51ALFH0875001010024993",
-      bankName: "Bank Alfalah",
-      accountType: "checking",
-      swiftCode: "ALFHPKKAXXX",
-      branchName: "EME DHA Br.LHR",
-      branchCode: "0875",
-      isDefault: true,
-    })
-    setIsDialogOpen(true)
+  // Open delete confirmation dialog
+  const openDeleteDialog = (method: PaymentMethod) => {
+    setCurrentMethod(method)
+    setIsDeleteDialogOpen(true)
   }
 
-  // Close dialog and reset form
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false)
-    setEditingAccount(null)
-    form.reset()
+  // Reset form when dialog is closed
+  const handleDialogClose = () => {
+    resetForm()
+    setIsAddDialogOpen(false)
+    setIsEditDialogOpen(false)
+    setCurrentMethod(null)
   }
+
+  // Handle method type change
+  const handleMethodTypeChange = (type: "bank" | "mobile_wallet") => {
+    setMethodType(type)
+    resetForm(type)
+  }
+
+  // Filter payment methods by type
+  const bankAccounts = paymentMethods.filter((method) => method.type === "bank")
+  const mobileWallets = paymentMethods.filter((method) => method.type === "mobile_wallet")
 
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Payment Methods</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleAddDefaultAccount}>
-            Add ORIZEN Default
-          </Button>
-          <Button onClick={handleAddAccount}>
-            <Plus className="mr-2 h-4 w-4" /> Add Bank Account
-          </Button>
-        </div>
-      </div>
+        <h1 className="text-3xl font-bold">Payment Methods</h1>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Payment Method
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add Payment Method</DialogTitle>
+              <DialogDescription>Add a new payment method for clients to use.</DialogDescription>
+            </DialogHeader>
 
-      {error && (
-        <div className="bg-destructive/10 text-destructive p-4 rounded-md">
-          <p className="font-medium">Error</p>
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building className="h-5 w-5" />
-            Bank Accounts
-          </CardTitle>
-          <CardDescription>Manage bank accounts for receiving payments</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center items-center h-40">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : bankAccounts.length > 0 ? (
-            <div className="space-y-4">
-              {bankAccounts.map((account) => (
-                <div key={account.id} className={`border rounded-lg p-4 ${account.isDefault ? "border-primary" : ""}`}>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium">{account.accountName}</h3>
-                        {account.isDefault && (
-                          <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">Default</span>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {account.bankName} • {account.accountNumber}
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 mt-2">
-                        <p className="text-sm">
-                          <span className="text-muted-foreground">Account Type:</span>{" "}
-                          <span className="capitalize">{account.accountType}</span>
-                        </p>
-                        <p className="text-sm">
-                          <span className="text-muted-foreground">Routing Number:</span> {account.routingNumber}
-                        </p>
-                        {account.swiftCode && (
-                          <p className="text-sm">
-                            <span className="text-muted-foreground">Swift Code:</span> {account.swiftCode}
-                          </p>
-                        )}
-                        {account.branchName && (
-                          <p className="text-sm">
-                            <span className="text-muted-foreground">Branch:</span> {account.branchName}
-                          </p>
-                        )}
-                        {account.branchCode && (
-                          <p className="text-sm">
-                            <span className="text-muted-foreground">Branch Code:</span> {account.branchCode}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleEditAccount(account)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteAccount(account.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+            <div className="py-4">
+              <div className="mb-4">
+                <Label>Method Type</Label>
+                <div className="flex mt-2 space-x-4">
+                  <div
+                    className={`flex items-center p-3 rounded-md cursor-pointer border ${
+                      methodType === "bank" ? "border-primary bg-primary/10" : "border-gray-200"
+                    }`}
+                    onClick={() => handleMethodTypeChange("bank")}
+                  >
+                    <Bank className="mr-2 h-5 w-5" />
+                    <span>Bank Account</span>
+                  </div>
+                  <div
+                    className={`flex items-center p-3 rounded-md cursor-pointer border ${
+                      methodType === "mobile_wallet" ? "border-primary bg-primary/10" : "border-gray-200"
+                    }`}
+                    onClick={() => handleMethodTypeChange("mobile_wallet")}
+                  >
+                    <Wallet className="mr-2 h-5 w-5" />
+                    <span>Mobile Wallet</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-40 space-y-4">
-              <div className="text-center">
-                <CreditCard className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-2 text-lg font-medium">No Bank Accounts</h3>
-                <p className="text-sm text-muted-foreground">Add a bank account to receive payments</p>
               </div>
-              <Button onClick={handleAddAccount}>
-                <Plus className="mr-2 h-4 w-4" /> Add Bank Account
+
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Company Main Account" {...field} />
+                        </FormControl>
+                        <FormDescription>A descriptive name for this payment method</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="accountTitle"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Company Name Ltd." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="accountNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Number</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={methodType === "mobile_wallet" ? "11 digits" : "Account number"}
+                            {...field}
+                          />
+                        </FormControl>
+                        {methodType === "mobile_wallet" && <FormDescription>Must be exactly 11 digits</FormDescription>}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {methodType === "bank" ? (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="iban"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>IBAN</FormLabel>
+                              <FormControl>
+                                <Input placeholder="IBAN" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="swiftCode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Swift Code</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Swift Code" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <FormField
+                        control={form.control}
+                        name="bankName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Bank Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Bank Name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="branchName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Branch Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Branch Name" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="branchCode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Branch Code</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Branch Code" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="providerName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Provider</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select provider" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="jazzcash">JazzCash</SelectItem>
+                                <SelectItem value="easypaisa">Easypaisa</SelectItem>
+                                <SelectItem value="nayapay">NayaPay</SelectItem>
+                                <SelectItem value="sadapay">SadaPay</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="iban"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>IBAN (Optional)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="IBAN" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
+
+                  <FormField
+                    control={form.control}
+                    name="isActive"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                          <FormLabel>Active</FormLabel>
+                          <FormDescription>Make this payment method available to clients</FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={handleDialogClose}>
+                      Cancel
+                    </Button>
+                    <Button type="submit">Save</Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Tabs defaultValue="bank" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full md:w-[400px] grid-cols-2">
+          <TabsTrigger value="bank">
+            <Bank className="mr-2 h-4 w-4" />
+            Bank Accounts
+          </TabsTrigger>
+          <TabsTrigger value="mobile_wallet">
+            <Wallet className="mr-2 h-4 w-4" />
+            Mobile Wallets
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="bank" className="mt-6">
+          {loading ? (
+            <div className="flex justify-center items-center h-40">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : bankAccounts.length === 0 ? (
+            <div className="text-center py-10 border rounded-lg">
+              <Bank className="mx-auto h-10 w-10 text-gray-400" />
+              <h3 className="mt-2 text-lg font-medium">No bank accounts</h3>
+              <p className="mt-1 text-sm text-gray-500">Add a bank account to get started.</p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => {
+                  handleMethodTypeChange("bank")
+                  setIsAddDialogOpen(true)
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Bank Account
               </Button>
             </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {bankAccounts.map((method) => (
+                <Card key={method.id} className={method.isActive ? "" : "opacity-60"}>
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="flex items-center">
+                          <Bank className="mr-2 h-5 w-5" />
+                          {method.name}
+                        </CardTitle>
+                        <CardDescription>{method.bankName}</CardDescription>
+                      </div>
+                      {!method.isActive && (
+                        <span className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded">Inactive</span>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <div className="space-y-2">
+                      <div>
+                        <span className="text-sm font-medium text-gray-500">Account Title:</span>
+                        <p>{method.accountTitle}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-500">Account Number:</span>
+                        <p>{method.accountNumber}</p>
+                      </div>
+                      {method.iban && (
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">IBAN:</span>
+                          <p>{method.iban}</p>
+                        </div>
+                      )}
+                      {method.swiftCode && (
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Swift Code:</span>
+                          <p>{method.swiftCode}</p>
+                        </div>
+                      )}
+                      {method.branchName && (
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">Branch:</span>
+                          <p>{method.branchName}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => openEditDialog(method)}>
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(method)}>
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </TabsContent>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md md:max-w-lg">
+        <TabsContent value="mobile_wallet" className="mt-6">
+          {loading ? (
+            <div className="flex justify-center items-center h-40">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : mobileWallets.length === 0 ? (
+            <div className="text-center py-10 border rounded-lg">
+              <Wallet className="mx-auto h-10 w-10 text-gray-400" />
+              <h3 className="mt-2 text-lg font-medium">No mobile wallets</h3>
+              <p className="mt-1 text-sm text-gray-500">Add a mobile wallet to get started.</p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => {
+                  handleMethodTypeChange("mobile_wallet")
+                  setIsAddDialogOpen(true)
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Mobile Wallet
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {mobileWallets.map((method) => (
+                <Card key={method.id} className={method.isActive ? "" : "opacity-60"}>
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="flex items-center">
+                          <Wallet className="mr-2 h-5 w-5" />
+                          {method.name}
+                        </CardTitle>
+                        <CardDescription>
+                          {method.providerName
+                            ? method.providerName.charAt(0).toUpperCase() + method.providerName.slice(1)
+                            : ""}
+                        </CardDescription>
+                      </div>
+                      {!method.isActive && (
+                        <span className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded">Inactive</span>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <div className="space-y-2">
+                      <div>
+                        <span className="text-sm font-medium text-gray-500">Account Title:</span>
+                        <p>{method.accountTitle}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-500">Account Number:</span>
+                        <p>{method.accountNumber}</p>
+                      </div>
+                      {method.iban && (
+                        <div>
+                          <span className="text-sm font-medium text-gray-500">IBAN:</span>
+                          <p>{method.iban}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => openEditDialog(method)}>
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(method)}>
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingAccount ? "Edit Bank Account" : "Add Bank Account"}</DialogTitle>
-            <DialogDescription>
-              {editingAccount ? "Update the bank account details below" : "Enter the bank account details below"}
-            </DialogDescription>
+            <DialogTitle>Edit Payment Method</DialogTitle>
+            <DialogDescription>Update the payment method details.</DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          <div className="py-4">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onEdit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="accountName"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Account Name</FormLabel>
+                      <FormLabel>Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Account holder name" {...field} />
+                        <Input placeholder="e.g., Company Main Account" {...field} />
+                      </FormControl>
+                      <FormDescription>A descriptive name for this payment method</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="accountTitle"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Account Title</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Company Name Ltd." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
                 <FormField
                   control={form.control}
                   name="accountNumber"
@@ -367,133 +776,180 @@ export default function PaymentMethodsPage() {
                     <FormItem>
                       <FormLabel>Account Number</FormLabel>
                       <FormControl>
-                        <Input placeholder="Account number" {...field} />
+                        <Input
+                          placeholder={methodType === "mobile_wallet" ? "11 digits" : "Account number"}
+                          {...field}
+                        />
                       </FormControl>
+                      {methodType === "mobile_wallet" && <FormDescription>Must be exactly 11 digits</FormDescription>}
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="bankName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Bank Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Bank name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="accountType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Account Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select account type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="checking">Checking</SelectItem>
-                          <SelectItem value="savings">Savings</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="routingNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Routing Number / IBAN</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Routing number or IBAN" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="swiftCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Swift Code (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Swift code" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="branchName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Branch Name (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Branch name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="branchCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Branch Code (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Branch code" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={form.control}
-                name="isDefault"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Default Account</FormLabel>
-                      <FormDescription>Make this the default account for receiving payments</FormDescription>
+
+                {methodType === "bank" ? (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="iban"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>IBAN</FormLabel>
+                            <FormControl>
+                              <Input placeholder="IBAN" {...field} value={field.value || ""} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="swiftCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Swift Code</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Swift Code" {...field} value={field.value || ""} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                  </FormItem>
+
+                    <FormField
+                      control={form.control}
+                      name="bankName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Bank Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Bank Name" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="branchName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Branch Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Branch Name" {...field} value={field.value || ""} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="branchCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Branch Code</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Branch Code" {...field} value={field.value || ""} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="providerName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Provider</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select provider" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="jazzcash">JazzCash</SelectItem>
+                              <SelectItem value="easypaisa">Easypaisa</SelectItem>
+                              <SelectItem value="nayapay">NayaPay</SelectItem>
+                              <SelectItem value="sadapay">SadaPay</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="iban"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>IBAN (Optional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="IBAN" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
                 )}
-              />
-              <DialogFooter className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {editingAccount ? "Updating..." : "Adding..."}
-                    </>
-                  ) : (
-                    <>{editingAccount ? "Update Account" : "Add Account"}</>
+
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <div className="space-y-0.5">
+                        <FormLabel>Active</FormLabel>
+                        <FormDescription>Make this payment method available to clients</FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
                   )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+                />
+
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={handleDialogClose}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Update</Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the payment method. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
