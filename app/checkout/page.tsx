@@ -336,39 +336,43 @@ export default function CheckoutPage() {
       const finalTotal = Math.max(0, cartTotal - discount)
       const currentCurrency = getCurrentCurrency()
 
-      // Store customer data in session storage for the payment page
-      sessionStorage.setItem(
-        "checkoutData",
-        JSON.stringify({
-          customer: formData,
-          items: items,
-          total: finalTotal,
-          originalTotal: cartTotal,
-          discount: discount,
-          currency: {
-            code: selectedCurrency,
-            rate: conversionRates[selectedCurrency],
-            symbol: currentCurrency.symbol,
-            flag: currentCurrency.flag,
-            convertedTotal: convertPrice(finalTotal),
-          },
-          coupon: appliedCoupon
-            ? {
-                id: appliedCoupon.id,
-                code: appliedCoupon.code,
-              }
-            : null,
-          affiliateCode: affiliateCode,
-        }),
-      )
+      // First, store checkout data in session storage
+      const checkoutData = {
+        customer: formData,
+        items: items,
+        total: finalTotal,
+        originalTotal: cartTotal,
+        discount: discount,
+        currency: {
+          code: selectedCurrency,
+          rate: conversionRates[selectedCurrency],
+          symbol: currentCurrency.symbol,
+          flag: currentCurrency.flag,
+          convertedTotal: convertPrice(finalTotal),
+        },
+        coupon: appliedCoupon
+          ? {
+              id: appliedCoupon.id,
+              code: appliedCoupon.code,
+            }
+          : null,
+        affiliateCode: affiliateCode,
+        timestamp: new Date().getTime(), // Add timestamp to ensure freshness
+      }
 
-      // First navigate to the payment page
+      // Store the data in session storage
+      sessionStorage.setItem("checkoutData", JSON.stringify(checkoutData))
+
+      // Wait a moment to ensure data is saved before navigation
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      // Navigate to payment page
       router.push("/checkout/payment")
 
-      // Then clear the cart after navigation has started
+      // Clear cart after a delay to ensure navigation has started
       setTimeout(() => {
         clearCart()
-      }, 500)
+      }, 1000)
     } catch (error: any) {
       console.error("Checkout error:", error)
       toast({

@@ -143,7 +143,9 @@ export default function PaymentPage() {
   useEffect(() => {
     // Get checkout data from session storage
     const storedData = sessionStorage.getItem("checkoutData")
+
     if (!storedData) {
+      console.log("No checkout data found, redirecting to checkout")
       // Redirect to checkout if no data
       router.push("/checkout")
       return
@@ -151,6 +153,27 @@ export default function PaymentPage() {
 
     try {
       const parsedData = JSON.parse(storedData)
+
+      // Check if the data is valid and has required fields
+      if (!parsedData || !parsedData.customer || !parsedData.items || parsedData.total === undefined) {
+        console.log("Invalid checkout data, redirecting to checkout")
+        router.push("/checkout")
+        return
+      }
+
+      // Check if the data is fresh (within the last hour)
+      const timestamp = parsedData.timestamp || 0
+      const now = new Date().getTime()
+      const oneHour = 60 * 60 * 1000
+
+      if (now - timestamp > oneHour) {
+        console.log("Checkout data is stale, redirecting to checkout")
+        sessionStorage.removeItem("checkoutData")
+        router.push("/checkout")
+        return
+      }
+
+      console.log("Valid checkout data found:", parsedData)
       setCheckoutData(parsedData)
 
       // Extract currency information
