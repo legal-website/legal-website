@@ -9,14 +9,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, AlertCircle, X, Tag, Loader2 } from "lucide-react"
+import { ArrowLeft, AlertCircle, X, Tag, Loader2, Globe, Check } from "lucide-react"
 import { useCart } from "@/context/cart-context"
 import { useToast } from "@/components/ui/use-toast"
 import type { CouponType } from "@/lib/prisma-types"
-
-// Add these imports at the top
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Globe } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandGroup, CommandItem } from "@/components/ui/command"
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -35,17 +33,19 @@ export default function CheckoutPage() {
     discount: number
   } | null>(null)
 
-  // Inside the component, add these state variables
+  // Currency state
   const [selectedCurrency, setSelectedCurrency] = useState<string>("USD")
   const [conversionRates, setConversionRates] = useState<Record<string, number>>({
     USD: 1,
-    EUR: 0.92,
-    GBP: 0.78,
+    PKR: 278.5,
     CAD: 1.35,
-    AUD: 1.48,
-    JPY: 149.82,
-    INR: 83.12,
+    GBP: 0.78,
+    EUR: 0.92,
+    AED: 3.67,
   })
+  const [loadingRates, setLoadingRates] = useState(false)
+  const [openCurrencySelector, setOpenCurrencySelector] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
 
   // Form state
   const [formData, setFormData] = useState({
@@ -59,6 +59,69 @@ export default function CheckoutPage() {
     phone: "",
     company: "",
   })
+
+  // Currency data with flags and names
+  const currencies = [
+    { code: "USD", name: "US Dollar", symbol: "$", flag: "🇺🇸" },
+    { code: "PKR", name: "Pakistani Rupee", symbol: "₨", flag: "🇵🇰" },
+    { code: "CAD", name: "Canadian Dollar", symbol: "C$", flag: "🇨🇦" },
+    { code: "GBP", name: "British Pound", symbol: "£", flag: "🇬🇧" },
+    { code: "EUR", name: "Euro", symbol: "€", flag: "🇪🇺" },
+    { code: "AED", name: "UAE Dirham", symbol: "د.إ", flag: "🇦🇪" },
+  ]
+
+  // Get current currency data
+  const getCurrentCurrency = () => {
+    return currencies.find((c) => c.code === selectedCurrency) || currencies[0]
+  }
+
+  // Filter currencies based on search term
+  const filteredCurrencies = currencies.filter(
+    (currency) =>
+      currency.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      currency.name.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  // Fetch exchange rates from API
+  const fetchExchangeRates = async () => {
+    setLoadingRates(true)
+    try {
+      // In a real application, you would use an API key and a proper API endpoint
+      // This is a placeholder for demonstration purposes
+      const response = await fetch(`https://api.exchangerate-api.com/v4/latest/USD`)
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch exchange rates")
+      }
+
+      const data = await response.json()
+
+      if (data && data.rates) {
+        // Create a rates object with only our selected currencies
+        const newRates: Record<string, number> = { USD: 1 }
+        currencies.forEach((currency) => {
+          if (currency.code !== "USD" && data.rates[currency.code]) {
+            newRates[currency.code] = data.rates[currency.code]
+          }
+        })
+
+        setConversionRates(newRates)
+        toast({
+          title: "Exchange rates updated",
+          description: "The latest currency exchange rates have been loaded.",
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching exchange rates:", error)
+      toast({
+        title: "Couldn't update exchange rates",
+        description: "Using stored rates instead. Please try again later.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingRates(false)
+    }
+  }
 
   useEffect(() => {
     // Redirect if cart is empty
@@ -86,7 +149,16 @@ export default function CheckoutPage() {
           console.error("Error parsing stored coupon data:", error)
         }
       }
+
+      // Check for stored currency preference
+      const storedCurrency = localStorage.getItem("preferredCurrency")
+      if (storedCurrency && currencies.some((c) => c.code === storedCurrency)) {
+        setSelectedCurrency(storedCurrency)
+      }
     }
+
+    // Fetch exchange rates when component mounts
+    fetchExchangeRates()
   }, [items, router])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,16 +245,14 @@ export default function CheckoutPage() {
   }
 
   const getCurrencySymbol = (currency: string): string => {
-    const symbols: Record<string, string> = {
-      USD: "$",
-      EUR: "€",
-      GBP: "£",
-      CAD: "C$",
-      AUD: "A$",
-      JPY: "¥",
-      INR: "₹",
-    }
-    return symbols[currency] || "$"
+    const curr = currencies.find((c) => c.code === currency)
+    return curr ? curr.symbol : "$"
+  }
+
+  const handleCurrencyChange = (currency: string) => {
+    setSelectedCurrency(currency)
+    localStorage.setItem("preferredCurrency", currency)
+    setOpenCurrencySelector(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -205,6 +275,7 @@ export default function CheckoutPage() {
       const cartTotal = getCartTotal()
       const discount = appliedCoupon ? appliedCoupon.discount : 0
       const finalTotal = Math.max(0, cartTotal - discount)
+      const currentCurrency = getCurrentCurrency()
 
       // Store customer data in session storage for the payment page
       sessionStorage.setItem(
@@ -218,7 +289,8 @@ export default function CheckoutPage() {
           currency: {
             code: selectedCurrency,
             rate: conversionRates[selectedCurrency],
-            symbol: getCurrencySymbol(selectedCurrency),
+            symbol: currentCurrency.symbol,
+            convertedTotal: convertPrice(finalTotal),
           },
           coupon: appliedCoupon
             ? {
@@ -256,6 +328,7 @@ export default function CheckoutPage() {
   const cartTotal = getCartTotal()
   const discount = appliedCoupon ? appliedCoupon.discount : 0
   const finalTotal = Math.max(0, cartTotal - discount)
+  const currentCurrency = getCurrentCurrency()
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-36 mb-44">
@@ -358,34 +431,105 @@ export default function CheckoutPage() {
           <Card>
             <CardHeader>
               <CardTitle>Order Summary</CardTitle>
-              <div className="mt-2 flex items-center space-x-2">
-                <Globe className="h-4 w-4 text-gray-500" />
-                <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
-                  <SelectTrigger className="w-[130px]">
-                    <SelectValue placeholder="Currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                    <SelectItem value="GBP">GBP (£)</SelectItem>
-                    <SelectItem value="CAD">CAD (C$)</SelectItem>
-                    <SelectItem value="AUD">AUD (A$)</SelectItem>
-                    <SelectItem value="JPY">JPY (¥)</SelectItem>
-                    <SelectItem value="INR">INR (₹)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <CardDescription>Review your order details</CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Currency Selector */}
+              <div className="mb-6">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center">
+                      <Globe className="h-5 w-5 text-blue-600 mr-2" />
+                      <h3 className="font-medium text-blue-800">Select Your Currency</h3>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={fetchExchangeRates}
+                      disabled={loadingRates}
+                      className="h-8 text-blue-600"
+                    >
+                      {loadingRates ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : "Refresh Rates"}
+                    </Button>
+                  </div>
+
+                  <p className="text-sm text-blue-700 mb-3">
+                    Choose the currency you'd like to pay with. Prices will be converted automatically.
+                  </p>
+
+                  <Popover open={openCurrencySelector} onOpenChange={setOpenCurrencySelector}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openCurrencySelector}
+                        className="w-full justify-between bg-white border-blue-200"
+                      >
+                        <div className="flex items-center">
+                          <span className="mr-2 text-lg">{currentCurrency.flag}</span>
+                          <span>
+                            {currentCurrency.code} - {currentCurrency.name}
+                          </span>
+                        </div>
+                        <ArrowLeft className="ml-2 h-4 w-4 shrink-0 opacity-50 rotate-90" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <div className="p-2">
+                        <Input
+                          placeholder="Search currency..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="mb-2"
+                        />
+                        <Command className="rounded-lg border shadow-md">
+                          <CommandGroup>
+                            {filteredCurrencies.length > 0 ? (
+                              filteredCurrencies.map((currency) => (
+                                <CommandItem
+                                  key={currency.code}
+                                  onSelect={() => handleCurrencyChange(currency.code)}
+                                  className="cursor-pointer flex items-center justify-between"
+                                >
+                                  <div className="flex items-center">
+                                    <span className="mr-2 text-lg">{currency.flag}</span>
+                                    <span>
+                                      {currency.code} - {currency.name}
+                                    </span>
+                                  </div>
+                                  {selectedCurrency === currency.code && (
+                                    <Check className="ml-auto h-4 w-4 text-green-600" />
+                                  )}
+                                </CommandItem>
+                              ))
+                            ) : (
+                              <div className="py-6 text-center text-sm text-gray-500">No currency found.</div>
+                            )}
+                          </CommandGroup>
+                        </Command>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
+                  {selectedCurrency !== "USD" && (
+                    <div className="mt-3 text-sm text-blue-700 bg-blue-100 p-2 rounded">
+                      <p>
+                        Exchange rate: 1 USD = {conversionRates[selectedCurrency]} {selectedCurrency}
+                      </p>
+                      <p className="text-xs mt-1">Rates updated: {new Date().toLocaleString()}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-4">
                 {items.map((item) => (
                   <div key={item.id} className="border-b pb-4">
                     <div className="flex justify-between">
                       <span className="font-medium">{item.tier} Package</span>
                       <span>
-                        {getCurrencySymbol(selectedCurrency)}
-                        {convertPrice(item.price)}
+                        {currentCurrency.symbol}
+                        {convertPrice(item.price).toFixed(2)}
                       </span>
                     </div>
 
@@ -393,8 +537,8 @@ export default function CheckoutPage() {
                       <div className="flex justify-between mt-1 text-sm text-gray-600">
                         <span>{item.state} State Filing Fee</span>
                         <span>
-                          {getCurrencySymbol(selectedCurrency)}
-                          {convertPrice(item.stateFee)}
+                          {currentCurrency.symbol}
+                          {convertPrice(item.stateFee).toFixed(2)}
                         </span>
                       </div>
                     )}
@@ -403,8 +547,8 @@ export default function CheckoutPage() {
                       <div className="flex justify-between mt-1 text-sm text-[#22c984]">
                         <span>Discounted Price</span>
                         <span>
-                          {getCurrencySymbol(selectedCurrency)}
-                          {convertPrice(item.discount)}
+                          {currentCurrency.symbol}
+                          {convertPrice(item.discount).toFixed(2)}
                         </span>
                       </div>
                     )}
@@ -421,7 +565,10 @@ export default function CheckoutPage() {
                       <div className="flex items-center">
                         <Tag className="h-4 w-4 mr-2 text-green-600" />
                         <span className="text-green-700 font-medium">{appliedCoupon.code}</span>
-                        <span className="text-green-600 text-sm ml-2">(-${appliedCoupon.discount.toFixed(2)})</span>
+                        <span className="text-green-600 text-sm ml-2">
+                          (-{currentCurrency.symbol}
+                          {convertPrice(appliedCoupon.discount).toFixed(2)})
+                        </span>
                       </div>
                       <Button variant="ghost" size="sm" onClick={handleRemoveCoupon} className="h-8 w-8 p-0">
                         <X className="h-4 w-4 text-green-700" />
@@ -447,7 +594,7 @@ export default function CheckoutPage() {
                   <div className="flex justify-between font-medium">
                     <span>Subtotal</span>
                     <span>
-                      {getCurrencySymbol(selectedCurrency)}
+                      {currentCurrency.symbol}
                       {convertPrice(cartTotal).toFixed(2)}
                     </span>
                   </div>
@@ -456,7 +603,7 @@ export default function CheckoutPage() {
                     <div className="flex justify-between text-green-600 mt-1">
                       <span>Discount</span>
                       <span>
-                        -{getCurrencySymbol(selectedCurrency)}
+                        -{currentCurrency.symbol}
                         {convertPrice(discount).toFixed(2)}
                       </span>
                     </div>
@@ -465,7 +612,7 @@ export default function CheckoutPage() {
                   <div className="flex justify-between font-bold text-lg mt-2 pt-2 border-t">
                     <span>Total</span>
                     <span>
-                      {getCurrencySymbol(selectedCurrency)}
+                      {currentCurrency.symbol}
                       {convertPrice(finalTotal).toFixed(2)}
                     </span>
                   </div>
@@ -473,9 +620,6 @@ export default function CheckoutPage() {
                   {selectedCurrency !== "USD" && (
                     <div className="text-sm text-gray-500 mt-2">
                       <p>Original price: ${finalTotal.toFixed(2)} USD</p>
-                      <p>
-                        Exchange rate: 1 USD = {conversionRates[selectedCurrency]} {selectedCurrency}
-                      </p>
                     </div>
                   )}
                 </div>
