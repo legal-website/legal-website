@@ -64,12 +64,12 @@ export default function CheckoutPage() {
 
   // Currency data with flags and names
   const currencies = [
-    { code: "USD", name: "US Dollar", symbol: "$", flag: "https://flagcdn.com/us.svg" },
-    { code: "PKR", name: "Pakistani Rupee", symbol: "₨", flag: "https://flagcdn.com/pk.svg" },
-    { code: "CAD", name: "Canadian Dollar", symbol: "C$", flag: "https://flagcdn.com/ca.svg" },
-    { code: "GBP", name: "British Pound", symbol: "£", flag: "https://flagcdn.com/gb.svg" },
-    { code: "EUR", name: "Euro", symbol: "€", flag: "https://flagcdn.com/eu.svg" },
-    { code: "AED", name: "UAE Dirham", symbol: "د.إ", flag: "https://flagcdn.com/ae.svg" },
+    { code: "USD", name: "US Dollar", symbol: "$", flag: "/flags/us.png" },
+    { code: "PKR", name: "Pakistani Rupee", symbol: "₨", flag: "/flags/pk.png" },
+    { code: "CAD", name: "Canadian Dollar", symbol: "C$", flag: "/flags/ca.png" },
+    { code: "GBP", name: "British Pound", symbol: "£", flag: "/flags/gb.png" },
+    { code: "EUR", name: "Euro", symbol: "€", flag: "/flags/eu.png" },
+    { code: "AED", name: "UAE Dirham", symbol: "د.إ", flag: "/flags/ae.png" },
   ]
 
   // Get current currency data
@@ -84,7 +84,7 @@ export default function CheckoutPage() {
       currency.name.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
-  // Fetch user data
+  // Fetch user data from the actual API endpoints used by the pages
   const fetchUserData = async () => {
     setIsLoadingUserData(true)
     try {
@@ -103,42 +103,58 @@ export default function CheckoutPage() {
         return
       }
 
-      // User is logged in, fetch profile data
+      // User is logged in
       setIsUserLoggedIn(true)
 
-      // Fetch basic profile data
-      const profileResponse = await fetch("/api/user/profile")
-      if (!profileResponse.ok) {
-        throw new Error("Failed to fetch user profile")
-      }
-      const profileData = await profileResponse.json()
+      try {
+        // Fetch user profile data - same endpoint used in dashboard
+        const userResponse = await fetch("/api/user")
+        if (!userResponse.ok) throw new Error("Failed to fetch user data")
+        const userData = await userResponse.json()
 
-      // Fetch dashboard data for address and business name
-      const dashboardResponse = await fetch("/api/dashboard/data")
-      if (!dashboardResponse.ok) {
-        throw new Error("Failed to fetch dashboard data")
-      }
-      const dashboardData = await dashboardResponse.json()
+        // Fetch business data - same endpoint used in dashboard/page.tsx
+        const businessResponse = await fetch("/api/business")
+        if (!businessResponse.ok) throw new Error("Failed to fetch business data")
+        const businessData = await businessResponse.json()
 
-      // Fetch business profile data for phone number
-      const businessProfileResponse = await fetch("/api/business/profile")
-      if (!businessProfileResponse.ok) {
-        throw new Error("Failed to fetch business profile")
-      }
-      const businessProfileData = await businessProfileResponse.json()
+        // Fetch business profile - same endpoint used in dashboard/business/profile/page.tsx
+        const profileResponse = await fetch("/api/business/profile")
+        if (!profileResponse.ok) throw new Error("Failed to fetch business profile")
+        const profileData = await profileResponse.json()
 
-      // Update form data with all fetched information
-      setFormData({
-        name: profileData.name || sessionData.user.name || "",
-        email: profileData.email || sessionData.user.email || "",
-        address: dashboardData.address || "",
-        city: dashboardData.city || "",
-        state: dashboardData.state || "",
-        zip: dashboardData.zipCode || "",
-        country: dashboardData.country || "",
-        phone: businessProfileData.phoneNumber || "",
-        company: dashboardData.businessName || "",
-      })
+        // Update form data with all fetched information
+        setFormData({
+          name: userData.name || sessionData.user.name || "",
+          email: userData.email || sessionData.user.email || "",
+          address: businessData.address || "",
+          city: businessData.city || "",
+          state: businessData.state || "",
+          zip: businessData.zipCode || "",
+          country: businessData.country || "",
+          phone: profileData.phoneNumber || "",
+          company: businessData.businessName || "",
+        })
+
+        console.log("User data loaded successfully:", {
+          userData,
+          businessData,
+          profileData,
+        })
+      } catch (error) {
+        console.error("Error fetching specific user data:", error)
+        // Fallback to basic session data if specific endpoints fail
+        setFormData({
+          name: sessionData.user.name || "",
+          email: sessionData.user.email || "",
+          address: "",
+          city: "",
+          state: "",
+          zip: "",
+          country: "",
+          phone: "",
+          company: "",
+        })
+      }
     } catch (error) {
       console.error("Error fetching user data:", error)
       // If there's an error, assume user is not logged in
@@ -843,7 +859,13 @@ export default function CheckoutPage() {
                         {currentCurrency.symbol}
                         {convertPrice(cartTotal).toFixed(2)}
                       </span>
-                      <span className="text-sm ml-1">{currentCurrency.flag}</span>
+                      <Image
+                        src={currentCurrency.flag || "/placeholder.svg"}
+                        alt={`${currentCurrency.code} flag`}
+                        width={16}
+                        height={12}
+                        className="ml-1"
+                      />
                     </div>
                   </div>
 
