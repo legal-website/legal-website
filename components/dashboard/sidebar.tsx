@@ -19,6 +19,7 @@ import {
   MessageCircle,
   TicketIcon,
   Tag,
+  CreditCard,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/context/theme-context"
@@ -139,6 +140,11 @@ const menuItems: MenuItem[] = [
     icon: Tag,
     label: "Coupons",
     href: "/dashboard/coupons",
+  },
+  {
+    icon: CreditCard,
+    label: "Payment Methods",
+    href: "/dashboard/payment-method",
   },
   {
     icon: Settings,
