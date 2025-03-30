@@ -24,7 +24,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import type { PaymentMethod } from "@/types/payment-method"
-import { BanknoteIcon as Bank, Wallet, Plus, Edit, Trash2 } from "lucide-react"
+import { BanknoteIcon as Bank, Wallet, Plus, Edit, Trash2, RefreshCw, CheckCircle2, XCircle } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 
 // Form schema for bank accounts
 const bankAccountSchema = z.object({
@@ -76,6 +77,7 @@ export default function PaymentMethodsPage() {
   const router = useRouter()
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -119,6 +121,32 @@ export default function PaymentMethodsPage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Refresh payment methods
+  const refreshPaymentMethods = async () => {
+    try {
+      setRefreshing(true)
+      const response = await fetch("/api/admin/payment-methods")
+      if (!response.ok) {
+        throw new Error("Failed to refresh payment methods")
+      }
+      const data = await response.json()
+      setPaymentMethods(data.paymentMethods)
+      toast({
+        title: "Refreshed",
+        description: "Payment methods refreshed successfully",
+      })
+    } catch (error) {
+      console.error("Error refreshing payment methods:", error)
+      toast({
+        title: "Error",
+        description: "Failed to refresh payment methods",
+        variant: "destructive",
+      })
+    } finally {
+      setRefreshing(false)
     }
   }
 
@@ -310,255 +338,309 @@ export default function PaymentMethodsPage() {
     resetForm(type)
   }
 
+  // Get provider color
+  const getProviderColor = (provider?: string) => {
+    if (!provider) return "bg-gray-100"
+
+    switch (provider.toLowerCase()) {
+      case "jazzcash":
+        return "bg-red-100 text-red-800 border-red-200"
+      case "easypaisa":
+        return "bg-green-100 text-green-800 border-green-200"
+      case "nayapay":
+        return "bg-purple-100 text-purple-800 border-purple-200"
+      case "sadapay":
+        return "bg-blue-100 text-blue-800 border-blue-200"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200"
+    }
+  }
+
   // Filter payment methods by type
   const bankAccounts = paymentMethods.filter((method) => method.type === "bank")
   const mobileWallets = paymentMethods.filter((method) => method.type === "mobile_wallet")
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Payment Methods</h1>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Payment Method
+    <div className="px-[3%] py-6 space-y-8 mb-40">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 shadow-sm">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+              Payment Methods
+            </h1>
+            <p className="text-gray-600 mt-1">Manage your organization's payment methods for clients to use</p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={refreshPaymentMethods}
+              disabled={refreshing}
+              className="transition-all duration-300 hover:bg-blue-50"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Refreshing..." : "Refresh"}
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Add Payment Method</DialogTitle>
-              <DialogDescription>Add a new payment method for clients to use.</DialogDescription>
-            </DialogHeader>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all duration-300">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Payment Method
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Add Payment Method</DialogTitle>
+                  <DialogDescription>Add a new payment method for clients to use.</DialogDescription>
+                </DialogHeader>
 
-            <div className="py-4">
-              <div className="mb-4">
-                <Label>Method Type</Label>
-                <div className="flex mt-2 space-x-4">
-                  <div
-                    className={`flex items-center p-3 rounded-md cursor-pointer border ${
-                      methodType === "bank" ? "border-primary bg-primary/10" : "border-gray-200"
-                    }`}
-                    onClick={() => handleMethodTypeChange("bank")}
-                  >
-                    <Bank className="mr-2 h-5 w-5" />
-                    <span>Bank Account</span>
+                <div className="py-4">
+                  <div className="mb-4">
+                    <Label>Method Type</Label>
+                    <div className="flex flex-wrap mt-2 gap-4">
+                      <div
+                        className={`flex items-center p-3 rounded-md cursor-pointer border transition-all duration-200 ${
+                          methodType === "bank"
+                            ? "border-blue-500 bg-blue-50 shadow-sm"
+                            : "border-gray-200 hover:border-blue-200 hover:bg-blue-50/50"
+                        }`}
+                        onClick={() => handleMethodTypeChange("bank")}
+                      >
+                        <Bank className="mr-2 h-5 w-5" />
+                        <span>Bank Account</span>
+                      </div>
+                      <div
+                        className={`flex items-center p-3 rounded-md cursor-pointer border transition-all duration-200 ${
+                          methodType === "mobile_wallet"
+                            ? "border-indigo-500 bg-indigo-50 shadow-sm"
+                            : "border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/50"
+                        }`}
+                        onClick={() => handleMethodTypeChange("mobile_wallet")}
+                      >
+                        <Wallet className="mr-2 h-5 w-5" />
+                        <span>Mobile Wallet</span>
+                      </div>
+                    </div>
                   </div>
-                  <div
-                    className={`flex items-center p-3 rounded-md cursor-pointer border ${
-                      methodType === "mobile_wallet" ? "border-primary bg-primary/10" : "border-gray-200"
-                    }`}
-                    onClick={() => handleMethodTypeChange("mobile_wallet")}
-                  >
-                    <Wallet className="mr-2 h-5 w-5" />
-                    <span>Mobile Wallet</span>
-                  </div>
-                </div>
-              </div>
 
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Company Main Account" {...field} />
-                        </FormControl>
-                        <FormDescription>A descriptive name for this payment method</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., Company Main Account" {...field} />
+                            </FormControl>
+                            <FormDescription>A descriptive name for this payment method</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  <FormField
-                    control={form.control}
-                    name="accountTitle"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Account Title</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Company Name Ltd." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                      <FormField
+                        control={form.control}
+                        name="accountTitle"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Account Title</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., Company Name Ltd." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  <FormField
-                    control={form.control}
-                    name="accountNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Account Number</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder={methodType === "mobile_wallet" ? "11 digits" : "Account number"}
-                            {...field}
+                      <FormField
+                        control={form.control}
+                        name="accountNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Account Number</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={methodType === "mobile_wallet" ? "11 digits" : "Account number"}
+                                {...field}
+                              />
+                            </FormControl>
+                            {methodType === "mobile_wallet" && (
+                              <FormDescription>Must be exactly 11 digits</FormDescription>
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {methodType === "bank" ? (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="iban"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>IBAN</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="IBAN" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name="swiftCode"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Swift Code</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="Swift Code" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <FormField
+                            control={form.control}
+                            name="bankName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Bank Name</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Bank Name" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
                           />
-                        </FormControl>
-                        {methodType === "mobile_wallet" && <FormDescription>Must be exactly 11 digits</FormDescription>}
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
-                  {methodType === "bank" ? (
-                    <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="iban"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>IBAN</FormLabel>
-                              <FormControl>
-                                <Input placeholder="IBAN" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="branchName"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Branch Name</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="Branch Name" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
-                        <FormField
-                          control={form.control}
-                          name="swiftCode"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Swift Code</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Swift Code" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
+                            <FormField
+                              control={form.control}
+                              name="branchCode"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Branch Code</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="Branch Code" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <FormField
+                            control={form.control}
+                            name="providerName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Provider</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select provider" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="jazzcash">JazzCash</SelectItem>
+                                    <SelectItem value="easypaisa">Easypaisa</SelectItem>
+                                    <SelectItem value="nayapay">NayaPay</SelectItem>
+                                    <SelectItem value="sadapay">SadaPay</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="iban"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>IBAN (Optional)</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="IBAN" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </>
+                      )}
 
                       <FormField
                         control={form.control}
-                        name="bankName"
+                        name="isActive"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Bank Name</FormLabel>
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                            <div className="space-y-0.5">
+                              <FormLabel>Active</FormLabel>
+                              <FormDescription>Make this payment method available to clients</FormDescription>
+                            </div>
                             <FormControl>
-                              <Input placeholder="Bank Name" {...field} />
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
                             </FormControl>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="branchName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Branch Name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Branch Name" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="branchCode"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Branch Code</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Branch Code" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <FormField
-                        control={form.control}
-                        name="providerName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Provider</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select provider" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="jazzcash">JazzCash</SelectItem>
-                                <SelectItem value="easypaisa">Easypaisa</SelectItem>
-                                <SelectItem value="nayapay">NayaPay</SelectItem>
-                                <SelectItem value="sadapay">SadaPay</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="iban"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>IBAN (Optional)</FormLabel>
-                            <FormControl>
-                              <Input placeholder="IBAN" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  )}
-
-                  <FormField
-                    control={form.control}
-                    name="isActive"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                        <div className="space-y-0.5">
-                          <FormLabel>Active</FormLabel>
-                          <FormDescription>Make this payment method available to clients</FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={handleDialogClose}>
-                      Cancel
-                    </Button>
-                    <Button type="submit">Save</Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </div>
-          </DialogContent>
-        </Dialog>
+                      <DialogFooter>
+                        <Button type="button" variant="outline" onClick={handleDialogClose}>
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                        >
+                          Save
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
       </div>
 
-      <Tabs defaultValue="bank" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full md:w-[400px] grid-cols-2">
-          <TabsTrigger value="bank">
+      <Tabs defaultValue="bank" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full md:w-[400px] grid-cols-2 p-1 bg-blue-50 rounded-lg">
+          <TabsTrigger
+            value="bank"
+            className="data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm rounded-md transition-all duration-200"
+          >
             <Bank className="mr-2 h-4 w-4" />
             Bank Accounts
           </TabsTrigger>
-          <TabsTrigger value="mobile_wallet">
+          <TabsTrigger
+            value="mobile_wallet"
+            className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm rounded-md transition-all duration-200"
+          >
             <Wallet className="mr-2 h-4 w-4" />
             Mobile Wallets
           </TabsTrigger>
@@ -567,16 +649,19 @@ export default function PaymentMethodsPage() {
         <TabsContent value="bank" className="mt-6">
           {loading ? (
             <div className="flex justify-center items-center h-40">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
             </div>
           ) : bankAccounts.length === 0 ? (
-            <div className="text-center py-10 border rounded-lg">
-              <Bank className="mx-auto h-10 w-10 text-gray-400" />
-              <h3 className="mt-2 text-lg font-medium">No bank accounts</h3>
-              <p className="mt-1 text-sm text-gray-500">Add a bank account to get started.</p>
+            <div className="text-center py-12 border rounded-xl bg-white shadow-sm">
+              <div className="bg-blue-50 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <Bank className="h-8 w-8 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-medium text-gray-800">No bank accounts</h3>
+              <p className="mt-2 text-gray-500 max-w-md mx-auto">
+                Add a bank account to allow your clients to make payments to your organization.
+              </p>
               <Button
-                variant="outline"
-                className="mt-4"
+                className="mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all duration-300"
                 onClick={() => {
                   handleMethodTypeChange("bank")
                   setIsAddDialogOpen(true)
@@ -587,59 +672,89 @@ export default function PaymentMethodsPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {bankAccounts.map((method) => (
-                <Card key={method.id} className={method.isActive ? "" : "opacity-60"}>
+                <Card
+                  key={method.id}
+                  className={`overflow-hidden transition-all duration-300 hover:shadow-md ${
+                    method.isActive ? "border-blue-100" : "border-gray-200 bg-gray-50"
+                  }`}
+                >
+                  <div className={`h-2 w-full ${method.isActive ? "bg-blue-500" : "bg-gray-300"}`}></div>
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <div>
-                        <CardTitle className="flex items-center">
-                          <Bank className="mr-2 h-5 w-5" />
+                        <CardTitle className="flex items-center text-gray-800">
+                          <Bank className="mr-2 h-5 w-5 text-blue-600" />
                           {method.name}
                         </CardTitle>
-                        <CardDescription>{method.bankName}</CardDescription>
+                        <CardDescription className="font-medium">{method.bankName}</CardDescription>
                       </div>
-                      {!method.isActive && (
-                        <span className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded">Inactive</span>
+                      {method.isActive ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="bg-gray-100 text-gray-700 border-gray-200 flex items-center gap-1"
+                        >
+                          <XCircle className="h-3 w-3" />
+                          Inactive
+                        </Badge>
                       )}
                     </div>
                   </CardHeader>
                   <CardContent className="pb-2">
-                    <div className="space-y-2">
-                      <div>
-                        <span className="text-sm font-medium text-gray-500">Account Title:</span>
-                        <p>{method.accountTitle}</p>
+                    <div className="space-y-3">
+                      <div className="bg-gray-50 p-2 rounded-md">
+                        <span className="text-xs font-medium text-gray-500 block">Account Title</span>
+                        <p className="font-medium text-gray-800">{method.accountTitle}</p>
                       </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-500">Account Number:</span>
-                        <p>{method.accountNumber}</p>
+                      <div className="bg-gray-50 p-2 rounded-md">
+                        <span className="text-xs font-medium text-gray-500 block">Account Number</span>
+                        <p className="font-medium text-gray-800 font-mono">{method.accountNumber}</p>
                       </div>
                       {method.iban && (
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">IBAN:</span>
-                          <p>{method.iban}</p>
+                        <div className="bg-gray-50 p-2 rounded-md">
+                          <span className="text-xs font-medium text-gray-500 block">IBAN</span>
+                          <p className="font-medium text-gray-800 font-mono">{method.iban}</p>
                         </div>
                       )}
                       {method.swiftCode && (
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">Swift Code:</span>
-                          <p>{method.swiftCode}</p>
+                        <div className="bg-gray-50 p-2 rounded-md">
+                          <span className="text-xs font-medium text-gray-500 block">Swift Code</span>
+                          <p className="font-medium text-gray-800 font-mono">{method.swiftCode}</p>
                         </div>
                       )}
                       {method.branchName && (
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">Branch:</span>
-                          <p>{method.branchName}</p>
+                        <div className="bg-gray-50 p-2 rounded-md">
+                          <span className="text-xs font-medium text-gray-500 block">Branch</span>
+                          <p className="font-medium text-gray-800">{method.branchName}</p>
                         </div>
                       )}
                     </div>
                   </CardContent>
-                  <CardFooter className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={() => openEditDialog(method)}>
+                  <CardFooter className="flex justify-end gap-2 pt-4 border-t mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEditDialog(method)}
+                      className="hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                    >
                       <Edit className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(method)}>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => openDeleteDialog(method)}
+                      className="hover:bg-red-700 transition-colors"
+                    >
                       <Trash2 className="h-4 w-4 mr-1" />
                       Delete
                     </Button>
@@ -653,16 +768,20 @@ export default function PaymentMethodsPage() {
         <TabsContent value="mobile_wallet" className="mt-6">
           {loading ? (
             <div className="flex justify-center items-center h-40">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
             </div>
           ) : mobileWallets.length === 0 ? (
-            <div className="text-center py-10 border rounded-lg">
-              <Wallet className="mx-auto h-10 w-10 text-gray-400" />
-              <h3 className="mt-2 text-lg font-medium">No mobile wallets</h3>
-              <p className="mt-1 text-sm text-gray-500">Add a mobile wallet to get started.</p>
+            <div className="text-center py-12 border rounded-xl bg-white shadow-sm">
+              <div className="bg-indigo-50 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <Wallet className="h-8 w-8 text-indigo-600" />
+              </div>
+              <h3 className="text-xl font-medium text-gray-800">No mobile wallets</h3>
+              <p className="mt-2 text-gray-500 max-w-md mx-auto">
+                Add a mobile wallet to allow your clients to make payments to your organization using digital payment
+                services.
+              </p>
               <Button
-                variant="outline"
-                className="mt-4"
+                className="mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all duration-300"
                 onClick={() => {
                   handleMethodTypeChange("mobile_wallet")
                   setIsAddDialogOpen(true)
@@ -673,51 +792,83 @@ export default function PaymentMethodsPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {mobileWallets.map((method) => (
-                <Card key={method.id} className={method.isActive ? "" : "opacity-60"}>
+                <Card
+                  key={method.id}
+                  className={`overflow-hidden transition-all duration-300 hover:shadow-md ${
+                    method.isActive ? "border-indigo-100" : "border-gray-200 bg-gray-50"
+                  }`}
+                >
+                  <div className={`h-2 w-full ${method.isActive ? "bg-indigo-500" : "bg-gray-300"}`}></div>
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <div>
-                        <CardTitle className="flex items-center">
-                          <Wallet className="mr-2 h-5 w-5" />
+                        <CardTitle className="flex items-center text-gray-800">
+                          <Wallet className="mr-2 h-5 w-5 text-indigo-600" />
                           {method.name}
                         </CardTitle>
                         <CardDescription>
-                          {method.providerName
-                            ? method.providerName.charAt(0).toUpperCase() + method.providerName.slice(1)
-                            : ""}
+                          {method.providerName && (
+                            <Badge variant="outline" className={`mt-1 ${getProviderColor(method.providerName)}`}>
+                              {method.providerName.charAt(0).toUpperCase() + method.providerName.slice(1)}
+                            </Badge>
+                          )}
                         </CardDescription>
                       </div>
-                      {!method.isActive && (
-                        <span className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded">Inactive</span>
+                      {method.isActive ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="bg-gray-100 text-gray-700 border-gray-200 flex items-center gap-1"
+                        >
+                          <XCircle className="h-3 w-3" />
+                          Inactive
+                        </Badge>
                       )}
                     </div>
                   </CardHeader>
                   <CardContent className="pb-2">
-                    <div className="space-y-2">
-                      <div>
-                        <span className="text-sm font-medium text-gray-500">Account Title:</span>
-                        <p>{method.accountTitle}</p>
+                    <div className="space-y-3">
+                      <div className="bg-gray-50 p-2 rounded-md">
+                        <span className="text-xs font-medium text-gray-500 block">Account Title</span>
+                        <p className="font-medium text-gray-800">{method.accountTitle}</p>
                       </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-500">Account Number:</span>
-                        <p>{method.accountNumber}</p>
+                      <div className="bg-gray-50 p-2 rounded-md">
+                        <span className="text-xs font-medium text-gray-500 block">Account Number</span>
+                        <p className="font-medium text-gray-800 font-mono">{method.accountNumber}</p>
                       </div>
                       {method.iban && (
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">IBAN:</span>
-                          <p>{method.iban}</p>
+                        <div className="bg-gray-50 p-2 rounded-md">
+                          <span className="text-xs font-medium text-gray-500 block">IBAN</span>
+                          <p className="font-medium text-gray-800 font-mono">{method.iban}</p>
                         </div>
                       )}
                     </div>
                   </CardContent>
-                  <CardFooter className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={() => openEditDialog(method)}>
+                  <CardFooter className="flex justify-end gap-2 pt-4 border-t mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEditDialog(method)}
+                      className="hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                    >
                       <Edit className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(method)}>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => openDeleteDialog(method)}
+                      className="hover:bg-red-700 transition-colors"
+                    >
                       <Trash2 className="h-4 w-4 mr-1" />
                       Delete
                     </Button>
@@ -925,7 +1076,12 @@ export default function PaymentMethodsPage() {
                   <Button type="button" variant="outline" onClick={handleDialogClose}>
                     Cancel
                   </Button>
-                  <Button type="submit">Update</Button>
+                  <Button
+                    type="submit"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  >
+                    Update
+                  </Button>
                 </DialogFooter>
               </form>
             </Form>
@@ -944,7 +1100,10 @@ export default function PaymentMethodsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 text-white hover:bg-red-700 transition-colors"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
