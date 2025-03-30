@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 // Form schema for bank accounts
 const bankAccountSchema = z.object({
@@ -78,6 +79,7 @@ export default function PaymentMethodsPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [backgroundRefresh, setBackgroundRefresh] = useState(false)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -103,14 +105,22 @@ export default function PaymentMethodsPage() {
   })
 
   // Fetch payment methods
-  const fetchPaymentMethods = async () => {
+  const fetchPaymentMethods = async (isBackground = false) => {
     try {
-      setLoading(true)
+      if (!isBackground) {
+        setLoading(true)
+      }
       const response = await fetch("/api/admin/payment-methods")
       if (!response.ok) {
         throw new Error("Failed to fetch payment methods")
       }
       const data = await response.json()
+
+      // Add a slight delay for smoother transition when refreshing
+      if (isBackground) {
+        await new Promise((resolve) => setTimeout(resolve, 300))
+      }
+
       setPaymentMethods(data.paymentMethods)
     } catch (error) {
       console.error("Error fetching payment methods:", error)
@@ -124,16 +134,11 @@ export default function PaymentMethodsPage() {
     }
   }
 
-  // Refresh payment methods
+  // Refresh payment methods with animation
   const refreshPaymentMethods = async () => {
     try {
       setRefreshing(true)
-      const response = await fetch("/api/admin/payment-methods")
-      if (!response.ok) {
-        throw new Error("Failed to refresh payment methods")
-      }
-      const data = await response.json()
-      setPaymentMethods(data.paymentMethods)
+      await fetchPaymentMethods(true)
       toast({
         title: "Refreshed",
         description: "Payment methods refreshed successfully",
@@ -149,6 +154,18 @@ export default function PaymentMethodsPage() {
       setRefreshing(false)
     }
   }
+
+  // Background refresh every 30 seconds
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setBackgroundRefresh(true)
+      fetchPaymentMethods(true).finally(() => {
+        setTimeout(() => setBackgroundRefresh(false), 500)
+      })
+    }, 30000)
+
+    return () => clearInterval(intervalId)
+  }, [])
 
   // Load payment methods on mount
   useEffect(() => {
@@ -178,7 +195,7 @@ export default function PaymentMethodsPage() {
 
       setIsAddDialogOpen(false)
       resetForm()
-      fetchPaymentMethods()
+      refreshPaymentMethods()
     } catch (error: any) {
       toast({
         title: "Error",
@@ -213,7 +230,7 @@ export default function PaymentMethodsPage() {
 
       setIsEditDialogOpen(false)
       setCurrentMethod(null)
-      fetchPaymentMethods()
+      refreshPaymentMethods()
     } catch (error: any) {
       toast({
         title: "Error",
@@ -244,7 +261,7 @@ export default function PaymentMethodsPage() {
 
       setIsDeleteDialogOpen(false)
       setCurrentMethod(null)
-      fetchPaymentMethods()
+      refreshPaymentMethods()
     } catch (error: any) {
       toast({
         title: "Error",
@@ -376,9 +393,14 @@ export default function PaymentMethodsPage() {
               variant="outline"
               onClick={refreshPaymentMethods}
               disabled={refreshing}
-              className="transition-all duration-300 hover:bg-blue-50"
+              className={cn("transition-all duration-300 hover:bg-blue-50", backgroundRefresh && "bg-blue-50")}
             >
-              <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={cn(
+                  "mr-2 h-4 w-4 transition-transform duration-700",
+                  (refreshing || backgroundRefresh) && "animate-spin",
+                )}
+              />
               {refreshing ? "Refreshing..." : "Refresh"}
             </Button>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -672,7 +694,12 @@ export default function PaymentMethodsPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div
+              className={cn(
+                "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-opacity duration-300",
+                backgroundRefresh && "opacity-60",
+              )}
+            >
               {bankAccounts.map((method) => (
                 <Card
                   key={method.id}
@@ -792,7 +819,12 @@ export default function PaymentMethodsPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div
+              className={cn(
+                "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-opacity duration-300",
+                backgroundRefresh && "opacity-60",
+              )}
+            >
               {mobileWallets.map((method) => (
                 <Card
                   key={method.id}

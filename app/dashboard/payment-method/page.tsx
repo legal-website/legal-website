@@ -9,11 +9,13 @@ import type { PaymentMethod } from "@/types/payment-method"
 import {
   BanknoteIcon as BankIcon,
   SmartphoneIcon,
-  PlusIcon,
   Loader2Icon,
   MoreVerticalIcon,
   PencilIcon,
   TrashIcon,
+  RefreshCwIcon,
+  CopyIcon,
+  CheckIcon,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
@@ -63,8 +65,10 @@ export default function ClientPaymentMethodsPage() {
   const { toast } = useToast()
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [backgroundRefresh, setBackgroundRefresh] = useState(false)
   const [copiedFields, setCopiedFields] = useState<Record<string, boolean>>({})
-  const [activeTab, setActiveTab] = useState("bank")
+  const [activeTab, setActiveTab] = useState("bank_account")
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [addDialogType, setAddDialogType] = useState<"bank_account" | "mobile_wallet">("bank_account")
@@ -89,14 +93,22 @@ export default function ClientPaymentMethodsPage() {
   })
 
   // Fetch payment methods
-  const fetchPaymentMethods = async () => {
+  const fetchPaymentMethods = async (isBackground = false) => {
     try {
-      setLoading(true)
+      if (!isBackground) {
+        setLoading(true)
+      }
       const response = await fetch("/api/payment-methods")
       if (!response.ok) {
         throw new Error("Failed to fetch payment methods")
       }
       const data = await response.json()
+
+      // Add a slight delay for smoother transition when refreshing
+      if (isBackground) {
+        await new Promise((resolve) => setTimeout(resolve, 300))
+      }
+
       setPaymentMethods(data.paymentMethods)
     } catch (error) {
       console.error("Error fetching payment methods:", error)
@@ -109,6 +121,39 @@ export default function ClientPaymentMethodsPage() {
       setLoading(false)
     }
   }
+
+  // Refresh payment methods with animation
+  const refreshPaymentMethods = async () => {
+    try {
+      setRefreshing(true)
+      await fetchPaymentMethods(true)
+      toast({
+        title: "Refreshed",
+        description: "Payment methods refreshed successfully",
+      })
+    } catch (error) {
+      console.error("Error refreshing payment methods:", error)
+      toast({
+        title: "Error",
+        description: "Failed to refresh payment methods",
+        variant: "destructive",
+      })
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  // Background refresh every 30 seconds
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setBackgroundRefresh(true)
+      fetchPaymentMethods(true).finally(() => {
+        setTimeout(() => setBackgroundRefresh(false), 500)
+      })
+    }, 30000)
+
+    return () => clearInterval(intervalId)
+  }, [])
 
   // Load payment methods on mount
   useEffect(() => {
@@ -204,7 +249,7 @@ export default function ClientPaymentMethodsPage() {
       })
       setIsAddDialogOpen(false)
       setIsEditDialogOpen(false)
-      fetchPaymentMethods() // Refresh data
+      refreshPaymentMethods() // Refresh data
     } catch (error) {
       console.error("Error saving payment method:", error)
       toast({
@@ -227,7 +272,7 @@ export default function ClientPaymentMethodsPage() {
         description: "Payment method deleted successfully",
       })
       setIsDeleteDialogOpen(false)
-      fetchPaymentMethods() // Refresh data
+      refreshPaymentMethods() // Refresh data
     } catch (error) {
       console.error("Error deleting payment method:", error)
       toast({
@@ -244,13 +289,32 @@ export default function ClientPaymentMethodsPage() {
     <div className="px-[3%] mb-40">
       <div className="space-y-6">
         <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-6 rounded-lg border border-primary/20 shadow-sm">
-          <h1 className="text-2xl font-bold tracking-tight">Payment Methods</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage your payment methods for receiving payments from the platform.
-          </p>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Payment Methods</h1>
+              <p className="text-muted-foreground mt-2">
+                To ensure a smooth and secure transaction process, please copy the fields below when making payments
+                using the company account.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={refreshPaymentMethods}
+              disabled={refreshing}
+              className={cn("transition-all duration-300 hover:bg-primary/10", backgroundRefresh && "bg-primary/5")}
+            >
+              <RefreshCwIcon
+                className={cn(
+                  "mr-2 h-4 w-4 transition-transform duration-700",
+                  (refreshing || backgroundRefresh) && "animate-spin",
+                )}
+              />
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </Button>
+          </div>
         </div>
 
-        <Tabs defaultValue="bank_account" className="w-full">
+        <Tabs defaultValue="bank_account" value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="bank_account" className="text-sm md:text-base">
               <BankIcon className="mr-2 h-4 w-4" />
@@ -265,10 +329,6 @@ export default function ClientPaymentMethodsPage() {
           <TabsContent value="bank_account" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Your Bank Accounts</h2>
-              <Button onClick={() => openAddDialog("bank_account")} className="transition-all hover:scale-105">
-                <PlusIcon className="mr-2 h-4 w-4" />
-                Add Bank Account
-              </Button>
             </div>
 
             {isLoading ? (
@@ -279,18 +339,15 @@ export default function ClientPaymentMethodsPage() {
               <div className="bg-muted/50 rounded-lg p-8 text-center border border-border">
                 <BankIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">No Bank Accounts</h3>
-                <p className="text-muted-foreground mb-4">You haven't added any bank accounts yet.</p>
-                <Button
-                  onClick={() => openAddDialog("bank_account")}
-                  variant="outline"
-                  className="transition-all hover:bg-primary hover:text-primary-foreground"
-                >
-                  <PlusIcon className="mr-2 h-4 w-4" />
-                  Add Bank Account
-                </Button>
+                <p className="text-muted-foreground mb-4">There are no bank accounts available at the moment.</p>
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div
+                className={cn(
+                  "grid gap-4 md:grid-cols-2 lg:grid-cols-3 transition-opacity duration-300",
+                  backgroundRefresh && "opacity-60",
+                )}
+              >
                 {bankAccounts.map((account) => (
                   <Card key={account.id} className="overflow-hidden transition-all hover:shadow-md">
                     <CardHeader
@@ -329,17 +386,120 @@ export default function ClientPaymentMethodsPage() {
                     </CardHeader>
                     <CardContent className="pt-4">
                       <div className="space-y-2">
-                        <div className="flex justify-between">
+                        <div className="flex justify-between group">
                           <span className="text-sm text-muted-foreground">Account Title</span>
-                          <span className="text-sm font-medium">{account.accountTitle}</span>
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium">{account.accountTitle}</span>
+                            <button
+                              onClick={() => handleCopy(account.accountTitle, `account-title-${account.id}`)}
+                              className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                              aria-label="Copy account title"
+                            >
+                              {copiedFields[`account-title-${account.id}`] ? (
+                                <CheckIcon className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <CopyIcon className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                              )}
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
+
+                        <div className="flex justify-between group">
                           <span className="text-sm text-muted-foreground">Account Number</span>
-                          <span className="text-sm font-medium">{account.accountNumber}</span>
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium">{account.accountNumber}</span>
+                            <button
+                              onClick={() => handleCopy(account.accountNumber, `account-number-${account.id}`)}
+                              className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                              aria-label="Copy account number"
+                            >
+                              {copiedFields[`account-number-${account.id}`] ? (
+                                <CheckIcon className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <CopyIcon className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                              )}
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
+
+                        <div className="flex justify-between group">
                           <span className="text-sm text-muted-foreground">IBAN</span>
-                          <span className="text-sm font-medium">{account.iban}</span>
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium">{account.iban || "N/A"}</span>
+                            {account.iban && (
+                              <button
+                                onClick={() => handleCopy(account.iban || "", `iban-${account.id}`)}
+                                className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                aria-label="Copy IBAN"
+                              >
+                                {copiedFields[`iban-${account.id}`] ? (
+                                  <CheckIcon className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <CopyIcon className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between group">
+                          <span className="text-sm text-muted-foreground">Swift Code</span>
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium">{account.swiftCode || "N/A"}</span>
+                            {account.swiftCode && (
+                              <button
+                                onClick={() => handleCopy(account.swiftCode || "", `swift-${account.id}`)}
+                                className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                aria-label="Copy Swift code"
+                              >
+                                {copiedFields[`swift-${account.id}`] ? (
+                                  <CheckIcon className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <CopyIcon className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between group">
+                          <span className="text-sm text-muted-foreground">Branch Name</span>
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium">{account.branchName || "N/A"}</span>
+                            {account.branchName && (
+                              <button
+                                onClick={() => handleCopy(account.branchName || "", `branch-${account.id}`)}
+                                className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                aria-label="Copy branch name"
+                              >
+                                {copiedFields[`branch-${account.id}`] ? (
+                                  <CheckIcon className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <CopyIcon className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between group">
+                          <span className="text-sm text-muted-foreground">Bank Name</span>
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium">{account.bankName || "N/A"}</span>
+                            {account.bankName && (
+                              <button
+                                onClick={() => handleCopy(account.bankName || "", `bank-${account.id}`)}
+                                className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                aria-label="Copy bank name"
+                              >
+                                {copiedFields[`bank-${account.id}`] ? (
+                                  <CheckIcon className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <CopyIcon className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                )}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </CardContent>
@@ -352,10 +512,6 @@ export default function ClientPaymentMethodsPage() {
           <TabsContent value="mobile_wallet" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Your Mobile Wallets</h2>
-              <Button onClick={() => openAddDialog("mobile_wallet")} className="transition-all hover:scale-105">
-                <PlusIcon className="mr-2 h-4 w-4" />
-                Add Mobile Wallet
-              </Button>
             </div>
 
             {isLoading ? (
@@ -366,18 +522,15 @@ export default function ClientPaymentMethodsPage() {
               <div className="bg-muted/50 rounded-lg p-8 text-center border border-border">
                 <SmartphoneIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">No Mobile Wallets</h3>
-                <p className="text-muted-foreground mb-4">You haven't added any mobile wallets yet.</p>
-                <Button
-                  onClick={() => openAddDialog("mobile_wallet")}
-                  variant="outline"
-                  className="transition-all hover:bg-primary hover:text-primary-foreground"
-                >
-                  <PlusIcon className="mr-2 h-4 w-4" />
-                  Add Mobile Wallet
-                </Button>
+                <p className="text-muted-foreground mb-4">There are no mobile wallets available at the moment.</p>
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div
+                className={cn(
+                  "grid gap-4 md:grid-cols-2 lg:grid-cols-3 transition-opacity duration-300",
+                  backgroundRefresh && "opacity-60",
+                )}
+              >
                 {mobileWallets.map((wallet) => (
                   <Card key={wallet.id} className="overflow-hidden transition-all hover:shadow-md">
                     <CardHeader
@@ -423,13 +576,40 @@ export default function ClientPaymentMethodsPage() {
                     </CardHeader>
                     <CardContent className="pt-4">
                       <div className="space-y-2">
-                        <div className="flex justify-between">
+                        <div className="flex justify-between group">
                           <span className="text-sm text-muted-foreground">Account Title</span>
-                          <span className="text-sm font-medium">{wallet.accountTitle}</span>
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium">{wallet.accountTitle}</span>
+                            <button
+                              onClick={() => handleCopy(wallet.accountTitle, `wallet-title-${wallet.id}`)}
+                              className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                              aria-label="Copy account title"
+                            >
+                              {copiedFields[`wallet-title-${wallet.id}`] ? (
+                                <CheckIcon className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <CopyIcon className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                              )}
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
+
+                        <div className="flex justify-between group">
                           <span className="text-sm text-muted-foreground">Account Number</span>
-                          <span className="text-sm font-medium">{wallet.accountNumber}</span>
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium">{wallet.accountNumber}</span>
+                            <button
+                              onClick={() => handleCopy(wallet.accountNumber, `wallet-number-${wallet.id}`)}
+                              className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                              aria-label="Copy account number"
+                            >
+                              {copiedFields[`wallet-number-${wallet.id}`] ? (
+                                <CheckIcon className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <CopyIcon className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
