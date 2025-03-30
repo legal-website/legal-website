@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, AlertCircle, X, Tag, Loader2, Globe, Check } from "lucide-react"
+import { ArrowLeft, AlertCircle, X, Tag, Loader2, Globe, Check, LockIcon, UserIcon } from "lucide-react"
 import { useCart } from "@/context/cart-context"
 import { useToast } from "@/components/ui/use-toast"
 import type { CouponType } from "@/lib/prisma-types"
@@ -33,6 +33,8 @@ export default function CheckoutPage() {
     value: number
     discount: number
   } | null>(null)
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false)
+  const [isLoadingUserData, setIsLoadingUserData] = useState(true)
 
   // Currency state
   const [selectedCurrency, setSelectedCurrency] = useState<string>("USD")
@@ -83,6 +85,56 @@ export default function CheckoutPage() {
       currency.name.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
+  // Fetch user data
+  const fetchUserData = async () => {
+    setIsLoadingUserData(true)
+    try {
+      // Check if user is logged in by fetching session
+      const sessionResponse = await fetch("/api/auth/session")
+      if (!sessionResponse.ok) {
+        throw new Error("Failed to fetch session")
+      }
+
+      const sessionData = await sessionResponse.json()
+
+      // If no session or user, user is not logged in
+      if (!sessionData || !sessionData.user) {
+        setIsUserLoggedIn(false)
+        setIsLoadingUserData(false)
+        return
+      }
+
+      // User is logged in, fetch profile data
+      setIsUserLoggedIn(true)
+
+      const profileResponse = await fetch("/api/user/profile")
+      if (!profileResponse.ok) {
+        throw new Error("Failed to fetch user profile")
+      }
+
+      const profileData = await profileResponse.json()
+
+      // Update form data with user profile information
+      setFormData({
+        name: profileData.name || sessionData.user.name || "",
+        email: profileData.email || sessionData.user.email || "",
+        address: profileData.address || "",
+        city: profileData.city || "",
+        state: profileData.state || "",
+        zip: profileData.zip || "",
+        country: profileData.country || "",
+        phone: profileData.phone || "",
+        company: profileData.company || "",
+      })
+    } catch (error) {
+      console.error("Error fetching user data:", error)
+      // If there's an error, assume user is not logged in
+      setIsUserLoggedIn(false)
+    } finally {
+      setIsLoadingUserData(false)
+    }
+  }
+
   // Fetch exchange rates from API
   const fetchExchangeRates = async () => {
     setLoadingRates(true)
@@ -130,6 +182,9 @@ export default function CheckoutPage() {
       router.push("/")
     }
 
+    // Fetch user data when component mounts
+    fetchUserData()
+
     // Check for affiliate code in localStorage
     if (typeof window !== "undefined") {
       const storedAffiliateCode = localStorage.getItem("affiliateCode")
@@ -163,6 +218,9 @@ export default function CheckoutPage() {
   }, [items, router])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // If user is logged in, don't allow changes
+    if (isUserLoggedIn) return
+
     const { name, value } = e.target
     setFormData({
       ...formData,
@@ -359,6 +417,19 @@ export default function CheckoutPage() {
         <div>
           <h1 className="text-3xl font-bold mb-6">Checkout</h1>
 
+          {isUserLoggedIn && (
+            <div className="bg-blue-50 p-4 rounded-md flex items-start mb-6">
+              <UserIcon className="text-blue-500 mr-2 mt-0.5" size={18} />
+              <div>
+                <p className="text-blue-800 font-medium">Account Information</p>
+                <p className="text-blue-700 text-sm">
+                  Your information has been automatically filled from your account. These fields cannot be edited during
+                  checkout.
+                </p>
+              </div>
+            </div>
+          )}
+
           {affiliateCode && (
             <div className="bg-green-50 p-4 rounded-md flex items-start mb-6">
               <AlertCircle className="text-green-500 mr-2 mt-0.5" size={18} />
@@ -369,86 +440,168 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold">Contact Information</h2>
-
-              <div className="grid gap-4">
-                <div>
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required />
+          {isLoadingUserData ? (
+            <div className="py-8 flex justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">Contact Information</h2>
+                  {isUserLoggedIn && (
+                    <div className="flex items-center text-sm text-gray-500">
+                      <LockIcon className="h-3 w-3 mr-1" />
+                      <span>Read-only</span>
+                    </div>
+                  )}
                 </div>
 
-                <div>
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
+                <div className="grid gap-4">
+                  <div>
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      required
+                      readOnly={isUserLoggedIn}
+                      className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleInputChange} />
-                </div>
+                  <div>
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      required
+                      readOnly={isUserLoggedIn}
+                      className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="company">Company Name (Optional)</Label>
-                  <Input id="company" name="company" value={formData.company} onChange={handleInputChange} />
+                  <div>
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      readOnly={isUserLoggedIn}
+                      className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="company">Company Name (Optional)</Label>
+                    <Input
+                      id="company"
+                      name="company"
+                      value={formData.company}
+                      onChange={handleInputChange}
+                      readOnly={isUserLoggedIn}
+                      className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold">Billing Address</h2>
-
-              <div className="grid gap-4">
-                <div>
-                  <Label htmlFor="address">Street Address</Label>
-                  <Input id="address" name="address" value={formData.address} onChange={handleInputChange} />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">Billing Address</h2>
+                  {isUserLoggedIn && (
+                    <div className="flex items-center text-sm text-gray-500">
+                      <LockIcon className="h-3 w-3 mr-1" />
+                      <span>Read-only</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4">
                   <div>
-                    <Label htmlFor="city">City</Label>
-                    <Input id="city" name="city" value={formData.city} onChange={handleInputChange} />
+                    <Label htmlFor="address">Street Address</Label>
+                    <Input
+                      id="address"
+                      name="address"
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      readOnly={isUserLoggedIn}
+                      className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
+                    />
                   </div>
 
-                  <div>
-                    <Label htmlFor="state">State/Province</Label>
-                    <Input id="state" name="state" value={formData.state} onChange={handleInputChange} />
-                  </div>
-                </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="city">City</Label>
+                      <Input
+                        id="city"
+                        name="city"
+                        value={formData.city}
+                        onChange={handleInputChange}
+                        readOnly={isUserLoggedIn}
+                        className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
+                      />
+                    </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="zip">ZIP/Postal Code</Label>
-                    <Input id="zip" name="zip" value={formData.zip} onChange={handleInputChange} />
+                    <div>
+                      <Label htmlFor="state">State/Province</Label>
+                      <Input
+                        id="state"
+                        name="state"
+                        value={formData.state}
+                        onChange={handleInputChange}
+                        readOnly={isUserLoggedIn}
+                        className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="country">Country</Label>
-                    <Input id="country" name="country" value={formData.country} onChange={handleInputChange} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="zip">ZIP/Postal Code</Label>
+                      <Input
+                        id="zip"
+                        name="zip"
+                        value={formData.zip}
+                        onChange={handleInputChange}
+                        readOnly={isUserLoggedIn}
+                        className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="country">Country</Label>
+                      <Input
+                        id="country"
+                        name="country"
+                        value={formData.country}
+                        onChange={handleInputChange}
+                        readOnly={isUserLoggedIn}
+                        className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <Button type="submit" className="w-full bg-[#22c984] hover:bg-[#1eac73] text-white" disabled={loading}>
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <>
-                  <span className="mr-2">Continue to Payment</span>
-                  <span className="text-lg">{currentCurrency.flag}</span>
-                </>
-              )}
-            </Button>
-          </form>
+              <Button type="submit" className="w-full bg-[#22c984] hover:bg-[#1eac73] text-white" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <>
+                    <span className="mr-2">Continue to Payment</span>
+                    <span className="text-lg">{currentCurrency.flag}</span>
+                  </>
+                )}
+              </Button>
+            </form>
+          )}
         </div>
 
         {/* Order Summary */}
