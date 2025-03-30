@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { Role } from "@/lib/prisma-types"
+import { Role } from "@/lib/enums"
 import { v4 as uuidv4 } from "uuid"
 import { sendPaymentApprovalEmail } from "@/lib/auth-service"
 
