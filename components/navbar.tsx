@@ -692,80 +692,85 @@ useEffect(() => {
       </nav>
 
       {/* Mobile Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t z-50 md:hidden">
-        <div className="grid grid-cols-3 w-full h-16">
+      <div
+        className="fixed bottom-0 left-0 right-0 bg-white border-t z-50 md:hidden"
+        style={{ width: "100%", maxWidth: "100vw" }}
+      >
+        <div className="flex justify-around items-center h-16 w-full">
           {/* Home Button */}
-          <Link href="/" className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984]">
+          <Link href="/" className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984] w-1/3">
             <Home className="h-6 w-6" />
             <span className="text-xs mt-1">Home</span>
           </Link>
 
           {/* Center: User Profile or Login */}
-          {status === "authenticated" ? (
-            <div className="relative flex justify-center">
-              <button
-                onClick={() => setMobileUserMenuOpen(!mobileUserMenuOpen)}
-                className="flex flex-col items-center justify-center"
-              >
-                <div className="h-10 w-10 rounded-full overflow-hidden">{renderUserAvatar()}</div>
-                <span className="text-xs mt-1">Account</span>
-              </button>
+          <div className="flex flex-col items-center justify-center w-1/3">
+            {status === "authenticated" ? (
+              <div className="relative flex justify-center w-full">
+                <button
+                  onClick={() => setMobileUserMenuOpen(!mobileUserMenuOpen)}
+                  className="flex flex-col items-center justify-center"
+                >
+                  <div className="h-10 w-10 rounded-full overflow-hidden">{renderUserAvatar()}</div>
+                  <span className="text-xs mt-1">Account</span>
+                </button>
 
-              {/* Mobile User Menu - Icons with Tooltips */}
-              {mobileUserMenuOpen && (
-                <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-xl p-4 w-[280px]">
-                  <div className="grid grid-cols-4 gap-4">
-                    <TooltipProvider>
-                      {(isUserAdmin(session) ? getAdminMenuItems() : getClientMenuItems()).map((item, index) => (
-                        <Tooltip key={index}>
+                {/* Mobile User Menu - Icons with Tooltips */}
+                {mobileUserMenuOpen && (
+                  <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-xl p-4 w-[280px]">
+                    <div className="grid grid-cols-4 gap-4">
+                      <TooltipProvider>
+                        {(isUserAdmin(session) ? getAdminMenuItems() : getClientMenuItems()).map((item, index) => (
+                          <Tooltip key={index}>
+                            <TooltipTrigger asChild>
+                              <Link
+                                href={item.href}
+                                className="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-gray-100"
+                                onClick={() => setMobileUserMenuOpen(false)}
+                              >
+                                <div className="text-gray-700">{item.icon}</div>
+                              </Link>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{item.label}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+
+                        <Tooltip>
                           <TooltipTrigger asChild>
-                            <Link
-                              href={item.href}
+                            <button
+                              onClick={() => {
+                                handleSignOut()
+                                setMobileUserMenuOpen(false)
+                              }}
                               className="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-gray-100"
-                              onClick={() => setMobileUserMenuOpen(false)}
                             >
-                              <div className="text-gray-700">{item.icon}</div>
-                            </Link>
+                              <LogOut className="h-6 w-6 text-gray-700" />
+                            </button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>{item.label}</p>
+                            <p>Logout</p>
                           </TooltipContent>
                         </Tooltip>
-                      ))}
-
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            onClick={() => {
-                              handleSignOut()
-                              setMobileUserMenuOpen(false)
-                            }}
-                            className="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-gray-100"
-                          >
-                            <LogOut className="h-6 w-6 text-gray-700" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Logout</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                      </TooltipProvider>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <button
-              onClick={() => setSignInOpen(true)}
-              className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984]"
-            >
-              <User className="h-6 w-6" />
-              <span className="text-xs mt-1">Sign In</span>
-            </button>
-          )}
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => setSignInOpen(true)}
+                className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984]"
+              >
+                <User className="h-6 w-6" />
+                <span className="text-xs mt-1">Sign In</span>
+              </button>
+            )}
+          </div>
 
           {/* Cart Button */}
-          <div className="relative flex justify-center">
+          <div className="relative flex justify-center w-1/3">
             <button
               className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984]"
               onClick={() => setCartOpen(!cartOpen)}
