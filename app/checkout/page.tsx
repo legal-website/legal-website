@@ -14,6 +14,10 @@ import { useCart } from "@/context/cart-context"
 import { useToast } from "@/components/ui/use-toast"
 import type { CouponType } from "@/lib/prisma-types"
 
+// Add these imports at the top
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Globe } from "lucide-react"
+
 export default function CheckoutPage() {
   const router = useRouter()
   const { items, getCartTotal, clearCart } = useCart()
@@ -30,6 +34,18 @@ export default function CheckoutPage() {
     value: number
     discount: number
   } | null>(null)
+
+  // Inside the component, add these state variables
+  const [selectedCurrency, setSelectedCurrency] = useState<string>("USD")
+  const [conversionRates, setConversionRates] = useState<Record<string, number>>({
+    USD: 1,
+    EUR: 0.92,
+    GBP: 0.78,
+    CAD: 1.35,
+    AUD: 1.48,
+    JPY: 149.82,
+    INR: 83.12,
+  })
 
   // Form state
   const [formData, setFormData] = useState({
@@ -152,6 +168,23 @@ export default function CheckoutPage() {
     })
   }
 
+  const convertPrice = (priceInUSD: number): number => {
+    return Number.parseFloat((priceInUSD * conversionRates[selectedCurrency]).toFixed(2))
+  }
+
+  const getCurrencySymbol = (currency: string): string => {
+    const symbols: Record<string, string> = {
+      USD: "$",
+      EUR: "€",
+      GBP: "£",
+      CAD: "C$",
+      AUD: "A$",
+      JPY: "¥",
+      INR: "₹",
+    }
+    return symbols[currency] || "$"
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -182,13 +215,18 @@ export default function CheckoutPage() {
           total: finalTotal,
           originalTotal: cartTotal,
           discount: discount,
+          currency: {
+            code: selectedCurrency,
+            rate: conversionRates[selectedCurrency],
+            symbol: getCurrencySymbol(selectedCurrency),
+          },
           coupon: appliedCoupon
             ? {
                 id: appliedCoupon.id,
                 code: appliedCoupon.code,
               }
             : null,
-          affiliateCode: affiliateCode, // Store the affiliate code directly
+          affiliateCode: affiliateCode,
         }),
       )
 
@@ -320,6 +358,23 @@ export default function CheckoutPage() {
           <Card>
             <CardHeader>
               <CardTitle>Order Summary</CardTitle>
+              <div className="mt-2 flex items-center space-x-2">
+                <Globe className="h-4 w-4 text-gray-500" />
+                <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="Currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD ($)</SelectItem>
+                    <SelectItem value="EUR">EUR (€)</SelectItem>
+                    <SelectItem value="GBP">GBP (£)</SelectItem>
+                    <SelectItem value="CAD">CAD (C$)</SelectItem>
+                    <SelectItem value="AUD">AUD (A$)</SelectItem>
+                    <SelectItem value="JPY">JPY (¥)</SelectItem>
+                    <SelectItem value="INR">INR (₹)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <CardDescription>Review your order details</CardDescription>
             </CardHeader>
             <CardContent>
@@ -328,20 +383,29 @@ export default function CheckoutPage() {
                   <div key={item.id} className="border-b pb-4">
                     <div className="flex justify-between">
                       <span className="font-medium">{item.tier} Package</span>
-                      <span>${item.price}</span>
+                      <span>
+                        {getCurrencySymbol(selectedCurrency)}
+                        {convertPrice(item.price)}
+                      </span>
                     </div>
 
                     {item.state && item.stateFee && (
                       <div className="flex justify-between mt-1 text-sm text-gray-600">
                         <span>{item.state} State Filing Fee</span>
-                        <span>${item.stateFee}</span>
+                        <span>
+                          {getCurrencySymbol(selectedCurrency)}
+                          {convertPrice(item.stateFee)}
+                        </span>
                       </div>
                     )}
 
                     {item.discount && (
                       <div className="flex justify-between mt-1 text-sm text-[#22c984]">
                         <span>Discounted Price</span>
-                        <span>${item.discount}</span>
+                        <span>
+                          {getCurrencySymbol(selectedCurrency)}
+                          {convertPrice(item.discount)}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -382,24 +446,47 @@ export default function CheckoutPage() {
                 <div className="pt-4">
                   <div className="flex justify-between font-medium">
                     <span>Subtotal</span>
-                    <span>${cartTotal.toFixed(2)}</span>
+                    <span>
+                      {getCurrencySymbol(selectedCurrency)}
+                      {convertPrice(cartTotal).toFixed(2)}
+                    </span>
                   </div>
 
                   {appliedCoupon && (
                     <div className="flex justify-between text-green-600 mt-1">
                       <span>Discount</span>
-                      <span>-${discount.toFixed(2)}</span>
+                      <span>
+                        -{getCurrencySymbol(selectedCurrency)}
+                        {convertPrice(discount).toFixed(2)}
+                      </span>
                     </div>
                   )}
 
                   <div className="flex justify-between font-bold text-lg mt-2 pt-2 border-t">
                     <span>Total</span>
-                    <span>${finalTotal.toFixed(2)}</span>
+                    <span>
+                      {getCurrencySymbol(selectedCurrency)}
+                      {convertPrice(finalTotal).toFixed(2)}
+                    </span>
                   </div>
+
+                  {selectedCurrency !== "USD" && (
+                    <div className="text-sm text-gray-500 mt-2">
+                      <p>Original price: ${finalTotal.toFixed(2)} USD</p>
+                      <p>
+                        Exchange rate: 1 USD = {conversionRates[selectedCurrency]} {selectedCurrency}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
             <CardFooter className="flex flex-col">
+              {selectedCurrency !== "USD" && (
+                <p className="text-sm text-gray-500 mb-2">
+                  You'll be charged in {selectedCurrency} at the current exchange rate.
+                </p>
+              )}
               <p className="text-sm text-gray-500 mb-4">
                 By completing your purchase, you agree to our Terms of Service and Privacy Policy.
               </p>
