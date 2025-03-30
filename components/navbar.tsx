@@ -869,8 +869,8 @@ useEffect(() => {
             <motion.div
               ref={modalRef}
               variants={modalVariants}
-              className="bg-white p-5 rounded-lg shadow-2xl mx-auto w-[95%] max-w-[480px] md:max-w-[780px] flex flex-col md:flex-row border-[5px] border-white"
-              style={{ maxWidth: "100vw" }}
+              className="bg-white rounded-lg shadow-2xl mx-auto w-[90%] max-w-[400px] md:max-w-[780px] md:flex md:flex-row border-[5px] border-white"
+              style={{ maxWidth: "90vw" }}
             >
               {/* Green section - only visible on desktop */}
               <div className="w-1/2 hidden md:flex bg-[#22c984] rounded-l-lg items-center justify-center">
@@ -888,42 +888,40 @@ useEffect(() => {
                 </motion.div>
               </div>
               <div className="w-full md:w-1/2 p-4 md:p-6 relative">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-2 right-2"
+                <button
+                  className="absolute top-2 right-2 p-1 text-gray-500 hover:text-gray-700"
                   onClick={() => setSignInOpen(false)}
                 >
                   <X className="h-5 w-5" />
-                </Button>
-                <div className="flex justify-center mb-6 md:hidden">
-                  <Image src="/logo.png" alt="Orizen Logo" width={180} height={70} className="object-cover" />
+                </button>
+                <div className="flex justify-center mb-4 md:hidden">
+                  <Image src="/logo.png" alt="Orizen Logo" width={150} height={60} className="object-contain" />
                 </div>
                 <div className="hidden md:block absolute top-4 left-4">
                   <Image src="/logo.png" alt="Orizen Logo" width={270} height={110} className="object-cover" />
                 </div>
-                <div className="mt-10 md:mt-20 flex justify-between items-center mb-4 md:mb-6">
+                <div className="mt-6 md:mt-20 flex justify-between items-center mb-4">
                   <h2 className="text-xl md:text-2xl font-bold">Sign In</h2>
                 </div>
-                <form onSubmit={handleSignIn}>
+                <form onSubmit={handleSignIn} className="space-y-3">
                   <input
                     type="email"
                     name="email"
                     placeholder="Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full p-3 md:p-4 mb-3 md:mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1eac73] hover:shadow-lg"
+                    className="w-full p-2.5 md:p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1eac73]"
                     pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
                     required
                   />
-                  <div className="relative mb-3 md:mb-4">
+                  <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
                       name="password"
                       placeholder="Password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full p-3 md:p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1eac73] hover:shadow-lg"
+                      className="w-full p-2.5 md:p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1eac73]"
                       required
                     />
                     <button
@@ -938,7 +936,7 @@ useEffect(() => {
                       )}
                     </button>
                   </div>
-                  <div className="mb-3 md:mb-4">
+                  <div>
                     <label className="flex items-center space-x-2">
                       <input
                         type="checkbox"
@@ -956,13 +954,13 @@ useEffect(() => {
                   </div>
                   <Button
                     type="submit"
-                    className="w-full bg-black text-white py-3 md:py-4 rounded-lg hover:[#1eac73]"
+                    className="w-full bg-gray-500 text-white py-2.5 md:py-4 rounded-lg hover:bg-gray-600"
                     disabled={!privacyChecked || isLoading}
                   >
                     {isLoading ? "Signing in..." : "Sign In"}
                   </Button>
                 </form>
-                <div className="text-center mt-3 md:mt-4 text-xs md:text-sm">
+                <div className="text-center mt-3 text-xs md:text-sm">
                   Don&apos;t have an account?{" "}
                   <a href="/sign-up" className="text-[#22c984] underline">
                     Sign up instead
