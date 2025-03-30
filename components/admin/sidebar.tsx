@@ -152,12 +152,14 @@ export default function AdminSidebar() {
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const { theme } = useTheme()
   const { data: session } = useSession()
+  // Update the user state to include a timestamp for cache busting
   const [user, setUser] = useState<{
     id: string
     name: string | null
     email: string | null
     image: string | null
     role: string
+    timestamp?: number // Add timestamp for cache busting
   } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -166,6 +168,7 @@ export default function AdminSidebar() {
   const [counters, setCounters] = useState<Record<string, number | string | null>>({})
 
   // Fetch user data when session changes
+  // Update the useEffect that fetches user data to include a timestamp
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -173,13 +176,14 @@ export default function AdminSidebar() {
         const data = await response.json()
 
         if (data.success && data.user) {
-          // Combine session data with API data
+          // Combine session data with API data and add timestamp
           setUser({
             id: data.user.id,
             name: session?.user?.name || data.user.name || "User",
             email: session?.user?.email || data.user.email || "",
-            image: session?.user?.image || null,
+            image: session?.user?.image ? `${session.user.image}?t=${Date.now()}` : null,
             role: data.user.role || "USER",
+            timestamp: Date.now(),
           })
         }
       } catch (error) {
@@ -193,6 +197,7 @@ export default function AdminSidebar() {
   }, [session])
 
   // Handle profile picture upload
+  // Update the handleProfilePictureUpload function to refresh the image with a timestamp
   const handleProfilePictureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file || !user?.id) return
@@ -212,8 +217,20 @@ export default function AdminSidebar() {
       const data = await response.json()
 
       if (data.success && data.imageUrl) {
-        // Update the user state with the new image URL
-        setUser((prev) => (prev ? { ...prev, image: data.imageUrl } : null))
+        // Update the user state with the new image URL and a timestamp to prevent caching
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                image: `${data.imageUrl}?t=${Date.now()}`,
+                timestamp: Date.now(),
+              }
+            : null,
+        )
+
+        // Force a refresh of the session to update the image in other components
+        const event = new Event("visibilitychange")
+        document.dispatchEvent(event)
       } else {
         console.error("Failed to upload profile image:", data.error)
       }
@@ -366,6 +383,8 @@ export default function AdminSidebar() {
       )}
     >
       {/* Logo */}
+      {/* Now update the Logo section to use the user's profile image
+      // Replace the Logo section with this updated version: */}
       <div
         className={cn(
           "p-4 border-b flex items-center justify-between",
@@ -374,17 +393,32 @@ export default function AdminSidebar() {
       >
         {!collapsed && (
           <div className="flex items-center">
-            <div className="w-8 h-8 rounded-md bg-purple-600 flex items-center justify-center text-white font-bold mr-2">
-              SA
+            {user?.image ? (
+              <Avatar className="w-8 h-8 rounded-md mr-2">
+                <AvatarImage src={user.image} alt={user?.name || "Admin"} />
+                <AvatarFallback className="bg-purple-600 text-white font-bold">{getUserInitials()}</AvatarFallback>
+              </Avatar>
+            ) : (
+              <div className="w-8 h-8 rounded-md bg-purple-600 flex items-center justify-center text-white font-bold mr-2">
+                {user?.name ? getUserInitials() : "SA"}
+              </div>
+            )}
+            <h1 className="text-lg font-bold">
+              {user?.role === "SUPER_ADMIN" ? "Super Admin" : user?.role === "ADMIN" ? "Admin" : "User"}
+            </h1>
+          </div>
+        )}
+        {collapsed &&
+          (user?.image ? (
+            <Avatar className="w-10 h-10 rounded-md mx-auto">
+              <AvatarImage src={user.image} alt={user?.name || "Admin"} />
+              <AvatarFallback className="bg-purple-600 text-white font-bold">{getUserInitials()}</AvatarFallback>
+            </Avatar>
+          ) : (
+            <div className="w-10 h-10 rounded-md bg-purple-600 flex items-center justify-center text-white font-bold mx-auto">
+              {user?.name ? getUserInitials() : "SA"}
             </div>
-            <h1 className="text-lg font-bold">Super Admin</h1>
-          </div>
-        )}
-        {collapsed && (
-          <div className="w-10 h-10 rounded-md bg-purple-600 flex items-center justify-center text-white font-bold mx-auto">
-            SA
-          </div>
-        )}
+          ))}
         <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)} className="ml-auto">
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </Button>
