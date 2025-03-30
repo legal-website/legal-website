@@ -378,7 +378,7 @@ export default function PaymentMethodsPage() {
   const mobileWallets = paymentMethods.filter((method) => method.type === "mobile_wallet")
 
   return (
-    <div className="px-[3%] py-6 space-y-8 mb-40">
+    <div className="px-[3%] py-8 space-y-8 mb-40">
       {/* Header Section */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 shadow-sm">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

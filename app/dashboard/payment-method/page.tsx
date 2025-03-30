@@ -286,7 +286,7 @@ export default function ClientPaymentMethodsPage() {
   }
 
   return (
-    <div className="px-[3%] mb-40">
+    <div className="px-[3%] pt-9 mb-40">
       <div className="space-y-6">
         <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-6 rounded-lg border border-primary/20 shadow-sm">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
