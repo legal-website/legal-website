@@ -400,7 +400,7 @@ export default function CheckoutPage() {
       <div className="mb-6">
         <Badge
           variant="outline"
-          className="px-3 py-1 text-sm bg-[#21C582] text-white border-0 rounded-[7px] flex items-center gap-2"
+          className="px-3 py-1 text-sm bg-[#21C582] text-white border-0 rounded-[4px] flex items-center gap-2"
         >
           <Image
             src={currentCurrency.flag || "/placeholder.svg"}
@@ -896,12 +896,6 @@ export default function CheckoutPage() {
               <p className="text-sm text-gray-500 mb-4">
                 By completing your purchase, you agree to our Terms of Service and Privacy Policy.
               </p>
-              <div className="flex items-center justify-center space-x-4">
-                <Image src="/Visa.svg" alt="Visa" className="h-20" width={80} height={80} />
-                <Image src="/mastercard.svg" alt="Mastercard" className="h-20" width={80} height={80} />
-                <Image src="/amex.svg" alt="Amex" className="h-20" width={80} height={80} />
-                <Image src="/stripe.svg" alt="Stripe" className="h-20" width={80} height={80} />
-              </div>
             </CardFooter>
           </Card>
         </div>
