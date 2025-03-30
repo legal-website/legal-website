@@ -14,8 +14,11 @@ import {
   ShoppingCart,
   User,
   LogOut,
-  Settings,
   LayoutDashboard,
+  FileText,
+  Users,
+  CalendarCheck,
+  TicketIcon,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import CartDropdown from "./cart-dropdown"
@@ -326,7 +329,11 @@ export default function Navbar() {
                       unoptimized={profileImage.startsWith("data:")}
                     />
                   ) : (
-                    <User className="h-10 w-10 p-2" />
+                    <div className="h-9 w-9 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-medium">
+                      {session?.user?.name
+                        ? session.user.name.charAt(0).toUpperCase()
+                        : session?.user?.email?.charAt(0).toUpperCase()}
+                    </div>
                   )}
                   <span className="sr-only">My Account</span>
                 </Button>
@@ -345,18 +352,39 @@ export default function Navbar() {
                       Dashboard
                     </Link>
                     <Link
-                      href="/profile"
+                      href="/dashboard/business/profile"
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
                     >
                       <User className="h-4 w-4 mr-2" />
                       Profile
                     </Link>
                     <Link
-                      href="/settings"
+                      href="/dashboard/tickets"
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
                     >
-                      <Settings className="h-4 w-4 mr-2" />
-                      Settings
+                      <TicketIcon className="h-4 w-4 mr-2" />
+                      My Tickets
+                    </Link>
+                    <Link
+                      href="/dashboard/community"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Community
+                    </Link>
+                    <Link
+                      href="/dashboard/documents/business"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      My Documents
+                    </Link>
+                    <Link
+                      href="/dashboard/compliance/annual-reports"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                    >
+                      <CalendarCheck className="h-4 w-4 mr-2" />
+                      Annual Reports
                     </Link>
                     <button
                       onClick={handleSignOut}
