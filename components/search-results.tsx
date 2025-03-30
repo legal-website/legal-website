@@ -97,29 +97,35 @@ export function SearchResults({ results, isLoading, onClose }: SearchResultsProp
       className="absolute top-full mt-1 w-full bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-96 overflow-auto"
     >
       {isLoading ? (
-        <div className="flex items-center justify-center p-4">
-          <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
-          <span className="ml-2 text-gray-500">Searching...</span>
+        <div className="flex items-center justify-center p-6">
+          <div className="flex flex-col items-center">
+            <Loader2 className="h-8 w-8 animate-spin text-[#22c984]" />
+            <span className="mt-2 text-gray-600 font-medium">Searching...</span>
+          </div>
         </div>
       ) : (
         <div className="py-2">
-          {results.map((result, index) => (
-            <Link
-              href={result.url}
-              key={`${result.type}-${result.id}`}
-              onClick={onClose}
-              className={`block px-4 py-2 hover:bg-gray-100 ${selectedIndex === index ? "bg-gray-100" : ""}`}
-            >
-              <div className="flex items-start">
-                <div className="flex-shrink-0 mt-1">{getIcon(result.icon)}</div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-900">{result.title}</p>
-                  <p className="text-xs text-gray-500 truncate">{result.description}</p>
-                  <p className="text-xs text-gray-400 mt-1 capitalize">{result.type}</p>
+          {results.length > 0 ? (
+            results.map((result, index) => (
+              <Link
+                href={result.url}
+                key={`${result.type}-${result.id}`}
+                onClick={onClose}
+                className={`block px-4 py-2 hover:bg-gray-100 ${selectedIndex === index ? "bg-gray-100" : ""}`}
+              >
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 mt-1">{getIcon(result.icon)}</div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-900">{result.title}</p>
+                    <p className="text-xs text-gray-500 truncate">{result.description}</p>
+                    <p className="text-xs text-gray-400 mt-1 capitalize">{result.type}</p>
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            ))
+          ) : (
+            <div className="p-4 text-center text-gray-500">No results found</div>
+          )}
         </div>
       )}
     </div>

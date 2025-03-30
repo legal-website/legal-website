@@ -136,19 +136,21 @@ export default function Navbar() {
     }
   }
 
-  useEffect(() => {
-    const handleOutsideClick = (event: MouseEvent) => {
-      const searchContainer = document.getElementById("search-container")
-      if (searchOpen && searchContainer && !searchContainer.contains(event.target as Node)) {
-        setSearchOpen(false)
-      }
+  /*
+useEffect(() => {
+  const handleOutsideClick = (event: MouseEvent) => {
+    const searchContainer = document.getElementById("search-container")
+    if (searchOpen && searchContainer && !searchContainer.contains(event.target as Node)) {
+      setSearchOpen(false)
     }
+  }
 
-    if (searchOpen) {
-      document.addEventListener("click", handleOutsideClick)
-    }
-    return () => document.removeEventListener("click", handleOutsideClick)
-  }, [searchOpen])
+  if (searchOpen) {
+    document.addEventListener("click", handleOutsideClick)
+  }
+  return () => document.removeEventListener("click", handleOutsideClick)
+}, [searchOpen])
+*/
 
   const modalVariants = {
     hidden: { opacity: 0, scale: 0.8, y: -50 },
@@ -439,8 +441,9 @@ export default function Navbar() {
     }
   }
 
-  // Live Search
+  // Live Search with improved performance
   useEffect(() => {
+    let isMounted = true
     const performSearch = async () => {
       if (!debouncedSearchQuery) {
         setSearchResults([])
@@ -450,22 +453,38 @@ export default function Navbar() {
 
       setIsSearching(true)
       try {
+        // Add a small delay to ensure the loading spinner is visible
+        await new Promise((resolve) => setTimeout(resolve, 300))
+
         const results = await search({ query: debouncedSearchQuery })
-        setSearchResults(results)
+
+        // Only update state if component is still mounted
+        if (isMounted) {
+          setSearchResults(results)
+        }
       } catch (error) {
         console.error("Search error:", error)
-        toast({
-          title: "Error",
-          description: "Failed to perform search. Please try again.",
-          variant: "destructive",
-        })
-        setSearchResults([])
+        if (isMounted) {
+          toast({
+            title: "Error",
+            description: "Failed to perform search. Please try again.",
+            variant: "destructive",
+          })
+          setSearchResults([])
+        }
       } finally {
-        setIsSearching(false)
+        if (isMounted) {
+          setIsSearching(false)
+        }
       }
     }
 
     performSearch()
+
+    // Cleanup function to prevent state updates if component unmounts during search
+    return () => {
+      isMounted = false
+    }
   }, [debouncedSearchQuery, toast])
 
   return (
@@ -778,7 +797,6 @@ export default function Navbar() {
             exit="hidden"
             variants={backdropVariants}
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]"
-            onClick={() => setSearchOpen(false)}
           >
             <motion.div
               id="search-container"
@@ -792,13 +810,39 @@ export default function Navbar() {
                   <X className="h-6 w-6" />
                 </Button>
               </div>
-              <input
-                type="text"
-                placeholder="Type to search..."
-                className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#22c984]"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Type to search..."
+                  className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#22c984]"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <svg
+                      className="animate-spin h-5 w-5 text-[#22c984]"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                  </div>
+                )}
+              </div>
               {debouncedSearchQuery && (
                 <SearchResults results={searchResults} isLoading={isSearching} onClose={() => setSearchOpen(false)} />
               )}
