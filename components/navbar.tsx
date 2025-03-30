@@ -19,6 +19,10 @@ import {
   Users,
   CalendarCheck,
   TicketIcon,
+  FileIcon as FileInvoice,
+  UserCheck,
+  BarChart3,
+  ClipboardList,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import CartDropdown from "./cart-dropdown"
@@ -41,6 +45,11 @@ async function fetchUserProfile() {
     console.error("Error fetching user profile:", error)
     return null
   }
+}
+
+// Add this function to check if user is admin
+function isUserAdmin(session: any): boolean {
+  return session?.user?.role === "ADMIN" || session?.user?.isAdmin === true
 }
 
 export default function Navbar() {
@@ -344,48 +353,115 @@ export default function Navbar() {
                       <p className="font-medium">{session?.user?.name || session?.user?.email}</p>
                       <p className="text-xs text-gray-500">{session?.user?.email}</p>
                     </div>
-                    <Link
-                      href="/dashboard"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
-                    >
-                      <LayoutDashboard className="h-4 w-4 mr-2" />
-                      Dashboard
-                    </Link>
-                    <Link
-                      href="/dashboard/business/profile"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
-                    >
-                      <User className="h-4 w-4 mr-2" />
-                      Profile
-                    </Link>
-                    <Link
-                      href="/dashboard/tickets"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
-                    >
-                      <TicketIcon className="h-4 w-4 mr-2" />
-                      My Tickets
-                    </Link>
-                    <Link
-                      href="/dashboard/community"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
-                    >
-                      <Users className="h-4 w-4 mr-2" />
-                      Community
-                    </Link>
-                    <Link
-                      href="/dashboard/documents/business"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      My Documents
-                    </Link>
-                    <Link
-                      href="/dashboard/compliance/annual-reports"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
-                    >
-                      <CalendarCheck className="h-4 w-4 mr-2" />
-                      Annual Reports
-                    </Link>
+
+                    {isUserAdmin(session) ? (
+                      // Admin menu items
+                      <>
+                        <Link
+                          href="/admin"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <LayoutDashboard className="h-4 w-4 mr-2" />
+                          Dashboard
+                        </Link>
+                        <Link
+                          href="/admin/billing/invoices"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <FileInvoice className="h-4 w-4 mr-2" />
+                          Invoices
+                        </Link>
+                        <Link
+                          href="/admin/users/pending"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <UserCheck className="h-4 w-4 mr-2" />
+                          Pending Approvals
+                        </Link>
+                        <Link
+                          href="/admin/documents/client"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Client Documents
+                        </Link>
+                        <Link
+                          href="/admin/users/all"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <Users className="h-4 w-4 mr-2" />
+                          All Users
+                        </Link>
+                        <Link
+                          href="/admin/orizen-analytics"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <BarChart3 className="h-4 w-4 mr-2" />
+                          Orizen Analytics
+                        </Link>
+                        <Link
+                          href="/admin/tickets"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <TicketIcon className="h-4 w-4 mr-2" />
+                          Tickets
+                        </Link>
+                        <Link
+                          href="/admin/compliance/amendments"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <ClipboardList className="h-4 w-4 mr-2" />
+                          Amendments
+                        </Link>
+                      </>
+                    ) : (
+                      // Client menu items
+                      <>
+                        <Link
+                          href="/dashboard"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <LayoutDashboard className="h-4 w-4 mr-2" />
+                          Dashboard
+                        </Link>
+                        <Link
+                          href="/dashboard/business/profile"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <User className="h-4 w-4 mr-2" />
+                          Profile
+                        </Link>
+                        <Link
+                          href="/dashboard/tickets"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <TicketIcon className="h-4 w-4 mr-2" />
+                          My Tickets
+                        </Link>
+                        <Link
+                          href="/dashboard/community"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <Users className="h-4 w-4 mr-2" />
+                          Community
+                        </Link>
+                        <Link
+                          href="/dashboard/documents/business"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          My Documents
+                        </Link>
+                        <Link
+                          href="/dashboard/compliance/annual-reports"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                        >
+                          <CalendarCheck className="h-4 w-4 mr-2" />
+                          Annual Reports
+                        </Link>
+                      </>
+                    )}
+
                     <button
                       onClick={handleSignOut}
                       className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
