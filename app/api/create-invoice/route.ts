@@ -17,6 +17,15 @@ interface InvoiceItem {
   isTemplateInvoice?: boolean // Make this optional
 }
 
+// Define currency interface
+interface CurrencyInfo {
+  code: string
+  symbol: string
+  flag: string
+  rate: number
+  convertedTotal: number
+}
+
 export async function POST(req: Request) {
   try {
     // Parse request body
@@ -32,7 +41,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const { customer, items, total, paymentReceipt, affiliateCode, couponCode } = body
+    const { customer, items, total, paymentReceipt, affiliateCode, couponCode, currency } = body
 
     // Validate required fields
     if (!paymentReceipt) {
@@ -152,24 +161,47 @@ export async function POST(req: Request) {
       console.log("City:", customerCity)
     }
 
+    // Process currency information if provided
+    let currencyData = null
+    if (currency) {
+      console.log("Processing currency information:", currency)
+      currencyData = {
+        code: currency.code || "USD",
+        symbol: currency.symbol || "$",
+        rate: currency.rate || 1,
+        flag: currency.flag || "",
+      }
+    }
+
+    // Add currency information to items
+    const itemsWithCurrency = safeItems.map((item) => ({
+      ...item,
+      currency: currencyData,
+    }))
+
     // Create the invoice using raw SQL to avoid TypeScript errors
     const invoiceId = uuidv4()
     const now = new Date().toISOString().slice(0, 19).replace("T", " ")
 
     const invoiceNumber2 = isTemplateInvoice ? `TEMPLATE-${invoiceNumber}` : invoiceNumber
-    const itemsJson = JSON.stringify(safeItems)
+    const itemsJson = JSON.stringify(itemsWithCurrency)
+
+    // Add currency metadata to be stored with the invoice
+    const metadata = JSON.stringify({
+      currency: currencyData,
+    })
 
     await db.$executeRaw`
       INSERT INTO Invoice (
         id, invoiceNumber, customerName, customerEmail, customerPhone, 
         customerCompany, customerAddress, customerCity, customerState,
         customerZip, customerCountry, amount, status, items, paymentReceipt,
-        createdAt, updatedAt
+        createdAt, updatedAt, metadata
       ) VALUES (
         ${invoiceId}, ${invoiceNumber2}, ${customer.name}, ${customer.email}, ${customer.phone || null},
         ${customerCompany || null}, ${customerAddress || null}, ${customerCity || null}, ${customer.state || null},
         ${customer.zip || null}, ${customer.country || null}, ${amount}, 'pending', ${itemsJson}, ${paymentReceipt},
-        NOW(), NOW()
+        NOW(), NOW(), ${metadata}
       )
     `
 
