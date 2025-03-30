@@ -9,8 +9,7 @@ import { cn } from "@/lib/utils"
 import { useTheme } from "@/context/theme-context"
 import { Button } from "@/components/ui/button"
 import { signOut, useSession } from "next-auth/react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import Image from "next/image"
 import {
   LayoutDashboard,
   Users,
@@ -145,69 +144,73 @@ const menuItems: MenuItem[] = [
   },
 ]
 
+// Async function to fetch user profile
+async function fetchUserProfile() {
+  try {
+    const response = await fetch("/api/user/profile")
+    if (!response.ok) {
+      throw new Error("Failed to fetch user profile")
+    }
+    return await response.json()
+  } catch (error) {
+    console.error("Error fetching user profile:", error)
+    return null
+  }
+}
+
 export default function AdminSidebar() {
   const pathname = usePathname() || "" // Provide default empty string if null
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const { theme } = useTheme()
-  const { data: session } = useSession()
-  // Update the user state to include a timestamp for cache busting
-  const [user, setUser] = useState<{
-    id: string
-    name: string | null
-    email: string | null
-    image: string | null
-    role: string
-    timestamp?: number // Add timestamp for cache busting
-  } | null>(null)
+  const { data: session, status } = useSession()
+  const [profileImage, setProfileImage] = useState<string | null>(null)
+  const [userName, setUserName] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string>("User")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [timestamp, setTimestamp] = useState(Date.now())
 
   // Replace the initial counter state with an empty object to avoid showing dummy data
   const [counters, setCounters] = useState<Record<string, number | string | null>>({})
 
-  // Fetch user data when session changes
-  // Update the useEffect that fetches user data to include a timestamp
+  // Fetch user profile data including profile image
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const response = await fetch("/api/auth/me")
-        const data = await response.json()
-
-        if (data.success && data.user) {
-          // Combine session data with API data and add timestamp
-          setUser({
-            id: data.user.id,
-            name: session?.user?.name || data.user.name || "User",
-            email: session?.user?.email || data.user.email || "",
-            image: session?.user?.image ? `${session.user.image}?t=${Date.now()}` : null,
-            role: data.user.role || "USER",
-            timestamp: Date.now(),
-          })
+    const getProfileData = async () => {
+      if (status === "authenticated") {
+        try {
+          const userData = await fetchUserProfile()
+          if (userData && userData.image) {
+            // Add timestamp to prevent caching
+            setProfileImage(`${userData.image}?t=${Date.now()}`)
+          }
+          if (userData && userData.name) {
+            setUserName(userData.name)
+          }
+          if (userData && userData.role) {
+            setUserRole(userData.role)
+          }
+        } catch (error) {
+          console.error("Error fetching profile data:", error)
         }
-      } catch (error) {
-        console.error("Error fetching user data:", error)
       }
     }
 
-    if (session?.user) {
-      fetchUserData()
-    }
-  }, [session])
+    getProfileData()
+  }, [status, timestamp])
 
-  // Handle profile picture upload
-  // Update the handleProfilePictureUpload function to refresh the image with a timestamp
+  // Handle profile picture upload - similar to navbar implementation
   const handleProfilePictureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (!file || !user?.id) return
+    if (!file || !session?.user) return
 
     setIsUploading(true)
 
     try {
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("userId", user.id)
+      formData.append("userId", (session.user as any).id)
 
       const response = await fetch("/api/user/profile-image", {
         method: "POST",
@@ -217,20 +220,10 @@ export default function AdminSidebar() {
       const data = await response.json()
 
       if (data.success && data.imageUrl) {
-        // Update the user state with the new image URL and a timestamp to prevent caching
-        setUser((prev) =>
-          prev
-            ? {
-                ...prev,
-                image: `${data.imageUrl}?t=${Date.now()}`,
-                timestamp: Date.now(),
-              }
-            : null,
-        )
-
-        // Force a refresh of the session to update the image in other components
-        const event = new Event("visibilitychange")
-        document.dispatchEvent(event)
+        // Update the profile image with cache busting
+        setProfileImage(`${data.imageUrl}?t=${Date.now()}`)
+        // Update timestamp to trigger a re-fetch
+        setTimestamp(Date.now())
       } else {
         console.error("Failed to upload profile image:", data.error)
       }
@@ -243,22 +236,22 @@ export default function AdminSidebar() {
 
   // Function to get user initials for avatar fallback
   const getUserInitials = (): string => {
-    if (!user?.name) return "U"
+    if (!userName) return "U"
 
-    const nameParts = user.name.split(" ")
+    const nameParts = userName.split(" ")
     if (nameParts.length >= 2) {
       return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
     }
 
-    return user.name.substring(0, 2).toUpperCase()
+    return userName.substring(0, 2).toUpperCase()
   }
 
   // Function to get formatted role name
   const getFormattedRole = (): string => {
-    if (!user?.role) return "User"
+    if (!userRole) return "User"
 
     // Convert role like "ADMIN" to "Admin" or "SUPER_ADMIN" to "Super Admin"
-    return user.role
+    return userRole
       .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(" ")
@@ -383,8 +376,6 @@ export default function AdminSidebar() {
       )}
     >
       {/* Logo */}
-      {/* Now update the Logo section to use the user's profile image
-      // Replace the Logo section with this updated version: */}
       <div
         className={cn(
           "p-4 border-b flex items-center justify-between",
@@ -393,30 +384,40 @@ export default function AdminSidebar() {
       >
         {!collapsed && (
           <div className="flex items-center">
-            {user?.image ? (
-              <Avatar className="w-8 h-8 rounded-md mr-2">
-                <AvatarImage src={user.image} alt={user?.name || "Admin"} />
-                <AvatarFallback className="bg-purple-600 text-white font-bold">{getUserInitials()}</AvatarFallback>
-              </Avatar>
+            {profileImage ? (
+              <div className="w-8 h-8 rounded-md overflow-hidden mr-2">
+                <Image
+                  src={profileImage || "/placeholder.svg"}
+                  alt={userName || "Admin"}
+                  width={32}
+                  height={32}
+                  className="object-cover w-full h-full"
+                  unoptimized={profileImage.startsWith("data:")}
+                />
+              </div>
             ) : (
               <div className="w-8 h-8 rounded-md bg-purple-600 flex items-center justify-center text-white font-bold mr-2">
-                {user?.name ? getUserInitials() : "SA"}
+                {getUserInitials()}
               </div>
             )}
-            <h1 className="text-lg font-bold">
-              {user?.role === "SUPER_ADMIN" ? "Super Admin" : user?.role === "ADMIN" ? "Admin" : "User"}
-            </h1>
+            <h1 className="text-lg font-bold">{getFormattedRole()}</h1>
           </div>
         )}
         {collapsed &&
-          (user?.image ? (
-            <Avatar className="w-10 h-10 rounded-md mx-auto">
-              <AvatarImage src={user.image} alt={user?.name || "Admin"} />
-              <AvatarFallback className="bg-purple-600 text-white font-bold">{getUserInitials()}</AvatarFallback>
-            </Avatar>
+          (profileImage ? (
+            <div className="w-10 h-10 rounded-md overflow-hidden mx-auto">
+              <Image
+                src={profileImage || "/placeholder.svg"}
+                alt={userName || "Admin"}
+                width={40}
+                height={40}
+                className="object-cover w-full h-full"
+                unoptimized={profileImage.startsWith("data:")}
+              />
+            </div>
           ) : (
             <div className="w-10 h-10 rounded-md bg-purple-600 flex items-center justify-center text-white font-bold mx-auto">
-              {user?.name ? getUserInitials() : "SA"}
+              {getUserInitials()}
             </div>
           ))}
         <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)} className="ml-auto">
@@ -543,70 +544,82 @@ export default function AdminSidebar() {
         <div className="flex items-center justify-between">
           {!collapsed && (
             <div className="flex items-center">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="relative cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                      <Avatar className="h-8 w-8 rounded-full">
-                        <AvatarImage src={user?.image || ""} alt={user?.name || "User"} />
-                        <AvatarFallback className="bg-purple-100 text-purple-600">{getUserInitials()}</AvatarFallback>
-                      </Avatar>
-                      <div className="absolute -bottom-1 -right-1 rounded-full bg-white dark:bg-gray-800 p-0.5">
-                        <Upload size={10} className="text-gray-500" />
-                      </div>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        accept="image/*"
-                        onChange={handleProfilePictureUpload}
-                        disabled={isUploading}
-                      />
+              <div className="relative cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                {profileImage ? (
+                  <div className="w-8 h-8 rounded-full overflow-hidden">
+                    <Image
+                      src={profileImage || "/placeholder.svg"}
+                      alt={userName || "User"}
+                      width={32}
+                      height={32}
+                      className="object-cover w-full h-full"
+                      unoptimized={profileImage.startsWith("data:")}
+                    />
+                    <div className="absolute -bottom-1 -right-1 rounded-full bg-white dark:bg-gray-800 p-0.5">
+                      <Upload size={10} className="text-gray-500" />
                     </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Upload profile picture</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                  </div>
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                    <span className="text-purple-600 font-medium">{getUserInitials()}</span>
+                    <div className="absolute -bottom-1 -right-1 rounded-full bg-white dark:bg-gray-800 p-0.5">
+                      <Upload size={10} className="text-gray-500" />
+                    </div>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleProfilePictureUpload}
+                  disabled={isUploading}
+                />
+              </div>
               <div className="ml-2">
-                <p className="text-sm font-medium">{user?.name || "Loading..."}</p>
+                <p className="text-sm font-medium">{userName || "Loading..."}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{getFormattedRole()}</p>
               </div>
             </div>
           )}
           {collapsed && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="relative cursor-pointer mx-auto" onClick={() => fileInputRef.current?.click()}>
-                    <Avatar className="h-8 w-8 rounded-full">
-                      <AvatarImage src={user?.image || ""} alt={user?.name || "User"} />
-                      <AvatarFallback className="bg-purple-100 text-purple-600">{getUserInitials()}</AvatarFallback>
-                    </Avatar>
-                    <div className="absolute -bottom-1 -right-1 rounded-full bg-white dark:bg-gray-800 p-0.5">
-                      <Upload size={10} className="text-gray-500" />
-                    </div>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      className="hidden"
-                      accept="image/*"
-                      onChange={handleProfilePictureUpload}
-                      disabled={isUploading}
-                    />
+            <div className="relative cursor-pointer mx-auto" onClick={() => fileInputRef.current?.click()}>
+              {profileImage ? (
+                <div className="w-8 h-8 rounded-full overflow-hidden">
+                  <Image
+                    src={profileImage || "/placeholder.svg"}
+                    alt={userName || "User"}
+                    width={32}
+                    height={32}
+                    className="object-cover w-full h-full"
+                    unoptimized={profileImage.startsWith("data:")}
+                  />
+                  <div className="absolute -bottom-1 -right-1 rounded-full bg-white dark:bg-gray-800 p-0.5">
+                    <Upload size={10} className="text-gray-500" />
                   </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Upload profile picture</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                </div>
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                  <span className="text-purple-600 font-medium">{getUserInitials()}</span>
+                  <div className="absolute -bottom-1 -right-1 rounded-full bg-white dark:bg-gray-800 p-0.5">
+                    <Upload size={10} className="text-gray-500" />
+                  </div>
+                </div>
+              )}
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleProfilePictureUpload}
+                disabled={isUploading}
+              />
+            </div>
           )}
           <Button
             variant="ghost"
             size="icon"
-            className={cn(collapsed && !user ? "mx-auto" : "")}
+            className={cn(collapsed && !profileImage ? "mx-auto" : "")}
             title="Logout"
             onClick={handleLogout}
           >
