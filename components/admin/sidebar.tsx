@@ -2,13 +2,15 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/context/theme-context"
 import { Button } from "@/components/ui/button"
-import { signOut } from "next-auth/react"
+import { signOut, useSession } from "next-auth/react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   LayoutDashboard,
   Users,
@@ -23,6 +25,7 @@ import {
   Ticket,
   CreditCard,
   MessageCircle,
+  Upload,
 } from "lucide-react"
 
 interface MenuItem {
@@ -148,9 +151,101 @@ export default function AdminSidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const { theme } = useTheme()
+  const { data: session } = useSession()
+  const [user, setUser] = useState<{
+    id: string
+    name: string | null
+    email: string | null
+    image: string | null
+    role: string
+  } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isUploading, setIsUploading] = useState(false)
 
   // Replace the initial counter state with an empty object to avoid showing dummy data
   const [counters, setCounters] = useState<Record<string, number | string | null>>({})
+
+  // Fetch user data when session changes
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch("/api/auth/me")
+        const data = await response.json()
+
+        if (data.success && data.user) {
+          // Combine session data with API data
+          setUser({
+            id: data.user.id,
+            name: session?.user?.name || data.user.name || "User",
+            email: session?.user?.email || data.user.email || "",
+            image: session?.user?.image || null,
+            role: data.user.role || "USER",
+          })
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error)
+      }
+    }
+
+    if (session?.user) {
+      fetchUserData()
+    }
+  }, [session])
+
+  // Handle profile picture upload
+  const handleProfilePictureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !user?.id) return
+
+    setIsUploading(true)
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("userId", user.id)
+
+      const response = await fetch("/api/user/profile-image", {
+        method: "POST",
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.imageUrl) {
+        // Update the user state with the new image URL
+        setUser((prev) => (prev ? { ...prev, image: data.imageUrl } : null))
+      } else {
+        console.error("Failed to upload profile image:", data.error)
+      }
+    } catch (error) {
+      console.error("Error uploading profile image:", error)
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  // Function to get user initials for avatar fallback
+  const getUserInitials = (): string => {
+    if (!user?.name) return "U"
+
+    const nameParts = user.name.split(" ")
+    if (nameParts.length >= 2) {
+      return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
+    }
+
+    return user.name.substring(0, 2).toUpperCase()
+  }
+
+  // Function to get formatted role name
+  const getFormattedRole = (): string => {
+    if (!user?.role) return "User"
+
+    // Convert role like "ADMIN" to "Admin" or "SUPER_ADMIN" to "Super Admin"
+    return user.role
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ")
+  }
 
   // Function to update a counter
   const updateCounter = (key: string, value: number | string) => {
@@ -414,19 +509,70 @@ export default function AdminSidebar() {
         <div className="flex items-center justify-between">
           {!collapsed && (
             <div className="flex items-center">
-              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                <span className="text-purple-600 font-medium">JD</span>
-              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                      <Avatar className="h-8 w-8 rounded-full">
+                        <AvatarImage src={user?.image || ""} alt={user?.name || "User"} />
+                        <AvatarFallback className="bg-purple-100 text-purple-600">{getUserInitials()}</AvatarFallback>
+                      </Avatar>
+                      <div className="absolute -bottom-1 -right-1 rounded-full bg-white dark:bg-gray-800 p-0.5">
+                        <Upload size={10} className="text-gray-500" />
+                      </div>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleProfilePictureUpload}
+                        disabled={isUploading}
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Upload profile picture</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <div className="ml-2">
-                <p className="text-sm font-medium">John Doe</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Super Admin</p>
+                <p className="text-sm font-medium">{user?.name || "Loading..."}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{getFormattedRole()}</p>
               </div>
             </div>
+          )}
+          {collapsed && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="relative cursor-pointer mx-auto" onClick={() => fileInputRef.current?.click()}>
+                    <Avatar className="h-8 w-8 rounded-full">
+                      <AvatarImage src={user?.image || ""} alt={user?.name || "User"} />
+                      <AvatarFallback className="bg-purple-100 text-purple-600">{getUserInitials()}</AvatarFallback>
+                    </Avatar>
+                    <div className="absolute -bottom-1 -right-1 rounded-full bg-white dark:bg-gray-800 p-0.5">
+                      <Upload size={10} className="text-gray-500" />
+                    </div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleProfilePictureUpload}
+                      disabled={isUploading}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Upload profile picture</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
           <Button
             variant="ghost"
             size="icon"
-            className={cn(collapsed && "mx-auto")}
+            className={cn(collapsed && !user ? "mx-auto" : "")}
             title="Logout"
             onClick={handleLogout}
           >
