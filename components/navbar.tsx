@@ -674,7 +674,7 @@ export default function Navbar() {
 
       {/* Mobile Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t z-50 md:hidden">
-        <div className="flex justify-between items-center h-16 px-6">
+        <div className="grid grid-cols-3 w-full h-16">
           {/* Home Button */}
           <Link href="/" className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984]">
             <Home className="h-6 w-6" />
@@ -683,7 +683,7 @@ export default function Navbar() {
 
           {/* Center: User Profile or Login */}
           {status === "authenticated" ? (
-            <div className="relative">
+            <div className="relative flex justify-center">
               <button
                 onClick={() => setMobileUserMenuOpen(!mobileUserMenuOpen)}
                 className="flex flex-col items-center justify-center"
@@ -746,7 +746,7 @@ export default function Navbar() {
           )}
 
           {/* Cart Button */}
-          <div className="relative">
+          <div className="relative flex justify-center">
             <button
               className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984]"
               onClick={() => setCartOpen(!cartOpen)}
@@ -754,7 +754,7 @@ export default function Navbar() {
               <ShoppingCart className="h-6 w-6" />
               <span className="text-xs mt-1">Cart</span>
               {itemCount > 0 && (
-                <span className="absolute -top-1 right-0 bg-[#22c984] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                <span className="absolute -top-1 right-1/4 bg-[#22c984] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   {itemCount}
                 </span>
               )}
