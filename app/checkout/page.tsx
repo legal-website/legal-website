@@ -15,7 +15,6 @@ import { useToast } from "@/components/ui/use-toast"
 import type { CouponType } from "@/lib/prisma-types"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandGroup, CommandItem } from "@/components/ui/command"
-import { Badge } from "@/components/ui/badge"
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -65,12 +64,12 @@ export default function CheckoutPage() {
 
   // Currency data with flags and names
   const currencies = [
-    { code: "USD", name: "US Dollar", symbol: "$", flag: "🇺🇸" },
-    { code: "PKR", name: "Pakistani Rupee", symbol: "₨", flag: "🇵🇰" },
-    { code: "CAD", name: "Canadian Dollar", symbol: "C$", flag: "🇨🇦" },
-    { code: "GBP", name: "British Pound", symbol: "£", flag: "🇬🇧" },
-    { code: "EUR", name: "Euro", symbol: "€", flag: "🇪🇺" },
-    { code: "AED", name: "UAE Dirham", symbol: "د.إ", flag: "🇦🇪" },
+    { code: "USD", name: "US Dollar", symbol: "$", flag: "https://flagcdn.com/us.svg" },
+    { code: "PKR", name: "Pakistani Rupee", symbol: "₨", flag: "https://flagcdn.com/pk.svg" },
+    { code: "CAD", name: "Canadian Dollar", symbol: "C$", flag: "https://flagcdn.com/ca.svg" },
+    { code: "GBP", name: "British Pound", symbol: "£", flag: "https://flagcdn.com/gb.svg" },
+    { code: "EUR", name: "Euro", symbol: "€", flag: "https://flagcdn.com/eu.svg" },
+    { code: "AED", name: "UAE Dirham", symbol: "د.إ", flag: "https://flagcdn.com/ae.svg" },
   ]
 
   // Get current currency data
@@ -107,24 +106,38 @@ export default function CheckoutPage() {
       // User is logged in, fetch profile data
       setIsUserLoggedIn(true)
 
+      // Fetch basic profile data
       const profileResponse = await fetch("/api/user/profile")
       if (!profileResponse.ok) {
         throw new Error("Failed to fetch user profile")
       }
-
       const profileData = await profileResponse.json()
 
-      // Update form data with user profile information
+      // Fetch dashboard data for address and business name
+      const dashboardResponse = await fetch("/api/dashboard/data")
+      if (!dashboardResponse.ok) {
+        throw new Error("Failed to fetch dashboard data")
+      }
+      const dashboardData = await dashboardResponse.json()
+
+      // Fetch business profile data for phone number
+      const businessProfileResponse = await fetch("/api/business/profile")
+      if (!businessProfileResponse.ok) {
+        throw new Error("Failed to fetch business profile")
+      }
+      const businessProfileData = await businessProfileResponse.json()
+
+      // Update form data with all fetched information
       setFormData({
         name: profileData.name || sessionData.user.name || "",
         email: profileData.email || sessionData.user.email || "",
-        address: profileData.address || "",
-        city: profileData.city || "",
-        state: profileData.state || "",
-        zip: profileData.zip || "",
-        country: profileData.country || "",
-        phone: profileData.phone || "",
-        company: profileData.company || "",
+        address: dashboardData.address || "",
+        city: dashboardData.city || "",
+        state: dashboardData.state || "",
+        zip: dashboardData.zipCode || "",
+        country: dashboardData.country || "",
+        phone: businessProfileData.phoneNumber || "",
+        company: dashboardData.businessName || "",
       })
     } catch (error) {
       console.error("Error fetching user data:", error)
@@ -398,18 +411,24 @@ export default function CheckoutPage() {
 
       {/* Currency indicator at the top of the page */}
       <div className="mb-6">
-        <Badge variant="outline" className="px-3 py-1 text-sm bg-blue-50 border-blue-200 flex items-center gap-2">
-          <span className="text-base">{currentCurrency.flag}</span>
-          <span>Paying in {currentCurrency.code}</span>
+        <div className="flex items-center bg-[#21C582] text-white rounded-[7px] py-2 px-4">
+          <Image
+            src={currentCurrency.flag || "/placeholder.svg"}
+            alt={`${currentCurrency.code} flag`}
+            width={20}
+            height={15}
+            className="inline-block mr-2"
+          />
+          <span className="font-medium">Paying in {currentCurrency.code}</span>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs ml-2 hover:bg-blue-100"
+            className="h-6 px-2 text-xs ml-2 hover:bg-[#1eac73] text-white"
             onClick={() => setOpenCurrencySelector(true)}
           >
             Change
           </Button>
-        </Badge>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
@@ -590,13 +609,19 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full bg-[#22c984] hover:bg-[#1eac73] text-white" disabled={loading}>
+              <Button type="submit" className="w-full bg-[#21C582] hover:bg-[#1eac73] text-white" disabled={loading}>
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
                   <>
                     <span className="mr-2">Continue to Payment</span>
-                    <span className="text-lg">{currentCurrency.flag}</span>
+                    <Image
+                      src={currentCurrency.flag || "/placeholder.svg"}
+                      alt={`${currentCurrency.code} flag`}
+                      width={20}
+                      height={15}
+                      className="inline-block"
+                    />
                   </>
                 )}
               </Button>
@@ -610,9 +635,15 @@ export default function CheckoutPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Order Summary</CardTitle>
-                <div className="flex items-center bg-blue-50 px-3 py-1 rounded-full">
-                  <span className="text-lg mr-2">{currentCurrency.flag}</span>
-                  <span className="text-sm font-medium text-blue-700">{currentCurrency.code}</span>
+                <div className="flex items-center bg-[#21C582] text-white px-3 py-1 rounded-[7px]">
+                  <Image
+                    src={currentCurrency.flag || "/placeholder.svg"}
+                    alt={`${currentCurrency.code} flag`}
+                    width={20}
+                    height={15}
+                    className="mr-2"
+                  />
+                  <span className="text-sm font-medium">{currentCurrency.code}</span>
                 </div>
               </div>
               <CardDescription>Review your order details</CardDescription>
@@ -647,10 +678,16 @@ export default function CheckoutPage() {
                         variant="outline"
                         role="combobox"
                         aria-expanded={openCurrencySelector}
-                        className="w-full justify-between bg-white border-blue-200"
+                        className="w-full justify-between bg-white border-gray-200"
                       >
                         <div className="flex items-center">
-                          <span className="mr-2 text-lg">{currentCurrency.flag}</span>
+                          <Image
+                            src={currentCurrency.flag || "/placeholder.svg"}
+                            alt={`${currentCurrency.code} flag`}
+                            width={24}
+                            height={18}
+                            className="mr-2"
+                          />
                           <span>
                             {currentCurrency.code} - {currentCurrency.name}
                           </span>
@@ -676,7 +713,13 @@ export default function CheckoutPage() {
                                   className="cursor-pointer flex items-center justify-between"
                                 >
                                   <div className="flex items-center">
-                                    <span className="mr-2 text-lg">{currency.flag}</span>
+                                    <Image
+                                      src={currency.flag || "/placeholder.svg"}
+                                      alt={`${currency.code} flag`}
+                                      width={24}
+                                      height={18}
+                                      className="mr-2"
+                                    />
                                     <span>
                                       {currency.code} - {currency.name}
                                     </span>
@@ -697,7 +740,13 @@ export default function CheckoutPage() {
 
                   {selectedCurrency !== "USD" && (
                     <div className="mt-3 text-sm text-blue-700 bg-blue-100 p-2 rounded flex items-center">
-                      <span className="text-lg mr-2">{currentCurrency.flag}</span>
+                      <Image
+                        src={currentCurrency.flag || "/placeholder.svg"}
+                        alt={`${currentCurrency.code} flag`}
+                        width={24}
+                        height={18}
+                        className="mr-2"
+                      />
                       <div>
                         <p>
                           Exchange rate: 1 USD = {conversionRates[selectedCurrency]} {selectedCurrency}
@@ -719,7 +768,13 @@ export default function CheckoutPage() {
                           {currentCurrency.symbol}
                           {convertPrice(item.price).toFixed(2)}
                         </span>
-                        <span className="text-sm ml-1">{currentCurrency.flag}</span>
+                        <Image
+                          src={currentCurrency.flag || "/placeholder.svg"}
+                          alt={`${currentCurrency.code} flag`}
+                          width={16}
+                          height={12}
+                          className="ml-1"
+                        />
                       </div>
                     </div>
 
@@ -805,7 +860,13 @@ export default function CheckoutPage() {
                   <div className="flex justify-between font-bold text-lg mt-2 pt-2 border-t">
                     <span>Total</span>
                     <div className="flex items-center">
-                      <span className="text-lg mr-1">{currentCurrency.flag}</span>
+                      <Image
+                        src={currentCurrency.flag || "/placeholder.svg"}
+                        alt={`${currentCurrency.code} flag`}
+                        width={20}
+                        height={15}
+                        className="mr-1"
+                      />
                       <span>
                         {currentCurrency.symbol}
                         {convertPrice(finalTotal).toFixed(2)}
@@ -824,7 +885,13 @@ export default function CheckoutPage() {
             <CardFooter className="flex flex-col">
               {selectedCurrency !== "USD" && (
                 <div className="bg-blue-50 p-3 rounded-lg mb-4 flex items-center">
-                  <span className="text-lg mr-2">{currentCurrency.flag}</span>
+                  <Image
+                    src={currentCurrency.flag || "/placeholder.svg"}
+                    alt={`${currentCurrency.code} flag`}
+                    width={24}
+                    height={18}
+                    className="mr-2"
+                  />
                   <p className="text-sm text-blue-700">
                     You'll be charged in {currentCurrency.code} at the current exchange rate.
                   </p>
