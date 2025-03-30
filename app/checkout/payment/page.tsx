@@ -7,8 +7,12 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Upload, Loader2, AlertCircle } from "lucide-react"
+import { ArrowLeft, Upload, Loader2, AlertCircle, Wallet, BanknoteIcon as Bank } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import type { PaymentMethod } from "@/types/payment-method"
+import { cn } from "@/lib/utils"
 
 export default function PaymentPage() {
   const router = useRouter()
@@ -24,6 +28,53 @@ export default function PaymentPage() {
     rate: number
     convertedTotal: number
   } | null>(null)
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
+  const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(true)
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null)
+
+  // Fetch payment methods
+  useEffect(() => {
+    const fetchPaymentMethods = async () => {
+      try {
+        setLoadingPaymentMethods(true)
+
+        // Fetch bank accounts
+        const bankResponse = await fetch("/api/payment-methods?type=bank")
+        if (!bankResponse.ok) {
+          throw new Error("Failed to fetch bank payment methods")
+        }
+        const bankData = await bankResponse.json()
+
+        // Fetch mobile wallets
+        const walletResponse = await fetch("/api/payment-methods?type=mobile_wallet")
+        if (!walletResponse.ok) {
+          throw new Error("Failed to fetch mobile wallet payment methods")
+        }
+        const walletData = await walletResponse.json()
+
+        // Combine the results
+        const allMethods = [...(bankData.paymentMethods || []), ...(walletData.paymentMethods || [])]
+
+        setPaymentMethods(allMethods)
+
+        // Set the first payment method as selected by default if available
+        if (allMethods.length > 0) {
+          setSelectedPaymentMethod(allMethods[0].id)
+        }
+      } catch (error) {
+        console.error("Error fetching payment methods:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load payment methods. Please try again later.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoadingPaymentMethods(false)
+      }
+    }
+
+    fetchPaymentMethods()
+  }, [toast])
 
   useEffect(() => {
     // Get checkout data from session storage
@@ -77,6 +128,15 @@ export default function PaymentPage() {
       return
     }
 
+    if (!selectedPaymentMethod) {
+      toast({
+        title: "Payment method required",
+        description: "Please select a payment method before continuing.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -96,6 +156,9 @@ export default function PaymentPage() {
       const uploadData = await uploadResponse.json()
       const receiptUrl = uploadData.url
 
+      // Find the selected payment method
+      const selectedMethod = paymentMethods.find((method) => method.id === selectedPaymentMethod)
+
       // Create the invoice with the receipt URL
       const invoiceResponse = await fetch("/api/create-invoice", {
         method: "POST",
@@ -109,7 +172,14 @@ export default function PaymentPage() {
           paymentReceipt: receiptUrl,
           affiliateCode: checkoutData.affiliateCode,
           couponCode: checkoutData.coupon?.code,
-          currency: currencyInfo, // Pass the currency information
+          currency: currencyInfo,
+          paymentMethod: selectedMethod
+            ? {
+                id: selectedMethod.id,
+                name: selectedMethod.name,
+                type: selectedMethod.type,
+              }
+            : null,
         }),
       })
 
@@ -144,6 +214,28 @@ export default function PaymentPage() {
     }
     return `$${amount.toFixed(2)}`
   }
+
+  // Get provider color for mobile wallets
+  const getProviderColor = (provider?: string) => {
+    if (!provider) return "bg-gray-100"
+
+    switch (provider.toLowerCase()) {
+      case "jazzcash":
+        return "bg-red-100 text-red-800 border-red-200"
+      case "easypaisa":
+        return "bg-green-100 text-green-800 border-green-200"
+      case "nayapay":
+        return "bg-purple-100 text-purple-800 border-purple-200"
+      case "sadapay":
+        return "bg-blue-100 text-blue-800 border-blue-200"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200"
+    }
+  }
+
+  // Filter payment methods by type
+  const bankAccounts = paymentMethods.filter((method) => method.type === "bank")
+  const mobileWallets = paymentMethods.filter((method) => method.type === "mobile_wallet")
 
   if (!checkoutData) {
     return (
@@ -194,60 +286,180 @@ export default function PaymentPage() {
             <CardHeader>
               <CardTitle>Payment Methods</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 border rounded-md">
-                <h3 className="font-medium mb-2">Bank Transfer</h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Please transfer the exact amount to the following bank account:
-                </p>
-                <div className="bg-gray-50 p-3 rounded text-sm">
-                  <p>
-                    <span className="font-medium">Bank Name:</span> Example Bank
-                  </p>
-                  <p>
-                    <span className="font-medium">Account Name:</span> Orizen Inc.
-                  </p>
-                  <p>
-                    <span className="font-medium">Account Number:</span> 1234567890
-                  </p>
-                  <p>
-                    <span className="font-medium">Routing Number:</span> 987654321
-                  </p>
-                  <p>
-                    <span className="font-medium">Amount:</span>{" "}
-                    {currencyInfo ? (
-                      <span className="flex items-center">
-                        {formatPrice(checkoutData.total)}
-                        <Image
-                          src={currencyInfo.flag || "/placeholder.svg"}
-                          alt={currencyInfo.code}
-                          width={16}
-                          height={12}
-                          className="ml-1"
-                        />
-                      </span>
-                    ) : (
-                      `$${checkoutData.total.toFixed(2)}`
-                    )}
-                  </p>
-                  <p>
-                    <span className="font-medium">Reference:</span> {checkoutData.customer.email}
-                  </p>
+            <CardContent>
+              {loadingPaymentMethods ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
-              </div>
+              ) : paymentMethods.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-gray-500">No payment methods available. Please contact support.</p>
+                </div>
+              ) : (
+                <Tabs defaultValue="bank" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-4">
+                    <TabsTrigger value="bank" disabled={bankAccounts.length === 0}>
+                      <Bank className="mr-2 h-4 w-4" />
+                      Bank Accounts
+                    </TabsTrigger>
+                    <TabsTrigger value="mobile_wallet" disabled={mobileWallets.length === 0}>
+                      <Wallet className="mr-2 h-4 w-4" />
+                      Mobile Wallets
+                    </TabsTrigger>
+                  </TabsList>
 
-              <div className="p-4 border rounded-md">
-                <h3 className="font-medium mb-2">Credit/Debit Card</h3>
-                <p className="text-sm text-gray-600">
-                  For card payments, please contact our support team at support@orizen.com or call +1 123 456 789.
-                </p>
-              </div>
+                  <TabsContent value="bank" className="space-y-4">
+                    {bankAccounts.map((method) => (
+                      <div
+                        key={method.id}
+                        className={cn(
+                          "border rounded-lg p-4 cursor-pointer transition-all",
+                          selectedPaymentMethod === method.id
+                            ? "border-blue-500 bg-blue-50 shadow-sm"
+                            : "hover:border-blue-200 hover:bg-blue-50/50",
+                        )}
+                        onClick={() => setSelectedPaymentMethod(method.id)}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center">
+                            <Bank className="h-5 w-5 text-blue-600 mr-2" />
+                            <span className="font-medium">{method.name}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="text-sm text-gray-500 mr-2">{method.bankName}</span>
+                            <div
+                              className={cn(
+                                "w-4 h-4 rounded-full border-2",
+                                selectedPaymentMethod === method.id ? "border-blue-500 bg-blue-500" : "border-gray-300",
+                              )}
+                            ></div>
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded text-sm space-y-1">
+                          <p>
+                            <span className="font-medium">Account Title:</span> {method.accountTitle}
+                          </p>
+                          <p>
+                            <span className="font-medium">Account Number:</span> {method.accountNumber}
+                          </p>
+                          {method.iban && (
+                            <p>
+                              <span className="font-medium">IBAN:</span> {method.iban}
+                            </p>
+                          )}
+                          {method.swiftCode && (
+                            <p>
+                              <span className="font-medium">Swift Code:</span> {method.swiftCode}
+                            </p>
+                          )}
+                          {method.branchName && (
+                            <p>
+                              <span className="font-medium">Branch:</span> {method.branchName}
+                              {method.branchCode && ` (${method.branchCode})`}
+                            </p>
+                          )}
+                          <p>
+                            <span className="font-medium">Amount:</span>{" "}
+                            {currencyInfo ? (
+                              <span className="flex items-center">
+                                {formatPrice(checkoutData.total)}
+                                <Image
+                                  src={currencyInfo.flag || "/placeholder.svg"}
+                                  alt={currencyInfo.code}
+                                  width={16}
+                                  height={12}
+                                  className="ml-1"
+                                />
+                              </span>
+                            ) : (
+                              `$${checkoutData.total.toFixed(2)}`
+                            )}
+                          </p>
+                          <p>
+                            <span className="font-medium">Reference:</span> {checkoutData.customer.email}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </TabsContent>
 
-              <div className="p-4 border rounded-md">
-                <h3 className="font-medium mb-2">Other Payment Methods</h3>
+                  <TabsContent value="mobile_wallet" className="space-y-4">
+                    {mobileWallets.map((method) => (
+                      <div
+                        key={method.id}
+                        className={cn(
+                          "border rounded-lg p-4 cursor-pointer transition-all",
+                          selectedPaymentMethod === method.id
+                            ? "border-indigo-500 bg-indigo-50 shadow-sm"
+                            : "hover:border-indigo-200 hover:bg-indigo-50/50",
+                        )}
+                        onClick={() => setSelectedPaymentMethod(method.id)}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center">
+                            <Wallet className="h-5 w-5 text-indigo-600 mr-2" />
+                            <span className="font-medium">{method.name}</span>
+                          </div>
+                          <div className="flex items-center">
+                            {method.providerName && (
+                              <Badge variant="outline" className={`mr-2 ${getProviderColor(method.providerName)}`}>
+                                {method.providerName.charAt(0).toUpperCase() + method.providerName.slice(1)}
+                              </Badge>
+                            )}
+                            <div
+                              className={cn(
+                                "w-4 h-4 rounded-full border-2",
+                                selectedPaymentMethod === method.id
+                                  ? "border-indigo-500 bg-indigo-500"
+                                  : "border-gray-300",
+                              )}
+                            ></div>
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded text-sm space-y-1">
+                          <p>
+                            <span className="font-medium">Account Title:</span> {method.accountTitle}
+                          </p>
+                          <p>
+                            <span className="font-medium">Account Number:</span> {method.accountNumber}
+                          </p>
+                          {method.iban && (
+                            <p>
+                              <span className="font-medium">IBAN:</span> {method.iban}
+                            </p>
+                          )}
+                          <p>
+                            <span className="font-medium">Amount:</span>{" "}
+                            {currencyInfo ? (
+                              <span className="flex items-center">
+                                {formatPrice(checkoutData.total)}
+                                <Image
+                                  src={currencyInfo.flag || "/placeholder.svg"}
+                                  alt={currencyInfo.code}
+                                  width={16}
+                                  height={12}
+                                  className="ml-1"
+                                />
+                              </span>
+                            ) : (
+                              `$${checkoutData.total.toFixed(2)}`
+                            )}
+                          </p>
+                          <p>
+                            <span className="font-medium">Reference:</span> {checkoutData.customer.email}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </TabsContent>
+                </Tabs>
+              )}
+
+              <div className="mt-6 pt-4 border-t">
+                <h3 className="font-medium mb-2">Other Payment Options</h3>
                 <p className="text-sm text-gray-600">
-                  We also accept PayPal, Venmo, and cryptocurrency payments. Please contact our support team for
-                  details.
+                  For credit/debit card payments or other payment methods, please contact our support team at
+                  support@orizen.com or call +1 123 456 789.
                 </p>
               </div>
             </CardContent>
@@ -310,7 +522,7 @@ export default function PaymentPage() {
                 <Button
                   type="submit"
                   className="w-full bg-[#21C582] hover:bg-[#1eac73] text-white"
-                  disabled={!uploadedFile || loading}
+                  disabled={!uploadedFile || loading || !selectedPaymentMethod}
                 >
                   {loading ? (
                     <>
