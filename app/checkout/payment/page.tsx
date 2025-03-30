@@ -4,12 +4,14 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Upload, Copy, CheckCircle, AlertCircle, Tag } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useCart } from "@/context/cart-context"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { Badge } from "@/components/ui/badge"
 
 function PaymentPageContent() {
   const router = useRouter()
@@ -23,6 +25,13 @@ function PaymentPageContent() {
   const [error, setError] = useState<string | null>(null)
   const [affiliateCode, setAffiliateCode] = useState<string | null>(null)
   const [couponCode, setCouponCode] = useState<string | null>(null)
+  const [currencyInfo, setCurrencyInfo] = useState<{
+    code: string
+    symbol: string
+    flag: string
+    rate: number
+    convertedTotal: number
+  } | null>(null)
 
   // Bank account details
   const bankDetails = {
@@ -44,6 +53,12 @@ function PaymentPageContent() {
 
       const parsedData = JSON.parse(storedData)
       setCheckoutData(parsedData)
+
+      // Extract currency information
+      if (parsedData.currency) {
+        setCurrencyInfo(parsedData.currency)
+        console.log("Currency information:", parsedData.currency)
+      }
 
       // Check for affiliate code in checkout data
       if (parsedData.affiliateCode) {
@@ -180,6 +195,7 @@ function PaymentPageContent() {
         paymentReceipt: receiptUrl,
         affiliateCode: affiliateCode, // Include the affiliate code
         couponCode: couponCode, // Include the coupon code
+        currency: currencyInfo, // Include the currency information
       }
 
       console.log("Invoice data:", JSON.stringify(invoiceData, null, 2))
@@ -296,7 +312,7 @@ function PaymentPageContent() {
     )
   }
 
-  if (!checkoutData) {
+  if (!checkoutData || !currencyInfo) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <p>Loading...</p>
@@ -304,11 +320,33 @@ function PaymentPageContent() {
     )
   }
 
+  // Format prices in the selected currency
+  const formatPrice = (amount: number) => {
+    return `${currencyInfo.symbol}${(amount * currencyInfo.rate).toFixed(2)}`
+  }
+
   return (
     <div className="container mx-auto py-12 px-4 md:px-36 mb-44">
       <Button variant="ghost" className="mb-8" onClick={() => router.push("/checkout")}>
         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Checkout
       </Button>
+
+      {/* Currency indicator at the top of the page */}
+      <div className="mb-6">
+        <Badge
+          variant="outline"
+          className="px-3 py-1 text-sm bg-[#21C582] text-white border-0 rounded-[7px] flex items-center gap-2"
+        >
+          <Image
+            src={currencyInfo.flag || "/placeholder.svg"}
+            alt={`${currencyInfo.code} flag`}
+            width={20}
+            height={15}
+            className="inline-block"
+          />
+          <span>Paying in {currencyInfo.code}</span>
+        </Badge>
+      </div>
 
       <div className="grid md:grid-cols-2 gap-8">
         {/* Payment Instructions */}
@@ -332,7 +370,7 @@ function PaymentPageContent() {
                 <p className="text-purple-800 font-medium">Coupon applied</p>
                 <p className="text-purple-700 text-sm">
                   Coupon code {couponCode} has been applied to your order.
-                  {checkoutData.discount > 0 && ` You saved $${checkoutData.discount.toFixed(2)}.`}
+                  {checkoutData.discount > 0 && ` You saved ${formatPrice(checkoutData.discount)}.`}
                 </p>
               </div>
             </div>
@@ -420,11 +458,24 @@ function PaymentPageContent() {
               </div>
 
               <Button
-                className="w-full bg-[#22c984] hover:bg-[#1eac73] text-white"
+                className="w-full bg-[#21C582] hover:bg-[#1eac73] text-white"
                 onClick={handleUpload}
                 disabled={!file || uploading}
               >
-                {uploading ? "Uploading..." : "Submit Payment Receipt"}
+                {uploading ? (
+                  "Uploading..."
+                ) : (
+                  <div className="flex items-center">
+                    <span className="mr-2">Submit Payment Receipt</span>
+                    <Image
+                      src={currencyInfo.flag || "/placeholder.svg"}
+                      alt={`${currencyInfo.code} flag`}
+                      width={20}
+                      height={15}
+                      className="inline-block"
+                    />
+                  </div>
+                )}
               </Button>
             </CardContent>
           </Card>
@@ -434,7 +485,19 @@ function PaymentPageContent() {
         <div>
           <Card>
             <CardHeader>
-              <CardTitle>Order Summary</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Order Summary</CardTitle>
+                <div className="flex items-center bg-blue-50 px-3 py-1 rounded-full">
+                  <Image
+                    src={currencyInfo.flag || "/placeholder.svg"}
+                    alt={`${currencyInfo.code} flag`}
+                    width={20}
+                    height={15}
+                    className="mr-2"
+                  />
+                  <span className="text-sm font-medium text-blue-700">{currencyInfo.code}</span>
+                </div>
+              </div>
               <CardDescription>Review your order details</CardDescription>
             </CardHeader>
             <CardContent>
@@ -443,20 +506,29 @@ function PaymentPageContent() {
                   <div key={item.id || index} className="border-b pb-4">
                     <div className="flex justify-between">
                       <span className="font-medium">{item.tier} Package</span>
-                      <span>${item.price}</span>
+                      <div className="flex items-center">
+                        <span>{formatPrice(item.price)}</span>
+                        <Image
+                          src={currencyInfo.flag || "/placeholder.svg"}
+                          alt={`${currencyInfo.code} flag`}
+                          width={16}
+                          height={12}
+                          className="ml-1"
+                        />
+                      </div>
                     </div>
 
                     {item.state && item.stateFee && (
                       <div className="flex justify-between mt-1 text-sm text-gray-600">
                         <span>{item.state} State Filing Fee</span>
-                        <span>${item.stateFee}</span>
+                        <span>{formatPrice(item.stateFee)}</span>
                       </div>
                     )}
 
                     {item.discount && (
                       <div className="flex justify-between mt-1 text-sm text-[#22c984]">
                         <span>Discounted Price</span>
-                        <span>${item.discount}</span>
+                        <span>{formatPrice(item.discount)}</span>
                       </div>
                     )}
                   </div>
@@ -467,18 +539,45 @@ function PaymentPageContent() {
                     <>
                       <div className="flex justify-between text-sm">
                         <span>Subtotal</span>
-                        <span>${checkoutData.originalTotal.toFixed(2)}</span>
+                        <div className="flex items-center">
+                          <span>{formatPrice(checkoutData.originalTotal)}</span>
+                          <Image
+                            src={currencyInfo.flag || "/placeholder.svg"}
+                            alt={`${currencyInfo.code} flag`}
+                            width={16}
+                            height={12}
+                            className="ml-1"
+                          />
+                        </div>
                       </div>
                       <div className="flex justify-between text-sm text-green-600 mt-1">
                         <span>Discount</span>
-                        <span>-${checkoutData.discount.toFixed(2)}</span>
+                        <span>-{formatPrice(checkoutData.discount)}</span>
                       </div>
                     </>
                   )}
                   <div className="flex justify-between font-bold mt-2 pt-2 border-t">
                     <span>Total</span>
-                    <span>${checkoutData.total.toFixed(2)}</span>
+                    <div className="flex items-center">
+                      <Image
+                        src={currencyInfo.flag || "/placeholder.svg"}
+                        alt={`${currencyInfo.code} flag`}
+                        width={20}
+                        height={15}
+                        className="mr-1"
+                      />
+                      <span>{formatPrice(checkoutData.total)}</span>
+                    </div>
                   </div>
+
+                  {currencyInfo.code !== "USD" && (
+                    <div className="text-sm text-gray-500 mt-2">
+                      <p>Original price: ${checkoutData.total.toFixed(2)} USD</p>
+                      <p>
+                        Exchange rate: 1 USD = {currencyInfo.rate} {currencyInfo.code}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -498,6 +597,21 @@ function PaymentPageContent() {
                     </p>
                   )}
                 </div>
+
+                {currencyInfo.code !== "USD" && (
+                  <div className="mt-4 bg-blue-50 p-3 rounded-lg flex items-center">
+                    <Image
+                      src={currencyInfo.flag || "/placeholder.svg"}
+                      alt={`${currencyInfo.code} flag`}
+                      width={24}
+                      height={18}
+                      className="mr-2"
+                    />
+                    <p className="text-sm text-blue-700">
+                      You'll be charged in {currencyInfo.code} at the current exchange rate.
+                    </p>
+                  </div>
+                )}
               </div>
             </CardFooter>
           </Card>
