@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, CheckCircle2, Clock, AlertCircle, Download } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import Image from "next/image"
+
+interface CurrencyInfo {
+  code: string
+  symbol: string
+  flag: string
+  rate: number
+}
 
 interface InvoiceItem {
   id: string
@@ -14,6 +22,7 @@ interface InvoiceItem {
   stateFee?: number
   state?: string
   discount?: number
+  currency?: CurrencyInfo
 }
 
 interface Invoice {
@@ -35,6 +44,7 @@ interface Invoice {
   paymentDate?: string
   createdAt: string
   updatedAt: string
+  metadata?: string
 }
 
 export default function InvoicePage({ params }: { params: { id: string } }) {
@@ -42,6 +52,7 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
   const { toast } = useToast()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [loading, setLoading] = useState(true)
+  const [currencyInfo, setCurrencyInfo] = useState<CurrencyInfo | null>(null)
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null
@@ -60,6 +71,34 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
         }
 
         setInvoice(data.invoice)
+
+        // Extract currency information from metadata or items
+        if (data.invoice) {
+          let currency = null
+
+          // Try to get currency from metadata
+          if (data.invoice.metadata) {
+            try {
+              const metadata = JSON.parse(data.invoice.metadata)
+              if (metadata.currency) {
+                currency = metadata.currency
+              }
+            } catch (e) {
+              console.error("Error parsing invoice metadata:", e)
+            }
+          }
+
+          // If not in metadata, try to get from first item
+          if (!currency && data.invoice.items && data.invoice.items.length > 0) {
+            if (data.invoice.items[0].currency) {
+              currency = data.invoice.items[0].currency
+            }
+          }
+
+          if (currency) {
+            setCurrencyInfo(currency)
+          }
+        }
 
         // If the invoice status is no longer pending, clear the interval
         if (data.invoice && data.invoice.status !== "pending") {
@@ -98,6 +137,13 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
   }, [params.id, toast, invoice?.status])
 
   const formatCurrency = (amount: number) => {
+    if (currencyInfo) {
+      // Format in the selected currency
+      const convertedAmount = amount * currencyInfo.rate
+      return `${currencyInfo.symbol}${convertedAmount.toFixed(2)}`
+    }
+
+    // Default to USD if no currency info
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
@@ -141,6 +187,20 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
             <p className="text-gray-500">{invoice.invoiceNumber}</p>
           </div>
           <div className="mt-4 md:mt-0">
+            {currencyInfo && (
+              <div className="inline-flex items-center px-3 py-1 rounded-md bg-#21C582 text-white mr-3">
+                <div className="flex items-center">
+                  <Image
+                    src={currencyInfo.flag || "/placeholder.svg"}
+                    alt={currencyInfo.code}
+                    width={20}
+                    height={15}
+                    className="mr-2 rounded-sm"
+                  />
+                  <span>Paying in {currencyInfo.code}</span>
+                </div>
+              </div>
+            )}
             <div
               className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                 invoice.status === "paid"
@@ -238,13 +298,35 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
                   })}
                 </p>
               )}
+              {currencyInfo && currencyInfo.code !== "USD" && (
+                <p>
+                  <span className="font-medium">Exchange Rate:</span>{" "}
+                  <span>
+                    1 USD = {currencyInfo.rate} {currencyInfo.code}
+                  </span>
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
 
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle>Order Summary</CardTitle>
+            <CardTitle className="flex items-center">
+              Order Summary
+              {currencyInfo && (
+                <div className="ml-2 flex items-center text-sm font-normal">
+                  <Image
+                    src={currencyInfo.flag || "/placeholder.svg"}
+                    alt={currencyInfo.code}
+                    width={20}
+                    height={15}
+                    className="mr-1 rounded-sm"
+                  />
+                  <span>({currencyInfo.code})</span>
+                </div>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -266,12 +348,45 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
                         {item.discount && <div className="text-sm text-green-600">Discount</div>}
                       </td>
                       <td className="text-right py-3 px-4">
-                        <div>{formatCurrency(item.price)}</div>
+                        <div className="flex items-center justify-end">
+                          {currencyInfo && (
+                            <Image
+                              src={currencyInfo.flag || "/placeholder.svg"}
+                              alt={currencyInfo.code}
+                              width={16}
+                              height={12}
+                              className="mr-1 rounded-sm"
+                            />
+                          )}
+                          <span>{formatCurrency(item.price)}</span>
+                        </div>
                         {item.state && item.stateFee && (
-                          <div className="text-sm text-gray-600">{formatCurrency(item.stateFee)}</div>
+                          <div className="text-sm text-gray-600 flex items-center justify-end">
+                            {currencyInfo && (
+                              <Image
+                                src={currencyInfo.flag || "/placeholder.svg"}
+                                alt={currencyInfo.code}
+                                width={16}
+                                height={12}
+                                className="mr-1 rounded-sm"
+                              />
+                            )}
+                            <span>{formatCurrency(item.stateFee)}</span>
+                          </div>
                         )}
                         {item.discount && (
-                          <div className="text-sm text-green-600">-{formatCurrency(item.discount)}</div>
+                          <div className="text-sm text-green-600 flex items-center justify-end">
+                            {currencyInfo && (
+                              <Image
+                                src={currencyInfo.flag || "/placeholder.svg"}
+                                alt={currencyInfo.code}
+                                width={16}
+                                height={12}
+                                className="mr-1 rounded-sm"
+                              />
+                            )}
+                            <span>-{formatCurrency(item.discount)}</span>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -280,7 +395,20 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
                 <tfoot>
                   <tr>
                     <td className="py-4 px-4 font-bold">Total</td>
-                    <td className="text-right py-4 px-4 font-bold">{formatCurrency(invoice.amount)}</td>
+                    <td className="text-right py-4 px-4 font-bold">
+                      <div className="flex items-center justify-end">
+                        {currencyInfo && (
+                          <Image
+                            src={currencyInfo.flag || "/placeholder.svg"}
+                            alt={currencyInfo.code}
+                            width={20}
+                            height={15}
+                            className="mr-1 rounded-sm"
+                          />
+                        )}
+                        <span>{formatCurrency(invoice.amount)}</span>
+                      </div>
+                    </td>
                   </tr>
                 </tfoot>
               </table>
