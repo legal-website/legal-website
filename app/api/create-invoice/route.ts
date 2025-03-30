@@ -15,15 +15,7 @@ interface InvoiceItem {
   name: string
   description: string | null
   isTemplateInvoice?: boolean // Make this optional
-}
-
-// Define currency interface
-interface CurrencyInfo {
-  code: string
-  symbol: string
-  flag: string
-  rate: number
-  convertedTotal: number
+  currency?: any // Add currency information
 }
 
 export async function POST(req: Request) {
@@ -66,6 +58,17 @@ export async function POST(req: Request) {
     const month = String(date.getMonth() + 1).padStart(2, "0")
     const invoiceNumber = `INV-${year}${month}-${Math.floor(1000 + Math.random() * 9000)}`
 
+    // Process currency information if provided
+    const currencyInfo = currency
+      ? {
+          code: currency.code || "USD",
+          symbol: currency.symbol || "$",
+          rate: currency.rate || 1,
+          flag: currency.flag || "",
+          convertedTotal: currency.convertedTotal || total,
+        }
+      : null
+
     // Process items to ensure they're in the correct format
     // IMPORTANT: Preserve the original price from the items
     const safeItems: InvoiceItem[] = items.map((item: any) => ({
@@ -79,6 +82,7 @@ export async function POST(req: Request) {
       type: item.templateId ? "template" : item.type || null, // Set type to "template" if templateId exists
       name: item.name || item.tier || "Unknown Item", // Add item name for better identification
       description: item.description || null, // Add description if available
+      currency: currencyInfo, // Add currency information to each item
     }))
 
     // Check if this is a template invoice
@@ -161,47 +165,45 @@ export async function POST(req: Request) {
       console.log("City:", customerCity)
     }
 
-    // Process currency information if provided
-    let currencyData = null
-    if (currency) {
-      console.log("Processing currency information:", currency)
-      currencyData = {
-        code: currency.code || "USD",
-        symbol: currency.symbol || "$",
-        rate: currency.rate || 1,
-        flag: currency.flag || "",
-      }
-    }
-
-    // Add currency information to items
-    const itemsWithCurrency = safeItems.map((item) => ({
-      ...item,
-      currency: currencyData,
-    }))
-
     // Create the invoice using raw SQL to avoid TypeScript errors
     const invoiceId = uuidv4()
     const now = new Date().toISOString().slice(0, 19).replace("T", " ")
 
     const invoiceNumber2 = isTemplateInvoice ? `TEMPLATE-${invoiceNumber}` : invoiceNumber
-    const itemsJson = JSON.stringify(itemsWithCurrency)
+    const itemsJson = JSON.stringify(safeItems)
 
-    // Add currency metadata to be stored with the invoice
-    const metadata = JSON.stringify({
-      currency: currencyData,
-    })
+    // Add a special field to the items JSON to store currency info
+    const itemsWithCurrency = [...safeItems]
+    if (currencyInfo) {
+      // Add a special item that just contains currency info
+      itemsWithCurrency.push({
+        id: "currency-info",
+        tier: "CURRENCY_INFO",
+        price: 0,
+        stateFee: null,
+        state: null,
+        discount: null,
+        templateId: null,
+        type: "currency-info",
+        name: "Currency Information",
+        description: null,
+        currency: currencyInfo,
+      })
+    }
+
+    const finalItemsJson = JSON.stringify(itemsWithCurrency)
 
     await db.$executeRaw`
       INSERT INTO Invoice (
         id, invoiceNumber, customerName, customerEmail, customerPhone, 
         customerCompany, customerAddress, customerCity, customerState,
         customerZip, customerCountry, amount, status, items, paymentReceipt,
-        createdAt, updatedAt, metadata
+        createdAt, updatedAt
       ) VALUES (
         ${invoiceId}, ${invoiceNumber2}, ${customer.name}, ${customer.email}, ${customer.phone || null},
         ${customerCompany || null}, ${customerAddress || null}, ${customerCity || null}, ${customer.state || null},
-        ${customer.zip || null}, ${customer.country || null}, ${amount}, 'pending', ${itemsJson}, ${paymentReceipt},
-        NOW(), NOW(), ${metadata}
+        ${customer.zip || null}, ${customer.country || null}, ${amount}, 'pending', ${finalItemsJson}, ${paymentReceipt},
+        NOW(), NOW()
       )
     `
 
