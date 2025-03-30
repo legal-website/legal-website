@@ -362,6 +362,9 @@ export default function CheckoutPage() {
         }),
       )
 
+      // Clear the cart after storing checkout data
+      clearCart()
+
       // Redirect to payment page
       router.push("/checkout/payment")
     } catch (error: any) {
