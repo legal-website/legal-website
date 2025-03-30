@@ -370,14 +370,33 @@ export async function sendVerificationEmail(email: string, name: string, token: 
 }
 
 // Send payment approval email
-export async function sendPaymentApprovalEmail(email: string, name: string, invoiceId: string) {
-  const registerLink = `${process.env.NEXT_PUBLIC_APP_URL}/register?invoice=${invoiceId}`
+export async function sendPaymentApprovalEmail(email: string, name: string, invoiceId: string, isLoggedIn = false) {
+  // Different content based on whether the user is logged in or not
+  let subject, htmlContent
 
-  const mailOptions = {
-    from: process.env.EMAIL_FROM,
-    to: email,
-    subject: "Payment Approved - Complete Your Registration",
-    html: `
+  if (isLoggedIn) {
+    // For logged-in users
+    subject = "Payment Approved - Invoice Status Update"
+    const ordersLink = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/business/orders`
+
+    htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Payment Approved!</h2>
+        <p>Hello ${name},</p>
+        <p>Your payment has been approved. Thank you for your purchase!</p>
+        <p>You can check the status of your invoice in your orders dashboard:</p>
+        <a href="${ordersLink}" style="display: inline-block; background-color: #22c984; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin: 20px 0;">Check Invoice Status</a>
+        <p>If the button doesn't work, copy and paste this link into your browser:</p>
+        <p>${ordersLink}</p>
+        <p>Regards,<br>The Support Team</p>
+      </div>
+    `
+  } else {
+    // For non-logged-in users (keep existing flow)
+    subject = "Payment Approved - Complete Your Registration"
+    const registerLink = `${process.env.NEXT_PUBLIC_APP_URL}/register?invoice=${invoiceId}`
+
+    htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Payment Approved!</h2>
         <p>Hello ${name},</p>
@@ -388,7 +407,75 @@ export async function sendPaymentApprovalEmail(email: string, name: string, invo
         <p>${registerLink}</p>
         <p>Regards,<br>The Support Team</p>
       </div>
-    `,
+    `
+  }
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: subject,
+    html: htmlContent,
+  }
+
+  return transporter.sendMail(mailOptions)
+}
+
+// Send payment rejection email
+export async function sendPaymentRejectionEmail(
+  email: string,
+  name: string,
+  invoiceId: string,
+  reason = "",
+  isLoggedIn = false,
+) {
+  // Different content based on whether the user is logged in or not
+  let subject, htmlContent
+
+  if (isLoggedIn) {
+    // For logged-in users
+    subject = "Payment Rejected - Invoice Status Update"
+    const ordersLink = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/business/orders`
+
+    htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Payment Rejected</h2>
+        <p>Hello ${name},</p>
+        <p>We regret to inform you that your payment has been rejected.</p>
+        ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ""}
+        <p>You can check the status of your invoice and try again from your orders dashboard:</p>
+        <a href="${ordersLink}" style="display: inline-block; background-color: #e74c3c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin: 20px 0;">Check Invoice Status</a>
+        <p>If the button doesn't work, copy and paste this link into your browser:</p>
+        <p>${ordersLink}</p>
+        <p>If you have any questions, please contact our support team.</p>
+        <p>Regards,<br>The Support Team</p>
+      </div>
+    `
+  } else {
+    // For non-logged-in users
+    subject = "Payment Rejected - Please Try Again"
+    const invoiceLink = `${process.env.NEXT_PUBLIC_APP_URL}/invoice/${invoiceId}`
+
+    htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Payment Rejected</h2>
+        <p>Hello ${name},</p>
+        <p>We regret to inform you that your payment has been rejected.</p>
+        ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ""}
+        <p>Please review your payment details and try again:</p>
+        <a href="${invoiceLink}" style="display: inline-block; background-color: #e74c3c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin: 20px 0;">View Invoice</a>
+        <p>If the button doesn't work, copy and paste this link into your browser:</p>
+        <p>${invoiceLink}</p>
+        <p>If you have any questions, please contact our support team.</p>
+        <p>Regards,<br>The Support Team</p>
+      </div>
+    `
+  }
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: subject,
+    html: htmlContent,
   }
 
   return transporter.sendMail(mailOptions)
