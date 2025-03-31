@@ -487,6 +487,19 @@ useEffect(() => {
     }
   }, [debouncedSearchQuery, toast])
 
+  // Add a useEffect to control body overflow when modal is open
+  useEffect(() => {
+    if (signInOpen || searchOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = "auto"
+    }
+
+    return () => {
+      document.body.style.overflow = "auto"
+    }
+  }, [signInOpen, searchOpen])
+
   return (
     <>
       {/* Desktop Navigation */}
@@ -796,179 +809,191 @@ useEffect(() => {
       {/* Search Modal */}
       <AnimatePresence>
         {searchOpen && (
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
-            variants={backdropVariants}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]"
-          >
+          <div className="fixed inset-0 z-[1000] overflow-hidden">
             <motion.div
-              id="search-container"
-              className="bg-white p-8 rounded-2xl w-full max-w-lg mx-4 z-[1001]"
-              onClick={(e) => e.stopPropagation()}
-              variants={modalVariants}
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">Search</h2>
-                <Button variant="ghost" size="icon" onClick={() => setSearchOpen(false)}>
-                  <X className="h-6 w-6" />
-                </Button>
-              </div>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Type to search..."
-                  className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#22c984]"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {isSearching && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <svg
-                      className="animate-spin h-5 w-5 text-[#22c984]"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                  </div>
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-50"
+              onClick={() => setSearchOpen(false)}
+            />
+            <div className="fixed inset-0 flex items-center justify-center p-4">
+              <motion.div
+                id="search-container"
+                className="bg-white p-6 rounded-2xl w-full max-w-lg z-[1001]"
+                onClick={(e) => e.stopPropagation()}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold">Search</h2>
+                  <Button variant="ghost" size="icon" onClick={() => setSearchOpen(false)}>
+                    <X className="h-6 w-6" />
+                  </Button>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Type to search..."
+                    className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#22c984]"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  {isSearching && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <svg
+                        className="animate-spin h-5 w-5 text-[#22c984]"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                {debouncedSearchQuery && (
+                  <SearchResults results={searchResults} isLoading={isSearching} onClose={() => setSearchOpen(false)} />
                 )}
-              </div>
-              {debouncedSearchQuery && (
-                <SearchResults results={searchResults} isLoading={isSearching} onClose={() => setSearchOpen(false)} />
-              )}
-            </motion.div>
-          </motion.div>
+              </motion.div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* Sign In Modal */}
       <AnimatePresence>
         {signInOpen && (
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
-            variants={backdropVariants}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]"
-          >
+          <div className="fixed inset-0 z-[1000] overflow-hidden">
             <motion.div
-              ref={modalRef}
-              variants={modalVariants}
-              className="bg-white rounded-lg shadow-2xl mx-auto w-[90%] max-w-[400px] md:max-w-[780px] md:flex md:flex-row border-[5px] border-white"
-              style={{ maxWidth: "90vw" }}
-            >
-              {/* Green section - only visible on desktop */}
-              <div className="w-1/2 hidden md:flex bg-[#22c984] rounded-l-lg items-center justify-center">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 5, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                >
-                  <Image
-                    src="/login.webp"
-                    alt="Sign In Illustration"
-                    width={900}
-                    height={600}
-                    className="object-cover"
-                  />
-                </motion.div>
-              </div>
-              <div className="w-full md:w-1/2 p-4 md:p-6 relative">
-                <button
-                  className="absolute top-2 right-2 p-1 text-gray-500 hover:text-gray-700"
-                  onClick={() => setSignInOpen(false)}
-                >
-                  <X className="h-5 w-5" />
-                </button>
-                <div className="flex justify-center mb-4 md:hidden">
-                  <Image src="/logo.png" alt="Orizen Logo" width={150} height={60} className="object-contain" />
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-50"
+              onClick={() => setSignInOpen(false)}
+            />
+            <div className="fixed inset-0 flex items-center justify-center p-4">
+              <motion.div
+                ref={modalRef}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="bg-white rounded-lg shadow-lg w-full max-w-[400px] md:max-w-[780px] md:flex md:flex-row overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Green section - only visible on desktop */}
+                <div className="w-1/2 hidden md:flex bg-[#22c984] rounded-l-lg items-center justify-center">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 5, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                  >
+                    <Image
+                      src="/login.webp"
+                      alt="Sign In Illustration"
+                      width={900}
+                      height={600}
+                      className="object-cover"
+                    />
+                  </motion.div>
                 </div>
-                <div className="hidden md:block absolute top-4 left-4">
-                  <Image src="/logo.png" alt="Orizen Logo" width={270} height={110} className="object-cover" />
-                </div>
-                <div className="mt-6 md:mt-20 flex justify-between items-center mb-4">
-                  <h2 className="text-xl md:text-2xl font-bold">Sign In</h2>
-                </div>
-                <form onSubmit={handleSignIn} className="space-y-3">
-                  <input
-                    type="email"
-                    name="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full p-2.5 md:p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1eac73]"
-                    pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-                    required
-                  />
-                  <div className="relative">
+                <div className="w-full md:w-1/2 p-4 md:p-6 relative">
+                  <button
+                    className="absolute top-2 right-2 p-1 text-gray-500 hover:text-gray-700"
+                    onClick={() => setSignInOpen(false)}
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                  <div className="flex justify-center mb-4 md:hidden">
+                    <Image src="/logo.png" alt="Orizen Logo" width={150} height={60} className="object-contain" />
+                  </div>
+                  <div className="hidden md:block absolute top-4 left-4">
+                    <Image src="/logo.png" alt="Orizen Logo" width={270} height={110} className="object-cover" />
+                  </div>
+                  <div className="mt-6 md:mt-20 flex justify-between items-center mb-4">
+                    <h2 className="text-xl md:text-2xl font-bold">Sign In</h2>
+                  </div>
+                  <form onSubmit={handleSignIn} className="space-y-3">
                     <input
-                      type={showPassword ? "text" : "password"}
-                      name="password"
-                      placeholder="Password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      type="email"
+                      name="email"
+                      placeholder="Email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       className="w-full p-2.5 md:p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1eac73]"
+                      pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
                       required
                     />
-                    <button
-                      type="button"
-                      className="absolute inset-y-0 right-3 flex items-center"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-5 w-5 text-gray-500" />
-                      ) : (
-                        <Eye className="h-5 w-5 text-gray-500" />
-                      )}
-                    </button>
-                  </div>
-                  <div>
-                    <label className="flex items-center space-x-2">
+                    <div className="relative">
                       <input
-                        type="checkbox"
-                        checked={privacyChecked}
-                        onChange={() => setPrivacyChecked(!privacyChecked)}
-                        className="form-checkbox h-4 w-4 text-[#22c984]"
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        placeholder="Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full p-2.5 md:p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1eac73]"
+                        required
                       />
-                      <span className="text-xs md:text-sm">
-                        I agree to the{" "}
-                        <a href="/privacy-policy" className="text-[#22c984] underline">
-                          Privacy Policy
-                        </a>
-                      </span>
-                    </label>
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-3 flex items-center"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5 text-gray-500" />
+                        ) : (
+                          <Eye className="h-5 w-5 text-gray-500" />
+                        )}
+                      </button>
+                    </div>
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={privacyChecked}
+                          onChange={() => setPrivacyChecked(!privacyChecked)}
+                          className="form-checkbox h-4 w-4 text-[#22c984]"
+                        />
+                        <span className="text-xs md:text-sm">
+                          I agree to the{" "}
+                          <a href="/privacy-policy" className="text-[#22c984] underline">
+                            Privacy Policy
+                          </a>
+                        </span>
+                      </label>
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full bg-gray-500 text-white py-2.5 md:py-4 rounded-lg hover:bg-gray-600"
+                      disabled={!privacyChecked || isLoading}
+                    >
+                      {isLoading ? "Signing in..." : "Sign In"}
+                    </Button>
+                  </form>
+                  <div className="text-center mt-3 text-xs md:text-sm">
+                    Don&apos;t have an account?{" "}
+                    <a href="/sign-up" className="text-[#22c984] underline">
+                      Sign up instead
+                    </a>
                   </div>
-                  <Button
-                    type="submit"
-                    className="w-full bg-gray-500 text-white py-2.5 md:py-4 rounded-lg hover:bg-gray-600"
-                    disabled={!privacyChecked || isLoading}
-                  >
-                    {isLoading ? "Signing in..." : "Sign In"}
-                  </Button>
-                </form>
-                <div className="text-center mt-3 text-xs md:text-sm">
-                  Don&apos;t have an account?{" "}
-                  <a href="/sign-up" className="text-[#22c984] underline">
-                    Sign up instead
-                  </a>
                 </div>
-              </div>
-            </motion.div>
-          </motion.div>
+              </motion.div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
     </>
