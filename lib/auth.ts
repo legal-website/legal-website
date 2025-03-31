@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
 import { authOptions as nextAuthOptions } from "@/app/api/auth/[...nextauth]/route"
 import * as bcryptjs from "bcryptjs"
+import { verifyPassword } from "./auth-service" // Import the updated verifyPassword function
 
 // Export the authOptions for use in other files
 export const authOptions = nextAuthOptions
@@ -15,9 +16,9 @@ export async function hashPassword(password: string): Promise<string> {
   return bcryptjs.hash(password, saltRounds)
 }
 
-// Compare password with hash
+// Compare password with hash - updated to use the unified verifyPassword function
 export async function comparePassword(password: string, hashedPassword: string): Promise<boolean> {
-  return bcryptjs.compare(password, hashedPassword)
+  return verifyPassword(hashedPassword, password)
 }
 
 // Check if user is authenticated (for server components)

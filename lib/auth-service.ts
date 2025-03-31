@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid"
 import nodemailer from "nodemailer"
 import { scrypt, randomBytes } from "crypto"
 import { promisify } from "util"
+import * as bcryptjs from "bcryptjs"
 
 const scryptAsync = promisify(scrypt)
 const prisma = new PrismaClient()
@@ -56,10 +57,22 @@ export async function hashPassword(password: string): Promise<string> {
   return `${buf.toString("hex")}.${salt}`
 }
 
-// Verify password
+// Verify password - Updated to handle both scrypt and bcrypt hashes
 export async function verifyPassword(hashedPassword: string, plainPassword: string): Promise<boolean> {
   try {
+    // Check if it's a bcrypt hash (bcrypt hashes start with $2a$, $2b$, or $2y$)
+    if (hashedPassword.startsWith("$2")) {
+      // Use bcryptjs for verification
+      return bcryptjs.compare(plainPassword, hashedPassword)
+    }
+
+    // Otherwise, assume it's our scrypt hash format
     const [hashed, salt] = hashedPassword.split(".")
+    if (!salt) {
+      console.error("Invalid password hash format")
+      return false
+    }
+
     const buf = (await scryptAsync(plainPassword, salt, 64)) as Buffer
     return buf.toString("hex") === hashed
   } catch (error) {
