@@ -1,48 +1,48 @@
-"use client";
-import { Mail, MapPin, Phone } from "lucide-react";
-import Link from "next/link";
+"use client"
+import { Mail, MapPin, Phone } from "lucide-react"
+import Link from "next/link"
 
-export default function TopBar() { 
+export default function TopBar() {
   return (
-    <div className="bg-gradient-to-r from-[#22c984] to-[#0B0E19] text-white py-2 px-6">
-      <div className="container mx-auto px-6">
+    <div className="bg-gradient-to-r from-[#22c984] to-[#0B0E19] text-white py-2 px-2 sm:px-6">
+      <div className="container mx-auto px-2 sm:px-6">
         <div className="flex justify-between items-center">
           {/* Left Section - Address and Phone Number */}
-          <div className="flex items-center space-x-[30px]">
-            {/* Address with Google Maps Link */}
-            <Link 
-              href="https://www.google.com/maps?q=7901,+N+STE+15322,+St.+Petersburg,+FL" 
+          <div className="flex items-center space-x-2 sm:space-x-[30px]">
+            {/* Address with Google Maps Link - Hidden on mobile */}
+            <Link
+              href="https://www.google.com/maps?q=7901,+N+STE+15322,+St.+Petersburg,+FL"
               target="_blank"
-              className="flex items-center text-[14px] font-medium group hover:text-black transition-colors"
+              className="hidden md:flex items-center text-[14px] font-medium group hover:text-black transition-colors"
             >
               <MapPin className="h-5 w-5 mr-1.5 text-white group-hover:text-black transition-colors" />
               <span>7901, N STE 15322, St. Petersburg, FL.</span>
             </Link>
             {/* Phone Number with Icon */}
             <div className="flex items-center">
-              <Phone className="h-5 w-5 mr-1.5 text-white group-hover:text-black transition-colors" />
+              <Phone className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-1.5 text-white group-hover:text-black transition-colors" />
               <a
                 href="tel:+1 123 456 789"
-                className="text-[14px] font-medium hover:text-black transition-colors"
+                className="text-[12px] sm:text-[14px] font-medium hover:text-black transition-colors"
               >
-               +1 123 456 789
+                +1 123 456 789
               </a>
             </div>
           </div>
 
-         {/* Right Section - Contact & Socials */}
-         <div className="flex items-center space-x-6">
+          {/* Right Section - Contact & Socials */}
+          <div className="flex items-center space-x-2 sm:space-x-6">
             {/* Email */}
-            <Link 
-              href="mailto:info@orizen.com" 
-              className="flex items-center text-[14px] font-medium hover:text-gray-300"
+            <Link
+              href="mailto:info@orizen.com"
+              className="flex items-center text-[12px] sm:text-[14px] font-medium hover:text-gray-300"
             >
-              <Mail className="h-5 w-5 mr-1.5 text-[#22c984]" />
+              <Mail className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-1.5 text-[#22c984]" />
               info@orizen.com
             </Link>
 
-            {/* Social Icons - Now Clickable */}
-            <div className="flex items-center space-x-3">
+            {/* Social Icons - Hidden on mobile */}
+            <div className="hidden sm:flex items-center space-x-3">
               <Link href="https://facebook.com" target="_blank">
                 <svg className="h-4 w-5 fill-white hover:fill-[#22c984]" viewBox="0 0 24 24">
                   <path d="M9 8H6v4h3v12h5V12h3.642L18 8h-4V6.333C14 5.378 14.192 5 15.115 5H18V0h-3.808C10.596 0 9 1.583 9 4.615V8z" />
@@ -68,5 +68,6 @@ export default function TopBar() {
         </div>
       </div>
     </div>
-  );
+  )
 }
+

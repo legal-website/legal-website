@@ -772,22 +772,19 @@ useEffect(() => {
                 )}
               </div>
             ) : (
-              <button
-                onClick={() => setSignInOpen(true)}
+              <Link
+                href="/login"
                 className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984]"
               >
                 <User className="h-6 w-6" />
                 <span className="text-xs mt-1">Sign In</span>
-              </button>
+              </Link>
             )}
           </div>
 
           {/* Cart Button */}
           <div className="relative flex justify-center w-1/3">
-            <button
-              className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984]"
-              onClick={() => setCartOpen(!cartOpen)}
-            >
+            <Link href="/cart" className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984]">
               <ShoppingCart className="h-6 w-6" />
               <span className="text-xs mt-1">Cart</span>
               {itemCount > 0 && (
@@ -795,13 +792,7 @@ useEffect(() => {
                   {itemCount}
                 </span>
               )}
-            </button>
-
-            {cartOpen && (
-              <div className="absolute bottom-16 right-0 w-[280px] bg-white rounded-lg shadow-xl max-h-[80vh] overflow-auto">
-                <CartDropdown />
-              </div>
-            )}
+            </Link>
           </div>
         </div>
       </div>
