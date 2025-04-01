@@ -797,15 +797,11 @@ useEffect(() => {
               )}
             </button>
 
-            {/* Replace the absolute positioned div with Sheet component */}
-            <Sheet open={cartOpen} onOpenChange={setCartOpen}>
-              <SheetContent side="bottom" className="h-[80vh] rounded-t-xl">
-                <div className="py-4">
-                  <h3 className="text-lg font-semibold mb-4">Your Cart</h3>
-                  <CartDropdown />
-                </div>
-              </SheetContent>
-            </Sheet>
+            {cartOpen && (
+              <div className="absolute bottom-16 right-0 w-[280px] bg-white rounded-lg shadow-xl max-h-[80vh] overflow-auto">
+                <CartDropdown />
+              </div>
+            )}
           </div>
         </div>
       </div>

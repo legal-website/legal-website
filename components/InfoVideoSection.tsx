@@ -93,8 +93,13 @@ export default function InfoVideoSection() {
       {isOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50 p-4">
           <div className="bg-transparent p-2 sm:p-4 md:p-6 rounded-xl md:rounded-2xl max-w-2xl w-full relative shadow-none border-none">
-            <button className="absolute top-2 right-2 text-gray-700 hover:text-black" onClick={() => setIsOpen(false)}>
-              <X className="w-6 h-6" />
+            {/* Improved close button for better visibility on mobile */}
+            <button
+              className="absolute -top-10 right-0 z-50 bg-white rounded-full p-2 shadow-lg"
+              onClick={() => setIsOpen(false)}
+              aria-label="Close video"
+            >
+              <X className="w-6 h-6 text-black" />
             </button>
             <div className="relative aspect-video">
               <iframe

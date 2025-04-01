@@ -77,7 +77,7 @@ export default function FAQSection() {
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="px-4 sm:px-5 md:px-6 pb-4 sm:pb-5 md:pb-6"
+                    className="px-2 sm:px-3 md:px-3 pb-2 sm:pb-3 md:pb-4"
                   >
                     <p className="text-gray-600 text-sm sm:text-base break-words">{faq.answer}</p>
                   </motion.div>
