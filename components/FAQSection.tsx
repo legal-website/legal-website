@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { ChevronDown, HelpCircle } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -44,109 +44,84 @@ const faqs: FAQItem[] = [
 
 export default function FAQSection() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    // Check if we're on the client side
-    if (typeof window !== "undefined") {
-      const checkIfMobile = () => {
-        setIsMobile(window.innerWidth < 768)
-      }
-
-      // Initial check
-      checkIfMobile()
-
-      // Add event listener for window resize
-      window.addEventListener("resize", checkIfMobile)
-
-      // Cleanup
-      return () => window.removeEventListener("resize", checkIfMobile)
-    }
-  }, [])
 
   const toggleFAQ = (index: number) => {
     setActiveIndex(activeIndex === index ? null : index)
   }
 
-  // Mobile layout
-  if (isMobile) {
-    return (
-      <section className="bg-gray-50 py-10 px-4">
-        <div className="max-w-md mx-auto">
-          <div className="flex flex-col items-center text-center mb-6">
-            <HelpCircle className="w-10 h-10 text-primary mb-3" />
-            <h2 className="text-2xl font-bold">Frequently Asked Questions</h2>
-          </div>
-
-          <div className="space-y-4 w-full">
-            {faqs.map((faq, index) => (
-              <div key={index} className="bg-white rounded-lg shadow-sm w-full">
-                <div
-                  className="py-3 px-4 cursor-pointer flex justify-between items-center w-full"
-                  onClick={() => toggleFAQ(index)}
-                >
-                  <h3 className="font-semibold text-base pr-2">{faq.question}</h3>
-                  <ChevronDown
-                    className={`flex-shrink-0 w-5 h-5 transition-transform duration-300 ${activeIndex === index ? "transform rotate-180" : ""}`}
-                  />
-                </div>
-
-                <AnimatePresence>
-                  {activeIndex === index && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="px-4 pb-4"
-                    >
-                      <p className="text-gray-600 text-sm">{faq.answer}</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    )
-  }
-
-  // Desktop layout
   return (
-    <section className="bg-gray-50 py-12 md:py-16 px-6 md:px-8">
-      <div className="max-w-7xl mx-auto">
+    <section className="bg-gray-50 py-10 px-4 sm:py-12 md:py-16 sm:px-6 md:px-8">
+      {/* Mobile Header (hidden on desktop) */}
+      <div className="md:hidden flex flex-col items-center text-center mb-6">
+        <HelpCircle className="w-10 h-10 text-primary mb-3" />
+        <h2 className="text-2xl font-bold">Frequently Asked Questions</h2>
+      </div>
+
+      {/* Desktop Header (hidden on mobile) */}
+      <div className="hidden md:block max-w-7xl mx-auto">
         <h2 className="text-center text-3xl md:text-4xl font-bold mb-8 md:mb-12">Frequently Asked Questions</h2>
+      </div>
 
-        <div className="grid md:grid-cols-2 gap-5 md:gap-6">
-          {faqs.map((faq, index) => (
-            <div key={index} className="bg-white rounded-xl shadow-md overflow-hidden">
-              <div
-                className="py-4 px-5 cursor-pointer flex justify-between items-center w-full"
-                onClick={() => toggleFAQ(index)}
-              >
-                <h3 className="font-semibold text-lg pr-4">{faq.question}</h3>
-                <ChevronDown
-                  className={`flex-shrink-0 w-6 h-6 transition-transform duration-300 ${activeIndex === index ? "transform rotate-180" : ""}`}
-                />
-              </div>
-
-              <AnimatePresence>
-                {activeIndex === index && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="px-5 pb-5"
-                  >
-                    <p className="text-gray-600">{faq.answer}</p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+      {/* Mobile FAQ List (hidden on desktop) */}
+      <div className="md:hidden space-y-4 max-w-md mx-auto">
+        {faqs.map((faq, index) => (
+          <div key={index} className="bg-white rounded-lg shadow-sm w-full">
+            <div
+              className="py-3 px-4 cursor-pointer flex justify-between items-center w-full"
+              onClick={() => toggleFAQ(index)}
+            >
+              <h3 className="font-semibold text-base pr-2">{faq.question}</h3>
+              <ChevronDown
+                className={`flex-shrink-0 w-5 h-5 transition-transform duration-300 ${activeIndex === index ? "transform rotate-180" : ""}`}
+              />
             </div>
-          ))}
-        </div>
+
+            <AnimatePresence>
+              {activeIndex === index && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="px-4 pb-4"
+                >
+                  <p className="text-gray-600 text-sm">{faq.answer}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop FAQ Grid (hidden on mobile) */}
+      <div className="hidden md:grid md:grid-cols-2 gap-5 md:gap-6 max-w-7xl mx-auto">
+        {faqs.map((faq, index) => (
+          <div key={index} className="bg-white rounded-xl shadow-md overflow-hidden">
+            <div
+              className="py-4 px-5 cursor-pointer flex justify-between items-center w-full"
+              onClick={() => toggleFAQ(index)}
+            >
+              <h3 className="font-semibold text-lg pr-4">{faq.question}</h3>
+              <ChevronDown
+                className={`flex-shrink-0 w-6 h-6 transition-transform duration-300 ${activeIndex === index ? "transform rotate-180" : ""}`}
+              />
+            </div>
+
+            <AnimatePresence>
+              {activeIndex === index && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="px-5 pb-5"
+                >
+                  <p className="text-gray-600">{faq.answer}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ))}
       </div>
     </section>
   )
