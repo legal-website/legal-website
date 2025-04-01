@@ -772,13 +772,13 @@ useEffect(() => {
                 )}
               </div>
             ) : (
-              <button
-                onClick={() => setSignInOpen(true)}
+              <Link
+                href="/login"
                 className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984]"
               >
                 <User className="h-6 w-6" />
                 <span className="text-xs mt-1">Sign In</span>
-              </button>
+              </Link>
             )}
           </div>
 
@@ -798,13 +798,39 @@ useEffect(() => {
             </button>
 
             {cartOpen && (
-              <div className="absolute bottom-16 right-0 w-[280px] bg-white rounded-lg shadow-xl max-h-[80vh] overflow-auto">
+              <div className="absolute bottom-16 right-0 w-[280px] bg-white rounded-lg shadow-xl max-h-[80vh] overflow-auto z-50">
                 <CartDropdown />
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {useEffect(() => {
+        const handleClickOutsideMobile = (event: MouseEvent) => {
+          // Check if we're on mobile by checking if the bottom navigation is visible
+          const bottomNav = document.querySelector(".fixed.bottom-0.left-0.right-0.bg-white.border-t")
+          if (bottomNav && cartOpen) {
+            // Check if the click is outside the cart dropdown and the cart button
+            const cartButton = document.querySelector(".relative.flex.justify-center.w-1\\/3 button")
+            const cartDropdown = document.querySelector(".absolute.bottom-16.right-0")
+
+            if (
+              cartButton &&
+              cartDropdown &&
+              !cartButton.contains(event.target as Node) &&
+              !cartDropdown.contains(event.target as Node)
+            ) {
+              setCartOpen(false)
+            }
+          }
+        }
+
+        document.addEventListener("mousedown", handleClickOutsideMobile)
+        return () => {
+          document.removeEventListener("mousedown", handleClickOutsideMobile)
+        }
+      }, [cartOpen])}
 
       {/* Search Modal */}
       <AnimatePresence>
