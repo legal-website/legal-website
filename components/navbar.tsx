@@ -87,6 +87,11 @@ export default function Navbar() {
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
 
+  // Handle cart click on mobile - navigate to cart page
+  const handleMobileCartClick = () => {
+    router.push("/cart")
+  }
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (cartRef.current && !cartRef.current.contains(event.target as Node)) {
@@ -782,11 +787,11 @@ useEffect(() => {
             )}
           </div>
 
-          {/* Cart Button */}
+          {/* Cart Button - Modified to navigate to /cart page on mobile */}
           <div className="relative flex justify-center w-1/3">
             <button
               className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984]"
-              onClick={() => setCartOpen(!cartOpen)}
+              onClick={handleMobileCartClick}
             >
               <ShoppingCart className="h-6 w-6" />
               <span className="text-xs mt-1">Cart</span>
@@ -796,12 +801,6 @@ useEffect(() => {
                 </span>
               )}
             </button>
-
-            {cartOpen && (
-              <div className="absolute bottom-16 right-0 w-[280px] bg-white rounded-lg shadow-xl max-h-[80vh] overflow-auto">
-                <CartDropdown />
-              </div>
-            )}
           </div>
         </div>
       </div>
