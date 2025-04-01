@@ -57,10 +57,10 @@ export default function Footer() {
   return (
     <ScrollAnimation>
       
-      <footer className="bg-[#1a1a1a] text-white overflow-x-hidden">
+      <footer className="bg-[#1a1a1a] text-white overflow-x-hidden z-10">
         {/* Newsletter Section */}
         
-        <div className="container mx-auto px-4 md:px-6 lg:px-12 pt-[85px] pb-[0px] flex justify-center">
+        <div className="container mx-auto px-4 md:px-6 lg:px-12 pt-[85px] pb-[0px] flex justify-center z-20">
           <div
             className="w-full max-w-[900px] bg-gradient-to-r from-[#22c984] to-[#1eac73] rounded-xl pt-12 md:pt-12 pb-0 px-4 md:px-8 relative z-10"
             style={{ marginTop: "-170px" }}
