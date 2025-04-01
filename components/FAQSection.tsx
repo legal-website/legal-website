@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ChevronDown, HelpCircle } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -44,67 +44,90 @@ const faqs: FAQItem[] = [
 
 export default function FAQSection() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    // Check if we're on the client side
+    if (typeof window !== "undefined") {
+      const checkIfMobile = () => {
+        setIsMobile(window.innerWidth < 768)
+      }
+
+      // Initial check
+      checkIfMobile()
+
+      // Add event listener for window resize
+      window.addEventListener("resize", checkIfMobile)
+
+      // Cleanup
+      return () => window.removeEventListener("resize", checkIfMobile)
+    }
+  }, [])
 
   const toggleFAQ = (index: number) => {
     setActiveIndex(activeIndex === index ? null : index)
   }
 
-  return (
-    <section id="faqs" className="bg-gray-50 py-10 sm:py-12 md:py-16 px-4 sm:px-6 md:px-8 overflow-hidden">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-8 md:mb-12">
-          <div className="flex justify-center mb-3">
-            <HelpCircle className="w-10 h-10 text-primary" />
+  // Mobile layout
+  if (isMobile) {
+    return (
+      <section className="bg-gray-50 py-10 px-4">
+        <div className="max-w-md mx-auto">
+          <div className="flex flex-col items-center text-center mb-6">
+            <HelpCircle className="w-10 h-10 text-primary mb-3" />
+            <h2 className="text-2xl font-bold">Frequently Asked Questions</h2>
           </div>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold">Frequently Asked Questions</h2>
-        </div>
 
-        {/* Mobile layout - single column */}
-        <div className="flex flex-col gap-3 w-full md:hidden">
-          {faqs.map((faq, index) => (
-            <div key={index} className="bg-white rounded-lg shadow-sm overflow-hidden w-full">
-              <div
-                className="py-2.5 px-4 cursor-pointer flex justify-between items-center w-full"
-                onClick={() => toggleFAQ(index)}
-              >
-                <h3 className="font-semibold text-base pr-3">{faq.question}</h3>
-                <ChevronDown
-                  className={`flex-shrink-0 w-5 h-5 transition-transform duration-300 ${
-                    activeIndex === index ? "transform rotate-180" : ""
-                  }`}
-                />
+          <div className="space-y-4 w-full">
+            {faqs.map((faq, index) => (
+              <div key={index} className="bg-white rounded-lg shadow-sm w-full">
+                <div
+                  className="py-3 px-4 cursor-pointer flex justify-between items-center w-full"
+                  onClick={() => toggleFAQ(index)}
+                >
+                  <h3 className="font-semibold text-base pr-2">{faq.question}</h3>
+                  <ChevronDown
+                    className={`flex-shrink-0 w-5 h-5 transition-transform duration-300 ${activeIndex === index ? "transform rotate-180" : ""}`}
+                  />
+                </div>
+
+                <AnimatePresence>
+                  {activeIndex === index && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="px-4 pb-4"
+                    >
+                      <p className="text-gray-600 text-sm">{faq.answer}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-
-              <AnimatePresence>
-                {activeIndex === index && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="px-4 pb-4"
-                  >
-                    <p className="text-gray-600 text-sm">{faq.answer}</p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
+      </section>
+    )
+  }
 
-        {/* Desktop layout - two columns */}
-        <div className="hidden md:grid md:grid-cols-2 gap-4 w-full">
+  // Desktop layout
+  return (
+    <section className="bg-gray-50 py-12 md:py-16 px-6 md:px-8">
+      <div className="max-w-7xl mx-auto">
+        <h2 className="text-center text-3xl md:text-4xl font-bold mb-8 md:mb-12">Frequently Asked Questions</h2>
+
+        <div className="grid md:grid-cols-2 gap-5 md:gap-6">
           {faqs.map((faq, index) => (
-            <div key={index} className="bg-white rounded-xl shadow-sm overflow-hidden w-full">
+            <div key={index} className="bg-white rounded-xl shadow-md overflow-hidden">
               <div
-                className="py-2.5 px-5 cursor-pointer flex justify-between items-center w-full min-h-[3.5rem]"
+                className="py-4 px-5 cursor-pointer flex justify-between items-center w-full"
                 onClick={() => toggleFAQ(index)}
               >
-                <h3 className="font-semibold text-base lg:text-lg pr-3">{faq.question}</h3>
+                <h3 className="font-semibold text-lg pr-4">{faq.question}</h3>
                 <ChevronDown
-                  className={`flex-shrink-0 w-5 h-5 transition-transform duration-300 ${
-                    activeIndex === index ? "transform rotate-180" : ""
-                  }`}
+                  className={`flex-shrink-0 w-6 h-6 transition-transform duration-300 ${activeIndex === index ? "transform rotate-180" : ""}`}
                 />
               </div>
 
@@ -117,7 +140,7 @@ export default function FAQSection() {
                     transition={{ duration: 0.3 }}
                     className="px-5 pb-5"
                   >
-                    <p className="text-gray-600 text-base">{faq.answer}</p>
+                    <p className="text-gray-600">{faq.answer}</p>
                   </motion.div>
                 )}
               </AnimatePresence>

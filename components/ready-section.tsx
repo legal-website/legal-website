@@ -8,7 +8,7 @@ export default function ReadySection() {
     <>
       {/* Ready to get LLC Section */}
       <ScrollAnimation>
-        <div className="bg-white pt-10 sm:pt-16 md:pt-20 px-4 sm:px-6 md:px-8 mb-10 sm:mb-16 md:mb-[100px] overflow-x-hidden">
+        <div className="bg-white pt-10 sm:pt-16 md:pt-20 px-4 sm:px-6 md:px-8 sm:mb-16 md:mb-[100px] overflow-x-hidden mb-40">
           <div className="container mx-auto flex justify-center">
             <div className="bg-[#FFF2D0] w-full py-8 sm:py-10 md:py-12 px-4 sm:px-6 md:px-8 rounded-lg sm:rounded-xl md:rounded-2xl shadow-md relative">
               <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-6 md:gap-8">
