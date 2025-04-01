@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useState } from "react"
-import { ScrollAnimation } from "./GlobalScrollAnimation";
+import { ScrollAnimation } from "./GlobalScrollAnimation"
 
 interface FeatureItem {
   name: string
@@ -197,99 +197,109 @@ export default function DetailedFeatures() {
 
   return (
     <ScrollAnimation>
-    <TooltipProvider>
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full mt-[30px]">
-      <CollapsibleTrigger asChild>
-        <Button 
-        variant="outline"
-        className="mx-auto block px-20 py-2 my-6 text-base font-normal shadow-lg hover:shadow-md rounded-lg hover:bg-[#22c984] hover:text-white transition-all">
-        {isOpen ? "Hide detailed features" : "See detailed features"}
-        </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="mt-8">
-          <div className="max-w-7xl mx-auto px-8">
-            <div className="bg-white rounded-lg border shadow-lg">
-              <div className="grid grid-cols-4 gap-4 p-7 border-b">
-                <h2 className="fontFamily: 'Montserrat' text-xl font-600">What&apos;s included</h2>
-                <div className="fontFamily: 'Montserrat'text-center font-medium">Basic</div>
-                <div className="fontFamily: 'Montserrat' text-center font-medium">Pro</div>
-                <div className="fontFamily: 'Montserrat' text-center font-medium flex items-center justify-center gap-2">
-                  Premium <span className="text-xs bg-black text-white px-2 py-0.5 rounded">ASSIST</span>
-                </div>
-              </div>
-              <div className="divide-y">
-                {features.map((section) => (
-                  <div key={section.category} className="p-6">
-                    <h3 className="fontFamily: 'Nethead'  font-normal mb-4 fontSize: '15px'">{section.category}</h3>
-                    <div className="space-y-4">
-                      {section.items.map((item) => (
-                        <div key={item.name} className="grid grid-cols-4 gap-4 items-center">
-                          <div className="flex items-center gap-3">
-                            {item.name}
-                            {item.tooltip && (
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <HelpCircle className="h-4 w-4 text-gray-400" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p className="max-w-xs">{item.tooltip}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                          <div className="text-center">
-                            {typeof item.basic === "boolean" ? (
-                              item.basic ? (
-                                <Check className="mx-auto h-5 w-5 text-green-500" />
-                              ) : (
-                                <Minus className="mx-auto h-5 w-5 text-gray-300" />
-                              )
-                            ) : (
-                              item.basic
-                            )}
-                          </div>
-                          <div className="text-center">
-                            {typeof item.pro === "boolean" ? (
-                              item.pro ? (
-                                <Check className="mx-auto h-5 w-5 text-green-500" />
-                              ) : (
-                                <Minus className="mx-auto h-5 w-5 text-gray-300" />
-                              )
-                            ) : (
-                              item.pro
-                            )}
-                          </div>
-                          <div className="text-center">
-                            {typeof item.premium === "boolean" ? (
-                              item.premium ? (
-                                <Check className="mx-auto h-5 w-5 text-green-500" />
-                              ) : (
-                                <Minus className="mx-auto h-5 w-5 text-gray-300" />
-                              )
-                            ) : (
-                              item.premium
-                            )}
-                          </div>
-                        </div>
-                      ))}
+      <TooltipProvider>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full mt-[30px] overflow-x-hidden">
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="outline"
+              className="mx-auto block w-[80%] sm:w-auto px-4 sm:px-20 py-2 my-6 text-sm sm:text-base font-normal shadow-lg hover:shadow-md rounded-lg hover:bg-[#22c984] hover:text-white transition-all"
+            >
+              {isOpen ? "Hide detailed features" : "See detailed features"}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-4 sm:mt-8">
+            <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-8">
+              <div className="bg-white rounded-lg border shadow-lg overflow-x-auto">
+                <div className="min-w-[640px]">
+                  {" "}
+                  {/* Set minimum width for scrollable content */}
+                  <div className="grid grid-cols-4 gap-2 sm:gap-4 p-3 sm:p-7 border-b">
+                    <h2 className="fontFamily: 'Montserrat' text-sm sm:text-xl font-600">What&apos;s included</h2>
+                    <div className="fontFamily: 'Montserrat' text-center text-xs sm:text-base font-medium">Basic</div>
+                    <div className="fontFamily: 'Montserrat' text-center text-xs sm:text-base font-medium">Pro</div>
+                    <div className="fontFamily: 'Montserrat' text-center text-xs sm:text-base font-medium flex items-center justify-center gap-1 sm:gap-2">
+                      Premium{" "}
+                      <span className="text-[10px] sm:text-xs bg-black text-white px-1 sm:px-2 py-0.5 rounded">
+                        ASSIST
+                      </span>
                     </div>
                   </div>
-                ))}
+                  <div className="divide-y">
+                    {features.map((section) => (
+                      <div key={section.category} className="p-3 sm:p-6">
+                        <h3 className="fontFamily: 'Nethead' text-sm sm:text-base font-normal mb-2 sm:mb-4 fontSize: '15px'">
+                          {section.category}
+                        </h3>
+                        <div className="space-y-2 sm:space-y-4">
+                          {section.items.map((item) => (
+                            <div key={item.name} className="grid grid-cols-4 gap-2 sm:gap-4 items-center">
+                              <div className="flex items-center gap-1 sm:gap-3 text-xs sm:text-sm md:text-base pr-1">
+                                <div className="break-words">{item.name}</div>
+                                {item.tooltip && (
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <HelpCircle className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 flex-shrink-0" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="max-w-[200px] sm:max-w-xs text-xs sm:text-sm">{item.tooltip}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                              <div className="text-center">
+                                {typeof item.basic === "boolean" ? (
+                                  item.basic ? (
+                                    <Check className="mx-auto h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
+                                  ) : (
+                                    <Minus className="mx-auto h-4 w-4 sm:h-5 sm:w-5 text-gray-300" />
+                                  )
+                                ) : (
+                                  <span className="text-xs sm:text-sm">{item.basic}</span>
+                                )}
+                              </div>
+                              <div className="text-center">
+                                {typeof item.pro === "boolean" ? (
+                                  item.pro ? (
+                                    <Check className="mx-auto h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
+                                  ) : (
+                                    <Minus className="mx-auto h-4 w-4 sm:h-5 sm:w-5 text-gray-300" />
+                                  )
+                                ) : (
+                                  <span className="text-xs sm:text-sm">{item.pro}</span>
+                                )}
+                              </div>
+                              <div className="text-center">
+                                {typeof item.premium === "boolean" ? (
+                                  item.premium ? (
+                                    <Check className="mx-auto h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
+                                  ) : (
+                                    <Minus className="mx-auto h-4 w-4 sm:h-5 sm:w-5 text-gray-300" />
+                                  )
+                                ) : (
+                                  <span className="text-xs sm:text-sm">{item.premium}</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </CollapsibleContent>
-        {isOpen && (
-          <Button
-            variant="outline"
-            className="mx-auto block px-20 py-2 my-6 text-base font-normal shadow-lg hover:shadow-md rounded-lg hover:bg-[#22c984] hover:text-white transition-all"
-            onClick={() => setIsOpen(false)}
-          >
-            Hide detailed features
-          </Button>
-        )}
-      </Collapsible>
-    </TooltipProvider>
+          </CollapsibleContent>
+          {isOpen && (
+            <Button
+              variant="outline"
+              className="mx-auto block w-[80%] sm:w-auto px-4 sm:px-20 py-2 my-6 text-sm sm:text-base font-normal shadow-lg hover:shadow-md rounded-lg hover:bg-[#22c984] hover:text-white transition-all"
+              onClick={() => setIsOpen(false)}
+            >
+              Hide detailed features
+            </Button>
+          )}
+        </Collapsible>
+      </TooltipProvider>
     </ScrollAnimation>
   )
 }

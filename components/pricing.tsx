@@ -289,8 +289,8 @@ export default function PricingCards() {
   // Show loading state
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#22c984]"></div>
+      <div className="flex justify-center items-center min-h-[200px] sm:min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-t-2 border-b-2 border-[#22c984]"></div>
       </div>
     )
   }
@@ -298,10 +298,12 @@ export default function PricingCards() {
   // Show error state
   if (error) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-center">
-          <p className="text-red-500 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>Retry</Button>
+      <div className="flex justify-center items-center min-h-[200px] sm:min-h-[400px]">
+        <div className="text-center px-4">
+          <p className="text-red-500 mb-4 text-sm sm:text-base">{error}</p>
+          <Button onClick={() => window.location.reload()} size="sm" className="sm:text-base">
+            Retry
+          </Button>
         </div>
       </div>
     )
@@ -309,9 +311,9 @@ export default function PricingCards() {
 
   return (
     <ScrollAnimation>
-      <div className="max-w-[90%] mx-auto px-[5%] py-8">
+      <div className="w-full max-w-full mx-auto px-3 sm:px-[5%] py-4 sm:py-8 overflow-x-hidden">
         {/* State Selection Dropdown */}
-        <div className="mb-8 max-w-xs mx-auto relative">
+        <div className="mb-4 sm:mb-8 w-full max-w-xs mx-auto relative">
           <div className="flex items-center">
             <div className="flex-grow">
               <Select onValueChange={(value) => setSelectedState(value)}>
@@ -358,11 +360,11 @@ export default function PricingCards() {
         </div>
 
         {/* Pricing Cards Grid */}
-        <div className="grid md:grid-cols-3 gap-[30px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-[30px]">
           {pricingData.plans.map((tier) => (
             <div
               key={tier.id}
-              className={`relative border rounded-lg p-6 bg-white transition duration-300 ease-in-out transform hover:scale-105 ${
+              className={`relative border rounded-lg p-4 sm:p-6 bg-white transition duration-300 ease-in-out transform hover:scale-105 ${
                 tier.isRecommended ? "border-[#22c984]" : "border-gray-200"
               } hover:border-[#22c984] hover:shadow-lg`}
             >
@@ -381,7 +383,7 @@ export default function PricingCards() {
                 )}
               </div>
               <div className="mb-4">
-                <span className="text-3xl font-normal">
+                <span className="text-2xl sm:text-3xl font-normal break-words">
                   {selectedState && hasDiscount(selectedState) ? (
                     <>
                       <del className="text-[#22c984] mr-2">
@@ -394,28 +396,30 @@ export default function PricingCards() {
                   )}
                 </span>
                 {selectedState ? (
-                  <div className="text-sm text-gray-600 mt-1">
-                    <div>
+                  <div className="text-xs sm:text-sm text-gray-600 mt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center flex-wrap">
                       <span className="text-[#323232]">
-                        Base price: ${tier.price} + State fee: ${pricingData.stateFilingFees[selectedState]}
+                        Base: ${tier.price} + Fee: ${pricingData.stateFilingFees[selectedState]}
                       </span>
                       {hasDiscount(selectedState) && (
                         <span
-                          className="text-[#000000]"
+                          className="text-[#000000] sm:ml-1"
                           style={{ textDecoration: "underline", textDecorationColor: "red" }}
                         >
-                          {" "}
-                          - Discounted Price: ${pricingData.stateDiscounts[selectedState]}
+                          - Discount: ${pricingData.stateDiscounts[selectedState]}
                         </span>
                       )}
                     </div>
                   </div>
                 ) : (
-                  <span className="text-gray-600 ml-2">+ state filing fees</span>
+                  <span className="text-sm text-gray-600 ml-2">+ state filing fees</span>
                 )}
               </div>
 
-              <p style={{ fontFamily: "Nethead", fontSize: "16px", color: "#4A4A4A" }} className="mb-6">
+              <p
+                style={{ fontFamily: "Nethead", fontSize: "16px", color: "#4A4A4A" }}
+                className="mb-4 sm:mb-6 text-sm sm:text-base"
+              >
                 {tier.description}
               </p>
 
@@ -436,9 +440,14 @@ export default function PricingCards() {
                 )}
                 {!tier.includesPackage && <p style={{ fontFamily: "nethead", fontSize: "16px" }}>Includes:</p>}
                 {tier.features.map((feature, featureIndex) => (
-                  <div key={featureIndex} className="flex gap-3">
-                    <Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-1" />
-                    <span style={{ fontFamily: "nethead", fontSize: "16px", color: "#4A4A4A" }}>{feature}</span>
+                  <div key={featureIndex} className="flex gap-2 sm:gap-3">
+                    <Check className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 flex-shrink-0 mt-1" />
+                    <span
+                      style={{ fontFamily: "nethead", fontSize: "14px", color: "#4A4A4A" }}
+                      className="text-sm sm:text-base"
+                    >
+                      {feature}
+                    </span>
                   </div>
                 ))}
               </div>

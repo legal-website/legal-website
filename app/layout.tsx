@@ -30,21 +30,21 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} overflow-x-hidden`}>
         <ThemeProvider>
           <SessionProvider>
             <AuthProvider>
-            <PricingProvider>
-              <CartProvider>
-              <AffiliateTracker />
-                <Toaster />
-                <TopBar /> {/* Topbar at the top */}
-                 <Preloader />
-                <Navbar /> {/* Navbar below the Topbar */}
-                <main>{children}</main> {/* Main content */}
-                <Footer /> {/* Footer at the bottom */}
-               <ScrollToTopButton />  {/* Scroll to top button */}
-              </CartProvider>
+              <PricingProvider>
+                <CartProvider>
+                  <AffiliateTracker />
+                  <Toaster />
+                  <TopBar /> {/* Topbar at the top */}
+                  <Preloader />
+                  <Navbar /> {/* Navbar below the Topbar */}
+                  <main className="w-full max-w-[100vw] overflow-x-hidden">{children}</main> {/* Main content */}
+                  <Footer /> {/* Footer at the bottom */}
+                  <ScrollToTopButton /> {/* Scroll to top button */}
+                </CartProvider>
               </PricingProvider>
             </AuthProvider>
           </SessionProvider>

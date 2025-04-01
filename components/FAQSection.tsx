@@ -1,55 +1,92 @@
-import { Disclosure } from "@headlessui/react"
-import { ChevronUpIcon } from "@heroicons/react/20/solid"
+"use client"
 
-const faqs = [
+import { useState } from "react"
+import { ChevronDown } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+
+interface FAQItem {
+  question: string
+  answer: string
+}
+
+const faqs: FAQItem[] = [
   {
-    question: "How can I update my personal information?",
+    question: "What is an LLC?",
     answer:
-      "You can update your personal information by logging into your account and navigating to the 'Profile' section. There, you'll find options to edit your details.",
+      "An LLC (Limited Liability Company) is a business structure that combines the pass-through taxation of a partnership or sole proprietorship with the limited liability of a corporation, protecting your personal assets from business debts and liabilities.",
   },
   {
-    question: "What should I do if I suspect unauthorized access to my account?",
+    question: "How long does it take to form an LLC?",
     answer:
-      "If you suspect unauthorized access, immediately change your password and contact our support team. We'll help you secure your account and investigate any potential issues.",
+      "The time to form an LLC varies by state, typically ranging from 1-3 weeks. With our expedited service, we can often complete the process in just 3-5 business days in many states.",
   },
   {
-    question: "How long do you retain my data?",
+    question: "What are the benefits of forming an LLC?",
     answer:
-      "We retain your data for as long as your account is active or as needed to provide you services. If you close your account, we will delete or anonymize your data within a reasonable timeframe, unless required to retain it by law.",
+      "Benefits include personal liability protection, tax flexibility, less paperwork than corporations, management flexibility, and enhanced credibility with customers and partners.",
+  },
+  {
+    question: "Do I need a lawyer to form an LLC?",
+    answer:
+      "No, you don't need a lawyer to form an LLC. Our platform provides all the necessary tools and guidance to complete the LLC formation process without legal assistance, saving you time and money.",
+  },
+  {
+    question: "What ongoing requirements does an LLC have?",
+    answer:
+      "LLCs typically need to file annual reports, pay annual fees, maintain a registered agent, keep business and personal finances separate, and file appropriate tax returns. Requirements vary by state.",
+  },
+  {
+    question: "Can I convert my existing business to an LLC?",
+    answer:
+      "Yes, sole proprietorships, partnerships, and corporations can convert to an LLC. The process varies by state and business type, but our platform can guide you through the conversion process.",
   },
 ]
 
 export default function FAQSection() {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
+
+  const toggleFAQ = (index: number) => {
+    setActiveIndex(activeIndex === index ? null : index)
+  }
+
   return (
-    <div className="bg-gray-50 py-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-3xl font-extrabold text-gray-900 text-center mb-8">Frequently Asked Questions</h2>
-        <div className="max-w-3xl mx-auto divide-y-2 divide-gray-200">
-          {faqs.map((faq) => (
-            <Disclosure as="div" key={faq.question} className="pt-6">
-              {({ open }) => (
-                <>
-                  <dt className="text-lg">
-                    <Disclosure.Button className="text-left w-full flex justify-between items-start text-gray-400">
-                      <span className="font-medium text-gray-900">{faq.question}</span>
-                      <span className="ml-6 h-7 flex items-center">
-                        <ChevronUpIcon
-                          className={`${open ? "-rotate-180" : "rotate-0"} h-6 w-6 transform`}
-                          aria-hidden="true"
-                        />
-                      </span>
-                    </Disclosure.Button>
-                  </dt>
-                  <Disclosure.Panel as="dd" className="mt-2 pr-12">
-                    <p className="text-base text-gray-500">{faq.answer}</p>
-                  </Disclosure.Panel>
-                </>
-              )}
-            </Disclosure>
+    <section className="bg-gray-50 py-10 sm:py-12 md:py-16 px-4 sm:px-6 md:px-8 overflow-x-hidden">
+      <div className="max-w-7xl mx-auto">
+        <h2 className="text-center text-2xl sm:text-3xl md:text-4xl font-bold mb-6 sm:mb-8 md:mb-12">
+          Frequently Asked Questions
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
+          {faqs.map((faq, index) => (
+            <div key={index} className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-md overflow-hidden">
+              <div
+                className="p-4 sm:p-5 md:p-6 cursor-pointer flex justify-between items-center w-full"
+                onClick={() => toggleFAQ(index)}
+              >
+                <h3 className="font-semibold text-base sm:text-lg pr-4 break-words">{faq.question}</h3>
+                <ChevronDown
+                  className={`flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 ${activeIndex === index ? "transform rotate-180" : ""}`}
+                />
+              </div>
+
+              <AnimatePresence>
+                {activeIndex === index && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="px-4 sm:px-5 md:px-6 pb-4 sm:pb-5 md:pb-6"
+                  >
+                    <p className="text-gray-600 text-sm sm:text-base break-words">{faq.answer}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           ))}
         </div>
       </div>
-    </div>
+    </section>
   )
 }
 

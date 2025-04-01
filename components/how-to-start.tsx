@@ -1,6 +1,7 @@
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { ScrollAnimation } from "./GlobalScrollAnimation";
+import { ScrollAnimation } from "./GlobalScrollAnimation"
+
 export default function HowToStart() {
   const steps = [
     {
@@ -43,53 +44,68 @@ export default function HowToStart() {
 
   return (
     <ScrollAnimation>
-    <div id="how" className="bg-[#f9f6f1] py-20 px-[5%] mt-20">
-      <div className="container mx-auto px-6 md:px-12 lg:px-20">
-        <h2 style={{ fontFamily: "Montserrat", fontSize: "40px", fontWeight: "500", background: "none" }} className="text-center mb-12 text-gray-900">
-          How to start an LLC
-        </h2>
+      <div
+        id="how"
+        className="bg-[#f9f6f1] py-10 sm:py-16 md:py-20 px-4 sm:px-6 md:px-8 mt-10 sm:mt-16 md:mt-20 overflow-x-hidden"
+      >
+        <div className="container mx-auto">
+          <h2
+            className="text-center mb-8 sm:mb-10 md:mb-12 text-gray-900 text-2xl sm:text-3xl md:text-4xl font-medium"
+            style={{ fontFamily: "Montserrat", background: "none" }}
+          >
+            How to start an LLC
+          </h2>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {steps.map((step, index) => (
-            <div key={index} className="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center text-center transition-transform duration-300 hover:shadow-lg hover:scale-105">
-              <div className="bg-[#fff9e9] rounded-xl mb-4 w-full flex items-center justify-center shadow-sm overflow-hidden">
-                <Image
-                  src={step.icon || "/placeholder.svg"}
-                  alt={step.title}
-                  width={263}
-                  height={340}
-                  className="w-[263] h-[200px] object-contain rotate-[-60deg]"
-                />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
+            {steps.map((step, index) => (
+              <div
+                key={index}
+                className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-md p-4 sm:p-5 md:p-6 flex flex-col items-center text-center transition-transform duration-300 hover:shadow-lg hover:scale-105"
+              >
+                <div className="bg-[#fff9e9] rounded-lg sm:rounded-xl mb-3 sm:mb-4 w-full flex items-center justify-center shadow-sm overflow-hidden">
+                  <Image
+                    src={step.icon || "/placeholder.svg"}
+                    alt={step.title}
+                    width={263}
+                    height={200}
+                    className="w-full max-w-[200px] sm:max-w-[230px] md:max-w-[263px] h-[150px] sm:h-[180px] md:h-[200px] object-contain rotate-[-60deg]"
+                  />
+                </div>
+                <h3
+                  className="mb-2 sm:mb-3 text-gray-900 text-base sm:text-lg md:text-xl font-medium"
+                  style={{ fontFamily: "Montserrat" }}
+                >
+                  {step.title}
+                </h3>
+                <p
+                  className="text-gray-600 leading-relaxed text-sm sm:text-base break-words"
+                  style={{ fontFamily: "Nethead" }}
+                >
+                  {step.description}
+                </p>
               </div>
-              <h3 style={{ fontFamily: "Montserrat", fontSize: "20px", fontWeight: "500" }} className="mb-3 text-gray-900">{step.title}</h3>
-              <p style={{ fontFamily: "Nethead", fontSize: "16px" }} className="text-gray-600 leading-relaxed">{step.description}</p>
+            ))}
+          </div>
+
+          {/* CTA Section */}
+          <div className="mt-10 sm:mt-16 md:mt-20 flex justify-center px-4 sm:px-8 md:px-12 lg:px-16">
+            <div className="bg-[#1a3449] rounded-xl sm:rounded-2xl p-6 sm:p-8 md:p-10 w-full max-w-[780px] flex flex-col md:flex-row items-center justify-between text-center md:text-left gap-4 md:gap-6">
+              <h3
+                className="text-white text-2xl sm:text-3xl md:text-4xl lg:text-[45px] font-medium leading-tight md:ml-0 lg:ml-6"
+                style={{ fontFamily: "Amy Medium" }}
+              >
+                Ready to get
+                <br /> your LLC?
+              </h3>
+
+              <Button className="bg-[#22c984] hover:bg-[#1eac73] text-white w-full md:w-auto px-6 sm:px-8 md:px-12 lg:px-16 py-3 sm:py-4 text-base sm:text-lg rounded-[10px] shadow-lg transform transition-transform duration-300 hover:scale-105 md:mr-0 lg:mr-6">
+                Start my LLC
+              </Button>
             </div>
-          ))}
+          </div>
         </div>
-
-        {/* CTA Section */}
-<div className="mt-20 flex justify-center px-[18%]">
-  <div className="bg-[#1a3449] rounded-2xl p-8 md:p-10 px-10 w-full max-w-[780px] flex flex-col md:flex-row items-center justify-between text-center md:text-left gap-4">
-  <h3
-  style={{
-    fontFamily: "Amy Medium",
-    fontSize: "45px",
-    fontWeight: "500",
-    lineHeight: "1.2", // Adjust this value if needed
-  }}
-  className="text-white ml-[50px]"
->
-  Ready to get<br /> your LLC?
-</h3>
-
-
-<Button className="bg-[#22c984] hover:bg-[#1eac73] text-white px-[98px] py-4 text-lg rounded-[10px] shadow-lg transform transition-transform duration-300 hover:scale-105 mr-[50px]">
-  Start my LLC
-</Button>
-  </div>
-</div>
       </div>
-    </div>
     </ScrollAnimation>
   )
 }
+
