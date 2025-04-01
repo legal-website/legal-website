@@ -50,14 +50,16 @@ export default function FAQSection() {
   }
 
   return (
-    <section className="bg-gray-50 py-10 sm:py-12 md:py-16 px-4 sm:px-6 md:px-8 overflow-hidden">
+    <section id="faqs" className="bg-gray-50 py-10 sm:py-12 md:py-16 px-4 sm:px-6 md:px-8 overflow-hidden">
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col items-center text-center mb-8 md:mb-12">
-          <HelpCircle className="w-10 h-10 text-primary mb-3" />
+        <div className="text-center mb-8 md:mb-12">
+          <div className="flex justify-center mb-3">
+            <HelpCircle className="w-10 h-10 text-primary" />
+          </div>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold">Frequently Asked Questions</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 md:gap-6 w-full">
+        <div className="flex flex-col gap-4 sm:gap-5 md:gap-6 w-full">
           {faqs.map((faq, index) => (
             <div
               key={index}
@@ -69,7 +71,9 @@ export default function FAQSection() {
               >
                 <h3 className="font-semibold text-base sm:text-lg pr-4">{faq.question}</h3>
                 <ChevronDown
-                  className={`flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 ${activeIndex === index ? "transform rotate-180" : ""}`}
+                  className={`flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 ${
+                    activeIndex === index ? "transform rotate-180" : ""
+                  }`}
                 />
               </div>
 
@@ -88,6 +92,11 @@ export default function FAQSection() {
               </AnimatePresence>
             </div>
           ))}
+        </div>
+
+        {/* Desktop-only grid layout */}
+        <div className="hidden md:grid md:grid-cols-2 md:gap-6 w-full mt-6">
+          {/* This is just a placeholder to maintain the desktop layout */}
         </div>
       </div>
     </section>
