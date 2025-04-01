@@ -59,19 +59,17 @@ export default function FAQSection() {
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold">Frequently Asked Questions</h2>
         </div>
 
-        <div className="flex flex-col gap-4 sm:gap-5 md:gap-6 w-full">
+        {/* Mobile layout - single column */}
+        <div className="flex flex-col gap-3 w-full md:hidden">
           {faqs.map((faq, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-md overflow-hidden w-full"
-            >
+            <div key={index} className="bg-white rounded-lg shadow-sm overflow-hidden w-full">
               <div
-                className="py-3 px-4 sm:py-4 sm:px-5 cursor-pointer flex justify-between items-center w-full"
+                className="py-2.5 px-4 cursor-pointer flex justify-between items-center w-full"
                 onClick={() => toggleFAQ(index)}
               >
-                <h3 className="font-semibold text-base sm:text-lg pr-4">{faq.question}</h3>
+                <h3 className="font-semibold text-base pr-3">{faq.question}</h3>
                 <ChevronDown
-                  className={`flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 ${
+                  className={`flex-shrink-0 w-5 h-5 transition-transform duration-300 ${
                     activeIndex === index ? "transform rotate-180" : ""
                   }`}
                 />
@@ -84,9 +82,9 @@ export default function FAQSection() {
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="px-4 sm:px-5 md:px-6 pb-4 sm:pb-5 md:pb-6"
+                    className="px-4 pb-4"
                   >
-                    <p className="text-gray-600 text-sm sm:text-base">{faq.answer}</p>
+                    <p className="text-gray-600 text-sm">{faq.answer}</p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -94,9 +92,37 @@ export default function FAQSection() {
           ))}
         </div>
 
-        {/* Desktop-only grid layout */}
-        <div className="hidden md:grid md:grid-cols-2 md:gap-6 w-full mt-6">
-          {/* This is just a placeholder to maintain the desktop layout */}
+        {/* Desktop layout - two columns */}
+        <div className="hidden md:grid md:grid-cols-2 gap-4 w-full">
+          {faqs.map((faq, index) => (
+            <div key={index} className="bg-white rounded-xl shadow-sm overflow-hidden w-full">
+              <div
+                className="py-2.5 px-5 cursor-pointer flex justify-between items-center w-full min-h-[3.5rem]"
+                onClick={() => toggleFAQ(index)}
+              >
+                <h3 className="font-semibold text-base lg:text-lg pr-3">{faq.question}</h3>
+                <ChevronDown
+                  className={`flex-shrink-0 w-5 h-5 transition-transform duration-300 ${
+                    activeIndex === index ? "transform rotate-180" : ""
+                  }`}
+                />
+              </div>
+
+              <AnimatePresence>
+                {activeIndex === index && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="px-5 pb-5"
+                  >
+                    <p className="text-gray-600 text-base">{faq.answer}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
         </div>
       </div>
     </section>
