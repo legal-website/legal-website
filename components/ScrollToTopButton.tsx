@@ -46,9 +46,9 @@ export default function ScrollButton() {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 flex items-center justify-center z-50">
+    <div className="fixed bottom-20 sm:bottom-10 right-4 sm:right-6 flex items-center justify-center z-40">
       {isVisible && (
-        <div className="relative flex items-center justify-center w-28 h-28">
+        <div className="relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28">
           <motion.div
             className="absolute w-full h-full flex items-center justify-center"
             animate={{ rotate: 360 }}
@@ -58,9 +58,11 @@ export default function ScrollButton() {
               <defs>
                 <path id="circlePath" d="M 50,50 m -35,0 a 35,35 0 1,1 70,0 a 35,35 0 1,1 -70,0" fill="transparent" />
               </defs>
-              <text className="text-[9px] uppercase font-semibold fill-[#22c984] tracking-wide">
+              <text className="text-[7px] sm:text-[8px] md:text-[9px] uppercase font-semibold fill-[#22c984] tracking-wide">
                 <textPath href="#circlePath" startOffset="0%">
-                  {isScrollingUp ? "Click • For • Smooth • Scroll • To • Top •" : "CClick • For • Smooth • Scroll •  Bottom •"}
+                  {isScrollingUp
+                    ? "Click • For • Smooth • Scroll • To • Top •"
+                    : "Click • For • Smooth • Scroll • Bottom •"}
                 </textPath>
               </text>
             </svg>
@@ -68,11 +70,15 @@ export default function ScrollButton() {
 
           <motion.button
             onClick={handleClick}
-            className="absolute w-12 h-12 bg-[#22c984] text-white rounded-full flex items-center justify-center shadow-lg"
+            className="absolute w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-[#22c984] text-white rounded-full flex items-center justify-center shadow-lg"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
           >
-            {isScrollingUp ? <ArrowUp size={22} /> : <ArrowDown size={22} />}
+            {isScrollingUp ? (
+              <ArrowUp size={18} className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+            ) : (
+              <ArrowDown size={18} className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+            )}
           </motion.button>
         </div>
       )}
