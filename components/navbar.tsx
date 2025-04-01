@@ -37,6 +37,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useDebounce } from "@/hooks/use-debounce"
 import { SearchResults } from "./search-results"
 import { search } from "@/actions/search"
+// Import the new MobileCartDialog component at the top with other imports
+import MobileCartDialog from "./mobile-cart-dialog"
 
 // Add a function to fetch the latest user data
 async function fetchUserProfile() {
@@ -86,6 +88,8 @@ export default function Navbar() {
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  // Add a new state for the mobile cart dialog
+  const [mobileCartOpen, setMobileCartOpen] = useState(false)
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -772,13 +776,13 @@ useEffect(() => {
                 )}
               </div>
             ) : (
-              <button
-                onClick={() => setSignInOpen(true)}
+              <Link
+                href="/login"
                 className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984]"
               >
                 <User className="h-6 w-6" />
                 <span className="text-xs mt-1">Sign In</span>
-              </button>
+              </Link>
             )}
           </div>
 
@@ -786,7 +790,7 @@ useEffect(() => {
           <div className="relative flex justify-center w-1/3">
             <button
               className="flex flex-col items-center justify-center text-gray-600 hover:text-[#22c984]"
-              onClick={() => setCartOpen(!cartOpen)}
+              onClick={() => setMobileCartOpen(true)}
             >
               <ShoppingCart className="h-6 w-6" />
               <span className="text-xs mt-1">Cart</span>
@@ -796,15 +800,35 @@ useEffect(() => {
                 </span>
               )}
             </button>
-
-            {cartOpen && (
-              <div className="absolute bottom-16 right-0 w-[280px] bg-white rounded-lg shadow-xl max-h-[80vh] overflow-auto">
-                <CartDropdown />
-              </div>
-            )}
           </div>
         </div>
       </div>
+
+      {useEffect(() => {
+        const handleClickOutsideMobile = (event: MouseEvent) => {
+          // Check if we're on mobile by checking if the bottom navigation is visible
+          const bottomNav = document.querySelector(".fixed.bottom-0.left-0.right-0.bg-white.border-t")
+          if (bottomNav && cartOpen) {
+            // Check if the click is outside the cart dropdown and the cart button
+            const cartButton = document.querySelector(".relative.flex.justify-center.w-1\\/3 button")
+            const cartDropdown = document.querySelector(".absolute.bottom-16.right-0")
+
+            if (
+              cartButton &&
+              cartDropdown &&
+              !cartButton.contains(event.target as Node) &&
+              !cartDropdown.contains(event.target as Node)
+            ) {
+              setCartOpen(false)
+            }
+          }
+        }
+
+        document.addEventListener("mousedown", handleClickOutsideMobile)
+        return () => {
+          document.removeEventListener("mousedown", handleClickOutsideMobile)
+        }
+      }, [cartOpen])}
 
       {/* Search Modal */}
       <AnimatePresence>
@@ -996,6 +1020,8 @@ useEffect(() => {
           </div>
         )}
       </AnimatePresence>
+      {/* Mobile Cart Dialog */}
+      <MobileCartDialog isOpen={mobileCartOpen} onClose={() => setMobileCartOpen(false)} />
     </>
   )
 }
