@@ -1,12 +1,12 @@
 import type { ReactNode } from "react"
 import { Inter } from "next/font/google"
 import type { Metadata } from "next"
-import ScrollToTopButton from "@/components/ScrollToTopButton" // Import here
+//import ScrollToTopButton from "@/components/ScrollToTopButton" // Import here
 import Navbar from "@/components/navbar"
 import TopBar from "@/components/top-bar"
 import Footer from "@/components/footer"
 import { Toaster } from "@/components/ui/toaster"
-//import Preloader from "@/components/preloader"
+import Preloader from "@/components/preloader"
 import { CartProvider } from "@/context/cart-context"
 import { ThemeProvider } from "@/context/theme-context"
 import { AuthProvider } from "@/context/auth-context"
@@ -39,11 +39,11 @@ export default function RootLayout({
               <AffiliateTracker />
                 <Toaster />
                 <TopBar /> {/* Topbar at the top */}
-                {/* <Preloader />*/}
+                 <Preloader />
                 <Navbar /> {/* Navbar below the Topbar */}
                 <main>{children}</main> {/* Main content */}
                 <Footer /> {/* Footer at the bottom */}
-                <ScrollToTopButton /> {/* Scroll to top button */}
+               {/* <ScrollToTopButton /> */} {/* Scroll to top button */}
               </CartProvider>
               </PricingProvider>
             </AuthProvider>
