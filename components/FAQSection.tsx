@@ -50,21 +50,24 @@ export default function FAQSection() {
   }
 
   return (
-    <section className="bg-gray-50 py-10 sm:py-12 md:py-16 px-4 sm:px-6 md:px-8 overflow-x-hidden">
+    <section className="bg-gray-50 py-10 sm:py-12 md:py-16 px-4 sm:px-6 md:px-8 overflow-hidden">
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col items-center mb-6 sm:mb-8 md:mb-12">
-          <HelpCircle className="w-10 h-10 text-primary mb-3 md:mb-4 block" />
-          <h2 className="text-center text-2xl sm:text-3xl md:text-4xl font-bold">Frequently Asked Questions</h2>
+        <div className="flex flex-col items-center text-center mb-8 md:mb-12">
+          <HelpCircle className="w-10 h-10 text-primary mb-3" />
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold">Frequently Asked Questions</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 md:gap-6 w-full">
           {faqs.map((faq, index) => (
-            <div key={index} className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-md overflow-hidden">
+            <div
+              key={index}
+              className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-md overflow-hidden w-full"
+            >
               <div
                 className="py-3 px-4 sm:py-4 sm:px-5 cursor-pointer flex justify-between items-center w-full"
                 onClick={() => toggleFAQ(index)}
               >
-                <h3 className="font-semibold text-base sm:text-lg pr-4 break-words">{faq.question}</h3>
+                <h3 className="font-semibold text-base sm:text-lg pr-4">{faq.question}</h3>
                 <ChevronDown
                   className={`flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 ${activeIndex === index ? "transform rotate-180" : ""}`}
                 />
@@ -77,9 +80,9 @@ export default function FAQSection() {
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="px-2 sm:px-3 md:px-3 pb-2 sm:pb-3 md:pb-4"
+                    className="px-4 sm:px-5 md:px-6 pb-4 sm:pb-5 md:pb-6"
                   >
-                    <p className="text-gray-600 text-sm sm:text-base break-words">{faq.answer}</p>
+                    <p className="text-gray-600 text-sm sm:text-base">{faq.answer}</p>
                   </motion.div>
                 )}
               </AnimatePresence>
