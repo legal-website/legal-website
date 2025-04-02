@@ -29,7 +29,7 @@ export default async function TicketDetailPage({
   }
 
   return (
-    <div className="mb-20 sm:mb-24 md:mb-32 lg:mb-40">
+    <div className="mb-24 sm:mb-28 md:mb-36 lg:mb-44">
       <TicketDashboard initialTickets={tickets || []} />
     </div>
   )
