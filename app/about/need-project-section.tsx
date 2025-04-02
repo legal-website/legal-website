@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { Phone } from "lucide-react"
-import Image from "next/image";
+import Image from "next/image"
 export default function NeedProjectSection() {
   const personImageRef = useRef<HTMLImageElement>(null)
   const needProjectRef = useRef<HTMLImageElement>(null)
@@ -65,7 +65,8 @@ export default function NeedProjectSection() {
                 <h3 className="text-xl font-medium text-white">Call Us Anytime</h3>
                 <p className="text-4xl font-bold text-white tracking-tight">+123 456 (4567) 890</p>
                 <p className="text-gray-400 max-w-sm">
-                Expertly streamline collaborative strategies and implement industry-leading best practices for seamless LLC operations.
+                  Expertly streamline collaborative strategies and implement industry-leading best practices for
+                  seamless LLC operations.
                 </p>
               </div>
 
@@ -86,53 +87,51 @@ export default function NeedProjectSection() {
             {/* Right Content */}
             <div className="relative flex-1 ml-8">
               <div className="absolute right-0 top-1/2 -translate-y-1/2">
-              
                 <div className="relative">
                   {/* Circular Background with Rings */}
                   <div className="w-[450px] h-[450px] rounded-full bg-[#22c984]/20">
-            
                     <div className="absolute inset-4 rounded-full border-2 border-[#22c984]/10"></div>
                     <div className="absolute inset-8 rounded-full border-2 border-[#22c984]/10"></div>
                     <div className="absolute inset-12 rounded-full border-2 border-[#22c984]/10"></div>
                   </div>
-                  </div>
-                  {/* Person Image */}
-                  <Image
-  ref={personImageRef}
-  src="/contact-thumb.png"
-  alt="Contact support"
-  width={400} // Set the actual width
-  height={300} // Adjust height as needed
-  className="absolute right-0 top-1 max-w-[400px] transition-transform duration-300"
-/>
-
-
-                  {/* Need Project Bubble */}
-                  <Image
-  ref={needProjectRef}
-  src="/need.png"
-  alt="Need Project?"
-  width={200} // This should be a prop, not inside className
-  height={210} // Add height if needed
-  className="absolute right-[350px] top-[20px] animate-pulse"
-  style={{ animationDuration: "0.8s" }}
-/>
-
                 </div>
+                {/* Person Image */}
+                <Image
+                  ref={personImageRef}
+                  src="/contact-thumb.png"
+                  alt="Contact support"
+                  width={400} // Set the actual width
+                  height={300} // Adjust height as needed
+                  className="absolute right-0 top-1 max-w-[400px] transition-transform duration-300"
+                />
+
+                {/* Need Project Bubble */}
+                <Image
+                  ref={needProjectRef}
+                  src="/need.png"
+                  alt="Need Project?"
+                  width={200} // This should be a prop, not inside className
+                  height={210} // Add height if needed
+                  className="absolute right-[350px] top-[20px] animate-pulse"
+                  style={{ animationDuration: "0.8s" }}
+                />
               </div>
             </div>
           </div>
         </div>
-      
+      </div>
 
       {/* Statistics Bar */}
-      <div className="relative mr-48 ml-48 bg-contain repeat-1 bg-center overflow-hidden" style={{ 
-       backgroundImage: "url('/counter-bg.png')",
-       borderRadius: "10px",
-       marginTop: "-80px",
-       zIndex: 10
-     }}>
-        <div className="mx-auto" style={{ maxWidth: "1050px" }} >
+      <div
+        className="relative mr-48 ml-48 bg-contain repeat-1 bg-center overflow-hidden"
+        style={{
+          backgroundImage: "url('/counter-bg.png')",
+          borderRadius: "10px",
+          marginTop: "-80px",
+          zIndex: 10,
+        }}
+      >
+        <div className="mx-auto" style={{ maxWidth: "1050px" }}>
           <div className="grid grid-cols-4 divide-x divide-white">
             <StatItem number="960+" label="Active Customer" />
             <StatItem number="90+" label="Expert Members" />
@@ -153,5 +152,4 @@ function StatItem({ number, label }: { number: string; label: string }) {
     </div>
   )
 }
-
 
