@@ -143,8 +143,8 @@ export default function TicketDetail({
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b flex items-center justify-between">
-        <div>
+      <div className="p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div className="w-full">
           <div className="flex items-center">
             <Button
               variant="ghost"
@@ -154,20 +154,20 @@ export default function TicketDetail({
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <h2 className="text-xl font-semibold">{ticket.subject}</h2>
+            <h2 className="text-xl font-semibold truncate">{ticket.subject}</h2>
           </div>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground truncate">
             Ticket #{ticket.id.substring(0, 8)} · {ticket.category}
           </div>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2 mt-1 sm:mt-0">
           <Badge className={getStatusColor(ticket.status)}>{ticket.status}</Badge>
           <Badge className={getPriorityColor(ticket.priority)}>{ticket.priority}</Badge>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-4">
         {/* Initial ticket message */}
         <div className="flex flex-col space-y-2">
           <div className="flex items-center space-x-2">
@@ -222,7 +222,12 @@ export default function TicketDetail({
                           </p>
                         </div>
                       </div>
-                      <div className={cn("max-w-[80%]", isCurrentUser ? "self-end ml-10" : "ml-10")}>
+                      <div
+                        className={cn(
+                          "max-w-[90%] sm:max-w-[80%]",
+                          isCurrentUser ? "self-end ml-2 sm:ml-10" : "ml-2 sm:ml-10",
+                        )}
+                      >
                         <div
                           className={cn(
                             "p-3 rounded-lg",
@@ -268,7 +273,7 @@ export default function TicketDetail({
 
       {/* Message input */}
       {ticket.status !== "closed" && (
-        <div className="p-4 border-t">
+        <div className="p-2 sm:p-4 border-t">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex items-center space-x-2">
               <Textarea
@@ -279,7 +284,7 @@ export default function TicketDetail({
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div>
                 <Label
                   htmlFor="files"

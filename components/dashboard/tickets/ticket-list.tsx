@@ -42,18 +42,18 @@ export default function TicketList({
           key={ticket.id}
           onClick={() => onTicketSelect(ticket)}
           className={cn(
-            "p-4 hover:bg-muted/50 cursor-pointer transition-colors",
+            "p-3 sm:p-4 hover:bg-muted/50 cursor-pointer transition-colors",
             selectedTicketId === ticket.id && "bg-muted",
           )}
         >
-          <div className="flex justify-between items-start mb-1">
-            <h3 className="font-medium line-clamp-1">{ticket.subject}</h3>
+          <div className="flex justify-between items-start mb-1 gap-2">
+            <h3 className="font-medium line-clamp-1 text-sm sm:text-base">{ticket.subject}</h3>
             <Badge className={cn("ml-2 shrink-0", getStatusColor(ticket.status))}>{ticket.status}</Badge>
           </div>
 
           <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{ticket.description}</p>
 
-          <div className="flex justify-between items-center text-xs text-muted-foreground">
+          <div className="flex flex-wrap justify-between items-center text-xs text-muted-foreground gap-1">
             <span>{ticket.category}</span>
             <span>{formatDistanceToNow(new Date(ticket.updatedAt), { addSuffix: true })}</span>
           </div>

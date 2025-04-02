@@ -103,13 +103,13 @@ export default function CreateTicketButton({ children, onSuccess }: CreateTicket
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-[500px] overflow-hidden">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Create Support Ticket</DialogTitle>
             <DialogDescription>Fill in the details below to create a new support ticket.</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-2 sm:py-4 max-h-[calc(80vh-10rem)] overflow-y-auto pr-1">
             <div className="grid gap-2">
               <Label htmlFor="subject">Subject</Label>
               <Input

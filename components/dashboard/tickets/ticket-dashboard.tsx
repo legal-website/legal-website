@@ -146,9 +146,9 @@ export default function TicketDashboard({ initialTickets }: { initialTickets: Ti
   })
 
   return (
-    <div className="h-full flex flex-col md:flex-row mb-48">
+    <div className="h-full flex flex-col md:flex-row mb-16 md:mb-48 overflow-hidden">
       {/* Sidebar with ticket list */}
-      <div className="w-full md:w-80 lg:w-96 border-r flex flex-col overflow-hidden">
+      <div className="w-full md:w-80 lg:w-96 border-r flex flex-col overflow-hidden h-auto md:h-full">
         <div className="p-4 border-b">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold">Support Tickets</h1>
@@ -163,8 +163,8 @@ export default function TicketDashboard({ initialTickets }: { initialTickets: Ti
             </Button>
           </div>
 
-          <div className="flex space-x-2 mb-4">
-            <div className="relative flex-1">
+          <div className="flex flex-wrap gap-2 mb-4">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search tickets..."
@@ -199,7 +199,7 @@ export default function TicketDashboard({ initialTickets }: { initialTickets: Ti
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden h-[calc(100vh-16rem)] md:h-auto">
         {selectedTicket ? (
           <TicketDetail ticket={selectedTicket} onMessageSent={handleMessageSent} />
         ) : (

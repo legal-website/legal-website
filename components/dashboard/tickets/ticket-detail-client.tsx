@@ -119,9 +119,9 @@ export default function TicketDetailClient({ ticket }: { ticket: Ticket }) {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Ticket #{ticket.id.substring(0, 8)}</h1>
+    <div className="container mx-auto py-4 sm:py-6 space-y-4 sm:space-y-6 px-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold">Ticket #{ticket.id.substring(0, 8)}</h1>
         <div className="flex space-x-2">
           <Badge className={getStatusColor(ticket.status)}>{ticket.status}</Badge>
           <Badge className={getPriorityColor(ticket.priority)}>{ticket.priority}</Badge>
@@ -147,7 +147,7 @@ export default function TicketDetailClient({ ticket }: { ticket: Ticket }) {
           <div className="space-y-4">
             {ticket.messages.map((msg) => (
               <Card key={msg.id}>
-                <CardHeader className="pb-2">
+                <CardHeader className="pb-2 p-3 sm:p-6">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center space-x-2">
                       <Avatar>
@@ -163,7 +163,7 @@ export default function TicketDetailClient({ ticket }: { ticket: Ticket }) {
                     {msg.sender === "system" && <Badge variant="outline">System</Badge>}
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                   <p className="whitespace-pre-wrap">{msg.content}</p>
 
                   {msg.attachments && msg.attachments.length > 0 && (
@@ -204,7 +204,7 @@ export default function TicketDetailClient({ ticket }: { ticket: Ticket }) {
               <CardHeader>
                 <CardTitle>Reply to this ticket</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 p-3 sm:p-6">
                 <Textarea
                   placeholder="Type your message here..."
                   value={message}
@@ -252,7 +252,7 @@ export default function TicketDetailClient({ ticket }: { ticket: Ticket }) {
                   </div>
                 )}
               </CardContent>
-              <CardFooter>
+              <CardFooter className="p-3 sm:p-6 flex flex-wrap gap-2">
                 <Button type="submit" disabled={isSubmitting || !message.trim()} className="ml-auto">
                   {isSubmitting ? (
                     "Sending..."
