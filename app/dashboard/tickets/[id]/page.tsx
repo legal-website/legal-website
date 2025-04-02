@@ -28,6 +28,10 @@ export default async function TicketDetailPage({
     redirect("/dashboard/tickets")
   }
 
-  return <TicketDashboard initialTickets={tickets || []} />
+  return (
+    <div className="mb-20 sm:mb-24 md:mb-32 lg:mb-40">
+      <TicketDashboard initialTickets={tickets || []} />
+    </div>
+  )
 }
 
