@@ -50,8 +50,8 @@ export default function FAQs() {
   }
 
   return (
-    <section className="py-8 sm:py-12 px-4 w-full max-w-3xl mx-auto overflow-hidden block md:hidden">
-      <div className="text-center mb-6 sm:mb-8">
+    <section className="py-8 sm:py-12 px-4 w-full max-w-3xl mx-auto overflow-hidden md:hidden">
+      <div className="text-center mb-6 sm:mb-8 md:mb-12">
         <h2 className="text-3xl sm:text-4xl font-bold mb-1 sm:mb-2">FAQ</h2>
         <p className="text-gray-500 text-sm sm:text-base">Frequently asked questions</p>
       </div>
