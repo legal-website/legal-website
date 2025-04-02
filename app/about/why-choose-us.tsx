@@ -2,9 +2,12 @@
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { ShieldCheck } from "lucide-react"
+import { useCart } from "@/context/cart-context"
+import { toast } from "@/components/ui/use-toast" // Import toast for notifications
 
 export default function WhyChooseUs() {
   const router = useRouter()
+  const { addItem, isInCart } = useCart() // Add the cart context
 
   return (
     <section className="py-12 sm:py-16 md:py-20 bg-gray-50 mb-8 sm:mb-12 md:mb-16 overflow-x-hidden">
@@ -50,17 +53,41 @@ export default function WhyChooseUs() {
             {/* Business Plan Card */}
             <PriceCard
               title="STARTER Plan"
-              price="199"
+              price={199}
               features={["Company Formation", "Registered Agent", "Operating Agreement", "Lifetime Support"]}
               isPopular={false}
+              onPurchase={() => {
+                const item = {
+                  tier: "STARTER Plan",
+                  price: 199,
+                }
+                addItem(item)
+                toast({
+                  title: "Added to cart",
+                  description: "STARTER Plan has been added to your cart",
+                })
+              }}
+              isInCart={isInCart("STARTER Plan")}
             />
 
             {/* Popular Plan Card */}
             <PriceCard
               title="Premium Plan"
-              price="249"
+              price={249}
               features={["Unique Address", "Payment Gateway Setup", "Business Bank Account", "Ein (Tax ID)"]}
               isPopular={true}
+              onPurchase={() => {
+                const item = {
+                  tier: "Premium Plan",
+                  price: 249,
+                }
+                addItem(item)
+                toast({
+                  title: "Added to cart",
+                  description: "Premium Plan has been added to your cart",
+                })
+              }}
+              isInCart={isInCart("Premium Plan")}
             />
           </div>
         </div>
@@ -108,11 +135,15 @@ function PriceCard({
   price,
   features,
   isPopular,
+  onPurchase,
+  isInCart,
 }: {
   title: string
-  price: string
+  price: number
   features: string[]
   isPopular: boolean
+  onPurchase: () => void
+  isInCart: boolean
 }) {
   const baseClasses =
     "p-4 sm:p-6 md:p-8 rounded-lg space-y-4 sm:space-y-6 transition-all duration-300 shadow-md hover:shadow-xl"
@@ -144,9 +175,11 @@ function PriceCard({
           isPopular
             ? "bg-[#0d4e33] text-white hover:text-[#000000] hover:bg-[#c9ecdd] shadow-[0_4px_12px_rgba(0,0,0,0.2)] sm:shadow-[0_6px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)]"
             : "bg-gray-100 text-gray-900 hover:bg-[#125338] hover:text-[#ffffff] shadow-[0_4px_12px_rgba(0,0,0,0.2)] sm:shadow-[0_6px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)]"
-        }`}
+        } ${isInCart ? "opacity-50 cursor-not-allowed" : ""}`}
+        onClick={onPurchase}
+        disabled={isInCart}
       >
-        Purchase
+        {isInCart ? "In Cart" : "Purchase"}
       </button>
     </div>
   )
