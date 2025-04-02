@@ -141,9 +141,9 @@ export default function TicketDetail({
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col max-h-[calc(100vh-8rem)] md:max-h-[calc(100vh-6rem)]">
       {/* Header */}
-      <div className="p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+      <div className="p-3 sm:p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-background z-10">
         <div className="w-full">
           <div className="flex items-center">
             <Button
@@ -154,9 +154,9 @@ export default function TicketDetail({
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <h2 className="text-xl font-semibold truncate">{ticket.subject}</h2>
+            <h2 className="text-lg sm:text-xl font-semibold truncate">{ticket.subject}</h2>
           </div>
-          <div className="text-sm text-muted-foreground truncate">
+          <div className="text-xs sm:text-sm text-muted-foreground truncate">
             Ticket #{ticket.id.substring(0, 8)} · {ticket.category}
           </div>
         </div>
@@ -166,8 +166,8 @@ export default function TicketDetail({
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-4">
+      {/* Messages - Fixed height with scrolling */}
+      <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-4 min-h-0">
         {/* Initial ticket message */}
         <div className="flex flex-col space-y-2">
           <div className="flex items-center space-x-2">
@@ -183,7 +183,7 @@ export default function TicketDetail({
           </div>
           <div className="ml-10">
             <div className="bg-muted p-3 rounded-lg">
-              <p className="whitespace-pre-wrap">{ticket.description}</p>
+              <p className="whitespace-pre-wrap break-words">{ticket.description}</p>
             </div>
           </div>
         </div>
@@ -234,7 +234,7 @@ export default function TicketDetail({
                             isCurrentUser ? "bg-primary text-primary-foreground" : "bg-muted",
                           )}
                         >
-                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                         </div>
 
                         {msg.attachments && msg.attachments.length > 0 && (
@@ -252,9 +252,9 @@ export default function TicketDetail({
                                     : "bg-muted/80 hover:bg-muted",
                                 )}
                               >
-                                <PaperclipIcon className="h-4 w-4 mr-2" />
+                                <PaperclipIcon className="h-4 w-4 mr-2 flex-shrink-0" />
                                 <span className="text-sm truncate flex-1">{attachment.name}</span>
-                                <span className="text-xs opacity-70">{attachment.size}</span>
+                                <span className="text-xs opacity-70 flex-shrink-0">{attachment.size}</span>
                               </a>
                             ))}
                           </div>
@@ -271,18 +271,16 @@ export default function TicketDetail({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message input */}
+      {/* Message input - Fixed at bottom */}
       {ticket.status !== "closed" && (
-        <div className="p-2 sm:p-4 border-t">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Textarea
-                placeholder="Type your message here..."
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                className="min-h-[80px] resize-none"
-              />
-            </div>
+        <div className="p-2 sm:p-4 border-t bg-background z-10">
+          <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-4">
+            <Textarea
+              placeholder="Type your message here..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="min-h-[60px] sm:min-h-[80px] resize-none w-full"
+            />
 
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div>
@@ -303,10 +301,10 @@ export default function TicketDetail({
                 />
 
                 {files.length > 0 && (
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-2 space-y-1 max-h-[60px] overflow-y-auto">
                     {Array.from(files).map((file, index) => (
                       <div key={index} className="flex items-center text-xs">
-                        <span className="truncate max-w-[200px]">{file.name}</span>
+                        <span className="truncate max-w-[150px] sm:max-w-[200px]">{file.name}</span>
                         <span className="mx-1 text-muted-foreground">({Math.round(file.size / 1024)} KB)</span>
                         <Button
                           type="button"
@@ -327,7 +325,7 @@ export default function TicketDetail({
                 )}
               </div>
 
-              <Button type="submit" disabled={isSubmitting || !message.trim()}>
+              <Button type="submit" disabled={isSubmitting || !message.trim()} className="w-full sm:w-auto">
                 {isSubmitting ? (
                   "Sending..."
                 ) : (

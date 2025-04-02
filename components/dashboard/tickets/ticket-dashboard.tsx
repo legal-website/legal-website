@@ -2,219 +2,131 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import type { Ticket } from "@/types/ticket"
 import { getUserTickets, getTicketDetails } from "@/lib/actions/ticket-actions"
-import TicketList from "@/components/dashboard/tickets/ticket-list"
-import TicketDetail from "@/components/dashboard/tickets/ticket-detail"
-import CreateTicketButton from "@/components/dashboard/tickets/create-ticket-button"
+import TicketList from "./ticket-list"
+import TicketDetailClient from "./ticket-detail-client"
+import type { Ticket } from "@/types/ticket"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PlusCircle, Search, MessageSquare, RefreshCw } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { Menu } from "lucide-react"
+import { useMediaQuery } from "@/hooks/use-media-query"
 
-export default function TicketDashboard({ initialTickets }: { initialTickets: Ticket[] }) {
+export default function TicketDashboard({
+  initialTickets = [],
+}: {
+  initialTickets: Ticket[]
+}) {
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets)
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
-  const [search, setSearch] = useState("")
-  const [activeTab, setActiveTab] = useState("all")
   const [isLoading, setIsLoading] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [showSidebar, setShowSidebar] = useState(true)
   const router = useRouter()
-  const pathname = usePathname() || ""
-  const { toast } = useToast()
+  const pathname = usePathname()
+  const isMobile = useMediaQuery("(max-width: 768px)")
 
-  // Extract ticket ID from URL if present
+  // On mobile, hide sidebar by default
   useEffect(() => {
-    const ticketIdMatch = pathname.match(/\/tickets\/([^/]+)/)
-    if (ticketIdMatch && ticketIdMatch[1]) {
-      const ticketId = ticketIdMatch[1]
+    if (isMobile) {
+      setShowSidebar(false)
+    } else {
+      setShowSidebar(true)
+    }
+  }, [isMobile])
+
+  // Extract ticket ID from path if available
+  useEffect(() => {
+    const ticketId = pathname.split("/").pop()
+    if (ticketId && ticketId !== "tickets") {
       loadTicketDetails(ticketId)
     }
   }, [pathname])
 
-  // Set up polling for new messages
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refreshTickets(false)
-    }, 30000) // Poll every 30 seconds
-
-    return () => clearInterval(interval)
-  }, [])
-
   const loadTicketDetails = async (ticketId: string) => {
     setIsLoading(true)
     try {
-      const { ticket, error } = await getTicketDetails(ticketId)
-      if (error) {
-        toast({
-          title: "Error",
-          description: error,
-          variant: "destructive",
-        })
-        return
+      const { ticket } = await getTicketDetails(ticketId)
+      if (ticket) {
+        setSelectedTicket(ticket)
+        // On mobile, hide the sidebar when a ticket is selected
+        if (isMobile) {
+          setShowSidebar(false)
+        }
       }
-      setSelectedTicket(ticket)
-      // Update URL without full page refresh
-      router.push(`/dashboard/tickets/${ticketId}`, { scroll: false })
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load ticket details",
-        variant: "destructive",
-      })
+      console.error("Error loading ticket details:", error)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const refreshTickets = async (showToast = true) => {
-    setIsRefreshing(true)
+  const refreshTickets = async () => {
     try {
-      const { tickets: freshTickets, error } = await getUserTickets()
-      if (error) {
-        if (showToast) {
-          toast({
-            title: "Error",
-            description: error,
-            variant: "destructive",
-          })
-        }
-        return
-      }
-
-      setTickets(freshTickets || [])
-
-      // If we have a selected ticket, refresh its details too
-      if (selectedTicket) {
-        const { ticket: freshTicket } = await getTicketDetails(selectedTicket.id)
-        if (freshTicket) {
-          setSelectedTicket(freshTicket)
-        }
-      }
-
-      if (showToast) {
-        toast({
-          title: "Refreshed",
-          description: "Ticket data has been updated",
-        })
+      const { tickets: refreshedTickets } = await getUserTickets()
+      if (refreshedTickets) {
+        setTickets(refreshedTickets)
       }
     } catch (error) {
-      if (showToast) {
-        toast({
-          title: "Error",
-          description: "Failed to refresh tickets",
-          variant: "destructive",
-        })
-      }
-    } finally {
-      setIsRefreshing(false)
+      console.error("Error refreshing tickets:", error)
     }
   }
 
   const handleTicketSelect = (ticket: Ticket) => {
-    loadTicketDetails(ticket.id)
-  }
-
-  const handleCreateSuccess = (ticketId: string) => {
-    refreshTickets(false)
-    loadTicketDetails(ticketId)
-  }
-
-  const handleMessageSent = async () => {
-    if (selectedTicket) {
-      const { ticket } = await getTicketDetails(selectedTicket.id)
-      if (ticket) {
-        setSelectedTicket(ticket)
-      }
-      refreshTickets(false)
+    setSelectedTicket(ticket)
+    router.push(`/dashboard/tickets/${ticket.id}`)
+    // On mobile, hide the sidebar when a ticket is selected
+    if (isMobile) {
+      setShowSidebar(false)
     }
   }
 
-  const filteredTickets = tickets.filter((ticket) => {
-    const matchesSearch =
-      ticket.subject.toLowerCase().includes(search.toLowerCase()) ||
-      ticket.description.toLowerCase().includes(search.toLowerCase()) ||
-      ticket.category.toLowerCase().includes(search.toLowerCase())
+  const handleMessageSent = async () => {
+    // Refresh the selected ticket to show the new message
+    if (selectedTicket) {
+      await loadTicketDetails(selectedTicket.id)
+    }
+    // Also refresh the ticket list to update any status changes
+    await refreshTickets()
+  }
 
-    const matchesTab =
-      activeTab === "all" ||
-      (activeTab === "open" && (ticket.status === "open" || ticket.status === "in-progress")) ||
-      (activeTab === "resolved" && (ticket.status === "resolved" || ticket.status === "closed"))
-
-    return matchesSearch && matchesTab
-  })
+  const toggleSidebar = () => {
+    setShowSidebar(!showSidebar)
+  }
 
   return (
-    <div className="h-full flex flex-col md:flex-row mb-16 md:mb-48 overflow-hidden">
-      {/* Sidebar with ticket list */}
-      <div className="w-full md:w-80 lg:w-96 border-r flex flex-col overflow-hidden h-auto md:h-full">
-        <div className="p-4 border-b">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold">Support Tickets</h1>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => refreshTickets()}
-              disabled={isRefreshing}
-              title="Refresh tickets"
-            >
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            </Button>
-          </div>
-
-          <div className="flex flex-wrap gap-2 mb-4">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tickets..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-            <CreateTicketButton onSuccess={handleCreateSuccess}>
-              <Button size="icon" variant="outline">
-                <PlusCircle className="h-4 w-4" />
-              </Button>
-            </CreateTicketButton>
-          </div>
-
-          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="open">Active</TabsTrigger>
-              <TabsTrigger value="resolved">Resolved</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          <TicketList
-            tickets={filteredTickets}
-            selectedTicketId={selectedTicket?.id}
-            onTicketSelect={handleTicketSelect}
-          />
-        </div>
+    <div className="h-full flex flex-col md:flex-row overflow-hidden">
+      {/* Mobile toggle button */}
+      <div className="md:hidden p-2 border-b flex items-center bg-background z-20">
+        <Button variant="outline" size="sm" onClick={toggleSidebar} className="mr-2">
+          <Menu className="h-4 w-4" />
+          <span className="ml-2">Ticket List</span>
+        </Button>
       </div>
 
-      {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden h-[calc(100vh-16rem)] md:h-auto">
+      {/* Sidebar */}
+      <div
+        className={`${
+          showSidebar ? "block" : "hidden"
+        } md:block w-full md:w-80 border-r overflow-hidden flex-shrink-0 h-[calc(100%-3rem)] md:h-full z-10`}
+      >
+        <TicketList
+          tickets={tickets}
+          selectedTicketId={selectedTicket?.id}
+          onTicketSelect={handleTicketSelect}
+          onRefresh={refreshTickets}
+        />
+      </div>
+
+      {/* Main content */}
+      <div
+        className={`flex-1 overflow-hidden ${showSidebar ? "hidden" : "block"} md:block h-[calc(100%-3rem)] md:h-full`}
+      >
         {selectedTicket ? (
-          <TicketDetail ticket={selectedTicket} onMessageSent={handleMessageSent} />
+          <TicketDetailClient ticketId={selectedTicket.id} onMessageSent={handleMessageSent} isLoading={isLoading} />
         ) : (
-          <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-            <MessageSquare className="h-16 w-16 text-muted-foreground/30 mb-4" />
-            <h2 className="text-2xl font-semibold mb-2">No ticket selected</h2>
-            <p className="text-muted-foreground mb-6 max-w-md">
-              Select a ticket from the list to view its details or create a new ticket to get started.
-            </p>
-            <CreateTicketButton onSuccess={handleCreateSuccess}>
-              <Button>
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Create New Ticket
-              </Button>
-            </CreateTicketButton>
+          <div className="h-full flex items-center justify-center p-4 text-center">
+            <div>
+              <h3 className="text-lg font-medium">No ticket selected</h3>
+              <p className="text-muted-foreground mt-1">Select a ticket from the list to view its details</p>
+            </div>
           </div>
         )}
       </div>

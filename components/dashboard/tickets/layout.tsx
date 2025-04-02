@@ -21,7 +21,7 @@ export default async function TicketsLayout({
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col">
+    <div className="h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
       <div className="flex-1 overflow-hidden">{children}</div>
     </div>
   )
