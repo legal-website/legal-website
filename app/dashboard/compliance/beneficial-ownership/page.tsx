@@ -696,25 +696,25 @@ export default function BeneficialOwnershipPage() {
   const ceoOwner = owners.find((o) => o.isDefault)
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 mb-20 sm:mb-24 md:mb-40 overflow-hidden">
       {backgroundRefreshing && (
         <div className="fixed top-0 left-0 right-0 h-1 z-50">
           <div className="h-full bg-primary animate-pulse"></div>
         </div>
       )}
 
-      <Card>
-        <CardHeader>
+      <Card className="overflow-hidden">
+        <CardHeader className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <CardTitle>Beneficial Ownership</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-xl sm:text-2xl">Beneficial Ownership</CardTitle>
+              <CardDescription className="text-sm sm:text-base">
                 Manage your company's beneficial ownership information. All changes require approval.
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                <SelectTrigger className="w-[180px] sm:w-[200px]">
+                <SelectTrigger className="w-full sm:w-[180px] md:w-[200px]">
                   <div className="flex items-center">
                     <Filter className="mr-2 h-4 w-4" />
                     <SelectValue placeholder="Filter by status" />
@@ -732,7 +732,7 @@ export default function BeneficialOwnershipPage() {
                 size="icon"
                 onClick={() => fetchOwners(true)}
                 disabled={refreshing}
-                className="relative"
+                className="relative flex-shrink-0"
               >
                 <div
                   className={`absolute inset-0 flex items-center justify-center ${refreshing ? "opacity-100" : "opacity-0"}`}
@@ -746,26 +746,28 @@ export default function BeneficialOwnershipPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           <div className="flex justify-end mb-4">
             <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Owner
+                  <span className="whitespace-nowrap">Add Owner</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
+              <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                  <DialogTitle>Add Beneficial Owner</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle className="text-lg sm:text-xl">Add Beneficial Owner</DialogTitle>
+                  <DialogDescription className="text-sm sm:text-base">
                     Add a new beneficial owner to your company. Your ownership percentage will automatically adjust.
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleAddOwner}>
                   <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-1 gap-2">
-                      <Label htmlFor="name">Name</Label>
+                      <Label htmlFor="name" className="text-sm sm:text-base">
+                        Name
+                      </Label>
                       <Input
                         id="name"
                         name="name"
@@ -776,7 +778,9 @@ export default function BeneficialOwnershipPage() {
                       />
                     </div>
                     <div className="grid grid-cols-1 gap-2">
-                      <Label htmlFor="title">Title</Label>
+                      <Label htmlFor="title" className="text-sm sm:text-base">
+                        Title
+                      </Label>
                       <Input
                         id="title"
                         name="title"
@@ -787,7 +791,9 @@ export default function BeneficialOwnershipPage() {
                       />
                     </div>
                     <div className="grid grid-cols-1 gap-2">
-                      <Label htmlFor="ownershipPercentage">Ownership Percentage (%)</Label>
+                      <Label htmlFor="ownershipPercentage" className="text-sm sm:text-base">
+                        Ownership Percentage (%)
+                      </Label>
                       <Input
                         id="ownershipPercentage"
                         name="ownershipPercentage"
@@ -800,9 +806,9 @@ export default function BeneficialOwnershipPage() {
                         placeholder="Enter ownership percentage"
                         required
                       />
-                      <div className="flex items-center gap-2 mt-2 text-sm text-amber-600">
-                        <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                        <p>
+                      <div className="flex items-center gap-2 mt-2 text-xs sm:text-sm text-amber-600">
+                        <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                        <p className="break-words">
                           Available:{" "}
                           {formData.ownershipPercentage
                             ? (
@@ -816,7 +822,7 @@ export default function BeneficialOwnershipPage() {
                       </div>
                     </div>
                   </div>
-                  <DialogFooter className="flex flex-col sm:flex-row gap-2">
+                  <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
                     <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
                       {submitting ? (
                         <>
@@ -833,90 +839,100 @@ export default function BeneficialOwnershipPage() {
             </Dialog>
           </div>
 
-          <div className="overflow-x-auto">
-            <Table>
-              <TableCaption>List of beneficial owners for your company.</TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Ownership %</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredOwners.length === 0 ? (
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+              <Table>
+                <TableCaption>List of beneficial owners for your company.</TableCaption>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">
-                      No beneficial owners found.
-                    </TableCell>
+                    <TableHead className="whitespace-nowrap">Name</TableHead>
+                    <TableHead className="whitespace-nowrap">Title</TableHead>
+                    <TableHead className="whitespace-nowrap">Ownership %</TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="whitespace-nowrap">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  filteredOwners.map((owner) => (
-                    <TableRow key={owner.id}>
-                      <TableCell className="font-medium">
-                        {owner.name}
-                        {owner.isDefault && (
-                          <Badge variant="secondary" className="ml-2">
-                            Primary
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{owner.title}</TableCell>
-                      <TableCell>{owner.ownershipPercentage}%</TableCell>
-                      <TableCell>{getStatusBadge(owner.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => openEdit(owner)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          {!owner.isDefault && (
-                            <Button variant="outline" size="sm" onClick={() => openDelete(owner)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredOwners.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center">
+                        No beneficial owners found.
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredOwners.map((owner) => (
+                      <TableRow key={owner.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate max-w-[120px] sm:max-w-none">{owner.name}</span>
+                            {owner.isDefault && (
+                              <Badge variant="secondary" className="ml-0 sm:ml-2 whitespace-nowrap text-xs">
+                                Primary
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="truncate max-w-[100px] sm:max-w-none">{owner.title}</TableCell>
+                        <TableCell>{owner.ownershipPercentage}%</TableCell>
+                        <TableCell>{getStatusBadge(owner.status)}</TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => openEdit(owner)}>
+                              <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </Button>
+                            {!owner.isDefault && (
+                              <Button variant="outline" size="sm" onClick={() => openDelete(owner)}>
+                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-between">
-          <p className="text-sm text-muted-foreground">
+        <CardFooter className="flex justify-between p-4 sm:p-6 flex-wrap">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Note: Changes to beneficial ownership require approval and will be marked as pending until reviewed.
           </p>
         </CardFooter>
       </Card>
 
       {/* Filing History Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filing History</CardTitle>
-          <CardDescription>Past filings of beneficial ownership information.</CardDescription>
+      <Card className="overflow-hidden">
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-xl sm:text-2xl">Filing History</CardTitle>
+          <CardDescription className="text-sm sm:text-base">
+            Past filings of beneficial ownership information.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           {filingHistory.length === 0 ? (
             <div className="text-center py-6 text-muted-foreground">No filing history available.</div>
           ) : (
             <div className="space-y-4">
               {filingHistory.map((filing) => (
-                <div key={filing.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium text-[15px]">{filing.title}</h3>
-                      <p className="text-[15px] text-muted-foreground">Filed on: {formatDate(filing.filedDate)}</p>
+                <div key={filing.id} className="border rounded-lg p-3 sm:p-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
+                    <div className="min-w-0">
+                      <h3 className="font-medium text-sm sm:text-[15px] truncate">{filing.title}</h3>
+                      <p className="text-xs sm:text-[15px] text-muted-foreground">
+                        Filed on: {formatDate(filing.filedDate)}
+                      </p>
                     </div>
-                    <div className="flex items-center">{getStatusBadge(filing.status)}</div>
+                    <div className="flex items-center self-start sm:self-center mt-2 sm:mt-0">
+                      {getStatusBadge(filing.status)}
+                    </div>
                   </div>
                   {filing.reportUrl && (
                     <div className="mt-3 flex justify-end">
-                      <Button variant="outline" size="sm" asChild>
+                      <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm">
                         <a href={filing.reportUrl} target="_blank" rel="noopener noreferrer">
-                          <FileText className="mr-2 h-4 w-4" />
+                          <FileText className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                           View Report
                         </a>
                       </Button>
@@ -931,10 +947,10 @@ export default function BeneficialOwnershipPage() {
 
       {/* Edit Dialog */}
       <Dialog open={openEditDialog} onOpenChange={setOpenEditDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle>Edit Beneficial Owner</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-lg sm:text-xl">Edit Beneficial Owner</DialogTitle>
+            <DialogDescription className="text-sm sm:text-base">
               {currentOwner?.isDefault
                 ? "Update the primary owner's information."
                 : "Update the beneficial owner's information. Your ownership will automatically adjust."}
@@ -943,7 +959,9 @@ export default function BeneficialOwnershipPage() {
           <form onSubmit={handleEditOwner}>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="edit-name">Name</Label>
+                <Label htmlFor="edit-name" className="text-sm sm:text-base">
+                  Name
+                </Label>
                 <Input
                   id="edit-name"
                   name="name"
@@ -954,7 +972,9 @@ export default function BeneficialOwnershipPage() {
                 />
               </div>
               <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="edit-title">Title</Label>
+                <Label htmlFor="edit-title" className="text-sm sm:text-base">
+                  Title
+                </Label>
                 <Input
                   id="edit-title"
                   name="title"
@@ -965,7 +985,9 @@ export default function BeneficialOwnershipPage() {
                 />
               </div>
               <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="edit-ownershipPercentage">Ownership Percentage (%)</Label>
+                <Label htmlFor="edit-ownershipPercentage" className="text-sm sm:text-base">
+                  Ownership Percentage (%)
+                </Label>
                 <Input
                   id="edit-ownershipPercentage"
                   name="ownershipPercentage"
@@ -979,9 +1001,9 @@ export default function BeneficialOwnershipPage() {
                   required
                 />
                 {currentOwner && !currentOwner.isDefault && (
-                  <div className="flex items-center gap-2 mt-2 text-sm text-amber-600">
-                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                    <p>
+                  <div className="flex items-center gap-2 mt-2 text-xs sm:text-sm text-amber-600">
+                    <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <p className="break-words">
                       Available:{" "}
                       {formData.ownershipPercentage
                         ? (
@@ -999,7 +1021,7 @@ export default function BeneficialOwnershipPage() {
                 )}
               </div>
             </div>
-            <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
               <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
                 {submitting ? (
                   <>
@@ -1017,15 +1039,15 @@ export default function BeneficialOwnershipPage() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[95vw] sm:max-w-[500px] p-4 sm:p-6">
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-lg sm:text-xl">Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm sm:text-base">
               This will permanently delete the beneficial owner. This action cannot be undone. The primary owner's
               percentage will increase by {currentOwner?.ownershipPercentage || 0}%.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex flex-col sm:flex-row gap-2">
+          <AlertDialogFooter className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
             <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteOwner}
