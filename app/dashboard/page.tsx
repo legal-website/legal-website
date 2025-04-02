@@ -1165,7 +1165,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 mb-20 sm:mb-40 overflow-x-hidden">
+    <div className="p-4 sm:p-6 md:p-8 mb-20 sm:mb-40 overflow-x-hidden pt-6 sm:pt-22">
       {/* Header */}
       <div className="mb-4 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Hello, {userName}</h1>
@@ -1325,7 +1325,9 @@ export default function DashboardPage() {
       </Card>
 
       {/* Action Buttons - Removed logo button, updated phone button */}
-      <div className="mb-8">{renderPhoneNumberButton()}</div>
+      <div className="mb-8 overflow-x-auto">
+        <div className="min-w-[600px] md:min-w-0">{renderPhoneNumberButton()}</div>
+      </div>
 
       {/* Amendments and Deadlines Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-8">
