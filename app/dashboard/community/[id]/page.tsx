@@ -245,12 +245,12 @@ export default function PostDetail({ params }: { params: { id: string } }) {
 
   if (isLoading) {
     return (
-      <div className="container max-w-4xl py-8">
-        <div className="flex items-center gap-2 mb-6">
+      <div className="container max-w-4xl px-4 sm:px-6 py-4 sm:py-8">
+        <div className="flex items-center gap-2 mb-4 sm:mb-6">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Loading...</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Loading...</h1>
         </div>
       </div>
     )
@@ -258,12 +258,12 @@ export default function PostDetail({ params }: { params: { id: string } }) {
 
   if (!post) {
     return (
-      <div className="container max-w-4xl py-8">
-        <div className="flex items-center gap-2 mb-6">
+      <div className="container max-w-4xl px-4 sm:px-6 py-4 sm:py-8">
+        <div className="flex items-center gap-2 mb-4 sm:mb-6">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Post not found</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Post not found</h1>
         </div>
       </div>
     )
@@ -282,28 +282,28 @@ export default function PostDetail({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="container max-w-4xl py-8">
-      <div className="flex items-center gap-2 mb-6">
+    <div className="container max-w-4xl px-4 sm:px-6 py-4 sm:py-8">
+      <div className="flex items-center gap-2 mb-4 sm:mb-6">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-2xl font-bold">{post.title}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold truncate">{post.title}</h1>
       </div>
 
-      <div className="bg-card rounded-lg shadow-sm p-6 mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <Avatar className="h-10 w-10">
+      <div className="bg-card rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-8">
+        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+          <Avatar className="h-10 w-10 flex-shrink-0">
             <AvatarImage src={post.author.avatar || "/api/placeholder?height=40&width=40"} alt={post.author.name} />
             <AvatarFallback>{post.author.name.substring(0, 2)}</AvatarFallback>
           </Avatar>
-          <div>
-            <div className="font-medium">{post.author.name}</div>
+          <div className="min-w-0">
+            <div className="font-medium truncate">{post.author.name}</div>
             <div className="text-sm text-muted-foreground">{formatDate(post.date)}</div>
           </div>
         </div>
 
         {post.tags && post.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex flex-wrap gap-1 sm:gap-2 mb-3 sm:mb-4">
             {post.tags.map((tag) => (
               <Badge key={tag.id} variant="outline">
                 {tag.name}
@@ -312,7 +312,7 @@ export default function PostDetail({ params }: { params: { id: string } }) {
           </div>
         )}
 
-        <div className="prose dark:prose-invert max-w-none mb-4">{post.content}</div>
+        <div className="prose dark:prose-invert max-w-none mb-4 text-sm sm:text-base break-words">{post.content}</div>
 
         <div className="flex items-center gap-4">
           <Button
@@ -340,7 +340,7 @@ export default function PostDetail({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      <div className="mb-8">
+      <div className="mb-4 sm:mb-8">
         <h2 className="text-xl font-bold mb-4">Add a Comment</h2>
         <Textarea
           placeholder="Write your comment..."
@@ -356,7 +356,7 @@ export default function PostDetail({ params }: { params: { id: string } }) {
       <div>
         <h2 className="text-xl font-bold mb-4">Comments ({comments.length})</h2>
         {comments.length > 0 ? (
-          <div className="bg-card rounded-lg shadow-sm divide-y">
+          <div className="bg-card rounded-lg shadow-sm divide-y overflow-hidden">
             {comments.map((comment) => (
               <CommentItem key={comment.id} comment={comment} onLike={handleLikeComment} showDebug={showDebug} />
             ))}

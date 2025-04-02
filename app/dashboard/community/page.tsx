@@ -788,10 +788,10 @@ export default function CommunityPage() {
   }
 
   return (
-    <div className="p-8 mb-40">
+    <div className="p-4 sm:p-6 md:p-8 mb-20 sm:mb-40">
       <h1 className="text-3xl font-bold mb-6">Community</h1>
 
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
         <div className="md:col-span-2">
           <Card className="mb-6">
             <div className="p-6 border-b">
@@ -816,7 +816,7 @@ export default function CommunityPage() {
             </div>
 
             <div className="p-6 border-b">
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -904,7 +904,7 @@ export default function CommunityPage() {
                     <>
                       {posts.map((post) => (
                         <div key={post.id} className="p-6">
-                          <div className="flex items-start gap-3">
+                          <div className="flex items-start gap-2 sm:gap-3">
                             <div className="w-10 h-10 flex-shrink-0">
                               <Image
                                 src={post.author.avatar || "/placeholder.svg?height=40&width=40"}
@@ -921,7 +921,7 @@ export default function CommunityPage() {
                               >
                                 {post.title}
                               </h3>
-                              <p className="text-gray-600 mb-3">{post.content}</p>
+                              <p className="text-gray-600 mb-3 text-sm sm:text-base line-clamp-3">{post.content}</p>
                               <div className="flex flex-wrap gap-2 mb-3">
                                 {post.tags.map((tag) => (
                                   <Badge
@@ -938,7 +938,7 @@ export default function CommunityPage() {
                                   </Badge>
                                 ))}
                               </div>
-                              <div className="flex items-center justify-between">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
                                 <div className="flex items-center gap-4">
                                   <button
                                     className={`flex items-center gap-1 text-sm ${post.isLiked ? "text-primary" : "text-gray-500"} hover:text-primary transition-colors`}
@@ -962,7 +962,7 @@ export default function CommunityPage() {
                                     <span>Share</span>
                                   </button>
                                 </div>
-                                <div className="flex items-center gap-2 text-sm text-gray-500">
+                                <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500">
                                   <span>{post.author.name}</span>
                                   <span>•</span>
                                   <span>{formatDate(post.date)}</span>
@@ -975,8 +975,8 @@ export default function CommunityPage() {
 
                       {/* Pagination */}
                       {totalPages > 1 && (
-                        <div className="flex justify-center p-4">
-                          <div className="flex items-center gap-2">
+                        <div className="flex justify-center p-2 sm:p-4">
+                          <div className="flex items-center gap-1 sm:gap-2">
                             <Button
                               variant="outline"
                               size="sm"
@@ -1237,7 +1237,7 @@ export default function CommunityPage() {
 
       {/* New Post Dialog */}
       <Dialog open={showNewPostDialog} onOpenChange={setShowNewPostDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="w-[95vw] max-w-[600px] p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Create New Post</DialogTitle>
           </DialogHeader>
@@ -1315,7 +1315,7 @@ export default function CommunityPage() {
 
       {/* Post Detail Dialog */}
       <Dialog open={showPostDialog} onOpenChange={setShowPostDialog}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[700px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           {selectedPost && (
             <>
               <DialogHeader>
@@ -1450,7 +1450,7 @@ export default function CommunityPage() {
 
       {/* Share Dialog */}
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="w-[95vw] max-w-[400px] p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Share Post</DialogTitle>
           </DialogHeader>

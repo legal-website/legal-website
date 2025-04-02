@@ -58,21 +58,21 @@ export default function CommentItem({ comment, onLike, showDebug = false }: Comm
 
   // Replace the existing return statement with this updated version that properly handles the values
   return (
-    <div className="flex gap-4 py-4 px-6 border-b last:border-0">
+    <div className="flex gap-2 sm:gap-4 py-3 sm:py-4 px-3 sm:px-6 border-b last:border-0">
       <Avatar className="h-10 w-10">
         <AvatarImage src={comment.author.avatar || "/api/placeholder?height=40&width=40"} alt={comment.author.name} />
         <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
       </Avatar>
       <div className="flex-1">
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-1">
+          <div className="flex items-center gap-1 sm:gap-2">
             <span className="font-medium">{comment.author.name}</span>
             <span className="text-xs text-muted-foreground">•</span>
             <span className="text-xs text-muted-foreground">{formatDate(comment.date)}</span>
           </div>
 
           {isBestAnswer && (
-            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 flex items-center gap-1">
+            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 flex items-center gap-1 text-xs whitespace-nowrap">
               <Award className="h-3 w-3" />
               <span>Best Answer</span>
             </Badge>
@@ -81,7 +81,7 @@ export default function CommentItem({ comment, onLike, showDebug = false }: Comm
 
         {/* Moderator notes ABOVE the comment content */}
         {hasModeratorNotes && (
-          <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
+          <div className="mb-2 sm:mb-3 p-1.5 sm:p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
             <p className="text-xs font-medium text-blue-800 dark:text-blue-300 flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
               Moderator Note:
@@ -90,9 +90,9 @@ export default function CommentItem({ comment, onLike, showDebug = false }: Comm
           </div>
         )}
 
-        <p className="text-sm">{comment.content}</p>
+        <p className="text-xs sm:text-sm break-words">{comment.content}</p>
 
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-2 flex items-center gap-1 sm:gap-2">
           <Button
             variant="ghost"
             size="sm"
