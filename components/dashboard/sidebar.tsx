@@ -172,6 +172,24 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const isMobile = useMobile()
 
+  // Add this state and effect before the return statement in the Sidebar component
+  const [isScrolled, setIsScrolled] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 20) {
+        setIsScrolled(true)
+      } else {
+        setIsScrolled(false)
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    return () => {
+      window.removeEventListener("scroll", handleScroll)
+    }
+  }, [])
+
   // Fetch the latest user data directly from the API
   useEffect(() => {
     const getLatestUserData = async () => {
@@ -328,6 +346,10 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
 
   console.log("Current profile image source:", imageSource)
 
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen)
+  }
+
   // Mobile sidebar with Sheet component
   if (isMobile) {
     return (
@@ -335,7 +357,9 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
         {/* Hamburger menu button - fixed at the top left */}
         <Button
           variant="outline"
-          className="fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm md:hidden mt-20 mb-36 px-3 flex items-center gap-2"
+          className={`fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm md:hidden mt-20 mb-36 px-3 flex items-center gap-2 ${
+            isScrolled ? "mt-0" : "mt-20"
+          } transition-all duration-200`}
           onClick={() => setSidebarOpen(true)}
         >
           <Menu className="h-5 w-5" />
