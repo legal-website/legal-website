@@ -6,7 +6,7 @@ import ContactSection from "@/components/ContactSection"
 
 export default function PrivacyPolicy() {
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gray-50 mb-40">
       <Hero
         title="Privacy Policy"
         subtitle="Learn how we protect and manage your information"

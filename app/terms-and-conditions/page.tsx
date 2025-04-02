@@ -6,7 +6,7 @@ import ContactSection from "@/components/ContactSection"
 
 export default function TermsAndConditions() {
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gray-50 mb-40">
       <Hero
         title="Terms and Conditions"
         subtitle="Please read these terms carefully before using our services"

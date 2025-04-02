@@ -20,11 +20,16 @@ import {
   TicketIcon,
   Tag,
   CreditCard,
+  Menu,
+  X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/context/theme-context"
 import { signOut, useSession } from "next-auth/react"
 import { toast } from "@/components/ui/use-toast"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Button } from "@/components/ui/button"
+import { useMobile } from "@/hooks/use-mobile"
 
 // Add a new function to handle profile image upload
 async function uploadProfileImage(file: File, userId: string) {
@@ -164,6 +169,8 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
   const [isUploading, setIsUploading] = useState(false)
   const { theme } = useTheme()
   const [timestamp, setTimestamp] = useState(Date.now()) // For cache busting
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const isMobile = useMobile()
 
   // Fetch the latest user data directly from the API
   useEffect(() => {
@@ -210,6 +217,13 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
       setBusinessName(userData.businessName)
     }
   }, [session, userData, profileImage, businessName])
+
+  // Close sidebar when route changes on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false)
+    }
+  }, [pathname, isMobile])
 
   const toggleExpand = (label: string) => {
     setExpandedItems((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]))
@@ -314,13 +328,239 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
 
   console.log("Current profile image source:", imageSource)
 
+  // Mobile sidebar with Sheet component
+  if (isMobile) {
+    return (
+      <>
+        {/* Hamburger menu button - fixed at the top left */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm md:hidden"
+          onClick={() => setSidebarOpen(true)}
+        >
+          <Menu className="h-5 w-5" />
+          <span className="sr-only">Open menu</span>
+        </Button>
+
+        {/* Off-canvas sidebar using Sheet component */}
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetContent side="left" className="p-0 w-[280px] sm:w-[320px]">
+            <div
+              className={`h-full flex flex-col ${
+                theme === "dark"
+                  ? "bg-gray-900 text-white"
+                  : theme === "comfort"
+                    ? "bg-[#f8f4e3] text-[#5c4f3a]"
+                    : "bg-white"
+              }`}
+            >
+              {/* Close button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 right-4"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <X className="h-5 w-5" />
+                <span className="sr-only">Close menu</span>
+              </Button>
+
+              {/* Profile Picture and Business Name */}
+              <div
+                className={`p-6 border-b ${
+                  theme === "dark" ? "border-gray-700" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200"
+                } flex flex-col items-center`}
+              >
+                <div
+                  className="relative mb-3"
+                  onMouseEnter={() => setShowUploadOption(true)}
+                  onMouseLeave={() => setShowUploadOption(false)}
+                >
+                  {profileImage ? (
+                    <div className="w-16 h-16 rounded-full overflow-hidden relative">
+                      <Image
+                        src={imageSource || "/placeholder.svg"}
+                        alt="Business Logo"
+                        className="w-full h-full object-cover"
+                        width={80}
+                        height={80}
+                        priority
+                        unoptimized={imageSource.startsWith("data:")} // For data URLs
+                      />
+                      {showUploadOption && (
+                        <label className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center cursor-pointer rounded-full">
+                          <Upload className={`w-5 h-5 text-white ${isUploading ? "animate-spin" : ""}`} />
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={handleFileUpload}
+                            accept="image/*"
+                            disabled={isUploading}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-[#22c984] flex items-center justify-center text-white font-bold relative">
+                      {getInitials(businessName)}
+                      {showUploadOption && (
+                        <label className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center cursor-pointer rounded-full">
+                          <Upload className={`w-5 h-5 text-white ${isUploading ? "animate-spin" : ""}`} />
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={handleFileUpload}
+                            accept="image/*"
+                            disabled={isUploading}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <h2
+                  className={`text-sm font-medium ${
+                    theme === "dark" ? "text-white" : theme === "comfort" ? "text-[#5c4f3a]" : "text-gray-800"
+                  }`}
+                >
+                  {businessName}
+                </h2>
+              </div>
+
+              {/* Navigation */}
+              <nav className="flex-1 overflow-y-auto p-4">
+                <ul className="space-y-2">
+                  {menuItems.map((item) => (
+                    <li key={item.label}>
+                      {item.subItems ? (
+                        <div>
+                          <button
+                            onClick={() => toggleExpand(item.label)}
+                            className={cn(
+                              "flex items-center w-full p-3 rounded-lg transition-colors",
+                              theme === "dark"
+                                ? "text-gray-300 hover:bg-gray-800"
+                                : theme === "comfort"
+                                  ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
+                                  : "text-gray-600 hover:bg-gray-100",
+                              (expandedItems.includes(item.label) || isPathStartingWith(item.href)) &&
+                                (theme === "dark"
+                                  ? "bg-gray-800"
+                                  : theme === "comfort"
+                                    ? "bg-[#efe9d8]"
+                                    : "bg-gray-100"),
+                            )}
+                          >
+                            <item.icon className="w-5 h-5 mr-3" />
+                            <span className="flex-1 text-left">{item.label}</span>
+                            <ChevronDown
+                              className={cn(
+                                "w-4 h-4 transition-transform",
+                                (expandedItems.includes(item.label) || isPathStartingWith(item.href)) &&
+                                  "transform rotate-180",
+                              )}
+                            />
+                          </button>
+                          {(expandedItems.includes(item.label) || isPathStartingWith(item.href)) && (
+                            <ul className="mt-2 ml-8 space-y-2">
+                              {item.subItems.map((subItem) => (
+                                <li key={subItem.href}>
+                                  <Link
+                                    href={subItem.href}
+                                    className={cn(
+                                      "block p-2 rounded-lg transition-colors",
+                                      theme === "dark"
+                                        ? "text-gray-300 hover:bg-gray-800"
+                                        : theme === "comfort"
+                                          ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
+                                          : "text-gray-600 hover:bg-gray-100",
+                                      isActive(subItem.href) &&
+                                        (theme === "dark"
+                                          ? "bg-gray-800 text-[#22c984]"
+                                          : theme === "comfort"
+                                            ? "bg-[#efe9d8] text-[#22c984]"
+                                            : "bg-gray-100 text-[#22c984]"),
+                                    )}
+                                  >
+                                    {subItem.label}
+                                  </Link>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ) : (
+                        <Link
+                          href={item.href}
+                          className={cn(
+                            "flex items-center p-3 rounded-lg transition-colors",
+                            theme === "dark"
+                              ? "text-gray-300 hover:bg-gray-800"
+                              : theme === "comfort"
+                                ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
+                                : "text-gray-600 hover:bg-gray-100",
+                            isActive(item.href) &&
+                              (theme === "dark"
+                                ? "bg-gray-800 text-[#22c984]"
+                                : theme === "comfort"
+                                  ? "bg-[#efe9d8] text-[#22c984]"
+                                  : "bg-gray-100 text-[#22c984]"),
+                          )}
+                        >
+                          <item.icon className="w-5 h-5 mr-3" />
+                          <span>{item.label}</span>
+                        </Link>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+
+              {/* Logout Button */}
+              <div
+                className={`p-4 border-t ${
+                  theme === "dark" ? "border-gray-700" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200"
+                }`}
+              >
+                <button
+                  onClick={handleLogout}
+                  className={cn(
+                    "flex items-center w-full p-3 rounded-lg transition-colors",
+                    theme === "dark"
+                      ? "text-gray-300 hover:bg-gray-800"
+                      : theme === "comfort"
+                        ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
+                        : "text-gray-600 hover:bg-gray-100",
+                  )}
+                >
+                  <LogOut className="w-5 h-5 mr-3" />
+                  <span>Log Out</span>
+                </button>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </>
+    )
+  }
+
+  // Desktop sidebar
   return (
     <div
-      className={`w-64 border-r h-screen flex flex-col ${theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : theme === "comfort" ? "bg-[#f8f4e3] border-[#e8e4d3] text-[#5c4f3a]" : "bg-white border-gray-200"}`}
+      className={`w-64 border-r h-screen flex flex-col ${
+        theme === "dark"
+          ? "bg-gray-900 border-gray-700 text-white"
+          : theme === "comfort"
+            ? "bg-[#f8f4e3] border-[#e8e4d3] text-[#5c4f3a]"
+            : "bg-white border-gray-200"
+      }`}
     >
       {/* Profile Picture and Business Name */}
       <div
-        className={`p-6 border-b ${theme === "dark" ? "border-gray-700" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200"} flex flex-col items-center`}
+        className={`p-6 border-b ${
+          theme === "dark" ? "border-gray-700" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200"
+        } flex flex-col items-center`}
       >
         <div
           className="relative mb-3"
@@ -370,7 +610,9 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
           )}
         </div>
         <h2
-          className={`text-sm font-medium ${theme === "dark" ? "text-white" : theme === "comfort" ? "text-[#5c4f3a]" : "text-gray-800"}`}
+          className={`text-sm font-medium ${
+            theme === "dark" ? "text-white" : theme === "comfort" ? "text-[#5c4f3a]" : "text-gray-800"
+          }`}
         >
           {businessName}
         </h2>
@@ -462,7 +704,9 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
 
       {/* Logout Button */}
       <div
-        className={`p-4 border-t ${theme === "dark" ? "border-gray-700" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200"}`}
+        className={`p-4 border-t ${
+          theme === "dark" ? "border-gray-700" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200"
+        }`}
       >
         <button
           onClick={handleLogout}
