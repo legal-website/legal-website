@@ -13,8 +13,8 @@ import ReadySection from "@/components/ready-section"
 
 export default function Home() {
   return (
-    <main className="w-full overflow-x-hidden">
-      <div className="max-w-[100vw]">
+    <main className="w-full overflow-x-hidden relative z-0">
+      <div className="max-w-[100vw] relative z-0">
         <Hero />
         <Pricing />
         <DetailedFeatures />

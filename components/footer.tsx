@@ -56,12 +56,15 @@ export default function Footer() {
 
   return (
     <ScrollAnimation>
-      <footer className="bg-[#1a1a1a] text-white overflow-hidden relative">
+      <footer className="bg-[#1a1a1a] text-white relative">
         {/* Newsletter Section */}
-        <div className="container mx-auto px-4 md:px-6 lg:px-12 pt-[85px] pb-[0px] flex justify-center relative z-50">
+        <div className="container mx-auto px-6 md:px-12 lg:px-20 pt-[85px] pb-[0px] flex justify-center relative z-[9999]">
           <div
-            className="w-full max-w-[900px] bg-gradient-to-r from-[#22c984] to-[#1eac73] rounded-xl pt-8 md:pt-12 pb-0 px-4 md:px-8 relative z-50"
-            style={{ marginTop: "-170px" }}
+            className="max-w-[900px] w-full bg-gradient-to-r from-[#22c984] to-[#1eac73] rounded-xl pt-12 pb-0 px-8 relative z-[9999]"
+            style={{
+              marginTop: "-170px",
+              position: "relative",
+            }}
           >
             <form
               onSubmit={handleSubscribe}
