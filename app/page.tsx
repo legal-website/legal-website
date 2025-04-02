@@ -6,7 +6,6 @@ import CTASection from "@/components/cta-section"
 import LLCBenefits from "@/components/llc-benefits"
 import InfoVideoSection from "@/components/InfoVideoSection"
 import HowToStart from "@/components/how-to-start"
-import FAQSection from "@/components/FAQSection"
 import FAQs from "@/components/FAQs"
 import CustomerSuccess from "@/components/customer-success"
 import StateSelector from "@/components/state-selector"
@@ -24,8 +23,7 @@ export default function Home() {
         <LLCBenefits />
         <InfoVideoSection />
         <HowToStart />
-                <FAQs />
-          <FAQSection />
+        <FAQs />
         <CustomerSuccess />
         <StateSelector />
         <ReadySection />
