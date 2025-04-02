@@ -525,10 +525,10 @@ export default function AffiliateProgramPage() {
   }
 
   return (
-    <div className="p-8 mb-40">
+    <div className="p-4 sm:p-6 md:p-8 mb-20 md:mb-40 overflow-x-hidden">
       <h1 className="text-3xl font-bold mb-6">Affiliate Program</h1>
 
-      <div className="grid md:grid-cols-3 gap-8 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 lg:gap-8 mb-8">
         {/* Earnings Card */}
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-4">
@@ -539,7 +539,7 @@ export default function AffiliateProgramPage() {
               <h3 className="text-lg font-semibold">Total Earnings</h3>
             </div>
           </div>
-          <p className="text-3xl font-bold mb-2">{formatCurrency(stats?.totalEarnings || 0)}</p>
+          <p className="text-2xl sm:text-3xl font-bold mb-2">{formatCurrency(stats?.totalEarnings || 0)}</p>
           <p className="text-sm text-gray-500">
             {stats?.pendingEarnings > 0 ? `+${formatCurrency(stats?.pendingEarnings)} pending` : "No pending earnings"}
           </p>
@@ -555,7 +555,7 @@ export default function AffiliateProgramPage() {
               <h3 className="text-lg font-semibold">Total Referrals</h3>
             </div>
           </div>
-          <p className="text-3xl font-bold mb-2">{stats?.totalReferrals || 0}</p>
+          <p className="text-2xl sm:text-3xl font-bold mb-2">{stats?.totalReferrals || 0}</p>
           <p className="text-sm text-gray-500">{stats?.recentReferrals?.length || 0} active in the last 30 days</p>
         </Card>
 
@@ -569,7 +569,7 @@ export default function AffiliateProgramPage() {
               <h3 className="text-lg font-semibold">Conversion Rate</h3>
             </div>
           </div>
-          <p className="text-3xl font-bold mb-2">{stats?.conversionRate?.toFixed(1) || 0}%</p>
+          <p className="text-2xl sm:text-3xl font-bold mb-2">{stats?.conversionRate?.toFixed(1) || 0}%</p>
           <p className="text-sm text-gray-500">{stats?.totalClicks || 0} link clicks</p>
         </Card>
       </div>
@@ -585,25 +585,25 @@ export default function AffiliateProgramPage() {
               Share this unique link with your network. When someone signs up using your link, you&apos;ll earn{" "}
               {stats?.settings?.commissionRate || 10}% commission on their purchases.
             </p>
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+              <div className="relative w-full">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2">
                   <Link className="h-4 w-4 text-gray-400" />
                 </div>
-                <Input value={referralLink} className="pl-9 pr-24" readOnly />
+                <Input value={referralLink} className="pl-9 pr-16 sm:pr-24 text-sm truncate" readOnly />
                 <Button className="absolute right-1 top-1/2 -translate-y-1/2 h-8" size="sm" onClick={copyToClipboard}>
                   {copied ? "Copied!" : "Copy"}
-                  <Copy className="ml-2 h-3.5 w-3.5" />
+                  <Copy className="ml-1 h-3.5 w-3.5" />
                 </Button>
               </div>
-              <Button variant="outline">
+              <Button variant="outline" className="w-full sm:w-auto mt-2 sm:mt-0">
                 <Share2 className="mr-2 h-4 w-4" />
                 Share
               </Button>
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
             <Button
               variant="outline"
               className="flex items-center justify-center gap-2"
@@ -642,7 +642,7 @@ export default function AffiliateProgramPage() {
       <Card className="mb-8">
         <Tabs defaultValue="earnings">
           <div className="p-6 border-b">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-4">
               <h2 className="text-xl font-semibold">Performance</h2>
               <TabsList>
                 <TabsTrigger value="earnings">Earnings</TabsTrigger>
@@ -668,7 +668,7 @@ export default function AffiliateProgramPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="h-[350px] bg-gray-50 rounded-lg overflow-hidden">
+              <div className="h-[250px] sm:h-[300px] md:h-[350px] bg-gray-50 rounded-lg overflow-hidden">
                 {earningsLoading ? (
                   <div className="h-full flex items-center justify-center">
                     <Skeleton className="h-[90%] w-[95%] rounded-lg" />
@@ -783,49 +783,55 @@ export default function AffiliateProgramPage() {
               <h3 className="font-medium mb-4">Recent Earnings</h3>
               {stats?.recentEarnings?.length > 0 ? (
                 <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="text-left border-b">
-                          <th className="pb-3 font-medium">Date</th>
-                          <th className="pb-3 font-medium">Order ID</th>
-                          <th className="pb-3 font-medium">Purchase Amount</th>
-                          <th className="pb-3 font-medium">Commission</th>
-                          <th className="pb-3 font-medium">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {stats.recentEarnings
-                          .slice((earningsPage - 1) * ITEMS_PER_PAGE, earningsPage * ITEMS_PER_PAGE)
-                          .map((earning: any) => (
-                            <tr key={earning.id}>
-                              <td className="py-3">{formatDate(earning.createdAt)}</td>
-                              <td className="py-3">{earning.orderId}</td>
-                              <td className="py-3">{formatCurrency(Number(earning.amount))}</td>
-                              <td className="py-3 font-medium">{formatCurrency(Number(earning.commission))}</td>
-                              <td className="py-3">
-                                <span
-                                  className={`text-xs px-2 py-1 rounded-full ${
-                                    earning.status === "PAID"
-                                      ? "bg-green-100 text-green-800"
-                                      : earning.status === "APPROVED"
-                                        ? "bg-blue-100 text-blue-800"
-                                        : earning.status === "PENDING"
-                                          ? "bg-yellow-100 text-yellow-800"
-                                          : "bg-red-100 text-red-800"
-                                  }`}
-                                >
-                                  {earning.status.charAt(0) + earning.status.slice(1).toLowerCase()}
-                                </span>
-                              </td>
+                  <div className="overflow-x-auto -mx-4 sm:mx-0">
+                    <div className="min-w-full inline-block align-middle px-4 sm:px-0">
+                      <div className="overflow-hidden">
+                        <table className="min-w-full">
+                          <thead>
+                            <tr className="text-left border-b">
+                              <th className="pb-3 font-medium">Date</th>
+                              <th className="pb-3 font-medium">Order ID</th>
+                              <th className="pb-3 font-medium">Purchase Amount</th>
+                              <th className="pb-3 font-medium">Commission</th>
+                              <th className="pb-3 font-medium">Status</th>
                             </tr>
-                          ))}
-                      </tbody>
-                    </table>
+                          </thead>
+                          <tbody className="divide-y">
+                            {stats.recentEarnings
+                              .slice((earningsPage - 1) * ITEMS_PER_PAGE, earningsPage * ITEMS_PER_PAGE)
+                              .map((earning: any) => (
+                                <tr key={earning.id}>
+                                  <td className="py-3 px-2 sm:px-3">{formatDate(earning.createdAt)}</td>
+                                  <td className="py-3 px-2 sm:px-3">{earning.orderId}</td>
+                                  <td className="py-3 px-2 sm:px-3">{formatCurrency(Number(earning.amount))}</td>
+                                  <td className="py-3 px-2 sm:px-3 font-medium">
+                                    {formatCurrency(Number(earning.commission))}
+                                  </td>
+                                  <td className="py-3 px-2 sm:px-3">
+                                    <span
+                                      className={`text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap ${
+                                        earning.status === "PAID"
+                                          ? "bg-green-100 text-green-800"
+                                          : earning.status === "APPROVED"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : earning.status === "PENDING"
+                                              ? "bg-yellow-100 text-yellow-800"
+                                              : "bg-red-100 text-red-800"
+                                      }`}
+                                    >
+                                      {earning.status.charAt(0) + earning.status.slice(1).toLowerCase()}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
                   {stats.recentEarnings.length > ITEMS_PER_PAGE && (
                     <div className="flex justify-center mt-4">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-1 sm:space-x-2">
                         <Button
                           variant="outline"
                           size="sm"
@@ -869,56 +875,53 @@ export default function AffiliateProgramPage() {
             <div className="mb-6">
               <h3 className="font-medium mb-4">Your Referrals</h3>
               {stats?.recentReferrals?.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left border-b">
-                        <th className="pb-3 font-medium">Order ID</th>
-                        <th className="pb-3 font-medium">Date Joined</th>
-                        <th className="pb-3 font-medium">Total Spent</th>
-                        <th className="pb-3 font-medium">Your Commission</th>
-                        <th className="pb-3 font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {stats.recentReferrals.slice(0, visibleReferrals).map((referral: any) => (
-                        <tr key={referral.id}>
-                          <td className="py-3">
-                            <div>
-                              <p className="font-medium">{referral.orderId}</p>
-                            </div>
-                          </td>
-                          <td className="py-3">{formatDate(referral.createdAt)}</td>
-                          <td className="py-3">{formatCurrency(Number(referral.amount))}</td>
-                          <td className="py-3 font-medium">{formatCurrency(Number(referral.commission))}</td>
-                          <td className="py-3">
-                            <span
-                              className={`text-xs px-2 py-1 rounded-full ${
-                                referral.status === "PAID"
-                                  ? "bg-green-100 text-green-800"
-                                  : referral.status === "APPROVED"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : referral.status === "PENDING"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : "bg-red-100 text-red-800"
-                              }`}
-                            >
-                              {referral.status.charAt(0) + referral.status.slice(1).toLowerCase()}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-
-                  {visibleReferrals < (stats.recentReferrals.length || 0) && (
-                    <div className="mt-4 text-center">
-                      <Button variant="outline" size="sm" onClick={loadMoreReferrals} className="text-sm">
-                        See More
-                        <ChevronRight className="ml-1 h-4 w-4" />
-                      </Button>
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <div className="min-w-full inline-block align-middle px-4 sm:px-0">
+                    <div className="overflow-hidden">
+                      <table className="min-w-full">
+                        <thead>
+                          <tr className="text-left border-b">
+                            <th className="pb-3 font-medium">Order ID</th>
+                            <th className="pb-3 font-medium">Date Joined</th>
+                            <th className="pb-3 font-medium">Total Spent</th>
+                            <th className="pb-3 font-medium">Your Commission</th>
+                            <th className="pb-3 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {stats.recentReferrals.slice(0, visibleReferrals).map((referral: any) => (
+                            <tr key={referral.id}>
+                              <td className="py-3 px-2 sm:px-3">
+                                <div>
+                                  <p className="font-medium">{referral.orderId}</p>
+                                </div>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3">{formatDate(referral.createdAt)}</td>
+                              <td className="py-3 px-2 sm:px-3">{formatCurrency(Number(referral.amount))}</td>
+                              <td className="py-3 px-2 sm:px-3 font-medium">
+                                {formatCurrency(Number(referral.commission))}
+                              </td>
+                              <td className="py-3 px-2 sm:px-3">
+                                <span
+                                  className={`text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap ${
+                                    referral.status === "PAID"
+                                      ? "bg-green-100 text-green-800"
+                                      : referral.status === "APPROVED"
+                                        ? "bg-blue-100 text-blue-800"
+                                        : referral.status === "PENDING"
+                                          ? "bg-yellow-100 text-yellow-800"
+                                          : "bg-red-100 text-red-800"
+                                  }`}
+                                >
+                                  {referral.status.charAt(0) + referral.status.slice(1).toLowerCase()}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
+                  </div>
                 </div>
               ) : (
                 <Alert>
@@ -946,7 +949,7 @@ export default function AffiliateProgramPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="h-[350px] bg-gray-50 rounded-lg">
+              <div className="h-[250px] sm:h-[300px] md:h-[350px] bg-gray-50 rounded-lg overflow-hidden">
                 {clicksLoading ? (
                   <div className="h-full flex items-center justify-center">
                     <Skeleton className="h-[90%] w-[95%] rounded-lg" />
@@ -1132,49 +1135,55 @@ export default function AffiliateProgramPage() {
             <h3 className="font-medium mb-4">Payout History</h3>
             {stats?.payouts?.length > 0 ? (
               <>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left border-b">
-                        <th className="pb-3 font-medium">Date</th>
-                        <th className="pb-3 font-medium">Amount</th>
-                        <th className="pb-3 font-medium">Method</th>
-                        <th className="pb-3 font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {stats.payouts
-                        .slice((payoutsPage - 1) * ITEMS_PER_PAGE, payoutsPage * ITEMS_PER_PAGE)
-                        .map((payout: any) => (
-                          <tr key={payout.id}>
-                            <td className="py-3">{formatDate(payout.createdAt)}</td>
-                            <td className="py-3 font-medium">{formatCurrency(Number(payout.amount))}</td>
-                            <td className="py-3">{payout.method}</td>
-                            <td className="py-3">
-                              <span
-                                className={`text-xs px-2 py-1 rounded-full ${
-                                  payout.status === "COMPLETED"
-                                    ? "bg-green-100 text-green-800"
-                                    : payout.status === "PENDING"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : payout.status === "IN_PROGRESS"
-                                        ? "bg-blue-100 text-blue-800"
-                                        : "bg-red-100 text-red-800"
-                                }`}
-                              >
-                                {payout.status === "IN_PROGRESS"
-                                  ? "In Progress"
-                                  : payout.status.charAt(0) + payout.status.slice(1).toLowerCase()}
-                              </span>
-                            </td>
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <div className="min-w-full inline-block align-middle px-4 sm:px-0">
+                    <div className="overflow-hidden">
+                      <table className="min-w-full">
+                        <thead>
+                          <tr className="text-left border-b">
+                            <th className="pb-3 font-medium">Date</th>
+                            <th className="pb-3 font-medium">Amount</th>
+                            <th className="pb-3 font-medium">Method</th>
+                            <th className="pb-3 font-medium">Status</th>
                           </tr>
-                        ))}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody className="divide-y">
+                          {stats.payouts
+                            .slice((payoutsPage - 1) * ITEMS_PER_PAGE, payoutsPage * ITEMS_PER_PAGE)
+                            .map((payout: any) => (
+                              <tr key={payout.id}>
+                                <td className="py-3 px-2 sm:px-3">{formatDate(payout.createdAt)}</td>
+                                <td className="py-3 px-2 sm:px-3 font-medium">
+                                  {formatCurrency(Number(payout.amount))}
+                                </td>
+                                <td className="py-3 px-2 sm:px-3">{payout.method}</td>
+                                <td className="py-3 px-2 sm:px-3">
+                                  <span
+                                    className={`text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap ${
+                                      payout.status === "COMPLETED"
+                                        ? "bg-green-100 text-green-800"
+                                        : payout.status === "PENDING"
+                                          ? "bg-yellow-100 text-yellow-800"
+                                          : payout.status === "IN_PROGRESS"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : "bg-red-100 text-red-800"
+                                    }`}
+                                  >
+                                    {payout.status === "IN_PROGRESS"
+                                      ? "In Progress"
+                                      : payout.status.charAt(0) + payout.status.slice(1).toLowerCase()}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
                 {stats.payouts.length > ITEMS_PER_PAGE && (
                   <div className="flex justify-center mt-4">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1 sm:space-x-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -1221,7 +1230,7 @@ export default function AffiliateProgramPage() {
           <h2 className="text-xl font-semibold">Frequently Asked Questions</h2>
         </div>
         <div className="p-6">
-          <div className="space-y-4">
+          <div className="space-y-2 sm:space-y-4">
             {faqItems.map((item, index) => (
               <div key={index} className="border rounded-lg overflow-hidden">
                 <button
@@ -1256,7 +1265,7 @@ export default function AffiliateProgramPage() {
 
       {/* Payout Request Dialog */}
       <Dialog open={payoutDialogOpen} onOpenChange={setPayoutDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100%-32px)] sm:max-w-[600px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Request Payout</DialogTitle>
             <DialogDescription>
@@ -1275,7 +1284,7 @@ export default function AffiliateProgramPage() {
             </Alert>
           )}
 
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-3 sm:gap-4 py-2 sm:py-4">
             <div className="grid gap-2">
               <div className="flex justify-between items-center">
                 <Label>Available Balance</Label>

@@ -404,41 +404,43 @@ export default function OrderHistoryPage() {
 
   // Loading component
   const LoadingState = ({ message }: { message: string }) => (
-    <div className="flex justify-center items-center p-8">
+    <div className="flex justify-center items-center p-4 sm:p-8">
       <div className="flex flex-col items-center">
-        <div className="w-12 h-12 border-4 border-t-blue-500 border-blue-200 rounded-full animate-spin mb-4"></div>
-        <p className="text-gray-500">{message}</p>
+        <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-t-blue-500 border-blue-200 rounded-full animate-spin mb-3 sm:mb-4"></div>
+        <p className="text-gray-500 text-sm sm:text-base text-center">{message}</p>
       </div>
     </div>
   )
 
   // Error component
   const ErrorState = ({ message, retry }: { message: string; retry: () => void }) => (
-    <div className="flex flex-col items-center justify-center p-8">
-      <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-      <p className="text-gray-700 mb-4">{message}</p>
-      <Button onClick={retry}>Try Again</Button>
+    <div className="flex flex-col items-center justify-center p-4 sm:p-8 text-center">
+      <AlertCircle className="h-10 w-10 sm:h-12 sm:w-12 text-red-500 mb-3 sm:mb-4" />
+      <p className="text-gray-700 mb-3 sm:mb-4 text-sm sm:text-base">{message}</p>
+      <Button onClick={retry} size="sm" className="sm:size-default">
+        Try Again
+      </Button>
     </div>
   )
 
   // Empty state component
   const EmptyState = ({ message, icon }: { message: string; icon: React.ReactNode }) => (
-    <div className="flex flex-col items-center justify-center p-8 text-center">
-      <div className="mb-4 text-gray-300">{icon}</div>
-      <p className="text-gray-500">{message}</p>
+    <div className="flex flex-col items-center justify-center p-4 sm:p-8 text-center">
+      <div className="mb-3 sm:mb-4 text-gray-300">{icon}</div>
+      <p className="text-gray-500 text-sm sm:text-base">{message}</p>
     </div>
   )
 
   return (
-    <div className="p-8 mb-40">
-      <h1 className="text-3xl font-bold mb-6">Order History</h1>
+    <div className="p-4 sm:p-6 md:p-8 mb-20 md:mb-40 overflow-x-hidden">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Order History</h1>
 
-      <Card className="mb-8">
-        <div className="p-6 border-b">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <h2 className="text-xl font-semibold">Your Orders</h2>
+      <Card className="mb-6 sm:mb-8 overflow-hidden">
+        <div className="p-4 sm:p-6 border-b">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <h2 className="text-lg sm:text-xl font-semibold">Your Orders</h2>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={fetchInvoices}>
+              <Button variant="outline" onClick={fetchInvoices} size="sm" className="sm:size-default w-full sm:w-auto">
                 <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
@@ -453,8 +455,8 @@ export default function OrderHistoryPage() {
           </div>
         </div>
 
-        <div className="p-6 border-b">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <div className="p-4 sm:p-6 border-b">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -498,7 +500,7 @@ export default function OrderHistoryPage() {
         </div>
 
         <Tabs defaultValue="packages" value={activeTab} onValueChange={setActiveTab}>
-          <div className="px-6 pt-2">
+          <div className="px-4 sm:px-6 pt-2">
             <TabsList className="grid grid-cols-2 w-full max-w-md">
               <TabsTrigger value="packages">Packages</TabsTrigger>
               <TabsTrigger value="templates">Templates</TabsTrigger>
@@ -506,7 +508,7 @@ export default function OrderHistoryPage() {
           </div>
 
           {/* Packages Tab */}
-          <TabsContent value="packages" className="p-6 pt-4">
+          <TabsContent value="packages" className="p-4 sm:p-6 pt-3 sm:pt-4">
             {loadingInvoices ? (
               <LoadingState message="Loading package orders..." />
             ) : invoiceError ? (
@@ -514,34 +516,34 @@ export default function OrderHistoryPage() {
             ) : (
               <>
                 {getFilteredInvoices("package").length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {getFilteredInvoices("package")
                       .slice(0, packagesDisplayCount)
                       .map((invoice) => (
                         <Dialog key={invoice.id}>
                           <DialogTrigger asChild>
-                            <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                  <ShoppingBag className="h-5 w-5 text-blue-600" />
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg cursor-pointer hover:bg-gray-50 gap-2 sm:gap-0">
+                              <div className="flex items-center gap-2 sm:gap-3">
+                                <div className="p-2 bg-blue-100 rounded-lg shrink-0">
+                                  <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                                 </div>
-                                <div>
-                                  <p className="font-medium">{invoice.invoiceNumber}</p>
-                                  <div className="flex items-center gap-3 text-sm text-gray-500">
-                                    <span>{formatDate(invoice.createdAt)}</span>
-                                    <span>•</span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-sm sm:text-base truncate">{invoice.invoiceNumber}</p>
+                                  <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 flex-wrap">
+                                    <span className="truncate">{formatDate(invoice.createdAt)}</span>
+                                    <span className="hidden xs:inline">•</span>
                                     <span>${invoice.amount.toFixed(2)}</span>
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2 sm:gap-3 ml-auto">
                                 <span
-                                  className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}
+                                  className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${getStatusBadgeColor(invoice.status)}`}
                                 >
                                   {formatStatus(invoice.status)}
                                 </span>
                                 <svg
-                                  className="h-5 w-5 text-gray-400"
+                                  className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 shrink-0"
                                   fill="none"
                                   viewBox="0 0 24 24"
                                   stroke="currentColor"
@@ -551,74 +553,76 @@ export default function OrderHistoryPage() {
                               </div>
                             </div>
                           </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
+                          <DialogContent className="sm:max-w-md md:max-w-lg w-[calc(100%-2rem)] p-4 sm:p-6 overflow-hidden">
+                            <DialogHeader className="mb-2 sm:mb-4">
                               <DialogTitle>Order Details</DialogTitle>
                             </DialogHeader>
-                            <div className="mt-4 space-y-4">
-                              <div className="flex justify-between items-center">
+                            <div className="space-y-3 sm:space-y-4 overflow-y-auto max-h-[calc(80vh-8rem)]">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
                                 <div>
-                                  <p className="text-sm text-gray-500">Order Number</p>
-                                  <p className="font-medium">{invoice.invoiceNumber}</p>
+                                  <p className="text-xs sm:text-sm text-gray-500">Order Number</p>
+                                  <p className="font-medium text-sm sm:text-base truncate">{invoice.invoiceNumber}</p>
                                 </div>
                                 <div>
-                                  <p className="text-sm text-gray-500">Date</p>
-                                  <p className="font-medium">{formatDate(invoice.createdAt)}</p>
+                                  <p className="text-xs sm:text-sm text-gray-500">Date</p>
+                                  <p className="font-medium text-sm sm:text-base">{formatDate(invoice.createdAt)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-sm text-gray-500">Status</p>
+                                  <p className="text-xs sm:text-sm text-gray-500">Status</p>
                                   <span
-                                    className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}
+                                    className={`text-xs px-2 py-1 rounded-full inline-block mt-1 ${getStatusBadgeColor(invoice.status)}`}
                                   >
                                     {formatStatus(invoice.status)}
                                   </span>
                                 </div>
                               </div>
 
-                              <div className="border-t pt-4">
-                                <h4 className="font-medium mb-2">Order Items</h4>
+                              <div className="border-t pt-3 sm:pt-4">
+                                <h4 className="font-medium text-sm sm:text-base mb-2">Order Items</h4>
                                 <ul className="space-y-2">
                                   {Array.isArray(invoice.items) ? (
                                     invoice.items.map((item, index) => (
-                                      <li key={index} className="flex items-center gap-2">
-                                        <CheckCircle className="h-4 w-4 text-green-500" />
-                                        <span>{item.tier}</span>
-                                        <span className="ml-auto">${Number(item.price).toFixed(2)}</span>
+                                      <li key={index} className="flex items-center gap-2 text-sm">
+                                        <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                                        <span className="flex-1 truncate">{item.tier}</span>
+                                        <span className="font-medium">${Number(item.price).toFixed(2)}</span>
                                       </li>
                                     ))
                                   ) : (
-                                    <li className="flex items-center gap-2">
-                                      <CheckCircle className="h-4 w-4 text-green-500" />
-                                      <span>{getInvoiceItems(invoice)}</span>
+                                    <li className="flex items-center gap-2 text-sm">
+                                      <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                                      <span className="truncate">{getInvoiceItems(invoice)}</span>
                                     </li>
                                   )}
                                 </ul>
                               </div>
 
-                              <div className="border-t pt-4">
-                                <h4 className="font-medium mb-2">Payment Information</h4>
-                                <div className="flex justify-between">
+                              <div className="border-t pt-3 sm:pt-4">
+                                <h4 className="font-medium text-sm sm:text-base mb-2">Payment Information</h4>
+                                <div className="flex justify-between text-sm">
                                   <span>Total</span>
                                   <span className="font-bold">${invoice.amount.toFixed(2)}</span>
                                 </div>
                                 {invoice.paymentDate && (
-                                  <div className="flex justify-between text-sm text-gray-500">
+                                  <div className="flex justify-between text-xs sm:text-sm text-gray-500 mt-1">
                                     <span>Payment Date</span>
                                     <span>{formatDate(invoice.paymentDate)}</span>
                                   </div>
                                 )}
                               </div>
 
-                              <div className="flex justify-end gap-2">
+                              <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
                                 {invoice.paymentReceipt && (
-                                  <Button variant="outline" asChild>
+                                  <Button variant="outline" asChild size="sm" className="sm:size-default">
                                     <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
                                       <Download className="h-4 w-4 mr-2" />
                                       View Receipt
                                     </a>
                                   </Button>
                                 )}
-                                <Button>Contact Support</Button>
+                                <Button size="sm" className="sm:size-default">
+                                  Contact Support
+                                </Button>
                               </div>
                             </div>
                           </DialogContent>
@@ -627,27 +631,36 @@ export default function OrderHistoryPage() {
                     {getFilteredInvoices("package").length > packagesDisplayCount && (
                       <Button
                         variant="outline"
-                        className="w-full mt-4"
+                        className="w-full mt-3 sm:mt-4"
+                        size="sm"
                         onClick={() => setPackagesDisplayCount((prev) => prev + 4)}
                       >
                         Show More
                       </Button>
                     )}
                     {packagesDisplayCount > 4 && (
-                      <Button variant="outline" className="w-full mt-4" onClick={() => setPackagesDisplayCount(4)}>
+                      <Button
+                        variant="outline"
+                        className="w-full mt-2"
+                        size="sm"
+                        onClick={() => setPackagesDisplayCount(4)}
+                      >
                         Show Less
                       </Button>
                     )}
                   </div>
                 ) : (
-                  <EmptyState message="No package orders found" icon={<ShoppingBag className="h-12 w-12" />} />
+                  <EmptyState
+                    message="No package orders found"
+                    icon={<ShoppingBag className="h-10 w-10 sm:h-12 sm:w-12" />}
+                  />
                 )}
               </>
             )}
           </TabsContent>
 
           {/* Templates Tab */}
-          <TabsContent value="templates" className="p-6 pt-4">
+          <TabsContent value="templates" className="p-4 sm:p-6 pt-3 sm:pt-4">
             {loadingInvoices ? (
               <LoadingState message="Loading template orders..." />
             ) : invoiceError ? (
@@ -655,34 +668,34 @@ export default function OrderHistoryPage() {
             ) : (
               <>
                 {getFilteredInvoices("template").length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {getFilteredInvoices("template")
                       .slice(0, templatesDisplayCount)
                       .map((invoice) => (
                         <Dialog key={invoice.id}>
                           <DialogTrigger asChild>
-                            <div className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 bg-purple-100 rounded-lg">
-                                  <FileText className="h-5 w-5 text-purple-600" />
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg cursor-pointer hover:bg-gray-50 gap-2 sm:gap-0">
+                              <div className="flex items-center gap-2 sm:gap-3">
+                                <div className="p-2 bg-purple-100 rounded-lg shrink-0">
+                                  <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
                                 </div>
-                                <div>
-                                  <p className="font-medium">{invoice.invoiceNumber}</p>
-                                  <div className="flex items-center gap-3 text-sm text-gray-500">
-                                    <span>{formatDate(invoice.createdAt)}</span>
-                                    <span>•</span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-sm sm:text-base truncate">{invoice.invoiceNumber}</p>
+                                  <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 flex-wrap">
+                                    <span className="truncate">{formatDate(invoice.createdAt)}</span>
+                                    <span className="hidden xs:inline">•</span>
                                     <span>${invoice.amount.toFixed(2)}</span>
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2 sm:gap-3 ml-auto">
                                 <span
-                                  className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}
+                                  className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${getStatusBadgeColor(invoice.status)}`}
                                 >
                                   {formatStatus(invoice.status)}
                                 </span>
                                 <svg
-                                  className="h-5 w-5 text-gray-400"
+                                  className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 shrink-0"
                                   fill="none"
                                   viewBox="0 0 24 24"
                                   stroke="currentColor"
@@ -692,74 +705,76 @@ export default function OrderHistoryPage() {
                               </div>
                             </div>
                           </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
+                          <DialogContent className="sm:max-w-md md:max-w-lg w-[calc(100%-2rem)] p-4 sm:p-6 overflow-hidden">
+                            <DialogHeader className="mb-2 sm:mb-4">
                               <DialogTitle>Template Order Details</DialogTitle>
                             </DialogHeader>
-                            <div className="mt-4 space-y-4">
-                              <div className="flex justify-between items-center">
+                            <div className="space-y-3 sm:space-y-4 overflow-y-auto max-h-[calc(80vh-8rem)]">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
                                 <div>
-                                  <p className="text-sm text-gray-500">Invoice Number</p>
-                                  <p className="font-medium">{invoice.invoiceNumber}</p>
+                                  <p className="text-xs sm:text-sm text-gray-500">Invoice Number</p>
+                                  <p className="font-medium text-sm sm:text-base truncate">{invoice.invoiceNumber}</p>
                                 </div>
                                 <div>
-                                  <p className="text-sm text-gray-500">Date</p>
-                                  <p className="font-medium">{formatDate(invoice.createdAt)}</p>
+                                  <p className="text-xs sm:text-sm text-gray-500">Date</p>
+                                  <p className="font-medium text-sm sm:text-base">{formatDate(invoice.createdAt)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-sm text-gray-500">Status</p>
+                                  <p className="text-xs sm:text-sm text-gray-500">Status</p>
                                   <span
-                                    className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(invoice.status)}`}
+                                    className={`text-xs px-2 py-1 rounded-full inline-block mt-1 ${getStatusBadgeColor(invoice.status)}`}
                                   >
                                     {formatStatus(invoice.status)}
                                   </span>
                                 </div>
                               </div>
 
-                              <div className="border-t pt-4">
-                                <h4 className="font-medium mb-2">Template Details</h4>
+                              <div className="border-t pt-3 sm:pt-4">
+                                <h4 className="font-medium text-sm sm:text-base mb-2">Template Details</h4>
                                 <ul className="space-y-2">
                                   {Array.isArray(invoice.items) ? (
                                     invoice.items.map((item, index) => (
-                                      <li key={index} className="flex items-center gap-2">
-                                        <FileText className="h-4 w-4 text-purple-500" />
-                                        <span>{item.tier}</span>
-                                        <span className="ml-auto">${Number(item.price).toFixed(2)}</span>
+                                      <li key={index} className="flex items-center gap-2 text-sm">
+                                        <FileText className="h-4 w-4 text-purple-500 shrink-0" />
+                                        <span className="flex-1 truncate">{item.tier}</span>
+                                        <span className="font-medium">${Number(item.price).toFixed(2)}</span>
                                       </li>
                                     ))
                                   ) : (
-                                    <li className="flex items-center gap-2">
-                                      <FileText className="h-4 w-4 text-purple-500" />
-                                      <span>{getInvoiceItems(invoice)}</span>
+                                    <li className="flex items-center gap-2 text-sm">
+                                      <FileText className="h-4 w-4 text-purple-500 shrink-0" />
+                                      <span className="truncate">{getInvoiceItems(invoice)}</span>
                                     </li>
                                   )}
                                 </ul>
                               </div>
 
-                              <div className="border-t pt-4">
-                                <h4 className="font-medium mb-2">Payment Information</h4>
-                                <div className="flex justify-between">
+                              <div className="border-t pt-3 sm:pt-4">
+                                <h4 className="font-medium text-sm sm:text-base mb-2">Payment Information</h4>
+                                <div className="flex justify-between text-sm">
                                   <span>Total</span>
                                   <span className="font-bold">${invoice.amount.toFixed(2)}</span>
                                 </div>
                                 {invoice.paymentDate && (
-                                  <div className="flex justify-between text-sm text-gray-500">
+                                  <div className="flex justify-between text-xs sm:text-sm text-gray-500 mt-1">
                                     <span>Payment Date</span>
                                     <span>{formatDate(invoice.paymentDate)}</span>
                                   </div>
                                 )}
                               </div>
 
-                              <div className="flex justify-end gap-2">
+                              <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
                                 {invoice.paymentReceipt && (
-                                  <Button variant="outline" asChild>
+                                  <Button variant="outline" asChild size="sm" className="sm:size-default">
                                     <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
                                       <Download className="h-4 w-4 mr-2" />
                                       View Receipt
                                     </a>
                                   </Button>
                                 )}
-                                <Button>Contact Support</Button>
+                                <Button size="sm" className="sm:size-default">
+                                  Contact Support
+                                </Button>
                               </div>
                             </div>
                           </DialogContent>
@@ -768,20 +783,29 @@ export default function OrderHistoryPage() {
                     {getFilteredInvoices("template").length > templatesDisplayCount && (
                       <Button
                         variant="outline"
-                        className="w-full mt-4"
+                        className="w-full mt-3 sm:mt-4"
+                        size="sm"
                         onClick={() => setTemplatesDisplayCount((prev) => prev + 4)}
                       >
                         Show More
                       </Button>
                     )}
                     {templatesDisplayCount > 4 && (
-                      <Button variant="outline" className="w-full mt-4" onClick={() => setTemplatesDisplayCount(4)}>
+                      <Button
+                        variant="outline"
+                        className="w-full mt-2"
+                        size="sm"
+                        onClick={() => setTemplatesDisplayCount(4)}
+                      >
                         Show Less
                       </Button>
                     )}
                   </div>
                 ) : (
-                  <EmptyState message="No template orders found" icon={<FileText className="h-12 w-12" />} />
+                  <EmptyState
+                    message="No template orders found"
+                    icon={<FileText className="h-10 w-10 sm:h-12 sm:w-12" />}
+                  />
                 )}
               </>
             )}
@@ -789,41 +813,47 @@ export default function OrderHistoryPage() {
         </Tabs>
       </Card>
 
-      <Card>
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-semibold">Need Additional Services?</h2>
+      <Card className="overflow-hidden">
+        <div className="p-4 sm:p-6 border-b">
+          <h2 className="text-lg sm:text-xl font-semibold">Need Additional Services?</h2>
         </div>
-        <div className="p-6">
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="p-4 border rounded-lg">
-              <div className="p-2 bg-green-100 rounded-lg inline-block mb-3">
-                <FileText className="h-5 w-5 text-green-600" />
+        <div className="p-4 sm:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+            <div className="p-3 sm:p-4 border rounded-lg">
+              <div className="p-2 bg-green-100 rounded-lg inline-block mb-2 sm:mb-3">
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
               </div>
-              <h3 className="font-semibold mb-2">Annual Report Filing</h3>
-              <p className="text-sm text-gray-600 mb-4">Let us handle your annual report filing requirements</p>
-              <Button size="sm" variant="outline" className="w-full" asChild>
+              <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">Annual Report Filing</h3>
+              <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
+                Let us handle your annual report filing requirements
+              </p>
+              <Button size="sm" variant="outline" className="w-full text-xs sm:text-sm" asChild>
                 <a href="/dashboard/compliance/annual-reports">Learn More</a>
               </Button>
             </div>
 
-            <div className="p-4 border rounded-lg">
-              <div className="p-2 bg-blue-100 rounded-lg inline-block mb-3">
-                <PenTool className="h-5 w-5 text-blue-600" />
+            <div className="p-3 sm:p-4 border rounded-lg">
+              <div className="p-2 bg-blue-100 rounded-lg inline-block mb-2 sm:mb-3">
+                <PenTool className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
               </div>
-              <h3 className="font-semibold mb-2">Submit an Amendment</h3>
-              <p className="text-sm text-gray-600 mb-4">Let Us Update your business information or structure</p>
-              <Button size="sm" variant="outline" className="w-full" asChild>
+              <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">Submit an Amendment</h3>
+              <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
+                Update your business information or structure
+              </p>
+              <Button size="sm" variant="outline" className="w-full text-xs sm:text-sm" asChild>
                 <a href="/dashboard/compliance/amendments">Learn More</a>
               </Button>
             </div>
 
-            <div className="p-4 border rounded-lg">
-              <div className="p-2 bg-purple-100 rounded-lg inline-block mb-3">
-                <Users className="h-5 w-5 text-purple-600" />
+            <div className="p-3 sm:p-4 border rounded-lg sm:col-span-2 md:col-span-1">
+              <div className="p-2 bg-purple-100 rounded-lg inline-block mb-2 sm:mb-3">
+                <Users className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
               </div>
-              <h3 className="font-semibold mb-2">Add Beneficial Ownership</h3>
-              <p className="text-sm text-gray-600 mb-4">Comply with beneficial ownership reporting requirements</p>
-              <Button size="sm" variant="outline" className="w-full" asChild>
+              <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">Add Beneficial Ownership</h3>
+              <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
+                Comply with beneficial ownership reporting requirements
+              </p>
+              <Button size="sm" variant="outline" className="w-full text-xs sm:text-sm" asChild>
                 <a href="/dashboard/compliance/beneficial-ownership">Learn More</a>
               </Button>
             </div>
