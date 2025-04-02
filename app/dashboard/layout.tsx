@@ -17,7 +17,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <OnlineStatusTracker />
             <div className="flex h-screen overflow-hidden">
               <DashboardSidebar />
-              <main className="flex-1 overflow-y-auto p-0">{children}</main>
+              <main className="flex-1 overflow-y-auto p-0 md:mt-0 sm:mt-20 mt-20">{children}</main>
             </div>
             <LiveSupportWidget />
           </div>
