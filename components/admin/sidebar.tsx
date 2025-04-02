@@ -386,7 +386,7 @@ export default function AdminSidebar() {
         <Button
           variant="outline"
           className={`fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm md:hidden px-3 flex items-center gap-2 ${
-            isScrolled ? "mt-0" : "mt-20"
+            isScrolled ? "mt-0 mb-20" : "mt-20 mb-40"
           } transition-all duration-200`}
           onClick={() => setSidebarOpen(true)}
         >
