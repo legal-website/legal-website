@@ -148,8 +148,29 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
   return null
 }
 
+// Helper function to determine if we're on a small screen
+const useIsSmallScreen = () => {
+  const [isSmallScreen, setIsSmallScreen] = useState(false)
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsSmallScreen(window.innerWidth < 640)
+    }
+
+    checkScreenSize()
+    window.addEventListener("resize", checkScreenSize)
+
+    return () => {
+      window.removeEventListener("resize", checkScreenSize)
+    }
+  }, [])
+
+  return isSmallScreen
+}
+
 // Dashboard component
 export default function AdminDashboard() {
+  const isSmallScreen = useIsSmallScreen()
   // State for all our data
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [users, setUsers] = useState<User[]>([])
@@ -749,15 +770,17 @@ export default function AdminDashboard() {
   const isPositiveGrowth = revenueGrowth >= 0
 
   return (
-    <div className="flex flex-col min-h-screen px-[3%] mb-40">
+    <div className="flex flex-col min-h-screen px-4 sm:px-6 md:px-[3%] mb-20 md:mb-40 overflow-x-hidden">
       <div className="flex-1">
-        <div className="flex items-center justify-between py-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4 sm:py-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Welcome to your admin dashboard. Here's what's happening today.</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Welcome to your admin dashboard. Here's what's happening today.
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline">
+          <div className="flex items-center gap-2 self-start sm:self-center">
+            <Button variant="outline" size="sm" className="h-9 sm:h-10">
               <Calendar className="mr-2 h-4 w-4" />
               Today
             </Button>
@@ -765,7 +788,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* First Section - Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 xs:grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
           {/* Total Invoices Card */}
           <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 shadow-md hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -844,15 +867,19 @@ export default function AdminDashboard() {
         {/* Second Section - Recent Invoices */}
         <div className="mt-8">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
               <div>
                 <CardTitle>Recent Invoices</CardTitle>
                 <CardDescription>Latest invoice transactions</CardDescription>
               </div>
               <Link href="/admin/billing/invoices">
-                <Button variant="outline" size="sm" className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1 text-xs sm:text-sm h-8 sm:h-9 mt-1 sm:mt-0"
+                >
                   View All
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </Link>
             </CardHeader>
@@ -872,8 +899,11 @@ export default function AdminDashboard() {
               ) : invoices.length > 0 ? (
                 <div className="space-y-4">
                   {invoices.slice(0, 3).map((invoice) => (
-                    <div key={invoice.id} className="flex items-center justify-between gap-4 rounded-lg border p-4">
-                      <div className="flex items-center gap-4">
+                    <div
+                      key={invoice.id}
+                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 rounded-lg border p-3 sm:p-4"
+                    >
+                      <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
                         <Avatar className="hidden sm:flex">
                           <AvatarFallback className="bg-blue-100 text-blue-800">
                             {invoice.customerName?.substring(0, 2).toUpperCase() || "UN"}
@@ -886,7 +916,7 @@ export default function AdminDashboard() {
                           <p className="text-sm text-muted-foreground">{invoice.invoiceNumber}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
                         <Badge
                           variant={
                             invoice.status === "paid"
@@ -925,15 +955,19 @@ export default function AdminDashboard() {
         {/* Third Section - Recent Tickets */}
         <div className="mt-8">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
               <div>
                 <CardTitle>Recent Tickets</CardTitle>
                 <CardDescription>Latest support requests</CardDescription>
               </div>
               <Link href="/admin/tickets">
-                <Button variant="outline" size="sm" className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1 text-xs sm:text-sm h-8 sm:h-9 mt-1 sm:mt-0"
+                >
                   View All
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </Link>
             </CardHeader>
@@ -953,8 +987,11 @@ export default function AdminDashboard() {
               ) : tickets.length > 0 ? (
                 <div className="space-y-4">
                   {tickets.slice(0, 3).map((ticket) => (
-                    <div key={ticket.id} className="flex items-center justify-between gap-4 rounded-lg border p-4">
-                      <div className="flex items-center gap-4">
+                    <div
+                      key={ticket.id}
+                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 rounded-lg border p-3 sm:p-4"
+                    >
+                      <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
                         <div className="rounded-full bg-orange-100 p-2">
                           <Ticket className="h-4 w-4 text-orange-600" />
                         </div>
@@ -963,7 +1000,7 @@ export default function AdminDashboard() {
                           <p className="text-sm text-muted-foreground">By {ticket.userName}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
                         <Badge
                           variant={
                             ticket.status === "open"
@@ -1001,15 +1038,19 @@ export default function AdminDashboard() {
         {/* Fourth Section - Recent Comments */}
         <div className="mt-8">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
               <div>
                 <CardTitle>Recent Comments</CardTitle>
                 <CardDescription>Latest community interactions</CardDescription>
               </div>
               <Link href="/admin/community/moderation">
-                <Button variant="outline" size="sm" className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1 text-xs sm:text-sm h-8 sm:h-9 mt-1 sm:mt-0"
+                >
                   View All
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </Link>
             </CardHeader>
@@ -1029,8 +1070,11 @@ export default function AdminDashboard() {
               ) : comments.length > 0 ? (
                 <div className="space-y-4">
                   {comments.slice(0, 3).map((comment) => (
-                    <div key={comment.id} className="flex items-center justify-between gap-4 rounded-lg border p-4">
-                      <div className="flex items-center gap-4">
+                    <div
+                      key={comment.id}
+                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 rounded-lg border p-3 sm:p-4"
+                    >
+                      <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
                         <div className="rounded-full bg-blue-100 p-2">
                           <MessageSquare className="h-4 w-4 text-blue-600" />
                         </div>
@@ -1041,7 +1085,7 @@ export default function AdminDashboard() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
                         <Badge
                           variant={
                             comment.status === "approved"
@@ -1079,15 +1123,16 @@ export default function AdminDashboard() {
         {/* Seventh Section - Revenue Overview Chart (Redesigned) */}
         <div className="mt-8">
           <Card className="overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
               <div>
-                <CardTitle className="text-xl">Revenue Overview</CardTitle>
-                <CardDescription>Track your revenue trends over time</CardDescription>
+                <CardTitle className="text-lg sm:text-xl">Revenue Overview</CardTitle>
+                <CardDescription className="text-sm">Track your revenue trends over time</CardDescription>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2 self-end sm:self-auto">
                 <Button
                   variant={selectedTimeframe === "weekly" ? "default" : "outline"}
                   size="sm"
+                  className="text-xs sm:text-sm px-2 sm:px-3"
                   onClick={() => setSelectedTimeframe("weekly")}
                 >
                   Weekly
@@ -1095,6 +1140,7 @@ export default function AdminDashboard() {
                 <Button
                   variant={selectedTimeframe === "monthly" ? "default" : "outline"}
                   size="sm"
+                  className="text-xs sm:text-sm px-2 sm:px-3"
                   onClick={() => setSelectedTimeframe("monthly")}
                 >
                   Monthly
@@ -1102,6 +1148,7 @@ export default function AdminDashboard() {
                 <Button
                   variant={selectedTimeframe === "quarterly" ? "default" : "outline"}
                   size="sm"
+                  className="text-xs sm:text-sm px-2 sm:px-3"
                   onClick={() => setSelectedTimeframe("quarterly")}
                 >
                   Quarterly
@@ -1116,8 +1163,8 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               ) : (
-                <div className="h-[400px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[300px] sm:h-[400px] w-full">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={200}>
                     <AreaChart
                       data={getRevenueData()}
                       margin={{
@@ -1146,9 +1193,10 @@ export default function AdminDashboard() {
                               ? "week"
                               : "month"
                         }
-                        tick={{ fontSize: 12 }}
+                        tick={{ fontSize: isSmallScreen ? 10 : 12 }}
                         tickLine={false}
                         axisLine={{ stroke: "#e0e0e0" }}
+                        tickFormatter={isSmallScreen ? (value) => value.split(" ")[0] : undefined}
                       />
                       <YAxis
                         yAxisId="left"
@@ -1192,20 +1240,22 @@ export default function AdminDashboard() {
                 </div>
               )}
             </CardContent>
-            <CardFooter className="border-t p-4 bg-gray-50 dark:bg-gray-900">
-              <div className="flex justify-between items-center w-full">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-medium">Revenue Trend:</span>
-                  <span className={`text-sm font-bold ${isPositiveGrowth ? "text-green-600" : "text-red-600"}`}>
+            <CardFooter className="border-t p-3 sm:p-4 bg-gray-50 dark:bg-gray-900">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full gap-3 sm:gap-0">
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+                  <span className="text-xs sm:text-sm font-medium">Revenue Trend:</span>
+                  <span
+                    className={`text-xs sm:text-sm font-bold ${isPositiveGrowth ? "text-green-600" : "text-red-600"}`}
+                  >
                     {isPositiveGrowth ? "+" : ""}
                     {revenueGrowth.toFixed(1)}%
                   </span>
                 </div>
                 <Link href="/admin/billing/invoices">
-                  <Button variant="outline" size="sm" className="flex items-center gap-1">
-                    View Detailed Reports
-                    <ChevronRight className="h-4 w-4" />
+                  <Button variant="outline" size="sm" className="flex items-center gap-1 text-xs sm:text-sm h-8 sm:h-9">
+                    View Reports
+                    <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                 </Link>
               </div>
@@ -1214,10 +1264,10 @@ export default function AdminDashboard() {
         </div>
 
         {/* Eighth Section - Revenue Breakdown Charts */}
-        <div className="mt-8 grid gap-8 md:grid-cols-2">
+        <div className="mt-6 sm:mt-8 grid gap-4 sm:gap-8 grid-cols-1 md:grid-cols-2">
           {/* Invoice Revenue Pie Chart */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
               <div>
                 <CardTitle>Invoice Revenue Breakdown</CardTitle>
                 <CardDescription>Revenue by invoice type</CardDescription>
@@ -1230,8 +1280,8 @@ export default function AdminDashboard() {
                   <Skeleton className="h-[250px] w-[250px] rounded-full" />
                 </div>
               ) : (
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[250px] sm:h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={200}>
                     <RechartsPieChart>
                       <Pie
                         data={getRevenueByInvoiceType()}
@@ -1258,7 +1308,7 @@ export default function AdminDashboard() {
 
           {/* Template Revenue Bar Chart (Replaced Amendment Revenue) */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
               <div>
                 <CardTitle>Template Revenue</CardTitle>
                 <CardDescription>Revenue from paid template invoices</CardDescription>
@@ -1271,8 +1321,8 @@ export default function AdminDashboard() {
                   <Skeleton className="h-[250px] w-full" />
                 </div>
               ) : getTemplateRevenueData().length > 0 ? (
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[250px] sm:h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={200}>
                     <BarChart
                       data={getTemplateRevenueData()}
                       margin={{
