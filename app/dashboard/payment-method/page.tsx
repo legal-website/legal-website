@@ -287,7 +287,7 @@ export default function ClientPaymentMethodsPage() {
   }
 
   return (
-    <div className="px-4 sm:px-6 md:px-[3%] pt-6 sm:pt-9 mb-20 sm:mb-32 md:mb-40 max-w-full overflow-x-hidden">
+    <div className="px-4 sm:px-6 md:px-[3%] pt-6 sm:pt-9 mb-24 sm:mb-36 md:mb-40 max-w-full overflow-x-hidden">
       <div className="space-y-4 sm:space-y-6">
         <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 sm:p-6 rounded-lg border border-primary/20 shadow-sm">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4">

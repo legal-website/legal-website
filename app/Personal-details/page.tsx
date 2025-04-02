@@ -386,9 +386,9 @@ export default function PersonalDetailsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg font-medium">Loading your information...</p>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] sm:min-h-screen p-4">
+        <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 animate-spin text-primary mb-4" />
+        <p className="text-base sm:text-lg font-medium">Loading your information...</p>
       </div>
     )
   }
@@ -409,17 +409,19 @@ export default function PersonalDetailsPage() {
     }
 
     return (
-      <div className="container max-w-3xl py-10 mx-auto mb-40">
+      <div className="container max-w-3xl py-6 sm:py-10 px-4 sm:px-6 mx-auto mb-24 sm:mb-40">
         <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-bold">Personal Details Verification</CardTitle>
-            <CardDescription className="text-lg mt-2">
-              {personalDetails.status === "pending" && "Your details are being reviewed by our team."}
-              {personalDetails.status === "approved" && "Your details have been approved."}
-              {personalDetails.status === "rejected" && "Your details have been rejected."}
+          <CardHeader className="text-center p-4 sm:p-6">
+            <CardTitle className="text-2xl sm:text-3xl font-bold">Personal Details Verification</CardTitle>
+            <CardDescription className="text-base sm:text-lg mt-2">
+              {personalDetails?.status === "pending" && "Your details are being reviewed by our team."}
+              {personalDetails?.status === "approved" && "Your details have been approved."}
+              {personalDetails?.status === "rejected" && "Your details have been rejected."}
+              {!personalDetails &&
+                "Please provide your personal details and upload the required documents to verify your account."}
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Verification Status</span>
@@ -444,17 +446,17 @@ export default function PersonalDetailsPage() {
             </div>
 
             {personalDetails.status === "approved" && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start">
-                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row items-start">
+                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 mb-2 sm:mb-0 sm:mr-3 flex-shrink-0" />
                 <div>
                   <p className="font-medium text-green-800">Verification Successful</p>
-                  <p className="text-green-700 mt-1">
+                  <p className="text-green-700 mt-1 text-sm sm:text-base">
                     {personalDetails.isRedirectDisabled
                       ? "Your account has been verified. You can now access the dashboard."
                       : "Your account has been verified, but you still need to wait for admin to enable dashboard access."}
                   </p>
                   {personalDetails.isRedirectDisabled && (
-                    <Button className="mt-4" onClick={() => router.push("/dashboard")}>
+                    <Button className="mt-4 text-sm h-9" onClick={() => router.push("/dashboard")}>
                       Go to Dashboard
                     </Button>
                   )}
@@ -490,7 +492,7 @@ export default function PersonalDetailsPage() {
             <div className="mt-8 space-y-6">
               <h3 className="text-xl font-semibold border-b pb-2">Submitted Information</h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <p className="text-sm font-medium text-gray-500">Client Name</p>
                   <p className="mt-1">{personalDetails.clientName}</p>
@@ -512,7 +514,7 @@ export default function PersonalDetailsPage() {
                 <p className="mt-1">{personalDetails.businessPurpose}</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                 <div>
                   <p className="text-sm font-medium text-gray-500">ID Card (Front)</p>
                   <div className="mt-1 border rounded-lg overflow-hidden">
@@ -555,8 +557,17 @@ export default function PersonalDetailsPage() {
 
                 {personalDetails.members.map((member: Member, index: number) => (
                   <div key={member.id || index} className="border rounded-lg p-4 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-lg font-medium">Member {index + 1}</h4>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 sm:p-4 bg-gray-50">
+                      <div className="flex items-center gap-2">
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="p-0 h-8 w-8 min-w-8 flex-shrink-0">
+                            {member.isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </Button>
+                        </CollapsibleTrigger>
+                        <h4 className="font-medium text-sm sm:text-base truncate">
+                          {member.memberName ? member.memberName : `Member ${index + 1}`}
+                        </h4>
+                      </div>
                     </div>
 
                     <div>
@@ -564,7 +575,7 @@ export default function PersonalDetailsPage() {
                       <p className="mt-1">{member.memberName}</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                       <div>
                         <p className="text-sm font-medium text-gray-500">ID Card (Front)</p>
                         <div className="mt-1 border rounded-lg overflow-hidden">
@@ -620,16 +631,16 @@ export default function PersonalDetailsPage() {
 
   // Show the form for initial submission or updates
   return (
-    <div className="container max-w-3xl py-10 mx-auto mb-40">
+    <div className="container max-w-3xl py-6 sm:py-10 px-4 sm:px-6 mx-auto mb-24 sm:mb-40">
       <Card>
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold">Personal Details Verification</CardTitle>
-          <CardDescription className="text-lg mt-2">
+        <CardHeader className="text-center p-4 sm:p-6">
+          <CardTitle className="text-2xl sm:text-3xl font-bold">Personal Details Verification</CardTitle>
+          <CardDescription className="text-base sm:text-lg mt-2">
             Please provide your personal details and upload the required documents to verify your account.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="clientName">
@@ -708,9 +719,9 @@ export default function PersonalDetailsPage() {
                     type="button"
                     variant="outline"
                     onClick={() => idCardFrontRef.current?.click()}
-                    className="w-full"
+                    className="w-full py-2 px-3 h-auto text-sm"
                   >
-                    <Upload className="mr-2 h-4 w-4" />
+                    <Upload className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                     {formData.idCardFrontUrl ? "Change File" : "Upload ID Card Front"}
                   </Button>
                   {uploadProgress.idCardFront > 0 && uploadProgress.idCardFront < 100 && (
@@ -721,7 +732,7 @@ export default function PersonalDetailsPage() {
                   {formData.idCardFrontUrl && <span className="text-sm text-green-600">Uploaded</span>}
                 </div>
                 {formData.idCardFrontUrl && (
-                  <div className="mt-2 border rounded-lg overflow-hidden h-32">
+                  <div className="mt-2 border rounded-lg overflow-hidden h-24 sm:h-32">
                     <img
                       src={formData.idCardFrontUrl || "/placeholder.svg"}
                       alt="ID Card Front Preview"
@@ -748,9 +759,9 @@ export default function PersonalDetailsPage() {
                     type="button"
                     variant="outline"
                     onClick={() => idCardBackRef.current?.click()}
-                    className="w-full"
+                    className="w-full py-2 px-3 h-auto text-sm"
                   >
-                    <Upload className="mr-2 h-4 w-4" />
+                    <Upload className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                     {formData.idCardBackUrl ? "Change File" : "Upload ID Card Back"}
                   </Button>
                   {uploadProgress.idCardBack > 0 && uploadProgress.idCardBack < 100 && (
@@ -761,7 +772,7 @@ export default function PersonalDetailsPage() {
                   {formData.idCardBackUrl && <span className="text-sm text-green-600">Uploaded</span>}
                 </div>
                 {formData.idCardBackUrl && (
-                  <div className="mt-2 border rounded-lg overflow-hidden h-32">
+                  <div className="mt-2 border rounded-lg overflow-hidden h-24 sm:h-32">
                     <img
                       src={formData.idCardBackUrl || "/placeholder.svg"}
                       alt="ID Card Back Preview"
@@ -786,9 +797,9 @@ export default function PersonalDetailsPage() {
                     type="button"
                     variant="outline"
                     onClick={() => passportRef.current?.click()}
-                    className="w-full"
+                    className="w-full py-2 px-3 h-auto text-sm"
                   >
-                    <Upload className="mr-2 h-4 w-4" />
+                    <Upload className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                     {formData.passportUrl ? "Change File" : "Upload Passport"}
                   </Button>
                   {uploadProgress.passport > 0 && uploadProgress.passport < 100 && (
@@ -799,7 +810,7 @@ export default function PersonalDetailsPage() {
                   {formData.passportUrl && <span className="text-sm text-green-600">Uploaded</span>}
                 </div>
                 {formData.passportUrl && (
-                  <div className="mt-2 border rounded-lg overflow-hidden h-32">
+                  <div className="mt-2 border rounded-lg overflow-hidden h-24 sm:h-32">
                     <img
                       src={formData.passportUrl || "/placeholder.svg"}
                       alt="Passport Preview"
@@ -819,9 +830,9 @@ export default function PersonalDetailsPage() {
                   onClick={addMember}
                   variant="outline"
                   size="sm"
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 text-xs sm:text-sm h-8 sm:h-9"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
                   Add Member
                 </Button>
               </div>
@@ -839,14 +850,16 @@ export default function PersonalDetailsPage() {
                   onOpenChange={() => toggleMemberCollapsible(index)}
                   className="border rounded-lg overflow-hidden"
                 >
-                  <div className="flex items-center justify-between p-4 bg-gray-50">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 sm:p-4 bg-gray-50">
                     <div className="flex items-center gap-2">
                       <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="sm" className="p-0 h-8 w-8">
+                        <Button variant="ghost" size="sm" className="p-0 h-8 w-8 min-w-8 flex-shrink-0">
                           {member.isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </Button>
                       </CollapsibleTrigger>
-                      <h4 className="font-medium">{member.memberName ? member.memberName : `Member ${index + 1}`}</h4>
+                      <h4 className="font-medium text-sm sm:text-base truncate">
+                        {member.memberName ? member.memberName : `Member ${index + 1}`}
+                      </h4>
                     </div>
                     <Button
                       type="button"
@@ -897,9 +910,9 @@ export default function PersonalDetailsPage() {
                           type="button"
                           variant="outline"
                           onClick={() => memberFileRefs.current[index]?.idCardFront?.click()}
-                          className="w-full"
+                          className="w-full py-2 px-3 h-auto text-sm"
                         >
-                          <Upload className="mr-2 h-4 w-4" />
+                          <Upload className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                           {member.idCardFrontUrl ? "Change File" : "Upload ID Card Front"}
                         </Button>
                         {memberUploadProgress[index]?.idCardFront > 0 &&
@@ -911,7 +924,7 @@ export default function PersonalDetailsPage() {
                         {member.idCardFrontUrl && <span className="text-sm text-green-600">Uploaded</span>}
                       </div>
                       {member.idCardFrontUrl && (
-                        <div className="mt-2 border rounded-lg overflow-hidden h-32">
+                        <div className="mt-2 border rounded-lg overflow-hidden h-24 sm:h-32">
                           <img
                             src={member.idCardFrontUrl || "/placeholder.svg"}
                             alt="Member ID Card Front Preview"
@@ -943,9 +956,9 @@ export default function PersonalDetailsPage() {
                           type="button"
                           variant="outline"
                           onClick={() => memberFileRefs.current[index]?.idCardBack?.click()}
-                          className="w-full"
+                          className="w-full py-2 px-3 h-auto text-sm"
                         >
-                          <Upload className="mr-2 h-4 w-4" />
+                          <Upload className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                           {member.idCardBackUrl ? "Change File" : "Upload ID Card Back"}
                         </Button>
                         {memberUploadProgress[index]?.idCardBack > 0 &&
@@ -957,7 +970,7 @@ export default function PersonalDetailsPage() {
                         {member.idCardBackUrl && <span className="text-sm text-green-600">Uploaded</span>}
                       </div>
                       {member.idCardBackUrl && (
-                        <div className="mt-2 border rounded-lg overflow-hidden h-32">
+                        <div className="mt-2 border rounded-lg overflow-hidden h-24 sm:h-32">
                           <img
                             src={member.idCardBackUrl || "/placeholder.svg"}
                             alt="Member ID Card Back Preview"
@@ -987,9 +1000,9 @@ export default function PersonalDetailsPage() {
                           type="button"
                           variant="outline"
                           onClick={() => memberFileRefs.current[index]?.passport?.click()}
-                          className="w-full"
+                          className="w-full py-2 px-3 h-auto text-sm"
                         >
-                          <Upload className="mr-2 h-4 w-4" />
+                          <Upload className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                           {member.passportUrl ? "Change File" : "Upload Passport"}
                         </Button>
                         {memberUploadProgress[index]?.passport > 0 && memberUploadProgress[index]?.passport < 100 && (
@@ -1000,7 +1013,7 @@ export default function PersonalDetailsPage() {
                         {member.passportUrl && <span className="text-sm text-green-600">Uploaded</span>}
                       </div>
                       {member.passportUrl && (
-                        <div className="mt-2 border rounded-lg overflow-hidden h-32">
+                        <div className="mt-2 border rounded-lg overflow-hidden h-24 sm:h-32">
                           <img
                             src={member.passportUrl || "/placeholder.svg"}
                             alt="Member Passport Preview"
@@ -1015,7 +1028,7 @@ export default function PersonalDetailsPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" disabled={isSubmitting} className="w-full">
+            <Button type="submit" disabled={isSubmitting} className="w-full py-2 h-auto">
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
