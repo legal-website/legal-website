@@ -335,7 +335,7 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
         {/* Hamburger menu button - fixed at the top left */}
         <Button
           variant="outline"
-          className="fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm md:hidden mt-20 px-3 flex items-center gap-2"
+          className="fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm md:hidden mt-20 mb-36 px-3 flex items-center gap-2"
           onClick={() => setSidebarOpen(true)}
         >
           <Menu className="h-5 w-5" />
