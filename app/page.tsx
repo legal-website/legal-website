@@ -24,11 +24,8 @@ export default function Home() {
         <LLCBenefits />
         <InfoVideoSection />
         <HowToStart />
-        {/* Use a wrapper div to control which FAQ component shows */}
-        <div>
-          <FAQs />
+                <FAQs />
           <FAQSection />
-        </div>
         <CustomerSuccess />
         <StateSelector />
         <ReadySection />
