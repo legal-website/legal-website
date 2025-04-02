@@ -53,13 +53,13 @@ export default function WhyChooseUs() {
             {/* Business Plan Card */}
             <PriceCard
               title="STARTER Plan"
-              price={199}
+              price={129}
               features={["Company Formation", "Registered Agent", "Operating Agreement", "Lifetime Support"]}
               isPopular={false}
               onPurchase={() => {
                 const item = {
                   tier: "STARTER Plan",
-                  price: 199,
+                  price: 129,
                 }
                 addItem(item)
                 toast({
