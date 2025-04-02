@@ -896,28 +896,30 @@ export default function InvoicesAdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-4 md:mb-8 overflow-x-auto">
+      <div className="mb-4 md:mb-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full max-w-md gap-1">
-            <TabsTrigger value="all" className="px-2 md:px-4 text-xs md:text-sm">
-              All
-            </TabsTrigger>
-            <TabsTrigger value="paid" className="px-2 md:px-4 text-xs md:text-sm">
-              Paid
-            </TabsTrigger>
-            <TabsTrigger value="pending" className="px-2 md:px-4 text-xs md:text-sm">
-              Pending
-            </TabsTrigger>
-            <TabsTrigger value="cancelled" className="px-2 md:px-4 text-xs md:text-sm">
-              Cancelled
-            </TabsTrigger>
-            <TabsTrigger value="template" className="px-2 md:px-4 text-xs md:text-sm">
-              Template
-            </TabsTrigger>
-            <TabsTrigger value="regular" className="px-2 md:px-4 text-xs md:text-sm">
-              Regular
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-2">
+            <TabsList className="inline-flex min-w-max w-full max-w-none sm:max-w-md gap-1">
+              <TabsTrigger value="all" className="px-2 md:px-4 text-xs md:text-sm">
+                All
+              </TabsTrigger>
+              <TabsTrigger value="paid" className="px-2 md:px-4 text-xs md:text-sm">
+                Paid
+              </TabsTrigger>
+              <TabsTrigger value="pending" className="px-2 md:px-4 text-xs md:text-sm">
+                Pending
+              </TabsTrigger>
+              <TabsTrigger value="cancelled" className="px-2 md:px-4 text-xs md:text-sm">
+                Cancelled
+              </TabsTrigger>
+              <TabsTrigger value="template" className="px-2 md:px-4 text-xs md:text-sm">
+                Template
+              </TabsTrigger>
+              <TabsTrigger value="regular" className="px-2 md:px-4 text-xs md:text-sm">
+                Regular
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <div className="mt-2 md:mt-4 text-xs md:text-sm text-gray-500">
             {activeTab === "all" && "Showing all invoices"}
