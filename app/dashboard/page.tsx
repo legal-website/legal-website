@@ -1127,7 +1127,11 @@ export default function DashboardPage() {
 
     const config = statusConfig[status]
 
-    return <span className={`text-xs px-2 py-1 ${config.bg} ${config.text} rounded-full`}>{config.label}</span>
+    return (
+      <span className={`text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded-full ${config.bg} ${config.text}`}>
+        {config.label}
+      </span>
+    )
   }
 
   // Helper function to get status icon
@@ -1161,16 +1165,18 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-8 mb-40">
+    <div className="p-4 sm:p-6 md:p-8 mb-20 sm:mb-40 overflow-x-hidden">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Hello, {userName}</h1>
-        <p className="text-gray-600 text-lg">All of us at Orizen wish you great success with {businessData.name}</p>
+      <div className="mb-4 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Hello, {userName}</h1>
+        <p className="text-gray-600 text-sm sm:text-base md:text-lg">
+          All of us at Orizen wish you great success with {businessData.name}
+        </p>
       </div>
 
       {/* Business Information Cards - 5 columns */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
-        <Card className="p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-8">
+        <Card className="p-3 sm:p-4 md:p-6">
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center">
               <Flag className="w-5 h-5 text-[#22c984] mr-2" />
@@ -1183,7 +1189,7 @@ export default function DashboardPage() {
           <p className="text-lg font-semibold">{businessData.name}</p>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-3 sm:p-4 md:p-6">
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center">
               <Building2 className="w-5 h-5 text-[#22c984] mr-2" />
@@ -1196,7 +1202,7 @@ export default function DashboardPage() {
           <p className="text-lg font-semibold">{businessData.businessId}</p>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-3 sm:p-4 md:p-6">
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center">
               <Hash className="w-5 h-5 text-[#22c984] mr-2" />
@@ -1209,7 +1215,7 @@ export default function DashboardPage() {
           <p className="text-lg font-semibold">{businessData.ein}</p>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-3 sm:p-4 md:p-6">
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center">
               <Bell className="w-5 h-5 text-[#22c984] mr-2" />
@@ -1237,7 +1243,7 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-3 sm:p-4 md:p-6">
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center">
               <Calendar className="w-5 h-5 text-[#22c984] mr-2" />
@@ -1256,7 +1262,7 @@ export default function DashboardPage() {
       </div>
 
       {/* LLC Status Card */}
-      <Card className="mb-8 p-6">
+      <Card className="mb-4 sm:mb-8 p-3 sm:p-4 md:p-6">
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center">
             <Building2 className="w-5 h-5 text-[#22c984] mr-2" />
@@ -1284,7 +1290,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Annual Report Card */}
-      <Card className="mb-8 p-6">
+      <Card className="mb-4 sm:mb-8 p-3 sm:p-4 md:p-6">
         <div className="flex justify-between items-start">
           <div>
             <div className="text-sm font-medium text-gray-600 mb-1">Annual Report Due</div>
@@ -1309,7 +1315,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Address Section - Now using the address from invoices */}
-      <Card className="mb-8 p-6">
+      <Card className="mb-4 sm:mb-8 p-3 sm:p-4 md:p-6">
         <div className="flex justify-between items-center mb-4">
           <p className="text-lg font-medium">{userAddress.address}</p>
           <Button variant="ghost" size="icon" onClick={() => copyToClipboard(userAddress.address, "Address")}>
@@ -1322,13 +1328,13 @@ export default function DashboardPage() {
       <div className="mb-8">{renderPhoneNumberButton()}</div>
 
       {/* Amendments and Deadlines Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-8">
         {/* Amendments Card */}
         <Card>
           <div className="p-6 border-b flex justify-between items-center">
             <h2 className="text-xl font-semibold">Status of My Amendments</h2>
             <Link href="/dashboard/compliance/amendments" passHref>
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                 <span>View All</span>
                 <ExternalLink className="w-4 h-4" />
               </Button>
@@ -1383,7 +1389,7 @@ export default function DashboardPage() {
           <div className="p-6 border-b flex justify-between items-center">
             <h2 className="text-xl font-semibold">Upcoming Deadlines</h2>
             <Link href="/dashboard/compliance/annual-reports" passHref>
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                 <span>View All</span>
                 <ExternalLink className="w-4 h-4" />
               </Button>
@@ -1418,7 +1424,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
                         <span
-                          className={`text-xs px-2 py-1 rounded-full ${
+                          className={`text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded-full ${
                             isUrgent ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"
                           }`}
                         >
@@ -1452,12 +1458,12 @@ export default function DashboardPage() {
       </div>
 
       {/* Documents Section - Updated to show templates */}
-      <Card className="mb-8">
-        <div className="p-6 border-b flex justify-between items-center">
+      <Card className="mb-4 sm:mb-8">
+        <div className="p-3 sm:p-6 border-b flex flex-wrap justify-between items-center">
           <h2 className="text-xl font-semibold">Docs</h2>
         </div>
-        <div className="p-6">
-          <table className="w-full">
+        <div className="p-3 sm:p-6 overflow-x-auto">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="text-left text-gray-600">
                 <th className="pb-4 font-medium">Template Name</th>
@@ -1543,23 +1549,23 @@ export default function DashboardPage() {
       </Card>
 
       {/* My Tickets Section */}
-      <Card className="mb-8">
-        <div className="p-6 border-b flex justify-between items-center">
+      <Card className="mb-4 sm:mb-8">
+        <div className="p-3 sm:p-6 border-b flex flex-wrap justify-between items-center gap-2">
           <h2 className="text-xl font-semibold">My Tickets</h2>
           <Link href="/dashboard/tickets" passHref>
-            <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <span>View All</span>
               <ExternalLink className="w-4 h-4" />
             </Button>
           </Link>
         </div>
-        <div className="p-6">
+        <div className="p-3 sm:p-6 overflow-x-auto">
           {ticketsLoading ? (
             <div className="flex justify-center items-center py-8">
               <Loader2 className="w-8 h-8 text-primary animate-spin" />
             </div>
           ) : tickets.length > 0 ? (
-            <table className="w-full">
+            <table className="w-full min-w-[700px]">
               <thead>
                 <tr className="text-left text-gray-600">
                   <th className="pb-4 font-medium">Ticket Subject</th>
@@ -1621,7 +1627,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Help Section with Coupons */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <div>
           <SpendingAnalytics />
         </div>
@@ -1629,10 +1635,10 @@ export default function DashboardPage() {
         <div className="space-y-6">
           {/* Coupons Card */}
           <Card>
-            <div className="p-6 border-b flex justify-between items-center">
+            <div className="p-3 sm:p-6 border-b flex flex-wrap justify-between items-center gap-2">
               <h2 className="text-xl font-semibold">My Top Coupon</h2>
               <Link href="/dashboard/coupons" passHref>
-                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <span>View All</span>
                   <ExternalLink className="w-4 h-4" />
                 </Button>
@@ -1718,7 +1724,7 @@ export default function DashboardPage() {
 
           {/* Need Help Card */}
           <Card>
-            <div className="p-6">
+            <div className="p-3 sm:p-6">
               <h3 className="text-2xl font-bold mb-6">Need help?</h3>
               <div className="space-y-4">
                 {/* Replace the Contact account manager button with our new dynamic button */}
