@@ -20,6 +20,7 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  MoreHorizontal,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
@@ -40,6 +41,7 @@ import { useSession } from "next-auth/react"
 import { useNotifications } from "@/components/admin/header"
 import { invoiceEvents } from "@/lib/invoice-notifications"
 import { getLastSeenInvoices, updateLastSeenInvoices } from "@/lib/invoice-tracker"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 // First, let's define a proper interface for the invoice item
 interface InvoiceItem {
@@ -796,18 +798,20 @@ export default function InvoicesAdminPage() {
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+    <div className="p-3 sm:p-4 md:p-6 max-w-[1600px] mx-auto mb-20 md:mb-40">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Invoices</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage and track all client invoices</p>
+          <h1 className="text-xl md:text-2xl font-bold">Invoices</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm md:text-base">
+            Manage and track all client invoices
+          </p>
         </div>
-        <div className="flex items-center space-x-3 mt-4 md:mt-0">
+        <div className="flex flex-wrap items-center gap-2 mt-4 md:mt-0">
           <Button
             variant="outline"
             size="sm"
-            className="flex items-center text-red-600"
+            className="flex items-center text-red-600 text-xs md:text-sm"
             onClick={() => {
               if (selectedInvoices.length > 0) {
                 confirmDeleteInvoice()
@@ -820,40 +824,42 @@ export default function InvoicesAdminPage() {
             }}
             disabled={selectedInvoices.length === 0}
           >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete Selected ({selectedInvoices.length})
+            <Trash2 className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Delete Selected</span>
+            <span className="sm:hidden">Delete</span> ({selectedInvoices.length})
           </Button>
-          <Button variant="outline" size="sm" className="flex items-center" onClick={exportInvoices}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
+          <Button variant="outline" size="sm" className="flex items-center text-xs md:text-sm" onClick={exportInvoices}>
+            <Download className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Export</span>
           </Button>
         </div>
       </div>
 
       {/* Filters and Search */}
-      <div className="flex flex-wrap items-center gap-4 mb-8">
-        <div className="relative flex-1 min-w-[240px]">
+      <div className="flex flex-wrap items-center gap-2 md:gap-4 mb-4 md:mb-8">
+        <div className="relative flex-1 min-w-[200px] w-full sm:w-auto">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="Search invoices..."
-            className="pl-10"
+            className="pl-10 text-sm h-9"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <Button variant="outline" onClick={() => setSearchQuery("")}>
-          <Filter className="mr-2 h-4 w-4" />
-          Clear Filters
+        <Button variant="outline" size="sm" onClick={() => setSearchQuery("")} className="text-xs md:text-sm">
+          <Filter className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+          <span className="hidden xs:inline">Clear Filters</span>
+          <span className="xs:hidden">Clear</span>
         </Button>
 
-        <Button variant="outline" onClick={fetchInvoices}>
-          <Clock className="mr-2 h-4 w-4" />
-          Refresh
+        <Button variant="outline" size="sm" onClick={fetchInvoices} className="text-xs md:text-sm">
+          <Clock className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+          <span className="hidden xs:inline">Refresh</span>
         </Button>
 
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500 whitespace-nowrap">Items per page:</span>
+        <div className="flex items-center gap-1 md:gap-2 ml-auto">
+          <span className="text-xs md:text-sm text-gray-500 whitespace-nowrap">Items:</span>
           <Select
             value={itemsPerPage.toString()}
             onValueChange={(value) => {
@@ -861,7 +867,7 @@ export default function InvoicesAdminPage() {
               setCurrentPage(1) // Reset to first page when changing items per page
             }}
           >
-            <SelectTrigger className="w-[80px]">
+            <SelectTrigger className="w-[60px] md:w-[80px] h-9 text-xs md:text-sm">
               <SelectValue placeholder="20" />
             </SelectTrigger>
             <SelectContent>
@@ -873,10 +879,10 @@ export default function InvoicesAdminPage() {
           </Select>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500 whitespace-nowrap">Sort by:</span>
+        <div className="flex items-center gap-1 md:gap-2">
+          <span className="text-xs md:text-sm text-gray-500 whitespace-nowrap">Sort:</span>
           <Select value={sortOrder} onValueChange={setSortOrder}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[110px] md:w-[180px] h-9 text-xs md:text-sm">
               <SelectValue placeholder="Sort order" />
             </SelectTrigger>
             <SelectContent>
@@ -890,38 +896,40 @@ export default function InvoicesAdminPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-        <TabsList className="grid grid-cols-6 w-full max-w-md gap-1">
-          <TabsTrigger value="all" className="px-4">
-            All
-          </TabsTrigger>
-          <TabsTrigger value="paid" className="px-4">
-            Paid
-          </TabsTrigger>
-          <TabsTrigger value="pending" className="px-4">
-            Pending
-          </TabsTrigger>
-          <TabsTrigger value="cancelled" className="px-4">
-            Cancelled
-          </TabsTrigger>
-          <TabsTrigger value="template" className="px-4">
-            Template
-          </TabsTrigger>
-          <TabsTrigger value="regular" className="px-4">
-            Regular
-          </TabsTrigger>
-        </TabsList>
+      <div className="mb-4 md:mb-8 overflow-x-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full max-w-md gap-1">
+            <TabsTrigger value="all" className="px-2 md:px-4 text-xs md:text-sm">
+              All
+            </TabsTrigger>
+            <TabsTrigger value="paid" className="px-2 md:px-4 text-xs md:text-sm">
+              Paid
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="px-2 md:px-4 text-xs md:text-sm">
+              Pending
+            </TabsTrigger>
+            <TabsTrigger value="cancelled" className="px-2 md:px-4 text-xs md:text-sm">
+              Cancelled
+            </TabsTrigger>
+            <TabsTrigger value="template" className="px-2 md:px-4 text-xs md:text-sm">
+              Template
+            </TabsTrigger>
+            <TabsTrigger value="regular" className="px-2 md:px-4 text-xs md:text-sm">
+              Regular
+            </TabsTrigger>
+          </TabsList>
 
-        <div className="mt-4 text-sm text-gray-500">
-          {activeTab === "all" && "Showing all invoices"}
-          {activeTab === "paid" && "Showing paid invoices only"}
-          {activeTab === "pending" && "Showing pending invoices only"}
-          {activeTab === "cancelled" && "Showing cancelled invoices only"}
-          {activeTab === "template" && "Showing template invoices only"}
-          {activeTab === "regular" && "Showing regular invoices only"}
-          {filteredInvoices.length > 0 && ` (${filteredInvoices.length} found)`}
-        </div>
-      </Tabs>
+          <div className="mt-2 md:mt-4 text-xs md:text-sm text-gray-500">
+            {activeTab === "all" && "Showing all invoices"}
+            {activeTab === "paid" && "Showing paid invoices only"}
+            {activeTab === "pending" && "Showing pending invoices only"}
+            {activeTab === "cancelled" && "Showing cancelled invoices only"}
+            {activeTab === "template" && "Showing template invoices only"}
+            {activeTab === "regular" && "Showing regular invoices only"}
+            {filteredInvoices.length > 0 && ` (${filteredInvoices.length} found)`}
+          </div>
+        </Tabs>
+      </div>
 
       {/* Invoices Table */}
       <Card className="invoices-table">
@@ -929,7 +937,7 @@ export default function InvoicesAdminPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b">
-                <th className="text-left p-4 font-medium text-sm w-10">
+                <th className="text-left p-2 md:p-4 font-medium text-xs md:text-sm w-10">
                   <input
                     type="checkbox"
                     className="rounded border-gray-300"
@@ -937,26 +945,26 @@ export default function InvoicesAdminPage() {
                     onChange={selectAllInvoices}
                   />
                 </th>
-                <th className="text-left p-4 font-medium text-sm">Invoice</th>
-                <th className="text-left p-4 font-medium text-sm">Customer</th>
-                <th className="text-left p-4 font-medium text-sm">Amount</th>
-                <th className="text-left p-4 font-medium text-sm">Date</th>
-                <th className="text-left p-4 font-medium text-sm">Status</th>
-                <th className="text-left p-4 font-medium text-sm">Receipt</th>
-                <th className="text-left p-4 font-medium text-sm">Actions</th>
+                <th className="text-left p-2 md:p-4 font-medium text-xs md:text-sm">Invoice</th>
+                <th className="text-left p-2 md:p-4 font-medium text-xs md:text-sm">Customer</th>
+                <th className="text-left p-2 md:p-4 font-medium text-xs md:text-sm">Amount</th>
+                <th className="text-left p-2 md:p-4 font-medium text-xs md:text-sm hidden sm:table-cell">Date</th>
+                <th className="text-left p-2 md:p-4 font-medium text-xs md:text-sm">Status</th>
+                <th className="text-left p-2 md:p-4 font-medium text-xs md:text-sm hidden md:table-cell">Receipt</th>
+                <th className="text-left p-2 md:p-4 font-medium text-xs md:text-sm">Actions</th>
               </tr>
             </thead>
             <tbody>
               {currentInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-4 text-center text-gray-500">
+                  <td colSpan={8} className="p-4 text-center text-gray-500 text-sm">
                     No invoices found
                   </td>
                 </tr>
               ) : (
                 currentInvoices.map((invoice) => (
                   <tr key={invoice.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="p-4">
+                    <td className="p-2 md:p-4">
                       <input
                         type="checkbox"
                         className="rounded border-gray-300"
@@ -964,43 +972,55 @@ export default function InvoicesAdminPage() {
                         onChange={() => toggleInvoiceSelection(invoice.id)}
                       />
                     </td>
-                    <td className="p-4">
+                    <td className="p-2 md:p-4">
                       <div className="flex items-center">
-                        <FileText className="h-4 w-4 mr-2 text-gray-400" />
-                        <span>{invoice.invoiceNumber}</span>
+                        <FileText className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 text-gray-400" />
+                        <span className="text-xs md:text-sm">{invoice.invoiceNumber}</span>
                         {isTemplateInvoice(invoice) && (
-                          <span className="ml-2 px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
+                          <span className="ml-1 md:ml-2 px-1 py-0.5 text-[10px] md:text-xs bg-blue-100 text-blue-800 rounded-full">
                             Template
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="p-4">
+                    <td className="p-2 md:p-4">
                       <div>
-                        <p className="font-medium">{invoice.customerName}</p>
-                        <p className="text-sm text-gray-500">{invoice.customerEmail}</p>
+                        <p className="font-medium text-xs md:text-sm truncate max-w-[120px] md:max-w-[200px]">
+                          {invoice.customerName}
+                        </p>
+                        <p className="text-[10px] md:text-xs text-gray-500 truncate max-w-[120px] md:max-w-[200px]">
+                          {invoice.customerEmail}
+                        </p>
                       </div>
                     </td>
-                    <td className="p-4 font-medium">${invoice.amount.toFixed(2)}</td>
-                    <td className="p-4 text-gray-500">{format(new Date(invoice.createdAt), "MMM d, yyyy")}</td>
-                    <td className="p-4">
+                    <td className="p-2 md:p-4 font-medium text-xs md:text-sm">${invoice.amount.toFixed(2)}</td>
+                    <td className="p-2 md:p-4 text-gray-500 text-xs md:text-sm hidden sm:table-cell">
+                      {format(new Date(invoice.createdAt), "MMM d, yyyy")}
+                    </td>
+                    <td className="p-2 md:p-4">
                       <InvoiceStatusBadge status={invoice.status} />
                     </td>
-                    <td className="p-4">
+                    <td className="p-2 md:p-4 hidden md:table-cell">
                       {invoice.paymentReceipt ? (
-                        <Button variant="ghost" size="sm" asChild>
+                        <Button variant="ghost" size="sm" asChild className="h-7 text-xs">
                           <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
                             View Receipt
                           </a>
                         </Button>
                       ) : (
-                        <span className="text-gray-500">No receipt</span>
+                        <span className="text-gray-500 text-xs md:text-sm">No receipt</span>
                       )}
                     </td>
-                    <td className="p-4">
-                      <div className="flex space-x-2">
-                        <Button variant="ghost" size="sm" onClick={() => viewInvoiceDetails(invoice)}>
-                          <Eye className="h-4 w-4 mr-2" />
+                    <td className="p-2 md:p-4">
+                      {/* Desktop actions */}
+                      <div className="hidden md:flex space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => viewInvoiceDetails(invoice)}
+                          className="h-7 text-xs"
+                        >
+                          <Eye className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                           View
                         </Button>
 
@@ -1009,22 +1029,22 @@ export default function InvoicesAdminPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-green-600 hover:text-green-700"
+                              className="text-green-600 hover:text-green-700 h-7 text-xs"
                               onClick={() => approvePayment(invoice.id)}
                               disabled={isProcessing}
                             >
-                              <CheckCircle className="h-4 w-4 mr-2" />
+                              <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                               Approve
                             </Button>
 
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-red-600 hover:text-red-700"
+                              className="text-red-600 hover:text-red-700 h-7 text-xs"
                               onClick={() => rejectPayment(invoice.id)}
                               disabled={isProcessing}
                             >
-                              <X className="h-4 w-4 mr-2" />
+                              <X className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                               Reject
                             </Button>
                           </>
@@ -1033,12 +1053,66 @@ export default function InvoicesAdminPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-red-600 hover:text-red-700"
+                          className="text-red-600 hover:text-red-700 h-7 text-xs"
                           onClick={() => confirmDeleteInvoice(invoice)}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
+                          <Trash2 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                           Delete
                         </Button>
+                      </div>
+
+                      {/* Mobile actions */}
+                      <div className="md:hidden">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-[160px]">
+                            <DropdownMenuItem onClick={() => viewInvoiceDetails(invoice)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              <span>View Details</span>
+                            </DropdownMenuItem>
+                            {invoice.status === "pending" && (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={() => approvePayment(invoice.id)}
+                                  disabled={isProcessing}
+                                  className="text-green-600"
+                                >
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  <span>Approve</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => rejectPayment(invoice.id)}
+                                  disabled={isProcessing}
+                                  className="text-red-600"
+                                >
+                                  <X className="mr-2 h-4 w-4" />
+                                  <span>Reject</span>
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {invoice.paymentReceipt && (
+                              <DropdownMenuItem asChild>
+                                <a
+                                  href={invoice.paymentReceipt}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center"
+                                >
+                                  <FileText className="mr-2 h-4 w-4" />
+                                  <span>View Receipt</span>
+                                </a>
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={() => confirmDeleteInvoice(invoice)} className="text-red-600">
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              <span>Delete</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </td>
                   </tr>
@@ -1050,23 +1124,23 @@ export default function InvoicesAdminPage() {
 
         {/* Pagination */}
         {filteredInvoices.length > itemsPerPage && (
-          <div className="flex items-center justify-between p-4 border-t">
-            <div className="text-sm text-gray-500">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 md:p-4 border-t gap-2">
+            <div className="text-xs md:text-sm text-gray-500 text-center sm:text-left">
               Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredInvoices.length)} of{" "}
               {filteredInvoices.length} invoices
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-center sm:justify-end space-x-1 md:space-x-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={prevPage}
                 disabled={currentPage === 1}
-                className="flex items-center"
+                className="flex items-center h-8 text-xs"
               >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Previous
+                <ChevronLeft className="h-3 w-3 md:h-4 md:w-4 mr-0 md:mr-1" />
+                <span className="hidden md:inline">Previous</span>
               </Button>
-              <div className="text-sm font-medium">
+              <div className="text-xs md:text-sm font-medium">
                 Page {currentPage} of {totalPages}
               </div>
               <Button
@@ -1074,10 +1148,10 @@ export default function InvoicesAdminPage() {
                 size="sm"
                 onClick={nextPage}
                 disabled={currentPage === totalPages}
-                className="flex items-center"
+                className="flex items-center h-8 text-xs"
               >
-                Next
-                <ChevronRight className="h-4 w-4 ml-1" />
+                <span className="hidden md:inline">Next</span>
+                <ChevronRight className="h-3 w-3 md:h-4 md:w-4 ml-0 md:ml-1" />
               </Button>
             </div>
           </div>
@@ -1092,53 +1166,57 @@ export default function InvoicesAdminPage() {
             setShowInvoiceDialog(open)
           }}
         >
-          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto w-[95vw]">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="flex items-center flex-wrap gap-2 text-base md:text-lg">
                 Invoice {selectedInvoice.invoiceNumber}
                 {isTemplateInvoice(selectedInvoice) && (
-                  <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">Template</span>
+                  <span className="ml-0 md:ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
+                    Template
+                  </span>
                 )}
               </DialogTitle>
             </DialogHeader>
 
-            <div className="py-4">
+            <div className="py-2 md:py-4">
               {/* Invoice Header */}
-              <div className="flex flex-col md:flex-row md:justify-between mb-8">
+              <div className="flex flex-col md:flex-row md:justify-between mb-4 md:mb-8">
                 <div>
-                  <h3 className="text-lg font-bold mb-1">Invoice</h3>
-                  <p className="text-gray-500">{selectedInvoice.invoiceNumber}</p>
-                  <div className="mt-4">
-                    <p className="font-medium">Billed To:</p>
-                    <p>{selectedInvoice.customerName}</p>
-                    <p className="text-gray-500">{selectedInvoice.customerEmail}</p>
-                    {selectedInvoice.customerPhone && <p className="text-gray-500">{selectedInvoice.customerPhone}</p>}
-                    {selectedInvoice.customerCompany && <p>{selectedInvoice.customerCompany}</p>}
+                  <h3 className="text-base md:text-lg font-bold mb-1">Invoice</h3>
+                  <p className="text-gray-500 text-sm">{selectedInvoice.invoiceNumber}</p>
+                  <div className="mt-2 md:mt-4">
+                    <p className="font-medium text-sm">Billed To:</p>
+                    <p className="text-sm">{selectedInvoice.customerName}</p>
+                    <p className="text-xs md:text-sm text-gray-500 break-words">{selectedInvoice.customerEmail}</p>
+                    {selectedInvoice.customerPhone && (
+                      <p className="text-xs md:text-sm text-gray-500">{selectedInvoice.customerPhone}</p>
+                    )}
+                    {selectedInvoice.customerCompany && <p className="text-sm">{selectedInvoice.customerCompany}</p>}
                     {selectedInvoice.customerAddress && (
-                      <p>
+                      <p className="text-xs md:text-sm">
                         {selectedInvoice.customerAddress},
                         {selectedInvoice.customerCity && ` ${selectedInvoice.customerCity},`}
                         {selectedInvoice.customerState && ` ${selectedInvoice.customerState}`}
                         {selectedInvoice.customerZip && ` ${selectedInvoice.customerZip}`}
                       </p>
                     )}
-                    {selectedInvoice.customerCountry && <p>{selectedInvoice.customerCountry}</p>}
+                    {selectedInvoice.customerCountry && <p className="text-sm">{selectedInvoice.customerCountry}</p>}
                   </div>
                 </div>
 
                 <div className="mt-4 md:mt-0 md:text-right">
-                  <div className="mb-4">
-                    <p className="text-sm text-gray-500">Status</p>
+                  <div className="mb-2 md:mb-4">
+                    <p className="text-xs md:text-sm text-gray-500">Status</p>
                     <InvoiceStatusBadge status={selectedInvoice.status} />
                   </div>
                   <div className="mb-2">
-                    <p className="text-sm text-gray-500">Invoice Date</p>
-                    <p>{format(new Date(selectedInvoice.createdAt), "MMM d, yyyy")}</p>
+                    <p className="text-xs md:text-sm text-gray-500">Invoice Date</p>
+                    <p className="text-sm">{format(new Date(selectedInvoice.createdAt), "MMM d, yyyy")}</p>
                   </div>
                   {selectedInvoice.paymentDate && (
                     <div>
-                      <p className="text-sm text-gray-500">Payment Date</p>
-                      <p>{format(new Date(selectedInvoice.paymentDate), "MMM d, yyyy")}</p>
+                      <p className="text-xs md:text-sm text-gray-500">Payment Date</p>
+                      <p className="text-sm">{format(new Date(selectedInvoice.paymentDate), "MMM d, yyyy")}</p>
                     </div>
                   )}
                 </div>
@@ -1147,12 +1225,12 @@ export default function InvoicesAdminPage() {
               {/* Template Name Display (for template invoices) */}
               {selectedInvoice && isTemplateInvoice(selectedInvoice) && (
                 <div className="mb-4">
-                  <h3 className="font-semibold text-lg mb-2">Template Information</h3>
-                  <div className="p-4 border rounded-lg">
-                    <p className="text-sm font-medium">
+                  <h3 className="font-semibold text-base md:text-lg mb-2">Template Information</h3>
+                  <div className="p-3 md:p-4 border rounded-lg">
+                    <p className="text-xs md:text-sm font-medium">
                       <span className="text-gray-600">Template Name:</span> {getTemplateName(selectedInvoice)}
                     </p>
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="text-[10px] md:text-xs text-gray-500 mt-2">
                       Note: Template access is managed separately. Approving this invoice will not automatically unlock
                       the template.
                     </p>
@@ -1161,14 +1239,14 @@ export default function InvoicesAdminPage() {
               )}
 
               {/* Invoice Items */}
-              <div className="mb-8">
-                <table className="w-full">
+              <div className="mb-4 md:mb-8 overflow-x-auto">
+                <table className="w-full min-w-[400px]">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-2 font-medium text-sm">Item</th>
-                      <th className="text-right p-2 font-medium text-sm">Price</th>
-                      <th className="text-right p-2 font-medium text-sm">Quantity</th>
-                      <th className="text-right p-2 font-medium text-sm">Total</th>
+                      <th className="text-left p-2 font-medium text-xs md:text-sm">Item</th>
+                      <th className="text-right p-2 font-medium text-xs md:text-sm">Price</th>
+                      <th className="text-right p-2 font-medium text-xs md:text-sm">Quantity</th>
+                      <th className="text-right p-2 font-medium text-xs md:text-sm">Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1177,25 +1255,29 @@ export default function InvoicesAdminPage() {
                         <tr key={index} className="border-b">
                           <td className="p-2">
                             <div>
-                              <p>{item.tier} Package</p>
-                              {item.state && <p className="text-sm text-gray-500">{item.state} State Filing Fee</p>}
+                              <p className="text-xs md:text-sm">{item.tier} Package</p>
+                              {item.state && (
+                                <p className="text-[10px] md:text-xs text-gray-500">{item.state} State Filing Fee</p>
+                              )}
                             </div>
                           </td>
                           <td className="p-2 text-right">
                             <div>
-                              <p>${item.price.toFixed(2)}</p>
-                              {item.stateFee && <p className="text-sm text-gray-500">${item.stateFee.toFixed(2)}</p>}
+                              <p className="text-xs md:text-sm">${item.price.toFixed(2)}</p>
+                              {item.stateFee && (
+                                <p className="text-[10px] md:text-xs text-gray-500">${item.stateFee.toFixed(2)}</p>
+                              )}
                             </div>
                           </td>
-                          <td className="p-2 text-right">1</td>
-                          <td className="p-2 text-right">
+                          <td className="p-2 text-right text-xs md:text-sm">1</td>
+                          <td className="p-2 text-right text-xs md:text-sm">
                             ${(item.price + (item.stateFee || 0) - (item.discount || 0)).toFixed(2)}
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="p-2 text-center text-gray-500">
+                        <td colSpan={4} className="p-2 text-center text-gray-500 text-xs md:text-sm">
                           No items found or invalid items format
                         </td>
                       </tr>
@@ -1203,10 +1285,12 @@ export default function InvoicesAdminPage() {
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colSpan={3} className="p-2 text-right font-medium">
+                      <td colSpan={3} className="p-2 text-right font-medium text-xs md:text-sm">
                         Total
                       </td>
-                      <td className="p-2 text-right font-bold">${selectedInvoice.amount.toFixed(2)}</td>
+                      <td className="p-2 text-right font-bold text-xs md:text-sm">
+                        ${selectedInvoice.amount.toFixed(2)}
+                      </td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1214,12 +1298,12 @@ export default function InvoicesAdminPage() {
 
               {/* Payment Receipt */}
               {selectedInvoice.paymentReceipt && (
-                <div className="mb-8">
-                  <h3 className="font-semibold text-lg mb-4">Payment Receipt</h3>
-                  <div className="border rounded-lg p-4">
-                    <div className="flex justify-between items-center">
-                      <p>Receipt uploaded by customer</p>
-                      <Button variant="outline" size="sm" asChild>
+                <div className="mb-4 md:mb-8">
+                  <h3 className="font-semibold text-base md:text-lg mb-2 md:mb-4">Payment Receipt</h3>
+                  <div className="border rounded-lg p-3 md:p-4">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                      <p className="text-xs md:text-sm">Receipt uploaded by customer</p>
+                      <Button variant="outline" size="sm" asChild className="text-xs w-full sm:w-auto">
                         <a href={selectedInvoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
                           View Receipt
                         </a>
@@ -1231,20 +1315,20 @@ export default function InvoicesAdminPage() {
 
               {/* Payment Actions */}
               {selectedInvoice.status === "pending" && (
-                <div className="flex space-x-3 mt-4">
+                <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3 mt-4">
                   <Button
                     onClick={() => approvePayment(selectedInvoice.id)}
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="bg-green-600 hover:bg-green-700 text-white text-xs md:text-sm w-full sm:w-auto"
                     disabled={isProcessing}
                   >
                     {isProcessing ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        <div className="w-3 h-3 md:w-4 md:h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                         Processing...
                       </>
                     ) : (
                       <>
-                        <CheckCircle className="h-4 w-4 mr-2" />
+                        <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                         Approve Payment
                       </>
                     )}
@@ -1252,18 +1336,18 @@ export default function InvoicesAdminPage() {
 
                   <Button
                     variant="outline"
-                    className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                    className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 text-xs md:text-sm w-full sm:w-auto"
                     onClick={() => rejectPayment(selectedInvoice.id)}
                     disabled={isProcessing}
                   >
                     {isProcessing ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+                        <div className="w-3 h-3 md:w-4 md:h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2"></div>
                         Processing...
                       </>
                     ) : (
                       <>
-                        <X className="h-4 w-4 mr-2" />
+                        <X className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                         Reject Payment
                       </>
                     )}
@@ -1273,28 +1357,36 @@ export default function InvoicesAdminPage() {
             </div>
 
             <DialogFooter className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => setShowInvoiceDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowInvoiceDialog(false)}
+                className="text-xs md:text-sm w-full sm:w-auto"
+              >
                 Close
               </Button>
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
+              <Button variant="outline" className="text-xs md:text-sm w-full sm:w-auto">
+                <Download className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                 Download PDF
               </Button>
-              <Button variant="outline" onClick={() => sendEmail(selectedInvoice.id)}>
-                <Mail className="h-4 w-4 mr-2" />
+              <Button
+                variant="outline"
+                onClick={() => sendEmail(selectedInvoice.id)}
+                className="text-xs md:text-sm w-full sm:w-auto"
+              >
+                <Mail className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                 Email Customer
               </Button>
               <Button
                 variant="outline"
-                className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 text-xs md:text-sm w-full sm:w-auto"
                 onClick={() => confirmDeleteInvoice(selectedInvoice)}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <Trash2 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                 Delete Invoice
               </Button>
               <Button
                 variant="outline"
-                className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
+                className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300 text-xs md:text-sm w-full sm:w-auto"
                 onClick={() => {
                   if (selectedInvoice) {
                     console.log("Invoice details:", selectedInvoice)
@@ -1318,7 +1410,7 @@ export default function InvoicesAdminPage() {
                   }
                 }}
               >
-                <AlertCircle className="h-4 w-4 mr-2" />
+                <AlertCircle className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                 Debug Info
               </Button>
             </DialogFooter>
@@ -1328,18 +1420,20 @@ export default function InvoicesAdminPage() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[90vw] sm:max-w-[425px]">
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base md:text-lg">Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs md:text-sm">
               {selectedInvoices.length === 1 && invoiceToDelete
                 ? `This will permanently delete invoice ${invoiceToDelete.invoiceNumber}.`
                 : `This will permanently delete ${selectedInvoices.length} invoices.`}
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel disabled={isDeleting} className="text-xs md:text-sm mt-0">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
@@ -1350,7 +1444,7 @@ export default function InvoicesAdminPage() {
                 }
               }}
               disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-red-600 hover:bg-red-700 text-white text-xs md:text-sm"
             >
               {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
@@ -1365,28 +1459,28 @@ function InvoiceStatusBadge({ status }: { status: string }) {
   switch (status) {
     case "paid":
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-          <CheckCircle2 className="h-3 w-3 mr-1" />
+        <span className="inline-flex items-center px-1.5 py-0.5 md:px-2.5 md:py-0.5 rounded-full text-[10px] md:text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+          <CheckCircle2 className="h-2.5 w-2.5 md:h-3 md:w-3 mr-0.5 md:mr-1" />
           Paid
         </span>
       )
     case "pending":
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-          <Clock className="h-3 w-3 mr-1" />
+        <span className="inline-flex items-center px-1.5 py-0.5 md:px-2.5 md:py-0.5 rounded-full text-[10px] md:text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+          <Clock className="h-2.5 w-2.5 md:h-3 md:w-3 mr-0.5 md:mr-1" />
           Pending
         </span>
       )
     case "cancelled":
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-          <AlertCircle className="h-3 w-3 mr-1" />
+        <span className="inline-flex items-center px-1.5 py-0.5 md:px-2.5 md:py-0.5 rounded-full text-[10px] md:text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+          <AlertCircle className="h-2.5 w-2.5 md:h-3 md:w-3 mr-0.5 md:mr-1" />
           Cancelled
         </span>
       )
     default:
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
+        <span className="inline-flex items-center px-1.5 py-0.5 md:px-2.5 md:py-0.5 rounded-full text-[10px] md:text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
           {status}
         </span>
       )

@@ -187,11 +187,11 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "paid":
-        return <Check className="h-5 w-5 text-green-500" />
+        return <Check className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
       case "cancelled":
-        return <AlertCircle className="h-5 w-5 text-red-500" />
+        return <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
       default:
-        return <Clock className="h-5 w-5 text-yellow-500" />
+        return <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
     }
   }
 
@@ -289,74 +289,92 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
 
   if (loading) {
     return (
-      <div className="p-6 text-center">
+      <div className="p-4 sm:p-6 text-center">
         <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-        <p>Loading invoice details...</p>
+        <p className="text-sm sm:text-base">Loading invoice details...</p>
       </div>
     )
   }
 
   if (!invoice) {
     return (
-      <div className="p-6 text-center">
-        <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-        <h1 className="text-2xl font-bold mb-2">Invoice Not Found</h1>
-        <p className="mb-6">The invoice you're looking for doesn't exist or has been removed.</p>
+      <div className="p-4 sm:p-6 text-center">
+        <AlertCircle className="h-12 w-12 sm:h-16 sm:w-16 text-red-500 mx-auto mb-4" />
+        <h1 className="text-xl sm:text-2xl font-bold mb-2">Invoice Not Found</h1>
+        <p className="text-sm sm:text-base mb-6">The invoice you're looking for doesn't exist or has been removed.</p>
         <Button onClick={() => router.push("/admin/invoices")}>Return to Invoices</Button>
       </div>
     )
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <div className="flex items-center">
-          <Button variant="ghost" className="mr-4" onClick={() => router.push("/admin/invoices")}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Invoices
+    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto mb-20 sm:mb-40">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <Button
+            variant="ghost"
+            className="w-full sm:w-auto justify-start text-xs sm:text-sm"
+            onClick={() => router.push("/admin/invoices")}
+          >
+            <ArrowLeft className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Back to Invoices
           </Button>
-          <h1 className="text-2xl font-bold">Invoice {invoice.invoiceNumber}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Invoice {invoice.invoiceNumber}</h1>
         </div>
-        <div className="flex items-center space-x-2 mt-4 md:mt-0">
-          <Button variant="outline" size="sm" onClick={handlePrint}>
-            <Printer className="mr-2 h-4 w-4" /> Print
+        <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
+          <Button variant="outline" size="sm" onClick={handlePrint} className="text-xs sm:text-sm flex-1 sm:flex-none">
+            <Printer className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Print
           </Button>
-          <Button variant="outline" size="sm" onClick={handleSendEmail}>
-            <Mail className="mr-2 h-4 w-4" /> Send Email
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSendEmail}
+            className="text-xs sm:text-sm flex-1 sm:flex-none"
+          >
+            <Mail className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Email
           </Button>
-          <Button variant="outline" size="sm">
-            <Download className="mr-2 h-4 w-4" /> Download
+          <Button variant="outline" size="sm" className="text-xs sm:text-sm flex-1 sm:flex-none">
+            <Download className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Download
           </Button>
-
-          {invoice.status === "pending" && (
-            <>
-              <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setApproveDialogOpen(true)}>
-                Approve Payment
-              </Button>
-              <Button
-                variant="outline"
-                className="border-red-300 text-red-700 hover:bg-red-50"
-                onClick={() => setRejectDialogOpen(true)}
-              >
-                Reject Payment
-              </Button>
-            </>
-          )}
-
-          {invoice.status !== "pending" && <Button onClick={() => setStatusDialogOpen(true)}>Update Status</Button>}
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6 mb-6">
+      {invoice.status === "pending" && (
+        <div className="flex flex-col sm:flex-row gap-2 mb-4 sm:mb-6">
+          <Button
+            className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm"
+            onClick={() => setApproveDialogOpen(true)}
+          >
+            Approve Payment
+          </Button>
+          <Button
+            variant="outline"
+            className="border-red-300 text-red-700 hover:bg-red-50 text-xs sm:text-sm"
+            onClick={() => setRejectDialogOpen(true)}
+          >
+            Reject Payment
+          </Button>
+        </div>
+      )}
+
+      {invoice.status !== "pending" && (
+        <div className="mb-4 sm:mb-6">
+          <Button onClick={() => setStatusDialogOpen(true)} className="w-full sm:w-auto text-xs sm:text-sm">
+            Update Status
+          </Button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Invoice Status</CardTitle>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg">Invoice Status</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <div className="flex items-center">
               {getStatusIcon(invoice.status)}
-              <span className="ml-2 text-lg font-medium capitalize">{invoice.status}</span>
+              <span className="ml-2 text-base sm:text-lg font-medium capitalize">{invoice.status}</span>
             </div>
-            <div className="mt-4 space-y-2 text-sm">
+            <div className="mt-3 sm:mt-4 space-y-1 sm:space-y-2 text-xs sm:text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500">Invoice Number:</span>
                 <span className="font-medium">{invoice.invoiceNumber}</span>
@@ -392,26 +410,26 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Customer Information</CardTitle>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg">Customer Information</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
+          <CardContent className="pt-0">
+            <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm">
               <p className="font-medium">{invoice.customerName}</p>
-              <p>{invoice.customerEmail}</p>
+              <p className="break-words">{invoice.customerEmail}</p>
               {invoice.customerPhone && <p>{invoice.customerPhone}</p>}
               {invoice.customerCompany && <p>{invoice.customerCompany}</p>}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Billing Address</CardTitle>
+        <Card className="sm:col-span-2 lg:col-span-1">
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg">Billing Address</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             {invoice.customerAddress ? (
-              <div className="space-y-1">
+              <div className="space-y-1 text-xs sm:text-sm">
                 <p>{invoice.customerAddress}</p>
                 <p>
                   {invoice.customerCity}
@@ -420,80 +438,88 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
                 <p>{invoice.customerCountry}</p>
               </div>
             ) : (
-              <p className="text-gray-500">No billing address provided</p>
+              <p className="text-gray-500 text-xs sm:text-sm">No billing address provided</p>
             )}
           </CardContent>
         </Card>
       </div>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Order Summary</CardTitle>
+      <Card className="mb-4 sm:mb-6">
+        <CardHeader className="pb-2 sm:pb-4">
+          <CardTitle className="text-base sm:text-lg">Order Summary</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4">Item</th>
-                  <th className="text-right py-3 px-4">Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.items.map((item, index) => (
-                  <tr key={index} className="border-b">
-                    <td className="py-3 px-4">
-                      <div className="font-medium">{item.tier} Package</div>
-                      {item.state && item.stateFee && (
-                        <div className="text-sm text-gray-600">{item.state} State Filing Fee</div>
-                      )}
-                      {item.discount && <div className="text-sm text-green-600">Discount</div>}
-                    </td>
-                    <td className="text-right py-3 px-4">
-                      <div>{formatCurrency(item.price)}</div>
-                      {item.state && item.stateFee && (
-                        <div className="text-sm text-gray-600">{formatCurrency(item.stateFee)}</div>
-                      )}
-                      {item.discount && <div className="text-sm text-green-600">-{formatCurrency(item.discount)}</div>}
+        <CardContent className="pt-0">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="inline-block min-w-full align-middle">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 sm:py-3 px-4 text-xs sm:text-sm font-medium">Item</th>
+                    <th className="text-right py-2 sm:py-3 px-4 text-xs sm:text-sm font-medium">Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoice.items.map((item, index) => (
+                    <tr key={index} className="border-b">
+                      <td className="py-2 sm:py-3 px-4">
+                        <div className="font-medium text-xs sm:text-sm">{item.tier} Package</div>
+                        {item.state && item.stateFee && (
+                          <div className="text-xs text-gray-600">{item.state} State Filing Fee</div>
+                        )}
+                        {item.discount && <div className="text-xs text-green-600">Discount</div>}
+                      </td>
+                      <td className="text-right py-2 sm:py-3 px-4">
+                        <div className="text-xs sm:text-sm">{formatCurrency(item.price)}</div>
+                        {item.state && item.stateFee && (
+                          <div className="text-xs text-gray-600">{formatCurrency(item.stateFee)}</div>
+                        )}
+                        {item.discount && (
+                          <div className="text-xs text-green-600">-{formatCurrency(item.discount)}</div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td className="py-3 sm:py-4 px-4 font-bold text-xs sm:text-sm">Total</td>
+                    <td className="text-right py-3 sm:py-4 px-4 font-bold text-xs sm:text-sm">
+                      {formatCurrency(invoice.amount)}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td className="py-4 px-4 font-bold">Total</td>
-                  <td className="text-right py-4 px-4 font-bold">{formatCurrency(invoice.amount)}</td>
-                </tr>
-              </tfoot>
-            </table>
+                </tfoot>
+              </table>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {invoice.paymentReceipt && (
         <Card>
-          <CardHeader>
-            <CardTitle>Payment Receipt</CardTitle>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg">Payment Receipt</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <div className="flex justify-center">
               {invoice.paymentReceipt.endsWith(".pdf") ? (
                 <div className="text-center">
-                  <p className="mb-2">PDF Receipt</p>
+                  <p className="mb-2 text-xs sm:text-sm">PDF Receipt</p>
                   <Button
                     variant="outline"
                     onClick={() => window.open(invoice.paymentReceipt, "_blank")}
-                    className="flex items-center"
+                    className="flex items-center text-xs sm:text-sm"
                   >
-                    <ExternalLink className="mr-2 h-4 w-4" /> View Receipt
+                    <ExternalLink className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> View Receipt
                   </Button>
                 </div>
               ) : (
-                <img
-                  src={invoice.paymentReceipt || "/placeholder.svg"}
-                  alt="Payment Receipt"
-                  className="max-w-full max-h-96 object-contain rounded-lg"
-                />
+                <div className="w-full overflow-hidden">
+                  <img
+                    src={invoice.paymentReceipt || "/placeholder.svg"}
+                    alt="Payment Receipt"
+                    className="max-w-full max-h-64 sm:max-h-96 object-contain rounded-lg mx-auto"
+                  />
+                </div>
               )}
             </div>
           </CardContent>
@@ -502,23 +528,25 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
 
       {/* Approve Payment Dialog */}
       <AlertDialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[90vw] sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Approve Payment</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base sm:text-lg">Approve Payment</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm">
               Are you sure you want to approve this payment? This will notify the customer and allow them to complete
               registration.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={processingAction}>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={processingAction} className="text-xs sm:text-sm mt-0">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
                 handleApprovePayment()
               }}
               disabled={processingAction}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-green-600 hover:bg-green-700 text-xs sm:text-sm"
             >
               {processingAction ? "Processing..." : "Approve Payment"}
             </AlertDialogAction>
@@ -528,26 +556,71 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
 
       {/* Reject Payment Dialog */}
       <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[90vw] sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Reject Payment</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base sm:text-lg">Reject Payment</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm">
               Are you sure you want to reject this payment? This will notify the customer that their payment was not
               accepted.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={processingAction}>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={processingAction} className="text-xs sm:text-sm mt-0">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
                 handleRejectPayment()
               }}
               disabled={processingAction}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 text-xs sm:text-sm"
             >
               {processingAction ? "Processing..." : "Reject Payment"}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Status Update Dialog */}
+      <AlertDialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <AlertDialogContent className="max-w-[90vw] sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base sm:text-lg">Update Invoice Status</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm">
+              Select a new status for invoice #{invoice.invoiceNumber}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-2 py-4">
+            <Button
+              variant={invoice.status === "pending" ? "default" : "outline"}
+              onClick={() => handleUpdateStatus("pending")}
+              disabled={updating || invoice.status === "pending"}
+              className="text-xs sm:text-sm"
+            >
+              <Clock className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Pending
+            </Button>
+            <Button
+              variant={invoice.status === "paid" ? "default" : "outline"}
+              onClick={() => handleUpdateStatus("paid")}
+              disabled={updating || invoice.status === "paid"}
+              className="text-xs sm:text-sm"
+            >
+              <Check className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Paid
+            </Button>
+            <Button
+              variant={invoice.status === "cancelled" ? "default" : "outline"}
+              onClick={() => handleUpdateStatus("cancelled")}
+              disabled={updating || invoice.status === "cancelled"}
+              className="text-xs sm:text-sm"
+            >
+              <AlertCircle className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Cancelled
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updating} className="text-xs sm:text-sm">
+              Cancel
+            </AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
