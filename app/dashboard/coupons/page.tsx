@@ -177,7 +177,7 @@ export default function DashboardCouponsPage() {
   }
 
   return (
-    <div className="container mx-auto py-10 px-4 max-w-6xl">
+    <div className="container mx-auto py-10 px-4 max-w-6xl mb-20 sm:mb-24 md:mb-32 lg:mb-40">
       <h1 className="text-3xl font-bold mb-2">My Coupons</h1>
       <p className="text-gray-500 dark:text-gray-400 mb-6">
         View and apply available discount coupons to your purchases
@@ -214,23 +214,23 @@ export default function DashboardCouponsPage() {
       )}
 
       {/* Top Controls */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div className="relative flex-1">
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="Search coupons..."
-            className="pl-10"
+            className="pl-10 w-full"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <div className="flex gap-2">
-          <div className="w-48">
+        <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex-1 sm:flex-initial sm:w-48">
             <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-              <SelectTrigger>
-                <SortAsc className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Sort by" />
+              <SelectTrigger className="w-full">
+                <SortAsc className="mr-2 h-4 w-4 flex-shrink-0" />
+                <SelectValue placeholder="Sort by" className="truncate" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="expiringSoon">Expiring Soon</SelectItem>
@@ -241,7 +241,13 @@ export default function DashboardCouponsPage() {
             </Select>
           </div>
 
-          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing} className="h-10 w-10">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="h-10 w-10 flex-shrink-0"
+          >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           </Button>
         </div>
@@ -249,7 +255,7 @@ export default function DashboardCouponsPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="w-full sm:w-auto">
+        <TabsList className="w-full max-w-xs mx-auto sm:w-auto">
           <TabsTrigger value="available" className="flex-1 sm:flex-initial">
             Available
           </TabsTrigger>
@@ -273,7 +279,7 @@ export default function DashboardCouponsPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {paginatedCoupons.map((coupon) => (
                   <CouponCard
                     key={coupon.id}
@@ -286,11 +292,11 @@ export default function DashboardCouponsPage() {
                 ))}
               </div>
 
-              {totalPages > 1 && (
-                <div className="mt-8">
+              <div className="mt-8 overflow-x-auto pb-2">
+                <div className="min-w-[300px]">
                   <CustomPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
                 </div>
-              )}
+              </div>
             </>
           )}
         </TabsContent>
@@ -332,18 +338,18 @@ function CouponCard({
     <Card className="overflow-hidden hover:shadow-md transition-shadow duration-300">
       <CardHeader className="bg-green-50 dark:bg-green-900/20 pb-2">
         <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-lg">{coupon.code}</CardTitle>
-            <CardDescription>{coupon.description}</CardDescription>
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-lg truncate">{coupon.code}</CardTitle>
+            <CardDescription className="line-clamp-2">{coupon.description}</CardDescription>
           </div>
-          <div className="bg-white dark:bg-gray-800 p-2 rounded-md">
+          <div className="bg-white dark:bg-gray-800 p-2 rounded-md flex-shrink-0 ml-2">
             <Tag className="h-5 w-5 text-green-600 dark:text-green-400" />
           </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4">
-        <div className="flex justify-between items-center mb-4">
-          <div>
+        <div className="flex justify-between items-center mb-4 flex-wrap gap-y-2">
+          <div className="min-w-[120px]">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Discount</p>
             <p className="text-xl font-bold">{formatCouponValue(coupon.type, coupon.value)}</p>
           </div>
@@ -363,27 +369,27 @@ function CouponCard({
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex gap-2 pt-0">
-        <Button variant="outline" className="flex-1" onClick={onCopy}>
+      <CardFooter className="flex gap-2 pt-0 flex-wrap sm:flex-nowrap">
+        <Button variant="outline" className="flex-1 min-w-[100px]" onClick={onCopy}>
           {isCopied ? (
             <>
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Copied
+              <CheckCircle2 className="mr-2 h-4 w-4 flex-shrink-0" />
+              <span className="truncate">Copied</span>
             </>
           ) : (
             <>
-              <Copy className="mr-2 h-4 w-4" />
-              Copy
+              <Copy className="mr-2 h-4 w-4 flex-shrink-0" />
+              <span className="truncate">Copy</span>
             </>
           )}
         </Button>
         <Button
-          className="flex-1 bg-green-600 hover:bg-green-700"
+          className="flex-1 min-w-[100px] bg-green-600 hover:bg-green-700"
           style={{ backgroundColor: "#22C984", borderColor: "#22C984" }}
           onClick={onApply}
           disabled={isApplied}
         >
-          {isApplied ? "Applied" : "Apply"}
+          <span className="truncate">{isApplied ? "Applied" : "Apply"}</span>
         </Button>
       </CardFooter>
     </Card>
@@ -429,9 +435,12 @@ function CustomPagination({
 
   const pageNumbers = getPageNumbers()
 
+  // For very small screens, simplify the pagination
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 400
+
   return (
     <Pagination>
-      <PaginationContent>
+      <PaginationContent className="flex-wrap justify-center">
         {currentPage > 1 && (
           <PaginationItem>
             <PaginationPrevious
@@ -440,17 +449,23 @@ function CustomPagination({
                 e.preventDefault()
                 onPageChange(currentPage - 1)
               }}
+              className={isMobile ? "px-2" : ""}
             />
           </PaginationItem>
         )}
 
         {pageNumbers.map((page, i) =>
           page === -1 ? (
-            <PaginationItem key={`ellipsis-${i}`}>
+            <PaginationItem key={`ellipsis-${i}`} className={isMobile ? "hidden sm:inline-flex" : ""}>
               <PaginationEllipsis />
             </PaginationItem>
           ) : (
-            <PaginationItem key={page}>
+            <PaginationItem
+              key={page}
+              className={
+                isMobile && page !== 1 && page !== totalPages && page !== currentPage ? "hidden sm:inline-flex" : ""
+              }
+            >
               <PaginationLink
                 href="#"
                 isActive={page === currentPage}
@@ -473,6 +488,7 @@ function CustomPagination({
                 e.preventDefault()
                 onPageChange(currentPage + 1)
               }}
+              className={isMobile ? "px-2" : ""}
             />
           </PaginationItem>
         )}
@@ -483,7 +499,7 @@ function CustomPagination({
 
 function CouponPageLoader() {
   return (
-    <div className="container mx-auto py-10 px-4 max-w-6xl">
+    <div className="container mx-auto py-10 px-4 max-w-6xl mb-20 sm:mb-24 md:mb-32 lg:mb-40">
       <div className="flex flex-col items-center justify-center py-12">
         <div className="relative">
           <div className="w-20 h-20 border-4 border-gray-200 rounded-full"></div>
@@ -494,18 +510,18 @@ function CouponPageLoader() {
           <div className="h-2 w-32 bg-gray-200 rounded animate-pulse"></div>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 w-full max-w-4xl">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 animate-pulse">
               <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-4"></div>
               <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-6"></div>
-              <div className="flex justify-between mb-4">
+              <div className="flex justify-between mb-4 flex-wrap gap-y-2">
                 <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
                 <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
               </div>
-              <div className="flex gap-2 mt-4">
-                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded flex-1"></div>
-                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded flex-1"></div>
+              <div className="flex gap-2 mt-4 flex-wrap sm:flex-nowrap">
+                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded flex-1 min-w-[100px]"></div>
+                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded flex-1 min-w-[100px]"></div>
               </div>
             </div>
           ))}
