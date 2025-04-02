@@ -31,11 +31,13 @@ export function ContactPopup() {
           <FileText className="w-5 h-5 mr-3" />
           <div className="text-left">
             <p className="font-semibold">Contact our Help Desk</p>
-            <p className="text-sm text-gray-600 font-medium">Our team is ready to assist you with any questions</p>
+            <p className="text-sm text-gray-600 font-medium whitespace-normal leading-tight">
+              Our team is ready to assist you with any questions
+            </p>
           </div>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[550px]">
+      <DialogContent className="sm:max-w-[550px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">Contact Orizen Support</DialogTitle>
         </DialogHeader>
@@ -57,7 +59,7 @@ export function ContactPopup() {
                     className="block p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                   >
                     <p className="font-medium text-sm">{email.label}</p>
-                    <p className="text-blue-600 text-sm">{email.address}</p>
+                    <p className="text-blue-600 text-sm break-all">{email.address}</p>
                   </a>
                 ))}
               </div>
@@ -107,7 +109,7 @@ export function ContactPopup() {
           </div>
         </div>
 
-        <div className="text-center text-xs text-gray-500">
+        <div className="text-center text-xs text-gray-500 mt-2">
           Our support team is available Monday to Friday, 9 AM to 5 PM EST
         </div>
       </DialogContent>
