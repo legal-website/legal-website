@@ -152,27 +152,24 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
   }
 
   const handleSendEmail = async () => {
-    if (!invoice) return
+    if (!invoice || sendingEmail) return
 
     setSendingEmail(true)
 
     try {
-      // Since the API endpoint doesn't exist, we'll simulate the email sending
-      // and provide feedback to the user
-
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // Add notification
-      addNotification(invoiceEvents.emailSent(invoice.invoiceNumber, invoice.customerEmail))
-
+      // Show loading state
       toast({
-        title: "Email Sent",
-        description: `Invoice has been sent to ${invoice.customerEmail}.`,
+        title: "Sending email",
+        description: "Please wait while we send the invoice email...",
       })
 
-      // Log for developers
-      console.log(`Email would be sent to ${invoice.customerEmail} for invoice ${invoice.invoiceNumber}`)
+      // Use window.location.href to navigate to the email endpoint
+      // This is a workaround since the API doesn't accept POST requests
+      window.location.href = `/api/admin/invoices/${invoice.id}/send-email`
+
+      // Since we're redirecting, we won't reach this point
+      // But we'll add the notification anyway for completeness
+      addNotification(invoiceEvents.emailSent(invoice.invoiceNumber, invoice.customerEmail))
     } catch (error: any) {
       console.error("Email error:", error)
       toast({
@@ -180,7 +177,6 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
         description: "Email service is currently unavailable. Please try again later.",
         variant: "destructive",
       })
-    } finally {
       setSendingEmail(false)
     }
   }
