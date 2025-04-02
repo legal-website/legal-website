@@ -7,6 +7,7 @@ import LLCBenefits from "@/components/llc-benefits"
 import InfoVideoSection from "@/components/InfoVideoSection"
 import HowToStart from "@/components/how-to-start"
 import FAQSection from "@/components/faq-section"
+import FAQs from "@/components/FAQs"
 import CustomerSuccess from "@/components/customer-success"
 import StateSelector from "@/components/state-selector"
 import ReadySection from "@/components/ready-section"
@@ -24,6 +25,7 @@ export default function Home() {
         <InfoVideoSection />
         <HowToStart />
         <FAQSection />
+        <FAQs/>
         <CustomerSuccess />
         <StateSelector />
         <ReadySection />
