@@ -10,6 +10,32 @@ export default function Hero() {
   const rating = 4.2 // Your average rating
   const reviewCount = 6 // Your total number of reviews
 
+  // Function to render stars with proper type annotation
+  const renderStars = (rating: number) => {
+    const stars = []
+    const fullStars = Math.floor(rating)
+
+    // Create full stars
+    for (let i = 0; i < fullStars; i++) {
+      stars.push(
+        <span key={`full-${i}`} className="text-[#00B67A]">
+          ★
+        </span>,
+      )
+    }
+
+    // Create empty stars
+    for (let i = fullStars; i < 5; i++) {
+      stars.push(
+        <span key={`empty-${i}`} className="text-gray-300">
+          ★
+        </span>,
+      )
+    }
+
+    return stars
+  }
+
   return (
     <ScrollAnimation>
       <div className="bg-[#FAF8F6] py-4 sm:py-6 md:py-10 px-3 sm:px-4 md:px-[5%]">
@@ -39,51 +65,25 @@ export default function Hero() {
                 </p>
               </div>
 
-              {/* Trustpilot Rating - Matching your actual site */}
+              {/* Trustpilot Rating - Text-based approach */}
               <div className="mb-4 sm:mb-6 flex items-center">
-                {/* Trustpilot Logo */}
-                <div className="mr-2">
-                  <svg width="80" height="20" viewBox="0 0 80 20" fill="none" xmlns="/trustpilot.svg">
-                    <path d="M72.8324 0H80.0004V19.9909H72.8324V0Z" fill="#00B67A" />
-                    <path d="M76.4164 14.5909L78.4644 13.6364L80.0004 17.6364L76.4164 14.5909Z" fill="#005128" />
-                    <path d="M0 0H7.168V19.9909H0V0Z" fill="#00B67A" />
-                    <path d="M3.584 14.5909L1.536 13.6364L0 17.6364L3.584 14.5909Z" fill="#005128" />
-                    <path d="M15.6 0H22.768V19.9909H15.6V0Z" fill="#00B67A" />
-                    <path d="M19.184 14.5909L17.136 13.6364L15.6 17.6364L19.184 14.5909Z" fill="#005128" />
-                    <path d="M31.2 0H38.368V19.9909H31.2V0Z" fill="#00B67A" />
-                    <path d="M34.784 14.5909L32.736 13.6364L31.2 17.6364L34.784 14.5909Z" fill="#005128" />
-                    <path d="M46.8 0H53.968V19.9909H46.8V0Z" fill="#00B67A" />
-                    <path d="M50.384 14.5909L48.336 13.6364L46.8 17.6364L50.384 14.5909Z" fill="#005128" />
-                    <path d="M62.4 0H69.568V19.9909H62.4V0Z" fill="#00B67A" />
-                    <path d="M65.984 14.5909L63.936 13.6364L62.4 17.6364L65.984 14.5909Z" fill="#005128" />
-                  </svg>
-                </div>
+                {/* Trustpilot Text */}
+                <a
+                  href="https://www.trustpilot.com/review/orizeninc.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center"
+                >
+                  <span className="font-bold text-[#00B67A] mr-2 text-sm">TRUSTPILOT</span>
 
-                {/* Rating Stars */}
-                <div className="flex items-center">
-                  <div className="flex mr-2">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <svg
-                        key={star}
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill={star <= Math.floor(rating) ? "#00B67A" : "none"}
-                        xmlns="/trustpilot.svg"
-                        className="mr-[1px]"
-                      >
-                        <path
-                          d="M8 0L10.2571 5.08631L16 5.87013L11.9428 9.79367L12.9428 15.4957L8 12.8L3.05714 15.4957L4.05714 9.79367L0 5.87013L5.74286 5.08631L8 0Z"
-                          fill={star <= Math.floor(rating) ? "#00B67A" : "#DADADA"}
-                          stroke={star <= Math.floor(rating) ? "#00B67A" : "#DADADA"}
-                        />
-                      </svg>
-                    ))}
-                  </div>
+                  {/* Star Rating */}
+                  <span className="flex items-center text-lg mr-2">{renderStars(rating)}</span>
+
+                  {/* Rating Text */}
                   <span className="text-sm font-medium text-gray-700">
                     {rating} | {reviewCount} reviews
                   </span>
-                </div>
+                </a>
               </div>
             </div>
 
@@ -105,7 +105,7 @@ export default function Hero() {
                   alt="Certified"
                   width={100}
                   height={100}
-                  className="rounded-full animate-rotate-slow w-12 h-12 sm:w-16 sm:h-16 md:w-28 md:h-28"
+                  className="rounded-full animate-rotate-slow w-12 h-12 sm:w-16 sm:h-16 md:w-24 md:h-24"
                 />
               </div>
 
