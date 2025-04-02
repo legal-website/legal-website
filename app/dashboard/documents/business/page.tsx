@@ -26,6 +26,7 @@ import {
   Archive,
 } from "lucide-react"
 import type { Document as BusinessDocument, StorageInfo } from "@/types/document"
+import React from "react"
 
 export default function BusinessDocumentsPage() {
   const { data: session, status } = useSession()
@@ -419,13 +420,13 @@ export default function BusinessDocumentsPage() {
   }
 
   return (
-    <div className="p-8 mb-40">
+    <div className="p-4 sm:p-6 md:p-8 mb-20 md:mb-40">
       <h1 className="text-3xl font-bold mb-6">My Documents</h1>
 
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
         <div className="md:col-span-2">
           <Card className="mb-6">
-            <div className="p-6 border-b">
+            <div className="p-4 sm:p-6 border-b">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <h2 className="text-xl font-semibold">Document Library</h2>
                 <div className="flex gap-2">
@@ -458,7 +459,7 @@ export default function BusinessDocumentsPage() {
               </div>
             </div>
 
-            <div className="p-6 border-b">
+            <div className="p-4 sm:p-6 border-b">
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
                   <div className="relative">
@@ -471,34 +472,38 @@ export default function BusinessDocumentsPage() {
                     />
                   </div>
                 </div>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="w-full sm:w-auto">
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {loading ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="relative w-24 h-24 mb-4">
+                <div className="flex flex-col items-center justify-center py-8 sm:py-12">
+                  <div className="relative w-16 h-16 sm:w-24 sm:h-24 mb-4">
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
                     </div>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <FileText className="h-8 w-8 text-blue-600 animate-pulse" />
+                      <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 animate-pulse" />
                     </div>
                   </div>
-                  <p className="text-lg font-medium text-gray-700">Loading your documents...</p>
-                  <p className="text-sm text-gray-500 mt-1">This may take a moment</p>
+                  <p className="text-base sm:text-lg font-medium text-gray-700 text-center">
+                    Loading your documents...
+                  </p>
+                  <p className="text-xs sm:text-sm text-gray-500 mt-1 text-center">This may take a moment</p>
                 </div>
               ) : error ? (
                 <div className="text-center py-8">
@@ -511,22 +516,27 @@ export default function BusinessDocumentsPage() {
                 <>
                   <div className="space-y-4">
                     {paginatedDocuments.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-blue-100 rounded-lg">{getFileTypeIcon(doc)}</div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-medium">{doc.name}</p>
+                      <div
+                        key={doc.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4"
+                      >
+                        <div className="flex items-start sm:items-center gap-3 w-full">
+                          <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">{getFileTypeIcon(doc)}</div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <p className="font-medium truncate max-w-full sm:max-w-xs md:max-w-sm">{doc.name}</p>
                               <span className={`text-xs px-2 py-0.5 rounded-full ${getCategoryColor(doc.category)}`}>
                                 {doc.category}
                               </span>
                             </div>
-                            {doc.description && <p className="text-sm text-gray-600 mb-1">{doc.description}</p>}
-                            <div className="flex items-center gap-3 text-sm text-gray-500">
+                            {doc.description && (
+                              <p className="text-sm text-gray-600 mb-1 line-clamp-2">{doc.description}</p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
                               <span>{doc.type.toUpperCase()}</span>
-                              <span>•</span>
+                              <span className="hidden xs:inline">•</span>
                               <span>{formatBytes(estimateFileSize(doc))}</span>
-                              <span>•</span>
+                              <span className="hidden xs:inline">•</span>
                               <span>
                                 {doc.createdAt instanceof Date
                                   ? doc.createdAt.toLocaleDateString()
@@ -535,12 +545,13 @@ export default function BusinessDocumentsPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 mt-2 sm:mt-0 w-full sm:w-auto justify-end">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleDownload(doc)}
                             disabled={downloadingId === doc.id}
+                            className="w-full sm:w-auto"
                           >
                             {downloadingId === doc.id ? (
                               <>
@@ -560,44 +571,68 @@ export default function BusinessDocumentsPage() {
                   </div>
 
                   {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-6">
-                      <p className="text-sm text-gray-500">
-                        Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-                        {Math.min(currentPage * itemsPerPage, filteredDocuments.length)} of {filteredDocuments.length}{" "}
-                        documents
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePageChange(currentPage - 1)}
-                          disabled={currentPage === 1}
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                          <Button
-                            key={page}
-                            variant={page === currentPage ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => handlePageChange(page)}
-                            className="w-8 h-8 p-0"
-                          >
-                            {page}
-                          </Button>
-                        ))}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePageChange(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-6 gap-4">
+                    <p className="text-sm text-gray-500 text-center sm:text-left">
+                      Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+                      {Math.min(currentPage * itemsPerPage, filteredDocuments.length)} of {filteredDocuments.length}{" "}
+                      documents
+                    </p>
+                    <div className="flex items-center justify-center sm:justify-end gap-2 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter((page) => {
+                          // On mobile, show fewer page numbers
+                          if (typeof window !== "undefined" && window.innerWidth < 640) {
+                            return page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1
+                          }
+                          return true
+                        })
+                        .map((page, index, array) => {
+                          // Add ellipsis
+                          if (index > 0 && page - array[index - 1] > 1) {
+                            return (
+                              <React.Fragment key={`ellipsis-${page}`}>
+                                <span className="px-2">...</span>
+                                <Button
+                                  variant={page === currentPage ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => handlePageChange(page)}
+                                  className="w-8 h-8 p-0"
+                                >
+                                  {page}
+                                </Button>
+                              </React.Fragment>
+                            )
+                          }
+                          return (
+                            <Button
+                              key={page}
+                              variant={page === currentPage ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handlePageChange(page)}
+                              className="w-8 h-8 p-0"
+                            >
+                              {page}
+                            </Button>
+                          )
+                        })}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
                     </div>
-                  )}
+                  </div>
                 </>
               ) : (
                 <div className="text-center py-8">
@@ -616,19 +651,19 @@ export default function BusinessDocumentsPage() {
 
         <div>
           <Card className="mb-6">
-            <div className="p-6 border-b">
+            <div className="p-4 sm:p-6 border-b">
               <h3 className="text-lg font-semibold">Recent Updates</h3>
             </div>
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {recentUpdates.length > 0 ? (
                 <div className="space-y-4">
                   {recentUpdates.map((update, index) => (
                     <div key={index} className="flex items-start gap-3">
-                      <div className="p-2 bg-gray-100 rounded-full">
+                      <div className="p-2 bg-gray-100 rounded-full flex-shrink-0">
                         <Clock className="h-4 w-4 text-gray-600" />
                       </div>
                       <div>
-                        <p className="text-sm">{update.text}</p>
+                        <p className="text-sm break-words">{update.text}</p>
                         <p className="text-xs text-gray-500 mt-1">{update.time}</p>
                       </div>
                     </div>
@@ -641,10 +676,10 @@ export default function BusinessDocumentsPage() {
           </Card>
 
           <Card className="mb-6">
-            <div className="p-6 border-b">
+            <div className="p-4 sm:p-6 border-b">
               <h3 className="text-lg font-semibold">Document Storage</h3>
             </div>
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <div className="mb-4">
                 <div className="flex justify-between mb-2">
                   <span className="text-sm text-gray-600">Used Storage</span>
@@ -675,13 +710,13 @@ export default function BusinessDocumentsPage() {
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-full">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="p-2 bg-blue-100 rounded-full flex-shrink-0">
                       <HardDrive className="h-4 w-4 text-blue-600" />
                     </div>
-                    <span className="text-sm font-medium">Total Documents</span>
+                    <span className="text-sm font-medium truncate">Total Documents</span>
                   </div>
-                  <span className="text-sm font-bold">{documents.length}</span>
+                  <span className="text-sm font-bold ml-2">{documents.length}</span>
                 </div>
 
                 {categories
@@ -692,13 +727,13 @@ export default function BusinessDocumentsPage() {
 
                     return (
                       <div key={category} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-full ${getCategoryColor(category)}`}>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`p-2 rounded-full ${getCategoryColor(category)} flex-shrink-0`}>
                             <Tag className="h-4 w-4" />
                           </div>
-                          <span className="text-sm font-medium">{category}</span>
+                          <span className="text-sm font-medium truncate">{category}</span>
                         </div>
-                        <span className="text-sm font-bold">{count}</span>
+                        <span className="text-sm font-bold ml-2">{count}</span>
                       </div>
                     )
                   })}
