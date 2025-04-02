@@ -99,14 +99,16 @@ export default function Hero() {
               />
 
               {/* Round Stamp with Rotation */}
-              <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-6 md:left-6 w-16 h-16 sm:w-20 sm:h-20 md:w-32 md:h-32 bg-[#00b67956] rounded-full flex items-center justify-center shadow-lg">
-                <Image
-                  src="/shape.png"
-                  alt="Certified"
-                  width={100}
-                  height={100}
-                  className="rounded-full animate-rotate-slow w-12 h-12 sm:w-16 sm:h-16 md:w-24 md:h-24"
-                />
+              <div className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-6 md:left-6 w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 bg-[#00b67956] rounded-full flex items-center justify-center shadow-lg p-2">
+                <div className="rounded-full w-[calc(100%-16px)] h-[calc(100%-16px)] flex items-center justify-center overflow-hidden">
+                  <Image
+                    src="/shape.png"
+                    alt="Certified"
+                    width={150}
+                    height={150}
+                    className="rounded-full animate-rotate-slow w-full h-full object-cover"
+                  />
+                </div>
               </div>
 
               {/* Testimonial Card */}
