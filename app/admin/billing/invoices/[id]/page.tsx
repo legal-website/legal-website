@@ -154,8 +154,15 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
     if (!invoice) return
 
     try {
+      // Show loading state
+      toast({
+        title: "Sending email",
+        description: "Please wait while we send the invoice email...",
+      })
+
+      // Use GET method instead of POST since the API doesn't accept POST
       const response = await fetch(`/api/admin/invoices/${invoice.id}/send-email`, {
-        method: "POST",
+        method: "GET", // Changed from POST to GET
       })
 
       if (!response.ok) {
