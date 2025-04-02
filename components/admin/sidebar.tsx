@@ -10,6 +10,8 @@ import { useTheme } from "@/context/theme-context"
 import { Button } from "@/components/ui/button"
 import { signOut, useSession } from "next-auth/react"
 import Image from "next/image"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { useMobile } from "@/hooks/use-mobile"
 import {
   LayoutDashboard,
   Users,
@@ -25,6 +27,9 @@ import {
   CreditCard,
   MessageCircle,
   Upload,
+  CreditCardIcon as IdCardIcon,
+  Menu,
+  X,
 } from "lucide-react"
 
 interface MenuItem {
@@ -46,6 +51,12 @@ const menuItems: MenuItem[] = [
     icon: LayoutDashboard,
     label: "Dashboard",
     href: "/admin",
+  },
+  {
+    icon: IdCardIcon,
+    label: "Personal Details Users",
+    href: "/admin/Personal-details",
+    badgeKey: "details",
   },
   {
     icon: Users,
@@ -171,9 +182,35 @@ export default function AdminSidebar() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [timestamp, setTimestamp] = useState(Date.now())
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const isMobile = useMobile()
+  const [isScrolled, setIsScrolled] = useState(false)
 
   // Replace the initial counter state with an empty object to avoid showing dummy data
   const [counters, setCounters] = useState<Record<string, number | string | null>>({})
+
+  // Add scroll detection for mobile
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 20) {
+        setIsScrolled(true)
+      } else {
+        setIsScrolled(false)
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    return () => {
+      window.removeEventListener("scroll", handleScroll)
+    }
+  }, [])
+
+  // Close sidebar when route changes on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false)
+    }
+  }, [pathname, isMobile])
 
   // Fetch user profile data including profile image
   useEffect(() => {
@@ -257,30 +294,6 @@ export default function AdminSidebar() {
       .join(" ")
   }
 
-  // Function to update a counter
-  const updateCounter = (key: string, value: number | string) => {
-    setCounters((prev) => ({
-      ...prev,
-      [key]: value,
-    }))
-  }
-
-  // Function to increment a counter
-  const incrementCounter = (key: string) => {
-    setCounters((prev) => {
-      const currentValue = prev[key]
-      if (typeof currentValue === "number") {
-        return {
-          ...prev,
-          [key]: currentValue + 1,
-        }
-      }
-      return prev
-    })
-  }
-
-  // Now let's update the sidebar component to properly use our counter system
-
   // Update the useEffect hook that listens for counter events
   useEffect(() => {
     // Load initial counters from localStorage
@@ -335,7 +348,7 @@ export default function AdminSidebar() {
     return () => {
       window.removeEventListener("admin:counter-update" as any, handleCounterUpdate as EventListener)
       window.removeEventListener("admin:counter-clear" as any, handleCounterClear as EventListener)
-      window.addEventListener("admin:counter-increment" as any, handleCounterIncrement as EventListener)
+      window.removeEventListener("admin:counter-increment" as any, handleCounterIncrement as EventListener)
     }
   }, [])
 
@@ -348,13 +361,15 @@ export default function AdminSidebar() {
     return counterValue !== null ? counterValue : item.badge
   }
 
-  // Rest of the component remains the same, but we'll update the badge rendering
-
   const toggleExpand = (label: string) => {
     setExpandedItems((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]))
   }
 
   const isActive = (href: string) => pathname === href
+
+  const isPathStartingWith = (href: string) => {
+    return pathname ? pathname.startsWith(href) : false
+  }
 
   const handleLogout = async () => {
     await signOut({
@@ -363,6 +378,244 @@ export default function AdminSidebar() {
     })
   }
 
+  // Mobile sidebar with Sheet component
+  if (isMobile) {
+    return (
+      <>
+        {/* Hamburger menu button - fixed at the top left */}
+        <Button
+          variant="outline"
+          className={`fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm md:hidden px-3 flex items-center gap-2 ${
+            isScrolled ? "mt-0" : "mt-20"
+          } transition-all duration-200`}
+          onClick={() => setSidebarOpen(true)}
+        >
+          <Menu className="h-5 w-5" />
+          <span>Admin Menu</span>
+        </Button>
+
+        {/* Off-canvas sidebar using Sheet component */}
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetContent side="left" className="p-0 w-[280px] sm:w-[320px]">
+            <div
+              className={`h-full flex flex-col ${
+                theme === "dark"
+                  ? "bg-gray-900 text-white"
+                  : theme === "comfort"
+                    ? "bg-[#f8f4e3] text-[#5c4f3a]"
+                    : "bg-white"
+              }`}
+            >
+              {/* Close button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 right-4"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <X className="h-5 w-5" />
+                <span className="sr-only">Close menu</span>
+              </Button>
+
+              {/* Logo */}
+              <div
+                className={cn(
+                  "p-6 border-b flex items-center",
+                  theme === "dark" ? "border-gray-800" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200",
+                )}
+              >
+                <div className="flex items-center">
+                  {profileImage ? (
+                    <div className="w-8 h-8 rounded-md overflow-hidden mr-2">
+                      <Image
+                        src={profileImage || "/placeholder.svg"}
+                        alt={userName || "Admin"}
+                        width={32}
+                        height={32}
+                        className="object-cover w-full h-full"
+                        unoptimized={profileImage.startsWith("data:")}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 rounded-md bg-purple-600 flex items-center justify-center text-white font-bold mr-2">
+                      {getUserInitials()}
+                    </div>
+                  )}
+                  <h1 className="text-lg font-bold">{getFormattedRole()}</h1>
+                </div>
+              </div>
+
+              {/* Navigation */}
+              <nav className="flex-1 overflow-y-auto p-4">
+                <ul className="space-y-2">
+                  {menuItems.map((item) => (
+                    <li key={item.label}>
+                      {item.subItems ? (
+                        <div>
+                          <button
+                            onClick={() => toggleExpand(item.label)}
+                            className={cn(
+                              "flex items-center w-full p-3 rounded-lg transition-colors justify-between",
+                              theme === "dark"
+                                ? "text-gray-300 hover:bg-gray-800"
+                                : theme === "comfort"
+                                  ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
+                                  : "text-gray-700 hover:bg-gray-100",
+                              (expandedItems.includes(item.label) || isPathStartingWith(item.href)) &&
+                                (theme === "dark"
+                                  ? "bg-gray-800"
+                                  : theme === "comfort"
+                                    ? "bg-[#efe9d8]"
+                                    : "bg-gray-100"),
+                            )}
+                          >
+                            <div className="flex items-center">
+                              <item.icon className="w-5 h-5 mr-3" />
+                              <span className="flex-1 text-left">{item.label}</span>
+                            </div>
+                            <>
+                              {getBadgeValue(item) !== null && (
+                                <span className="px-2 py-0.5 ml-2 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                  {getBadgeValue(item)}
+                                </span>
+                              )}
+                              <ChevronRight
+                                className={cn(
+                                  "w-4 h-4 ml-2 transition-transform",
+                                  (expandedItems.includes(item.label) || isPathStartingWith(item.href)) &&
+                                    "transform rotate-90",
+                                )}
+                              />
+                            </>
+                          </button>
+                          {(expandedItems.includes(item.label) || isPathStartingWith(item.href)) && (
+                            <ul className="mt-2 ml-6 space-y-2">
+                              {item.subItems.map((subItem) => (
+                                <li key={subItem.href}>
+                                  <Link
+                                    href={subItem.href}
+                                    className={cn(
+                                      "flex items-center justify-between p-2 rounded-lg transition-colors",
+                                      theme === "dark"
+                                        ? "text-gray-300 hover:bg-gray-800"
+                                        : theme === "comfort"
+                                          ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
+                                          : "text-gray-700 hover:bg-gray-100",
+                                      isActive(subItem.href) &&
+                                        (theme === "dark"
+                                          ? "bg-gray-800 text-purple-400"
+                                          : theme === "comfort"
+                                            ? "bg-[#efe9d8] text-purple-600"
+                                            : "bg-gray-100 text-purple-600"),
+                                    )}
+                                    onClick={() => setSidebarOpen(false)}
+                                  >
+                                    <span>{subItem.label}</span>
+                                    {getBadgeValue(subItem) !== null && (
+                                      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                        {getBadgeValue(subItem)}
+                                      </span>
+                                    )}
+                                  </Link>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ) : (
+                        <Link
+                          href={item.href}
+                          className={cn(
+                            "flex items-center p-3 rounded-lg transition-colors justify-between",
+                            theme === "dark"
+                              ? "text-gray-300 hover:bg-gray-800"
+                              : theme === "comfort"
+                                ? "text-[#5c4f3a] hover:bg-[#efe9d8]"
+                                : "text-gray-700 hover:bg-gray-100",
+                            isActive(item.href) &&
+                              (theme === "dark"
+                                ? "bg-gray-800 text-purple-400"
+                                : theme === "comfort"
+                                  ? "bg-[#efe9d8] text-purple-600"
+                                  : "bg-gray-100 text-purple-600"),
+                          )}
+                          onClick={() => setSidebarOpen(false)}
+                        >
+                          <div className="flex items-center">
+                            <item.icon className="w-5 h-5 mr-3" />
+                            <span>{item.label}</span>
+                          </div>
+                          {getBadgeValue(item) !== null && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                              {getBadgeValue(item)}
+                            </span>
+                          )}
+                        </Link>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+
+              {/* Footer */}
+              <div
+                className={cn(
+                  "p-4 border-t",
+                  theme === "dark" ? "border-gray-800" : theme === "comfort" ? "border-[#e8e4d3]" : "border-gray-200",
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="relative cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                      {profileImage ? (
+                        <div className="w-8 h-8 rounded-full overflow-hidden">
+                          <Image
+                            src={profileImage || "/placeholder.svg"}
+                            alt={userName || "User"}
+                            width={32}
+                            height={32}
+                            className="object-cover w-full h-full"
+                            unoptimized={profileImage.startsWith("data:")}
+                          />
+                          <div className="absolute -bottom-1 -right-1 rounded-full bg-white dark:bg-gray-800 p-0.5">
+                            <Upload size={10} className="text-gray-500" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                          <span className="text-purple-600 font-medium">{getUserInitials()}</span>
+                          <div className="absolute -bottom-1 -right-1 rounded-full bg-white dark:bg-gray-800 p-0.5">
+                            <Upload size={10} className="text-gray-500" />
+                          </div>
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleProfilePictureUpload}
+                        disabled={isUploading}
+                      />
+                    </div>
+                    <div className="ml-2">
+                      <p className="text-sm font-medium">{userName || "Loading..."}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{getFormattedRole()}</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" title="Logout" onClick={handleLogout}>
+                    <LogOut className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </>
+    )
+  }
+
+  // Desktop sidebar
   return (
     <div
       className={cn(
