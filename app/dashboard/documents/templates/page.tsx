@@ -819,33 +819,45 @@ export default function DocumentTemplatesPage() {
 
         {/* Template Tabs */}
         <div className="px-4 sm:px-6 pt-4 sm:pt-6">
-          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full overflow-x-auto">
-            <TabsList className="mb-4 flex flex-wrap gap-1 sm:gap-0">
-              <TabsTrigger value="all" className="flex items-center gap-2 text-xs sm:text-sm whitespace-nowrap">
-                <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                All Templates
-                <Badge variant="secondary" className="ml-1 text-xs">
+          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-0">
+              <TabsTrigger
+                value="all"
+                className="flex items-center justify-center gap-1 text-xs sm:text-sm py-1.5 h-auto"
+              >
+                <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate">All</span>
+                <Badge variant="secondary" className="ml-0.5 text-xs">
                   {allTemplatesCount}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="free" className="flex items-center gap-2 text-xs sm:text-sm whitespace-nowrap">
-                <Gift className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                Free Templates
-                <Badge variant="secondary" className="ml-1 text-xs">
+              <TabsTrigger
+                value="free"
+                className="flex items-center justify-center gap-1 text-xs sm:text-sm py-1.5 h-auto"
+              >
+                <Gift className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate">Free</span>
+                <Badge variant="secondary" className="ml-0.5 text-xs">
                   {freeTemplatesCount}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="unlocked" className="flex items-center gap-2 text-xs sm:text-sm whitespace-nowrap">
-                <Unlock className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                Unlocked Templates
-                <Badge variant="secondary" className="ml-1 text-xs">
+              <TabsTrigger
+                value="unlocked"
+                className="flex items-center justify-center gap-1 text-xs sm:text-sm py-1.5 h-auto"
+              >
+                <Unlock className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate">Unlocked</span>
+                <Badge variant="secondary" className="ml-0.5 text-xs">
                   {unlockedTemplatesCount}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="locked" className="flex items-center gap-2 text-xs sm:text-sm whitespace-nowrap">
-                <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                Locked Templates
-                <Badge variant="secondary" className="ml-1 text-xs">
+              <TabsTrigger
+                value="locked"
+                className="flex items-center justify-center gap-1 text-xs sm:text-sm py-1.5 h-auto"
+              >
+                <Lock className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate">Locked</span>
+                <Badge variant="secondary" className="ml-0.5 text-xs">
                   {lockedTemplatesCount}
                 </Badge>
               </TabsTrigger>
