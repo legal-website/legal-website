@@ -358,7 +358,7 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
         <Button
           variant="outline"
           className={`fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm md:hidden mt-20 mb-36 px-3 flex items-center gap-2 ${
-            isScrolled ? "mt-0" : "mt-20"
+            isScrolled ? "mt-12" : "mt-20"
           } transition-all duration-200`}
           onClick={() => setSidebarOpen(true)}
         >
