@@ -12,7 +12,7 @@ export async function sendEmail(formData: FormData) {
   console.log(`Name: ${name}`)
   console.log(`Email: ${email}`)
   console.log(`Subject: ${subject}`)
-  console.log(`Message: ${message.substring(0, 50)}...`) // Log first 50 characters of the message
+  console.log(`Message: ${message?.substring(0, 50)}...`) // Log first 50 characters of the message
 
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.error("EMAIL_USER or EMAIL_PASS environment variables are not set")
@@ -62,6 +62,63 @@ export async function sendEmail(formData: FormData) {
       }
     }
     return { success: false, message: "An unknown error occurred. Please try again later or contact us directly." }
+  }
+}
+
+// Function specifically for sending invoice emails
+export async function sendInvoiceEmail(invoiceId: string, customerEmail: string, invoiceNumber: string) {
+  console.log(`Sending invoice ${invoiceNumber} to ${customerEmail}`)
+
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error("EMAIL_USER or EMAIL_PASS environment variables are not set")
+    return { success: false, message: "Email configuration is missing. Please contact the administrator." }
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  })
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: customerEmail,
+    subject: `Your Invoice #${invoiceNumber}`,
+    text: `
+      Dear Customer,
+
+      Please find attached your invoice #${invoiceNumber}.
+
+      Thank you for your business.
+
+      Regards,
+      The Orizen Team
+    `,
+    html: `
+      <h3>Your Invoice #${invoiceNumber}</h3>
+      <p>Dear Customer,</p>
+      <p>Please find attached your invoice #${invoiceNumber}.</p>
+      <p>Thank you for your business.</p>
+      <p>Regards,<br>The Orizen Team</p>
+    `,
+  }
+
+  try {
+    console.log("Attempting to send invoice email...")
+    const info = await transporter.sendMail(mailOptions)
+    console.log("Invoice email sent successfully:", info.response)
+    return { success: true, message: "Invoice sent successfully!" }
+  } catch (error) {
+    console.error("Error sending invoice email:", error)
+    if (error instanceof Error) {
+      return {
+        success: false,
+        message: `Failed to send invoice: ${error.message}. Please try again later.`,
+      }
+    }
+    return { success: false, message: "An unknown error occurred. Please try again later." }
   }
 }
 

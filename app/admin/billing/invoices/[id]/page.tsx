@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useNotifications } from "@/components/admin/header"
 import { invoiceEvents } from "@/lib/invoice-notifications"
+import { sendInvoiceEmail } from "@/app/actions/send-email"
 
 interface InvoiceItem {
   id: string
@@ -157,26 +158,28 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
     setSendingEmail(true)
 
     try {
-      // Show loading state
-      toast({
-        title: "Sending email",
-        description: "Please wait while we send the invoice email...",
-      })
+      // Use the server action to send the email
+      const result = await sendInvoiceEmail(invoice.id, invoice.customerEmail, invoice.invoiceNumber)
 
-      // Use window.location.href to navigate to the email endpoint
-      // This is a workaround since the API doesn't accept POST requests
-      window.location.href = `/api/admin/invoices/${invoice.id}/send-email`
+      if (result.success) {
+        // Add notification
+        addNotification(invoiceEvents.emailSent(invoice.invoiceNumber, invoice.customerEmail))
 
-      // Since we're redirecting, we won't reach this point
-      // But we'll add the notification anyway for completeness
-      addNotification(invoiceEvents.emailSent(invoice.invoiceNumber, invoice.customerEmail))
+        toast({
+          title: "Email Sent",
+          description: `Invoice has been sent to ${invoice.customerEmail}.`,
+        })
+      } else {
+        throw new Error(result.message)
+      }
     } catch (error: any) {
       console.error("Email error:", error)
       toast({
         title: "Failed to send email",
-        description: "Email service is currently unavailable. Please try again later.",
+        description: error.message || "Something went wrong. Please try again later.",
         variant: "destructive",
       })
+    } finally {
       setSendingEmail(false)
     }
   }
