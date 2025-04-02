@@ -449,46 +449,53 @@ export default function AnnualReportsPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 mb-40">
+    <div className="p-4 md:p-6 lg:p-8 mb-20 md:mb-40 overflow-hidden">
       {backgroundRefreshing && (
         <div className="fixed top-0 left-0 right-0 h-1 z-50">
           <div className="h-full bg-primary animate-pulse"></div>
         </div>
       )}
-      <h1 className="text-3xl font-bold mb-6">Annual Reports</h1>
+      <h1 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6">Annual Reports</h1>
 
-      <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
-        <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
+        <div className="space-y-4 md:space-y-6">
           <Card className="overflow-hidden">
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="p-2 bg-white rounded-lg shadow-sm">
-                  <CalendarIcon className="h-6 w-6 text-green-600" />
+            <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 md:p-6">
+              <div className="flex items-start gap-3 md:gap-4 mb-3 md:mb-4">
+                <div className="p-2 bg-white rounded-lg shadow-sm flex-shrink-0">
+                  <CalendarIcon className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-1">Annual Report Calendar</h3>
-                  <p className="text-gray-600">Track your filing deadlines</p>
+                  <h3 className="text-lg md:text-xl font-semibold mb-0.5 md:mb-1">Annual Report Calendar</h3>
+                  <p className="text-sm md:text-base text-gray-600">Track your filing deadlines</p>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 md:p-6">
-              <CustomCalendar value={date} onChange={setDate} highlightedDates={highlightDates} className="mb-4" />
+            <div className="p-3 md:p-4 lg:p-6">
+              <div className="max-w-full overflow-x-auto pb-2">
+                <CustomCalendar value={date} onChange={setDate} highlightedDates={highlightDates} className="mb-4" />
+              </div>
 
               {selectedDateInfo && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                  <h4 className="font-medium text-blue-800 mb-2">Deadline on {formatDate(selectedDateInfo.dueDate)}</h4>
-                  <p className="text-sm text-blue-700 mb-2">{selectedDateInfo.title}</p>
+                <div className="mt-3 md:mt-4 p-3 md:p-4 bg-blue-50 rounded-lg border border-blue-100">
+                  <h4 className="font-medium text-blue-800 mb-1 md:mb-2 text-sm md:text-base">
+                    Deadline on {formatDate(selectedDateInfo.dueDate)}
+                  </h4>
+                  <p className="text-xs md:text-sm text-blue-700 mb-1 md:mb-2 break-words">{selectedDateInfo.title}</p>
                   {selectedDateInfo.description && (
-                    <p className="text-sm text-blue-600">{selectedDateInfo.description}</p>
+                    <p className="text-xs md:text-sm text-blue-600 break-words">{selectedDateInfo.description}</p>
                   )}
-                  <div className="mt-3 flex items-center justify-between">
-                    <p className="text-sm font-medium text-blue-800">Fee: ${Number(selectedDateInfo.fee).toFixed(2)}</p>
+                  <div className="mt-2 md:mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs md:text-sm font-medium text-blue-800">
+                      Fee: ${Number(selectedDateInfo.fee).toFixed(2)}
+                    </p>
                     <Button
                       size="sm"
                       variant="secondary"
                       onClick={() => handleFileNow(selectedDateInfo)}
                       disabled={selectedDateInfo.status !== "pending"}
+                      className="text-xs md:text-sm h-8 px-2 md:px-3"
                     >
                       {selectedDateInfo.status === "pending" ? "File Now" : formatStatus(selectedDateInfo.status)}
                     </Button>
@@ -498,49 +505,70 @@ export default function AnnualReportsPage() {
             </div>
           </Card>
 
-          <Card className="mt-6 p-6">
-            <h3 className="text-lg font-semibold mb-4">Upcoming Deadlines</h3>
+          <Card className="p-4 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base md:text-lg font-semibold">Upcoming Deadlines</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleManualRefresh}
+                disabled={refreshing || backgroundRefreshing}
+                className="relative h-8 w-8 md:h-9 md:w-auto md:px-3"
+              >
+                <span className="sr-only md:not-sr-only md:mr-2">Refresh</span>
+                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
             {upcomingDeadlines.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">No upcoming deadlines at this time.</div>
+              <div className="p-4 text-center text-gray-500 text-sm md:text-base">
+                No upcoming deadlines at this time.
+              </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4 max-h-[400px] overflow-y-auto pr-1">
                 {upcomingDeadlines.map((deadline: Deadline) => {
                   const daysLeft = calculateDaysLeft(deadline.dueDate)
                   const isUrgent = daysLeft <= 30
                   const isPending = deadline.status === "pending"
 
                   return (
-                    <div key={deadline.id} className="p-4 border rounded-lg hover:shadow-sm transition-shadow">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
+                    <div key={deadline.id} className="p-3 md:p-4 border rounded-lg hover:shadow-sm transition-shadow">
+                      <div className="flex flex-wrap justify-between items-start gap-2 mb-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           {isUrgent ? (
-                            <AlertCircle className="h-5 w-5 text-red-500" />
+                            <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-red-500 flex-shrink-0" />
                           ) : (
-                            <CalendarIcon className="h-5 w-5 text-[#22c984]" />
+                            <CalendarIcon className="h-4 w-4 md:h-5 md:w-5 text-[#22c984] flex-shrink-0" />
                           )}
-                          <h4 className="font-medium">{deadline.title}</h4>
+                          <h4 className="font-medium text-sm md:text-base truncate">{deadline.title}</h4>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span
-                            className={`text-xs px-2 py-1 rounded-full ${
+                            className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
                               isUrgent ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"
                             }`}
                           >
                             {daysLeft} days left
                           </span>
                           {deadline.status && deadline.status !== "pending" && (
-                            <Badge className={getStatusBadgeColor(deadline.status)}>
+                            <Badge className={`text-xs ${getStatusBadgeColor(deadline.status)}`}>
                               {formatStatus(deadline.status)}
                             </Badge>
                           )}
                         </div>
                       </div>
-                      <p className="text-sm text-gray-600 mb-1">{deadline.description}</p>
-                      <p className="text-sm text-gray-600 mb-3">
+                      <p className="text-xs md:text-sm text-gray-600 mb-1 line-clamp-2 break-words">
+                        {deadline.description}
+                      </p>
+                      <p className="text-xs md:text-sm text-gray-600 mb-2">
                         Due: {formatDate(deadline.dueDate)} | Fee: ${Number(deadline.fee).toFixed(2)}
                       </p>
-                      <div className="mt-3">
-                        <Button size="sm" onClick={() => handleFileNow(deadline)} disabled={!isPending}>
+                      <div className="mt-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleFileNow(deadline)}
+                          disabled={!isPending}
+                          className="h-8 text-xs md:text-sm"
+                        >
                           {isPending ? "File Now" : formatStatus(deadline.status)}
                         </Button>
                       </div>
@@ -552,38 +580,23 @@ export default function AnnualReportsPage() {
           </Card>
         </div>
 
-        <div>
-          <Card className="p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Filing Requirements</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleManualRefresh}
-                disabled={refreshing || backgroundRefreshing}
-                className="relative"
-              >
-                <div
-                  className={`absolute inset-0 flex items-center justify-center ${
-                    backgroundRefreshing ? "opacity-100" : "opacity-0"
-                  }`}
-                >
-                  <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                </div>
-                <div className={backgroundRefreshing ? "opacity-0" : "opacity-100"}>
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-                </div>
-              </Button>
-            </div>
-            <div className="space-y-4">
+        <div className="space-y-4 md:space-y-6">
+          <Card className="p-4 md:p-6">
+            <h3 className="text-base md:text-lg font-semibold mb-3 md:mb-4">Filing Requirements</h3>
+            <div className="space-y-3 md:space-y-4 max-h-[300px] overflow-y-auto pr-1">
               {requirements.map((requirement: FilingRequirement) => (
-                <div key={requirement.id} className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <h4 className="font-medium mb-2">{requirement.title}</h4>
-                  <p className="text-sm text-gray-600 mb-2">{requirement.description}</p>
+                <div
+                  key={requirement.id}
+                  className="p-3 md:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <h4 className="font-medium text-sm md:text-base mb-1 md:mb-2">{requirement.title}</h4>
+                  <p className="text-xs md:text-sm text-gray-600 mb-1 md:mb-2 break-words">{requirement.description}</p>
                   {requirement.details && (
-                    <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
+                    <ul className="text-xs md:text-sm text-gray-600 list-disc pl-4 md:pl-5 space-y-0.5 md:space-y-1">
                       {requirement.details.split("\n").map((detail: string, i: number) => (
-                        <li key={i}>{detail}</li>
+                        <li key={i} className="break-words">
+                          {detail}
+                        </li>
                       ))}
                     </ul>
                   )}
@@ -592,12 +605,12 @@ export default function AnnualReportsPage() {
             </div>
           </Card>
 
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Past Filings</h3>
+          <Card className="p-4 md:p-6">
+            <h3 className="text-base md:text-lg font-semibold mb-3 md:mb-4">Past Filings</h3>
             {pastFilings.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">No past filings found.</div>
+              <div className="p-4 text-center text-gray-500 text-sm md:text-base">No past filings found.</div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4 max-h-[400px] overflow-y-auto pr-1">
                 {pastFilings.map((filing: Filing) => {
                   const deadlineTitle =
                     filing.deadlineTitle || (filing.deadline ? filing.deadline.title : "Unknown Deadline")
@@ -605,32 +618,37 @@ export default function AnnualReportsPage() {
                   return (
                     <div
                       key={filing.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:shadow-sm transition-shadow"
+                      className="flex flex-wrap md:flex-nowrap items-center justify-between p-3 md:p-4 border rounded-lg hover:shadow-sm transition-shadow gap-2 md:gap-3"
                     >
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-5 w-5 text-gray-400" />
-                        <div>
-                          <p className="font-medium">{deadlineTitle}</p>
+                      <div className="flex items-center gap-2 md:gap-3 min-w-0 w-full md:w-auto">
+                        <FileText className="h-4 w-4 md:h-5 md:w-5 text-gray-400 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm md:text-base truncate">{deadlineTitle}</p>
                           <p className="text-xs text-gray-600">Filed on: {formatDate(filing.filedDate)}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 ml-auto">
                         {filing.reportUrl && (
-                          <Button variant="ghost" size="icon" asChild>
+                          <Button variant="ghost" size="icon" asChild className="h-8 w-8">
                             <a href={filing.reportUrl} target="_blank" rel="noopener noreferrer" download>
                               <Download className="h-4 w-4" />
                             </a>
                           </Button>
                         )}
-                        <Button variant="outline" size="sm" onClick={() => handleViewFiling(filing)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewFiling(filing)}
+                          className="h-8 text-xs md:text-sm whitespace-nowrap"
+                        >
                           View
                         </Button>
                         {filing.status === "completed" && (
                           <Badge
                             variant="outline"
-                            className="flex items-center gap-1 px-2.5 py-0.5 font-medium bg-green-100 text-green-800 border-green-200"
+                            className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 border-green-200 whitespace-nowrap"
                           >
-                            <CheckCircle className="h-3.5 w-3.5" />
+                            <CheckCircle className="h-3 w-3" />
                             Filed
                           </Badge>
                         )}
@@ -647,23 +665,25 @@ export default function AnnualReportsPage() {
       {/* File Now Dialog */}
       {selectedDeadline && (
         <Dialog open={showFileDialog} onOpenChange={setShowFileDialog}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] p-4 md:p-6 max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>File Annual Report</DialogTitle>
-              <DialogDescription>Submit your payment receipt for {selectedDeadline.title}</DialogDescription>
+              <DialogTitle className="text-lg md:text-xl">File Annual Report</DialogTitle>
+              <DialogDescription className="text-sm md:text-base">
+                Submit your payment receipt for {selectedDeadline.title}
+              </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-3 md:gap-4 py-3 md:py-4">
               <div>
-                <Label className="mb-2 block">Deadline Information</Label>
-                <div className="p-3 bg-gray-50 rounded-md text-sm">
-                  <p>
+                <Label className="mb-1.5 md:mb-2 block text-sm md:text-base">Deadline Information</Label>
+                <div className="p-2.5 md:p-3 bg-gray-50 rounded-md text-xs md:text-sm">
+                  <p className="mb-1">
                     <strong>Title:</strong> {selectedDeadline.title}
                   </p>
-                  <p>
+                  <p className="mb-1">
                     <strong>Due Date:</strong> {formatDate(selectedDeadline.dueDate)}
                   </p>
-                  <p>
+                  <p className="mb-1">
                     <strong>Fee:</strong> ${Number(selectedDeadline.fee).toFixed(2)}
                   </p>
                   {selectedDeadline.lateFee && Number(selectedDeadline.lateFee) > 0 && (
@@ -675,10 +695,10 @@ export default function AnnualReportsPage() {
               </div>
 
               <div>
-                <Label htmlFor="receipt" className="mb-2 block">
+                <Label htmlFor="receipt" className="mb-1.5 md:mb-2 block text-sm md:text-base">
                   Upload Payment Receipt
                 </Label>
-                <div className="border-2 border-dashed rounded-md p-6 text-center">
+                <div className="border-2 border-dashed rounded-md p-4 md:p-6 text-center">
                   <input
                     type="file"
                     id="receipt"
@@ -689,14 +709,14 @@ export default function AnnualReportsPage() {
                   />
                   <label htmlFor="receipt" className={`cursor-pointer ${submitting ? "opacity-50" : ""}`}>
                     <div className="flex flex-col items-center">
-                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                      <p className="text-sm font-medium mb-1">Click to upload</p>
+                      <Upload className="h-6 w-6 md:h-8 md:w-8 text-gray-400 mb-2" />
+                      <p className="text-xs md:text-sm font-medium mb-1">Click to upload</p>
                       <p className="text-xs text-gray-500">PNG, JPG, or PDF (max 10MB)</p>
                     </div>
                   </label>
                   {filingForm.receiptFile && (
-                    <div className="mt-4 p-2 bg-green-50 rounded text-sm text-green-700 flex items-center">
-                      <CheckCircle className="h-4 w-4 mr-2" />
+                    <div className="mt-3 md:mt-4 p-2 bg-green-50 rounded text-xs md:text-sm text-green-700 flex items-center">
+                      <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-1.5 md:mr-2" />
                       {filingForm.receiptFile.name}
                     </div>
                   )}
@@ -704,7 +724,7 @@ export default function AnnualReportsPage() {
               </div>
 
               <div>
-                <Label htmlFor="notes" className="mb-2 block">
+                <Label htmlFor="notes" className="mb-1.5 md:mb-2 block text-sm md:text-base">
                   Notes (Optional)
                 </Label>
                 <Textarea
@@ -713,18 +733,28 @@ export default function AnnualReportsPage() {
                   value={filingForm.notes}
                   onChange={(e) => setFilingForm({ ...filingForm, notes: e.target.value })}
                   disabled={submitting}
+                  className="text-xs md:text-sm min-h-[80px]"
                 />
               </div>
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowFileDialog(false)} disabled={submitting}>
+            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setShowFileDialog(false)}
+                disabled={submitting}
+                className="w-full sm:w-auto text-xs md:text-sm"
+              >
                 Cancel
               </Button>
-              <Button onClick={handleSubmitFiling} disabled={submitting || !filingForm.receiptFile}>
+              <Button
+                onClick={handleSubmitFiling}
+                disabled={submitting || !filingForm.receiptFile}
+                className="w-full sm:w-auto text-xs md:text-sm"
+              >
                 {submitting ? (
                   <>
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
+                    <div className="mr-2 h-3 w-3 md:h-4 md:w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
                     Submitting...
                   </>
                 ) : (
@@ -739,33 +769,35 @@ export default function AnnualReportsPage() {
       {/* View Filing Dialog */}
       {selectedFiling && (
         <Dialog open={showViewFilingDialog} onOpenChange={setShowViewFilingDialog}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[600px] p-4 md:p-6 max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Filing Details</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-lg md:text-xl">Filing Details</DialogTitle>
+              <DialogDescription className="text-sm md:text-base">
                 View details for{" "}
                 {selectedFiling.deadlineTitle ||
                   (selectedFiling.deadline ? selectedFiling.deadline.title : "Unknown Deadline")}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 md:gap-6 py-3 md:py-4">
+              <div className="grid grid-cols-2 gap-3 md:gap-4">
                 <div>
-                  <h3 className="text-sm font-medium mb-1">Status</h3>
-                  <Badge className={getStatusBadgeColor(selectedFiling.status)}>
+                  <h3 className="text-xs md:text-sm font-medium mb-1">Status</h3>
+                  <Badge className={`text-xs ${getStatusBadgeColor(selectedFiling.status)}`}>
                     {formatStatus(selectedFiling.status)}
                   </Badge>
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium mb-1">Filed Date</h3>
-                  <p>{selectedFiling.filedDate ? formatDate(selectedFiling.filedDate) : "Not filed yet"}</p>
+                  <h3 className="text-xs md:text-sm font-medium mb-1">Filed Date</h3>
+                  <p className="text-xs md:text-sm">
+                    {selectedFiling.filedDate ? formatDate(selectedFiling.filedDate) : "Not filed yet"}
+                  </p>
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium mb-1">Due Date</h3>
-                  <p>
+                  <h3 className="text-xs md:text-sm font-medium mb-1">Due Date</h3>
+                  <p className="text-xs md:text-sm">
                     {formatDate(
                       selectedFiling.dueDate || (selectedFiling.deadline ? selectedFiling.deadline.dueDate : null),
                     )}
@@ -773,11 +805,11 @@ export default function AnnualReportsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 {selectedFiling.receiptUrl && (
                   <div>
-                    <h3 className="text-sm font-medium mb-2">Your Payment Receipt</h3>
-                    <div className="border rounded-md p-2 h-48 flex items-center justify-center">
+                    <h3 className="text-xs md:text-sm font-medium mb-1 md:mb-2">Your Payment Receipt</h3>
+                    <div className="border rounded-md p-2 h-36 md:h-48 flex items-center justify-center">
                       <img
                         src={selectedFiling.receiptUrl || "/placeholder.svg"}
                         alt="Payment Receipt"
@@ -785,9 +817,9 @@ export default function AnnualReportsPage() {
                       />
                     </div>
                     <div className="mt-2 flex justify-end">
-                      <Button variant="outline" size="sm" asChild>
+                      <Button variant="outline" size="sm" asChild className="text-xs md:text-sm h-7 md:h-8">
                         <a href={selectedFiling.receiptUrl} target="_blank" rel="noopener noreferrer" download>
-                          <Download className="h-4 w-4 mr-2" />
+                          <Download className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                           Download Receipt
                         </a>
                       </Button>
@@ -797,14 +829,14 @@ export default function AnnualReportsPage() {
 
                 {selectedFiling.reportUrl && (
                   <div>
-                    <h3 className="text-sm font-medium mb-2">Filed Report</h3>
-                    <div className="border rounded-md p-2 h-48 flex items-center justify-center">
-                      <FileText className="h-16 w-16 text-gray-300" />
+                    <h3 className="text-xs md:text-sm font-medium mb-1 md:mb-2">Filed Report</h3>
+                    <div className="border rounded-md p-2 h-36 md:h-48 flex items-center justify-center">
+                      <FileText className="h-12 w-12 md:h-16 md:w-16 text-gray-300" />
                     </div>
                     <div className="mt-2 flex justify-end">
-                      <Button variant="outline" size="sm" asChild>
+                      <Button variant="outline" size="sm" asChild className="text-xs md:text-sm h-7 md:h-8">
                         <a href={selectedFiling.reportUrl} target="_blank" rel="noopener noreferrer" download>
-                          <Download className="h-4 w-4 mr-2" />
+                          <Download className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                           Download Report
                         </a>
                       </Button>
@@ -813,25 +845,31 @@ export default function AnnualReportsPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 {selectedFiling.userNotes && (
                   <div>
-                    <h3 className="text-sm font-medium mb-1">Your Notes</h3>
-                    <p className="text-sm p-3 bg-gray-50 rounded-md">{selectedFiling.userNotes}</p>
+                    <h3 className="text-xs md:text-sm font-medium mb-1">Your Notes</h3>
+                    <p className="text-xs md:text-sm p-2 md:p-3 bg-gray-50 rounded-md break-words">
+                      {selectedFiling.userNotes}
+                    </p>
                   </div>
                 )}
 
                 {selectedFiling.adminNotes && (
                   <div>
-                    <h3 className="text-sm font-medium mb-1">Admin Notes</h3>
-                    <p className="text-sm p-3 bg-gray-50 rounded-md">{selectedFiling.adminNotes}</p>
+                    <h3 className="text-xs md:text-sm font-medium mb-1">Admin Notes</h3>
+                    <p className="text-xs md:text-sm p-2 md:p-3 bg-gray-50 rounded-md break-words">
+                      {selectedFiling.adminNotes}
+                    </p>
                   </div>
                 )}
               </div>
             </div>
 
             <DialogFooter>
-              <Button onClick={() => setShowViewFilingDialog(false)}>Close</Button>
+              <Button onClick={() => setShowViewFilingDialog(false)} className="w-full sm:w-auto text-xs md:text-sm">
+                Close
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
