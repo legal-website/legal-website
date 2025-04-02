@@ -1,5 +1,4 @@
 import type { ReactNode } from "react"
-import DashboardSidebar from "@/components/dashboard/sidebar"
 import { CartProvider } from "@/context/cart-context"
 import { Toaster } from "@/components/ui/toaster"
 import LiveSupportWidget from "@/components/live-support-widget"
@@ -19,7 +18,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <Toaster />
               <OnlineStatusTracker />
               <div className="flex h-screen overflow-hidden">
-                <DashboardSidebar />
+                {/* Remove the fixed DashboardSidebar here */}
                 <div className="flex-1 flex flex-col overflow-hidden">
                   <DashboardNavbar />
                   <main className="flex-1 overflow-y-auto p-4">{children}</main>

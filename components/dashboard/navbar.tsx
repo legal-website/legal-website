@@ -1,12 +1,10 @@
 "use client"
 
-import { Menu } from "lucide-react"
+import { Menu, LayoutDashboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/context/theme-context"
 import { cn } from "@/lib/utils"
 import { useMobile } from "@/hooks/use-mobile"
-import Image from "next/image"
-import Link from "next/link"
 import { useSidebar } from "@/context/sidebar-context"
 
 export default function DashboardNavbar() {
@@ -26,23 +24,16 @@ export default function DashboardNavbar() {
       )}
     >
       <div className="container flex h-16 items-center px-4">
-        {isMobile && (
-          <Button variant="ghost" size="icon" className="mr-2" onClick={toggle} aria-label="Toggle sidebar">
-            <Menu className="h-5 w-5" />
-          </Button>
-        )}
+        {/* Always show hamburger menu */}
+        <Button variant="ghost" size="icon" className="mr-2" onClick={toggle} aria-label="Toggle sidebar">
+          <Menu className="h-5 w-5" />
+        </Button>
 
         <div className="flex items-center">
-          <Link href="/" className="flex items-center">
-            <Image
-              src="/placeholder.svg?height=40&width=40"
-              alt="Orizen Logo"
-              width={40}
-              height={40}
-              className="mr-2"
-            />
-            <span className="font-bold text-xl">Orizen</span>
-          </Link>
+          <div className="flex items-center">
+            <LayoutDashboard className="h-5 w-5 mr-2" />
+            <span className="font-bold text-xl">MY Dashboard</span>
+          </div>
         </div>
 
         <div className="flex-1"></div>
