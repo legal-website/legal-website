@@ -334,13 +334,12 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
       <>
         {/* Hamburger menu button - fixed at the top left */}
         <Button
-          variant="ghost"
-          size="icon"
-          className="fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm md:hidden mt-40"
+          variant="outline"
+          className="fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm md:hidden mt-20 px-3 flex items-center gap-2"
           onClick={() => setSidebarOpen(true)}
         >
           <Menu className="h-5 w-5" />
-          <span className="sr-only">Open menu</span>
+          <span>Sidebar Menu</span>
         </Button>
 
         {/* Off-canvas sidebar using Sheet component */}
