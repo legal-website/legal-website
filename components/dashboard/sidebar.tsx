@@ -336,7 +336,7 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
         <Button
           variant="ghost"
           size="icon"
-          className="fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm md:hidden"
+          className="fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm md:hidden mt-40"
           onClick={() => setSidebarOpen(true)}
         >
           <Menu className="h-5 w-5" />
