@@ -169,7 +169,7 @@ export default function Footer() {
           <div className="flex flex-col items-center">
             <div className="border-[10px] md:border-[14px] border-[#22c984] rounded-lg flex items-center justify-center overflow-hidden w-40 h-40 md:w-52 md:h-52 shadow-[0_4px_10px_rgba(0,0,0,0.15)]">
               <Image
-                src="/footerorizen.webp"
+                src="/iconfooter.webp"
                 alt="Footer Logo"
                 width={200}
                 height={200}
