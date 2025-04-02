@@ -354,9 +354,9 @@ export default function AdminPersonalDetailsPage() {
         size="icon"
         onClick={() => handlePageChange(1)}
         disabled={currentPage === 1}
-        className="h-8 w-8"
+        className="h-7 w-7 sm:h-8 sm:w-8"
       >
-        <ChevronsLeft className="h-4 w-4" />
+        <ChevronsLeft className="h-3 w-3 sm:h-4 sm:w-4" />
         <span className="sr-only">First page</span>
       </Button>,
     )
@@ -368,16 +368,16 @@ export default function AdminPersonalDetailsPage() {
         size="icon"
         onClick={() => handlePageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className="h-8 w-8"
+        className="h-7 w-7 sm:h-8 sm:w-8"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
         <span className="sr-only">Previous page</span>
       </Button>,
     )
 
-    // Page number buttons
-    const startPage = Math.max(1, currentPage - 2)
-    const endPage = Math.min(totalPages, startPage + 4)
+    // Page number buttons - show fewer on mobile
+    const startPage = Math.max(1, currentPage - (window.innerWidth < 640 ? 1 : 2))
+    const endPage = Math.min(totalPages, startPage + (window.innerWidth < 640 ? 2 : 4))
 
     for (let i = startPage; i <= endPage; i++) {
       buttons.push(
@@ -386,7 +386,7 @@ export default function AdminPersonalDetailsPage() {
           variant={currentPage === i ? "default" : "outline"}
           size="sm"
           onClick={() => handlePageChange(i)}
-          className="h-8 w-8"
+          className="h-7 w-7 sm:h-8 sm:w-8 text-xs sm:text-sm"
         >
           {i}
         </Button>,
@@ -401,9 +401,9 @@ export default function AdminPersonalDetailsPage() {
         size="icon"
         onClick={() => handlePageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="h-8 w-8"
+        className="h-7 w-7 sm:h-8 sm:w-8"
       >
-        <ChevronRight className="h-4 w-4" />
+        <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
         <span className="sr-only">Next page</span>
       </Button>,
     )
@@ -415,9 +415,9 @@ export default function AdminPersonalDetailsPage() {
         size="icon"
         onClick={() => handlePageChange(totalPages)}
         disabled={currentPage === totalPages}
-        className="h-8 w-8"
+        className="h-7 w-7 sm:h-8 sm:w-8"
       >
-        <ChevronsRight className="h-4 w-4" />
+        <ChevronsRight className="h-3 w-3 sm:h-4 sm:w-4" />
         <span className="sr-only">Last page</span>
       </Button>,
     )
@@ -426,15 +426,15 @@ export default function AdminPersonalDetailsPage() {
   }
 
   return (
-    <div className="px-[3%] py-10 mb-40">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-center">Personal Details Verification</h1>
+    <div className="px-3 sm:px-4 md:px-[3%] py-6 sm:py-8 md:py-10 mb-20 sm:mb-30 md:mb-40 overflow-x-hidden">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold">Personal Details Verification</h1>
         <Button
           variant="outline"
           size="sm"
           onClick={() => fetchPersonalDetails(currentPage)}
           disabled={isRefreshing}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 w-full sm:w-auto"
         >
           {isRefreshing ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -462,23 +462,31 @@ export default function AdminPersonalDetailsPage() {
       </div>
 
       <Tabs defaultValue="pending" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-6">
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected</TabsTrigger>
+        <TabsList className="mb-4 sm:mb-6 w-full sm:w-auto flex">
+          <TabsTrigger value="pending" className="flex-1 sm:flex-none">
+            Pending
+          </TabsTrigger>
+          <TabsTrigger value="approved" className="flex-1 sm:flex-none">
+            Approved
+          </TabsTrigger>
+          <TabsTrigger value="rejected" className="flex-1 sm:flex-none">
+            Rejected
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab} className="space-y-6">
           {isLoading ? (
-            <div className="flex flex-col justify-center items-center h-64">
-              <div className="relative w-24 h-24">
+            <div className="flex flex-col justify-center items-center h-48 sm:h-64">
+              <div className="relative w-16 sm:w-24 h-16 sm:h-24">
                 <div className="absolute inset-0 rounded-full border-t-4 border-b-4 border-primary animate-spin"></div>
                 <div className="absolute inset-2 rounded-full border-r-4 border-l-4 border-primary/30 animate-ping"></div>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Loader2 className="h-10 w-10 text-primary animate-pulse" />
+                  <Loader2 className="h-8 sm:h-10 w-8 sm:w-10 text-primary animate-pulse" />
                 </div>
               </div>
-              <p className="mt-6 text-lg font-medium text-primary animate-pulse">Loading verification data...</p>
+              <p className="mt-4 sm:mt-6 text-base sm:text-lg font-medium text-primary animate-pulse">
+                Loading verification data...
+              </p>
             </div>
           ) : personalDetails.length === 0 ? (
             <div className="text-center py-10">
@@ -490,16 +498,16 @@ export default function AdminPersonalDetailsPage() {
                 <CardTitle>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Verifications</CardTitle>
                 <CardDescription>Review and manage user personal details verification requests</CardDescription>
               </CardHeader>
-              <CardContent className="overflow-auto">
-                <div className="w-full overflow-auto">
+              <CardContent className="p-0 sm:p-6">
+                <div className="w-full overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Client Name</TableHead>
-                        <TableHead>Company</TableHead>
+                        <TableHead className="w-[120px] sm:w-auto">Client Name</TableHead>
+                        <TableHead className="hidden sm:table-cell">Company</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Submitted</TableHead>
-                        <TableHead>Redirect</TableHead>
+                        <TableHead className="hidden md:table-cell">Submitted</TableHead>
+                        <TableHead className="hidden lg:table-cell">Redirect</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -507,31 +515,36 @@ export default function AdminPersonalDetailsPage() {
                       {personalDetails.map((details) => (
                         <TableRow key={details.id}>
                           <TableCell className="font-medium">{details.clientName}</TableCell>
-                          <TableCell>{details.companyName}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{details.companyName}</TableCell>
                           <TableCell>{getStatusBadge(details.status)}</TableCell>
-                          <TableCell>{formatDate(details.createdAt)}</TableCell>
-                          <TableCell>
+                          <TableCell className="hidden md:table-cell">{formatDate(details.createdAt)}</TableCell>
+                          <TableCell className="hidden lg:table-cell">
                             <div className="flex items-center space-x-2">
                               <Switch
                                 id={`redirect-${details.id}`}
                                 checked={details.isRedirectDisabled}
                                 onCheckedChange={() => handleToggleRedirect(details.id, details.isRedirectDisabled)}
                               />
-                              <Label htmlFor={`redirect-${details.id}`}>
+                              <Label htmlFor={`redirect-${details.id}`} className="hidden xl:inline">
                                 {details.isRedirectDisabled ? "Dashboard Access ON" : "Dashboard Access OFF"}
                               </Label>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center space-x-2">
-                              <Button variant="outline" size="sm" onClick={() => handleViewDetails(details)}>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleViewDetails(details)}
+                                className="w-full sm:w-auto"
+                              >
                                 <Eye className="h-4 w-4 mr-2" />
                                 View
                               </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 w-full sm:w-auto"
                                 onClick={() => handleDeleteClick(details.id)}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
@@ -546,14 +559,14 @@ export default function AdminPersonalDetailsPage() {
                 </div>
               </CardContent>
               {totalPages > 1 && (
-                <CardFooter className="flex justify-between items-center border-t px-6 py-4">
-                  <div className="text-sm text-muted-foreground">
+                <CardFooter className="flex flex-col sm:flex-row justify-between items-center border-t px-4 py-3 sm:px-6 sm:py-4 gap-3">
+                  <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
                     Showing{" "}
                     <span className="font-medium">{Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}</span> to{" "}
                     <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{" "}
                     <span className="font-medium">{totalItems}</span> entries
                   </div>
-                  <div className="flex items-center space-x-2">{renderPaginationButtons()}</div>
+                  <div className="flex items-center space-x-1 sm:space-x-2">{renderPaginationButtons()}</div>
                 </CardFooter>
               )}
             </Card>
@@ -563,7 +576,7 @@ export default function AdminPersonalDetailsPage() {
 
       {selectedDetails && (
         <Dialog open={true} onOpenChange={(open) => !open && setSelectedDetails(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-full sm:max-w-4xl max-h-[90vh] overflow-y-auto p-3 sm:p-6">
             <DialogHeader>
               <DialogTitle>Personal Details Review</DialogTitle>
               <DialogDescription>
@@ -571,31 +584,31 @@ export default function AdminPersonalDetailsPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
                   <h3 className="font-medium mb-1">Client Name</h3>
-                  <p>{selectedDetails.clientName}</p>
+                  <p className="break-words">{selectedDetails.clientName}</p>
                 </div>
 
                 <div>
                   <h3 className="font-medium mb-1">Company Name</h3>
-                  <p>{selectedDetails.companyName}</p>
+                  <p className="break-words">{selectedDetails.companyName}</p>
                 </div>
 
                 <div>
                   <h3 className="font-medium mb-1">Current Address</h3>
-                  <p className="whitespace-pre-line">{selectedDetails.currentAddress}</p>
+                  <p className="whitespace-pre-line break-words">{selectedDetails.currentAddress}</p>
                 </div>
 
                 <div>
                   <h3 className="font-medium mb-1">Business Purpose</h3>
-                  <p className="whitespace-pre-line">{selectedDetails.businessPurpose}</p>
+                  <p className="whitespace-pre-line break-words">{selectedDetails.businessPurpose}</p>
                 </div>
 
                 <div>
                   <h3 className="font-medium mb-1">Email</h3>
-                  <p>{selectedDetails.user?.email}</p>
+                  <p className="break-words">{selectedDetails.user?.email}</p>
                 </div>
 
                 <div>
@@ -604,10 +617,10 @@ export default function AdminPersonalDetailsPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
                   <h3 className="font-medium mb-2">ID Card (Front)</h3>
-                  <div className="relative h-40 border rounded overflow-hidden">
+                  <div className="relative h-32 sm:h-40 border rounded overflow-hidden">
                     <img
                       src={selectedDetails.idCardFrontUrl || "/placeholder.svg"}
                       alt="ID Card Front"
@@ -622,7 +635,7 @@ export default function AdminPersonalDetailsPage() {
 
                 <div>
                   <h3 className="font-medium mb-2">ID Card (Back)</h3>
-                  <div className="relative h-40 border rounded overflow-hidden">
+                  <div className="relative h-32 sm:h-40 border rounded overflow-hidden">
                     <img
                       src={selectedDetails.idCardBackUrl || "/placeholder.svg"}
                       alt="ID Card Back"
@@ -637,7 +650,7 @@ export default function AdminPersonalDetailsPage() {
 
                 <div>
                   <h3 className="font-medium mb-2">Passport</h3>
-                  <div className="relative h-40 border rounded overflow-hidden">
+                  <div className="relative h-32 sm:h-40 border rounded overflow-hidden">
                     <img
                       src={selectedDetails.passportUrl || "/placeholder.svg"}
                       alt="Passport"
@@ -654,22 +667,22 @@ export default function AdminPersonalDetailsPage() {
 
             {/* Additional Members Section */}
             {selectedDetails.members && selectedDetails.members.length > 0 && (
-              <div className="mt-6 border-t pt-6">
-                <h3 className="text-xl font-semibold mb-4">Additional Members</h3>
+              <div className="mt-4 sm:mt-6 border-t pt-4 sm:pt-6">
+                <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Additional Members</h3>
 
                 <Accordion type="single" collapsible className="w-full">
                   {selectedDetails.members.map((member, index) => (
                     <AccordionItem key={member.id} value={member.id}>
-                      <AccordionTrigger className="hover:bg-gray-50 px-4 rounded-lg">
-                        <span className="text-left">
+                      <AccordionTrigger className="hover:bg-gray-50 px-3 sm:px-4 rounded-lg">
+                        <span className="text-left text-sm sm:text-base">
                           Member {index + 1}: {member.memberName}
                         </span>
                       </AccordionTrigger>
-                      <AccordionContent className="px-4 pt-2">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <AccordionContent className="px-3 sm:px-4 pt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                           <div>
-                            <h4 className="font-medium mb-2 text-sm">ID Card (Front)</h4>
-                            <div className="relative h-32 border rounded overflow-hidden">
+                            <h4 className="font-medium mb-2 text-xs sm:text-sm">ID Card (Front)</h4>
+                            <div className="relative h-24 sm:h-32 border rounded overflow-hidden">
                               <img
                                 src={member.idCardFrontUrl || "/placeholder.svg"}
                                 alt={`${member.memberName} ID Card Front`}
@@ -683,8 +696,8 @@ export default function AdminPersonalDetailsPage() {
                           </div>
 
                           <div>
-                            <h4 className="font-medium mb-2 text-sm">ID Card (Back)</h4>
-                            <div className="relative h-32 border rounded overflow-hidden">
+                            <h4 className="font-medium mb-2 text-xs sm:text-sm">ID Card (Back)</h4>
+                            <div className="relative h-24 sm:h-32 border rounded overflow-hidden">
                               <img
                                 src={member.idCardBackUrl || "/placeholder.svg"}
                                 alt={`${member.memberName} ID Card Back`}
@@ -699,8 +712,8 @@ export default function AdminPersonalDetailsPage() {
 
                           {member.passportUrl && (
                             <div>
-                              <h4 className="font-medium mb-2 text-sm">Passport</h4>
-                              <div className="relative h-32 border rounded overflow-hidden">
+                              <h4 className="font-medium mb-2 text-xs sm:text-sm">Passport</h4>
+                              <div className="relative h-24 sm:h-32 border rounded overflow-hidden">
                                 <img
                                   src={member.passportUrl || "/placeholder.svg"}
                                   alt={`${member.memberName} Passport`}
@@ -732,7 +745,7 @@ export default function AdminPersonalDetailsPage() {
               />
             </div>
 
-            <DialogFooter className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <DialogFooter className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-4 sm:mt-6">
               <div className="flex items-center space-x-2 w-full sm:w-auto">
                 <Switch
                   id="toggle-redirect"
@@ -744,10 +757,10 @@ export default function AdminPersonalDetailsPage() {
                 </Label>
               </div>
 
-              <div className="flex space-x-2 w-full sm:w-auto">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
                 <Button
                   variant="outline"
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50 w-full sm:w-auto"
                   onClick={() => handleDeleteClick(selectedDetails.id)}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -756,11 +769,11 @@ export default function AdminPersonalDetailsPage() {
 
                 {selectedDetails.status === "pending" && (
                   <>
-                    <Button variant="destructive" onClick={handleReject} className="flex-1 sm:flex-none">
+                    <Button variant="destructive" onClick={handleReject} className="w-full sm:w-auto">
                       <XCircle className="h-4 w-4 mr-2" />
                       Reject
                     </Button>
-                    <Button variant="default" onClick={handleApprove} className="flex-1 sm:flex-none">
+                    <Button variant="default" onClick={handleApprove} className="w-full sm:w-auto">
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Approve
                     </Button>
@@ -785,12 +798,12 @@ export default function AdminPersonalDetailsPage() {
       )}
 
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto p-1 sm:p-6">
+        <DialogContent className="max-w-full sm:max-w-4xl max-h-[90vh] overflow-auto p-1 sm:p-6">
           <DialogHeader className="px-4 pt-4 sm:px-0 sm:pt-0">
             <DialogTitle>Document Preview</DialogTitle>
           </DialogHeader>
           {viewingImage && (
-            <div className="relative h-[50vh] sm:h-[70vh] w-full">
+            <div className="relative h-[40vh] sm:h-[50vh] md:h-[70vh] w-full">
               <img src={viewingImage || "/placeholder.svg"} alt="Document" className="w-full h-full object-contain" />
             </div>
           )}
