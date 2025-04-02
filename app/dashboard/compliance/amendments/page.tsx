@@ -279,57 +279,63 @@ export default function AmendmentsPage() {
 
     const config = statusConfig[status]
 
-    return <span className={`text-xs px-2 py-1 ${config.bg} ${config.text} rounded-full`}>{config.label}</span>
+    return (
+      <span className={`text-xs px-2 py-1 ${config.bg} ${config.text} rounded-full whitespace-nowrap`}>
+        {config.label}
+      </span>
+    )
   }
 
   // Helper function to get status icon
   const getStatusIcon = (status: Amendment["status"]) => {
     switch (status) {
       case "pending":
-        return <Clock className="h-5 w-5 text-blue-500" />
+        return <Clock className="h-5 w-5 text-blue-500 flex-shrink-0" />
       case "in_review":
-        return <FileText className="h-5 w-5 text-purple-500" />
+        return <FileText className="h-5 w-5 text-purple-500 flex-shrink-0" />
       case "waiting_for_payment":
-        return <DollarSign className="h-5 w-5 text-yellow-500" />
+        return <DollarSign className="h-5 w-5 text-yellow-500 flex-shrink-0" />
       case "payment_confirmation_pending":
-        return <Clock className="h-5 w-5 text-blue-500" />
+        return <Clock className="h-5 w-5 text-blue-500 flex-shrink-0" />
       case "payment_received":
-        return <DollarSign className="h-5 w-5 text-indigo-500" />
+        return <DollarSign className="h-5 w-5 text-indigo-500 flex-shrink-0" />
       case "approved":
-        return <CheckCircle className="h-5 w-5 text-green-500" />
+        return <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
       case "rejected":
-        return <AlertCircle className="h-5 w-5 text-red-500" />
+        return <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
       case "amendment_in_progress":
-        return <PenTool className="h-5 w-5 text-purple-500" />
+        return <PenTool className="h-5 w-5 text-purple-500 flex-shrink-0" />
       case "amendment_resolved":
-        return <CheckCircle className="h-5 w-5 text-green-500" />
+        return <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
       case "closed":
-        return <CheckCircle className="h-5 w-5 text-gray-500" />
+        return <CheckCircle className="h-5 w-5 text-gray-500 flex-shrink-0" />
     }
   }
 
   return (
-    <div className="p-8 mb-44">
-      <h1 className="text-3xl font-bold mb-6">Amendments</h1>
+    <div className="p-4 sm:p-6 md:p-8 mb-20 sm:mb-32 md:mb-44 max-w-full overflow-hidden">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Amendments</h1>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <Card className="p-6">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <PenTool className="h-6 w-6 text-[#22c984]" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
+        <Card className="p-4 sm:p-6 overflow-hidden">
+          <div className="flex items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
+              <PenTool className="h-5 w-5 sm:h-6 sm:w-6 text-[#22c984]" />
             </div>
-            <div>
-              <h3 className="text-xl font-semibold mb-1">Submit Amendment</h3>
-              <p className="text-gray-600">Update your company information</p>
+            <div className="min-w-0">
+              <h3 className="text-lg sm:text-xl font-semibold mb-1 truncate">Submit Amendment</h3>
+              <p className="text-sm sm:text-base text-gray-600">Update your company information</p>
             </div>
           </div>
 
-          <form onSubmit={handleAmendmentSubmit} className="space-y-4">
+          <form onSubmit={handleAmendmentSubmit} className="space-y-3 sm:space-y-4">
             <div>
-              <Label htmlFor="amendment-type">Amendment Type</Label>
+              <Label htmlFor="amendment-type" className="text-sm sm:text-base">
+                Amendment Type
+              </Label>
               <select
                 id="amendment-type"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="flex h-9 sm:h-10 w-full rounded-md border border-input bg-background px-3 py-1 sm:py-2 text-sm sm:text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 value={amendmentType}
                 onChange={(e) => setAmendmentType(e.target.value)}
               >
@@ -342,42 +348,56 @@ export default function AmendmentsPage() {
               </select>
             </div>
             <div>
-              <Label htmlFor="amendment-text">Amendment Details</Label>
+              <Label htmlFor="amendment-text" className="text-sm sm:text-base">
+                Amendment Details
+              </Label>
               <Textarea
                 id="amendment-text"
                 placeholder="Describe your amendment..."
                 value={amendmentText}
                 onChange={(e) => setAmendmentText(e.target.value)}
-                rows={5}
+                rows={4}
+                className="text-sm sm:text-base resize-none"
               />
             </div>
             <div>
-              <Label htmlFor="amendment-file">Supporting Documents (Optional)</Label>
-              <Input id="amendment-file" type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              <Label htmlFor="amendment-file" className="text-sm sm:text-base">
+                Supporting Documents (Optional)
+              </Label>
+              <Input
+                id="amendment-file"
+                type="file"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="text-sm sm:text-base"
+              />
             </div>
-            <Button type="submit" className="w-full bg-[#22c984] hover:bg-[#1a8055]" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full bg-[#22c984] hover:bg-[#1a8055] text-sm sm:text-base h-9 sm:h-10"
+              disabled={loading}
+            >
               {loading ? "Submitting..." : "Submit Amendment"}
             </Button>
           </form>
         </Card>
 
-        <div>
+        <div className="space-y-4 sm:space-y-6">
           {/* Status of My Amendments - Only show if there are amendments */}
           {myAmendments.length > 0 && (
-            <Card className="p-6 mb-6">
+            <Card className="p-4 sm:p-6 overflow-hidden">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Status of My Amendments</h3>
+                <h3 className="text-base sm:text-lg font-semibold truncate">Status of My Amendments</h3>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={fetchMyAmendments}
                   disabled={loading}
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 text-xs sm:text-sm h-8 px-2 sm:px-3"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
+                    width="14"
+                    height="14"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -391,47 +411,52 @@ export default function AmendmentsPage() {
                     <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
                     <path d="M16 21h5v-5"></path>
                   </svg>
-                  Refresh
+                  <span className="hidden sm:inline">Refresh</span>
                 </Button>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4 max-h-[60vh] overflow-y-auto pr-1">
                 {myAmendments.map((amendment) => (
-                  <div key={amendment.id} className="border rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
+                  <div key={amendment.id} className="border rounded-lg p-3 sm:p-4 overflow-hidden">
+                    <div className="flex items-start justify-between mb-2 sm:mb-3 flex-wrap gap-2">
+                      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                         {getStatusIcon(amendment.status)}
-                        <div>
-                          <p className="font-medium">{amendment.type}</p>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm sm:text-base truncate">{amendment.type}</p>
                           <p className="text-xs text-gray-600">
                             Submitted: {new Date(amendment.createdAt).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
-                      {getStatusBadge(amendment.status)}
+                      <div className="flex-shrink-0">{getStatusBadge(amendment.status)}</div>
                     </div>
 
-                    <p className="text-sm text-gray-700 mb-3">{amendment.details}</p>
+                    <p className="text-xs sm:text-sm text-gray-700 mb-2 sm:mb-3 break-words line-clamp-3">
+                      {amendment.details}
+                    </p>
 
                     {/* Payment section - only show for amendments waiting for payment */}
                     {amendment.status === "waiting_for_payment" && amendment.paymentAmount && (
-                      <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
-                        <div className="flex justify-between items-center mb-2">
-                          <p className="text-sm font-medium">Payment Required:</p>
-                          <p className="font-bold">{formatCurrency(amendment.paymentAmount)}</p>
+                      <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-yellow-50 rounded-lg">
+                        <div className="flex justify-between items-center mb-2 flex-wrap gap-1">
+                          <p className="text-xs sm:text-sm font-medium">Payment Required:</p>
+                          <p className="font-bold text-sm sm:text-base">{formatCurrency(amendment.paymentAmount)}</p>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor={`receipt-${amendment.id}`}>Upload Payment Receipt</Label>
+                          <Label htmlFor={`receipt-${amendment.id}`} className="text-xs sm:text-sm">
+                            Upload Payment Receipt
+                          </Label>
                           <Input
                             id={`receipt-${amendment.id}`}
                             type="file"
                             onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                            className="text-xs sm:text-sm h-8 sm:h-9"
                           />
                           <Button
                             onClick={() => handleUploadReceipt(amendment.id)}
-                            className="w-full bg-[#22c984] hover:bg-[#1a8055]"
+                            className="w-full bg-[#22c984] hover:bg-[#1a8055] text-xs sm:text-sm h-8 sm:h-9"
                             disabled={!receiptFile || loading}
                           >
-                            <Upload className="w-4 h-4 mr-2" />
+                            <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                             {loading ? "Uploading..." : "Upload Receipt"}
                           </Button>
                         </div>
@@ -440,30 +465,30 @@ export default function AmendmentsPage() {
 
                     {/* Payment verification pending section */}
                     {amendment.status === "payment_confirmation_pending" && (
-                      <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-blue-500" />
-                          <p className="text-sm text-blue-800">Your payment receipt is being verified</p>
+                      <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-blue-50 rounded-lg">
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500 flex-shrink-0" />
+                          <p className="text-xs sm:text-sm text-blue-800">Your payment receipt is being verified</p>
                         </div>
                       </div>
                     )}
 
                     {/* Amendment in progress section */}
                     {amendment.status === "amendment_in_progress" && (
-                      <div className="mt-3 p-3 bg-purple-50 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <PenTool className="h-4 w-4 text-purple-500" />
-                          <p className="text-sm text-purple-800">Your amendment is being processed</p>
+                      <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-purple-50 rounded-lg">
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <PenTool className="h-3 w-3 sm:h-4 sm:w-4 text-purple-500 flex-shrink-0" />
+                          <p className="text-xs sm:text-sm text-purple-800">Your amendment is being processed</p>
                         </div>
                       </div>
                     )}
 
                     {/* Amendment resolved section */}
                     {amendment.status === "amendment_resolved" && (
-                      <div className="mt-3 p-3 bg-green-50 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-500" />
-                          <p className="text-sm text-green-800">Your amendment has been completed</p>
+                      <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-green-50 rounded-lg">
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-500 flex-shrink-0" />
+                          <p className="text-xs sm:text-sm text-green-800">Your amendment has been completed</p>
                         </div>
                       </div>
                     )}
@@ -473,7 +498,7 @@ export default function AmendmentsPage() {
                       <Button
                         onClick={() => handleCloseAmendment(amendment.id)}
                         variant="outline"
-                        className="w-full mt-3"
+                        className="w-full mt-2 sm:mt-3 text-xs sm:text-sm h-8 sm:h-9"
                         disabled={loading}
                       >
                         {loading ? "Processing..." : "Close Amendment"}
@@ -482,9 +507,9 @@ export default function AmendmentsPage() {
 
                     {/* Notes section - show if there are notes */}
                     {amendment.notes && (
-                      <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                        <p className="text-sm font-medium">Notes:</p>
-                        <p className="text-sm text-gray-700">{amendment.notes}</p>
+                      <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-gray-50 rounded-lg">
+                        <p className="text-xs sm:text-sm font-medium">Notes:</p>
+                        <p className="text-xs sm:text-sm text-gray-700 break-words">{amendment.notes}</p>
                       </div>
                     )}
                   </div>
@@ -494,33 +519,33 @@ export default function AmendmentsPage() {
           )}
 
           {/* Recent Closed Amendments */}
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6 overflow-hidden">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Recent Closed Amendments</h3>
+              <h3 className="text-base sm:text-lg font-semibold truncate">Recent Closed Amendments</h3>
             </div>
 
             {closedAmendments.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4 max-h-[40vh] overflow-y-auto pr-1">
                 {closedAmendments.slice(0, 4).map((amendment) => (
-                  <div key={`recent-${amendment.id}`} className="border rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-3">
+                  <div key={`recent-${amendment.id}`} className="border rounded-lg p-3 sm:p-4 overflow-hidden">
+                    <div className="flex items-start justify-between mb-2 flex-wrap gap-2">
+                      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                         {getStatusIcon(amendment.status)}
-                        <div>
-                          <p className="font-medium">{amendment.type}</p>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{amendment.type}</p>
                           <p className="text-xs text-gray-600">
                             Closed: {new Date(amendment.updatedAt).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
-                      {getStatusBadge(amendment.status)}
+                      <div className="flex-shrink-0">{getStatusBadge(amendment.status)}</div>
                     </div>
-                    <p className="text-sm text-gray-700 truncate">{amendment.details}</p>
+                    <p className="text-xs sm:text-sm text-gray-700 truncate">{amendment.details}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-6 text-gray-500">No closed amendments found</div>
+              <div className="text-center py-6 text-gray-500 text-sm sm:text-base">No closed amendments found</div>
             )}
           </Card>
         </div>
