@@ -84,7 +84,7 @@ export async function sendInvoiceEmail(invoiceId: string, customerEmail: string,
     })
 
     if (!invoiceResponse.ok) {
-      throw new Error("Failed to fetch invoice details")
+      throw new Error("Failed to fetch invoice data")
     }
 
     const invoiceData = await invoiceResponse.json()
@@ -95,31 +95,23 @@ export async function sendInvoiceEmail(invoiceId: string, customerEmail: string,
     try {
       items = typeof invoice.items === "string" ? JSON.parse(invoice.items) : invoice.items || []
       // Filter out any items with tier containing "currency_info"
-      items = items.filter((item: any) => 
-        !(item.tier && item.tier.includes("currency_info"))
-      )
+      items = items.filter((item: any) => !(item.tier && item.tier.includes("currency_info")))
     } catch (error) {
       console.error("Error parsing invoice items:", error)
       items = []
     }
 
     // Format the invoice items as HTML
-    const itemsHtml = items.map((item: any) => `
+    const itemsHtml = items
+      .map(
+        (item: any) => `
       <tr style="border-bottom: 1px solid #eee;">
         <td style="padding: 10px;">${item.tier || item.name || "Product"}</td>
         <td style="padding: 10px; text-align: right;">$${item.price.toFixed(2)}</td>
       </tr>
-    `).join('')
-
-    let stateFeeHtml = "";
-    if (items.some(item => item.stateFee)) {
-      stateFeeHtml = `
-        <tr>
-          <td>State Filing Fee</td>
-          <td style="text-align: right;">$${items.reduce((sum, item) => sum + (item.stateFee || 0), 0).toFixed(2)}</td>
-        </tr>
-      `;
-    }
+    `,
+      )
+      .join("")
 
     // Create a nicely formatted email with all invoice details
     const emailHtml = `
@@ -132,9 +124,9 @@ export async function sendInvoiceEmail(invoiceId: string, customerEmail: string,
           .header { background-color: #f8f9fa; padding: 20px; text-align: center; border-bottom: 3px solid #22c984; }
           .content { padding: 20px; }
           .invoice-details { margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-          th { background-color: #f8f9fa; text-align: left; padding: 10px; }
-          td { padding: 10px; border-bottom: 1px solid #eee; }
+          .invoice-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          .invoice-table th { background-color: #f8f9fa; text-align: left; padding: 10px; }
+          .invoice-table td { padding: 10px; border-bottom: 1px solid #eee; }
           .total-row { font-weight: bold; background-color: #f8f9fa; }
           .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; }
           .button { display: inline-block; background-color: #22c984; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin: 20px 0; }
@@ -153,7 +145,7 @@ export async function sendInvoiceEmail(invoiceId: string, customerEmail: string,
             <div class="invoice-details">
               <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
               <p><strong>Date:</strong> ${new Date(invoice.createdAt).toLocaleDateString()}</p>
-              <p><strong>Status:</strong> <span style="background-color: ${invoice.status === 'cancelled' ? 'red' : 'inherit'}; color: white; padding: 2px 5px; border-radius: 3px;">${invoice.status.toUpperCase()}</span></p>
+              <p><strong>Status:</strong> ${invoice.status.toUpperCase()}</p>
             </div>
             
             <h3>Order Summary</h3>
@@ -166,7 +158,6 @@ export async function sendInvoiceEmail(invoiceId: string, customerEmail: string,
               </thead>
               <tbody>
                 ${itemsHtml}
-                ${stateFeeHtml}
                 <tr class="total-row">
                   <td>Total</td>
                   <td style="text-align: right;">$${invoice.amount.toFixed(2)}</td>
@@ -178,18 +169,22 @@ export async function sendInvoiceEmail(invoiceId: string, customerEmail: string,
               <h3>Customer Information</h3>
               <p><strong>Name:</strong> ${invoice.customerName}</p>
               <p><strong>Email:</strong> ${invoice.customerEmail}</p>
-              ${invoice.customerPhone ? `<p><strong>Phone:</strong> ${invoice.customerPhone}</p>` : ''}
-              ${invoice.customerCompany ? `<p><strong>Company:</strong> ${invoice.customerCompany}</p>` : ''}
+              ${invoice.customerPhone ? `<p><strong>Phone:</strong> ${invoice.customerPhone}</p>` : ""}
+              ${invoice.customerCompany ? `<p><strong>Company:</strong> ${invoice.customerCompany}</p>` : ""}
             </div>
             
-            ${invoice.customerAddress ? `
+            ${
+              invoice.customerAddress
+                ? `
             <div class="billing-address">
               <h3>Billing Address</h3>
               <p>${invoice.customerAddress}</p>
-              <p>${invoice.customerCity}${invoice.customerState ? `, ${invoice.customerState}` : ""} ${invoice.customerZip || ''}</p>
-              <p>${invoice.customerCountry || ''}</p>
+              <p>${invoice.customerCity}${invoice.customerState ? `, ${invoice.customerState}` : ""} ${invoice.customerZip || ""}</p>
+              <p>${invoice.customerCountry || ""}</p>
             </div>
-            ` : ''}
+            `
+                : ""
+            }
             
             <p>If you have any questions about this invoice, please contact our support team.</p>
             
@@ -233,3 +228,4 @@ export async function sendInvoiceEmail(invoiceId: string, customerEmail: string,
     return { success: false, message: "An unknown error occurred. Please try again later." }
   }
 }
+
