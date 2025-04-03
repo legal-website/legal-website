@@ -902,59 +902,78 @@ export default function TemplatesPage() {
 
     return (
       <Card className="overflow-hidden">
-        <div className="p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+        <div className="p-4 sm:p-6">
+          <div className="flex items-start justify-between mb-3 sm:mb-4">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
               {getFileIcon(template.fileUrl)}
             </div>
-            <Badge className={getPricingTierBadgeColor(template.pricingTier)}>{template.pricingTier}</Badge>
+            <Badge className={`${getPricingTierBadgeColor(template.pricingTier)} text-xs`}>
+              {template.pricingTier}
+            </Badge>
           </div>
-          <h3 className="font-medium mb-1">{template.name}</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{template.category}</p>
+          <h3 className="font-medium mb-1 text-sm sm:text-base line-clamp-1">{template.name}</h3>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2 sm:mb-3 line-clamp-1">
+            {template.category}
+          </p>
 
-          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-1">
-            <Calendar className="h-3.5 w-3.5 mr-1" />
+          <div className="flex items-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">
+            <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />
             Updated: {lastUpdated}
           </div>
-          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-3">
-            <Download className="h-3.5 w-3.5 mr-1" />
+          <div className="flex items-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">
+            <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />
             {template.usageCount} downloads
           </div>
 
-          <div className="flex items-center text-sm font-medium mb-4">
-            <DollarSign className="h-3.5 w-3.5 mr-1" />
+          <div className="flex items-center text-xs sm:text-sm font-medium mb-3 sm:mb-4">
+            <DollarSign className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />
             {template.price.toFixed(2)}
           </div>
 
-          <div className="flex space-x-2 flex-wrap">
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEditClick(template)}>
-              <Edit className="h-4 w-4 mr-1" />
-              Edit
-            </Button>
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDuplicateTemplate(template)}>
-              <Copy className="h-4 w-4 mr-1" />
-              Duplicate
-            </Button>
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => handleUnlockForUser(template)}>
-              <Unlock className="h-4 w-4 mr-1" />
-              Unlock
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs h-8"
+              onClick={() => handleEditClick(template)}
+            >
+              <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              <span className="hidden xs:inline">Edit</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="flex-1 mt-2"
+              className="flex-1 text-xs h-8"
+              onClick={() => handleDuplicateTemplate(template)}
+            >
+              <Copy className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              <span className="hidden xs:inline">Duplicate</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs h-8"
+              onClick={() => handleUnlockForUser(template)}
+            >
+              <Unlock className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              <span className="hidden xs:inline">Unlock</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs h-8 mt-2"
               onClick={() => handleDownloadTemplate(template)}
             >
-              <Download className="h-4 w-4 mr-1" />
-              Download
+              <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              <span className="hidden xs:inline">Download</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="flex-none text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 mt-2"
+              className="h-8 text-xs text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 mt-2"
               onClick={() => handleDeleteTemplate(template.id)}
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           </div>
         </div>
@@ -972,23 +991,25 @@ export default function TemplatesPage() {
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+    <div className="p-3 sm:p-6 max-w-full sm:max-w-[1600px] mx-auto mb-20 sm:mb-40 overflow-hidden">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+      <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Document Templates</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage and create document templates for your clients</p>
+          <h1 className="text-xl sm:text-2xl font-bold">Document Templates</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm sm:text-base">
+            Manage and create document templates for your clients
+          </p>
         </div>
-        <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <Button variant="outline" size="sm" className="flex items-center">
-            <Filter className="mr-2 h-4 w-4" />
+        <div className="flex items-center space-x-2 sm:space-x-3">
+          <Button variant="outline" size="sm" className="flex items-center text-xs sm:text-sm">
+            <Filter className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
             Filter
           </Button>
           <Button
-            className="bg-purple-600 hover:bg-purple-700 flex items-center"
+            className="bg-purple-600 hover:bg-purple-700 flex items-center text-xs sm:text-sm"
             onClick={() => setShowNewTemplateDialog(true)}
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
             New Template
           </Button>
         </div>
@@ -996,34 +1017,48 @@ export default function TemplatesPage() {
 
       {/* Search and Filter */}
       <div className="mb-6 space-y-4">
-        <div className="relative max-w-md">
+        <div className="relative max-w-full sm:max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="Search templates..."
-            className="pl-10"
+            className="pl-10 w-full"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="all">All Templates</TabsTrigger>
-            <TabsTrigger value="free">Free</TabsTrigger>
-            <TabsTrigger value="paid">Paid</TabsTrigger>
-            <TabsTrigger value="business-formation">Business Formation</TabsTrigger>
-            <TabsTrigger value="compliance">Compliance</TabsTrigger>
-            <TabsTrigger value="contracts">Contracts</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="overflow-x-auto pb-2">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="w-full sm:w-auto inline-flex">
+              <TabsTrigger value="all" className="text-xs sm:text-sm">
+                All Templates
+              </TabsTrigger>
+              <TabsTrigger value="free" className="text-xs sm:text-sm">
+                Free
+              </TabsTrigger>
+              <TabsTrigger value="paid" className="text-xs sm:text-sm">
+                Paid
+              </TabsTrigger>
+              <TabsTrigger value="business-formation" className="text-xs sm:text-sm whitespace-nowrap">
+                Business Formation
+              </TabsTrigger>
+              <TabsTrigger value="compliance" className="text-xs sm:text-sm">
+                Compliance
+              </TabsTrigger>
+              <TabsTrigger value="contracts" className="text-xs sm:text-sm">
+                Contracts
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
-      {/* Templates Grid - Fixed to show 3 per row on large screens */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Templates Grid - Responsive for all screen sizes */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {filteredTemplates.length > 0 ? (
           currentTemplates.map((template) => <TemplateCard key={template.id} template={template} />)
         ) : (
-          <div className="col-span-3 text-center py-12">
+          <div className="col-span-1 sm:col-span-2 lg:col-span-3 text-center py-12">
             <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-1">No templates found</h3>
             <p className="text-gray-500">Try adjusting your search or filter criteria</p>
@@ -1032,9 +1067,14 @@ export default function TemplatesPage() {
       </div>
 
       {filteredTemplates.length > itemsPerPage && (
-        <div className="flex justify-center mt-8">
-          <div className="flex space-x-2">
-            <Button variant="outline" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
+        <div className="flex justify-center mt-8 overflow-x-auto pb-2">
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              size="sm"
+            >
               Previous
             </Button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
@@ -1042,6 +1082,8 @@ export default function TemplatesPage() {
                 key={page}
                 variant={currentPage === page ? "default" : "outline"}
                 onClick={() => handlePageChange(page)}
+                size="sm"
+                className="w-8 h-8 p-0"
               >
                 {page}
               </Button>
@@ -1050,6 +1092,7 @@ export default function TemplatesPage() {
               variant="outline"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
+              size="sm"
             >
               Next
             </Button>
@@ -1059,7 +1102,7 @@ export default function TemplatesPage() {
 
       {/* New Template Dialog */}
       <Dialog open={showNewTemplateDialog} onOpenChange={setShowNewTemplateDialog}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-[calc(100%-2rem)] p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Create New Template</DialogTitle>
             <DialogDescription>Add a new document template to the system</DialogDescription>
@@ -1181,7 +1224,7 @@ export default function TemplatesPage() {
 
       {/* Edit Template Dialog */}
       <Dialog open={showEditTemplateDialog} onOpenChange={setShowEditTemplateDialog}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-[calc(100%-2rem)] p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Edit Template</DialogTitle>
             <DialogDescription>Update template information</DialogDescription>
@@ -1302,7 +1345,7 @@ export default function TemplatesPage() {
 
       {/* Unlock Template Dialog */}
       <Dialog open={showUnlockTemplateDialog} onOpenChange={setShowUnlockTemplateDialog}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-[calc(100%-2rem)] p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Unlock Template for User</DialogTitle>
             <DialogDescription>
