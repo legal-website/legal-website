@@ -402,7 +402,6 @@ export async function sendPaymentApprovalEmail(email: string, name: string, invo
         <p>Hello ${name},</p>
         <p>Your payment has been approved. Thank you for your purchase!</p>
         <p>Please complete your registration to access your account:</p>
-        <p>If you are already a registered user, there is no need to register again. Simply use this email as your payment approval email only</p>
         <a href="${registerLink}" style="display: inline-block; background-color: #22c984; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin: 20px 0;">Complete Registration</a>
         <p>If the button doesn't work, copy and paste this link into your browser:</p>
         <p>${registerLink}</p>
