@@ -112,11 +112,11 @@ export async function sendInvoiceEmail(invoiceId: string, customerEmail: string,
     `).join('')
 
     let stateFeeHtml = "";
-    if (items.some(item => item.stateFee)) {
+    if (items.some((item: { stateFee: any }) => item.stateFee)) {
       stateFeeHtml = `
         <tr>
           <td>State Filing Fee</td>
-          <td style="text-align: right;">$${items.reduce((sum, item) => sum + (item.stateFee || 0), 0).toFixed(2)}</td>
+          <td style="text-align: right;">$${items.reduce((sum: any, item: { stateFee: any }) => sum + (item.stateFee || 0), 0).toFixed(2)}</td>
         </tr>
       `;
     }
