@@ -480,7 +480,7 @@ export default function AdminBeneficialOwnershipPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8 flex justify-center items-center min-h-[60vh]">
+      <div className="p-4 sm:p-8 flex justify-center items-center min-h-[60vh]">
         <div className="flex flex-col items-center">
           <div className="relative h-16 w-16">
             <div className="absolute inset-0 h-full w-full animate-spin rounded-full border-4 border-t-4 border-[#22c984] border-t-transparent"></div>
@@ -496,8 +496,8 @@ export default function AdminBeneficialOwnershipPage() {
 
   if (!isTableChecked) {
     return (
-      <div className="p-8 flex justify-center items-center min-h-[60vh]">
-        <Card className="w-full max-w-md p-6">
+      <div className="p-4 sm:p-8 flex justify-center items-center min-h-[60vh]">
+        <Card className="w-full max-w-md p-4 sm:p-6">
           <h2 className="text-xl font-bold mb-4">Database Setup Required</h2>
           <p className="mb-4">The beneficial ownership table does not exist in the database.</p>
           <p className="mb-6">Would you like to create the required table now?</p>
@@ -513,9 +513,9 @@ export default function AdminBeneficialOwnershipPage() {
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+    <div className="p-3 sm:p-4 md:p-6 max-w-[1600px] mx-auto mb-20 md:mb-40">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 md:mb-6">
         <div>
           <h1 className="text-2xl font-bold">Beneficial Ownership Management</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
@@ -540,7 +540,7 @@ export default function AdminBeneficialOwnershipPage() {
       </div>
 
       {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -594,7 +594,7 @@ export default function AdminBeneficialOwnershipPage() {
           </Select>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 xs:grid-cols-2 gap-2">
           <div>
             <Input
               type="date"
@@ -624,8 +624,8 @@ export default function AdminBeneficialOwnershipPage() {
         dateFilter.endDate ||
         selectedClient !== "All Clients" ||
         searchQuery) && (
-        <div className="flex items-center mb-4 p-2 bg-muted rounded-md">
-          <div className="flex-1 flex flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center mb-4 p-2 bg-muted rounded-md">
+          <div className="flex-1 flex flex-wrap gap-2 mb-2 sm:mb-0">
             <span className="text-sm font-medium">Active Filters:</span>
             {sortOrder !== "newest" && (
               <Badge variant="outline" className="mr-2">
@@ -678,8 +678,8 @@ export default function AdminBeneficialOwnershipPage() {
           />
           {/* Pagination */}
           {filteredOwners.length > 0 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-muted-foreground">
+            <div className="mt-4 md:mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
                 Showing{" "}
                 <span className="font-medium">
                   {Math.min((currentPage - 1) * itemsPerPage + 1, filteredOwners.length)}
@@ -687,7 +687,7 @@ export default function AdminBeneficialOwnershipPage() {
                 to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredOwners.length)}</span> of{" "}
                 <span className="font-medium">{filteredOwners.length}</span> owners
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 order-1 sm:order-2 mb-2 sm:mb-0">
                 <Button
                   variant="outline"
                   size="icon"
@@ -698,21 +698,27 @@ export default function AdminBeneficialOwnershipPage() {
                   <ChevronLeft className="h-4 w-4" />
                   <span className="sr-only">Previous page</span>
                 </Button>
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  // Show first page, last page, current page, and pages around current
+                {Array.from({ length: Math.min(totalPages, 3) }, (_, i) => {
+                  // Show fewer pages on mobile
                   let pageToShow: number | null = null
+                  const isMobile = window.innerWidth < 640
 
-                  if (i === 0) pageToShow = 1
-                  else if (i === 4) pageToShow = totalPages
-                  else if (totalPages <= 5) pageToShow = i + 1
-                  else {
-                    // For middle buttons, calculate based on current page
-                    if (currentPage <= 3) {
-                      pageToShow = i + 1
-                    } else if (currentPage >= totalPages - 2) {
-                      pageToShow = totalPages - 4 + i
-                    } else {
-                      pageToShow = currentPage - 1 + i
+                  if (isMobile) {
+                    if (i === 0) pageToShow = currentPage
+                    else if (i === 1 && currentPage < totalPages) pageToShow = currentPage + 1
+                    else if (i === 2 && totalPages > 2) pageToShow = totalPages
+                  } else {
+                    if (i === 0) pageToShow = 1
+                    else if (i === 2) pageToShow = totalPages
+                    else if (totalPages <= 3) pageToShow = i + 1
+                    else {
+                      if (currentPage <= 2) {
+                        pageToShow = i + 1
+                      } else if (currentPage >= totalPages - 1) {
+                        pageToShow = totalPages - 2 + i
+                      } else {
+                        pageToShow = currentPage - 1 + i
+                      }
                     }
                   }
 
@@ -757,8 +763,8 @@ export default function AdminBeneficialOwnershipPage() {
           />
           {/* Pagination (same as above) */}
           {filteredOwners.length > 0 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-muted-foreground">
+            <div className="mt-4 md:mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
                 Showing{" "}
                 <span className="font-medium">
                   {Math.min((currentPage - 1) * itemsPerPage + 1, filteredOwners.length)}
@@ -766,7 +772,7 @@ export default function AdminBeneficialOwnershipPage() {
                 to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredOwners.length)}</span> of{" "}
                 <span className="font-medium">{filteredOwners.length}</span> owners
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 order-1 sm:order-2 mb-2 sm:mb-0">
                 <Button
                   variant="outline"
                   size="icon"
@@ -777,19 +783,27 @@ export default function AdminBeneficialOwnershipPage() {
                   <ChevronLeft className="h-4 w-4" />
                   <span className="sr-only">Previous page</span>
                 </Button>
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                {Array.from({ length: Math.min(totalPages, 3) }, (_, i) => {
+                  // Show fewer pages on mobile
                   let pageToShow: number | null = null
+                  const isMobile = window.innerWidth < 640
 
-                  if (i === 0) pageToShow = 1
-                  else if (i === 4) pageToShow = totalPages
-                  else if (totalPages <= 5) pageToShow = i + 1
-                  else {
-                    if (currentPage <= 3) {
-                      pageToShow = i + 1
-                    } else if (currentPage >= totalPages - 2) {
-                      pageToShow = totalPages - 4 + i
-                    } else {
-                      pageToShow = currentPage - 1 + i
+                  if (isMobile) {
+                    if (i === 0) pageToShow = currentPage
+                    else if (i === 1 && currentPage < totalPages) pageToShow = currentPage + 1
+                    else if (i === 2 && totalPages > 2) pageToShow = totalPages
+                  } else {
+                    if (i === 0) pageToShow = 1
+                    else if (i === 2) pageToShow = totalPages
+                    else if (totalPages <= 3) pageToShow = i + 1
+                    else {
+                      if (currentPage <= 2) {
+                        pageToShow = i + 1
+                      } else if (currentPage >= totalPages - 1) {
+                        pageToShow = totalPages - 2 + i
+                      } else {
+                        pageToShow = currentPage - 1 + i
+                      }
                     }
                   }
 
@@ -834,8 +848,8 @@ export default function AdminBeneficialOwnershipPage() {
           />
           {/* Pagination (same as above) */}
           {filteredOwners.length > 0 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-muted-foreground">
+            <div className="mt-4 md:mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
                 Showing{" "}
                 <span className="font-medium">
                   {Math.min((currentPage - 1) * itemsPerPage + 1, filteredOwners.length)}
@@ -843,7 +857,7 @@ export default function AdminBeneficialOwnershipPage() {
                 to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredOwners.length)}</span> of{" "}
                 <span className="font-medium">{filteredOwners.length}</span> owners
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 order-1 sm:order-2 mb-2 sm:mb-0">
                 <Button
                   variant="outline"
                   size="icon"
@@ -854,19 +868,27 @@ export default function AdminBeneficialOwnershipPage() {
                   <ChevronLeft className="h-4 w-4" />
                   <span className="sr-only">Previous page</span>
                 </Button>
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                {Array.from({ length: Math.min(totalPages, 3) }, (_, i) => {
+                  // Show fewer pages on mobile
                   let pageToShow: number | null = null
+                  const isMobile = window.innerWidth < 640
 
-                  if (i === 0) pageToShow = 1
-                  else if (i === 4) pageToShow = totalPages
-                  else if (totalPages <= 5) pageToShow = i + 1
-                  else {
-                    if (currentPage <= 3) {
-                      pageToShow = i + 1
-                    } else if (currentPage >= totalPages - 2) {
-                      pageToShow = totalPages - 4 + i
-                    } else {
-                      pageToShow = currentPage - 1 + i
+                  if (isMobile) {
+                    if (i === 0) pageToShow = currentPage
+                    else if (i === 1 && currentPage < totalPages) pageToShow = currentPage + 1
+                    else if (i === 2 && totalPages > 2) pageToShow = totalPages
+                  } else {
+                    if (i === 0) pageToShow = 1
+                    else if (i === 2) pageToShow = totalPages
+                    else if (totalPages <= 3) pageToShow = i + 1
+                    else {
+                      if (currentPage <= 2) {
+                        pageToShow = i + 1
+                      } else if (currentPage >= totalPages - 1) {
+                        pageToShow = totalPages - 2 + i
+                      } else {
+                        pageToShow = currentPage - 1 + i
+                      }
                     }
                   }
 
@@ -905,7 +927,7 @@ export default function AdminBeneficialOwnershipPage() {
       {/* View Owner Dialog */}
       {selectedOwner && (
         <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="max-w-[95vw] sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle>Beneficial Owner Details</DialogTitle>
             </DialogHeader>
@@ -922,7 +944,7 @@ export default function AdminBeneficialOwnershipPage() {
                   <div className="ml-auto">{getStatusBadge(selectedOwner.status)}</div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Ownership Percentage</p>
                     <p className="font-medium">{selectedOwner.ownershipPercentage}%</p>
@@ -966,7 +988,7 @@ export default function AdminBeneficialOwnershipPage() {
       {/* Change Status Dialog */}
       {selectedOwner && (
         <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="max-w-[95vw] sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Change Owner Status</DialogTitle>
             </DialogHeader>
@@ -1031,9 +1053,9 @@ function OwnerTable({
 }) {
   if (owners.length === 0) {
     return (
-      <Card className="p-8 text-center">
+      <Card className="p-4 sm:p-8 text-center">
         <div className="flex flex-col items-center justify-center">
-          <Users className="h-12 w-12 text-gray-300 mb-4" />
+          <Users className="h-10 w-10 sm:h-12 sm:w-12 text-gray-300 mb-4" />
           <h3 className="text-lg font-medium mb-2">No owners found</h3>
           <p className="text-gray-500 dark:text-gray-400 mb-4">
             No beneficial owners match your current filters. Try adjusting your search criteria.
@@ -1049,11 +1071,11 @@ function OwnerTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Client</TableHead>
+              <TableHead className="w-[120px] md:w-auto">Client</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Ownership %</TableHead>
-              <TableHead>Date Added</TableHead>
+              <TableHead className="hidden sm:table-cell">Title</TableHead>
+              <TableHead className="hidden sm:table-cell">Ownership %</TableHead>
+              <TableHead className="hidden md:table-cell">Date Added</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -1064,29 +1086,37 @@ function OwnerTable({
                 <TableCell>
                   <div>
                     <div className="font-medium">{owner.user?.name || "Unknown"}</div>
-                    <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                    <div className="text-xs text-muted-foreground truncate max-w-[120px] md:max-w-[200px]">
                       {owner.user?.email || ""}
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="font-medium">{owner.name}</TableCell>
-                <TableCell>{owner.title}</TableCell>
-                <TableCell>{owner.ownershipPercentage}%</TableCell>
-                <TableCell>{formatDate(owner.dateAdded)}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex flex-col">
+                    <span>{owner.name}</span>
+                    <span className="sm:hidden text-xs text-muted-foreground">{owner.title}</span>
+                    <span className="sm:hidden text-xs text-muted-foreground">{owner.ownershipPercentage}%</span>
+                    <span className="md:hidden text-xs text-muted-foreground">{formatDate(owner.dateAdded)}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">{owner.title}</TableCell>
+                <TableCell className="hidden sm:table-cell">{owner.ownershipPercentage}%</TableCell>
+                <TableCell className="hidden md:table-cell">{formatDate(owner.dateAdded)}</TableCell>
                 <TableCell>{getStatusBadge(owner.status)}</TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => onView(owner)}>
-                      <Eye className="h-4 w-4 mr-1" />
-                      View
+                  <div className="flex justify-end gap-1 md:gap-2">
+                    <Button variant="ghost" size="sm" className="h-8 px-2 md:px-3" onClick={() => onView(owner)}>
+                      <Eye className="h-4 w-4 md:mr-1" />
+                      <span className="hidden md:inline">View</span>
                     </Button>
                     <Button
                       variant={owner.status === "pending" ? "default" : "outline"}
                       size="sm"
+                      className={`h-8 px-2 md:px-3 ${owner.status === "pending" ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
                       onClick={() => onChangeStatus(owner)}
-                      className={owner.status === "pending" ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}
                     >
-                      {owner.status === "pending" ? "Approve" : "Pending"}
+                      <span className="hidden md:inline">{owner.status === "pending" ? "Approve" : "Pending"}</span>
+                      <span className="md:hidden">{owner.status === "pending" ? "✓" : "⟳"}</span>
                     </Button>
                   </div>
                 </TableCell>
