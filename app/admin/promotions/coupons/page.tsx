@@ -507,9 +507,9 @@ export default function CouponsPage() {
   const totalPages = Math.ceil(filteredCoupons.length / itemsPerPage)
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-32">
+    <div className="p-3 sm:p-4 md:p-6 max-w-[1600px] mx-auto mb-16 md:mb-32 overflow-x-hidden">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 md:mb-6">
         <div>
           <h1 className="text-2xl font-bold">Coupon Management</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Create and manage discount coupons for your clients</p>
@@ -529,7 +529,7 @@ export default function CouponsPage() {
       </div>
 
       {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -540,7 +540,7 @@ export default function CouponsPage() {
           />
         </div>
 
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
           <Select value={sortBy} onValueChange={(value) => setSortBy(value)}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Sort by" />
@@ -584,7 +584,7 @@ export default function CouponsPage() {
 
         <TabsContent value="all" className="mt-6">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-12">
+            <div className="flex flex-col items-center justify-center py-6 md:py-12">
               <div className="relative w-20 h-20">
                 <div className="absolute top-0 left-0 w-full h-full rounded-full border-4 border-t-purple-600 border-b-purple-200 border-l-purple-200 border-r-purple-200 animate-spin"></div>
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
@@ -614,8 +614,8 @@ export default function CouponsPage() {
             </div>
           )}
           {filteredCoupons.length > itemsPerPage && (
-            <div className="mt-6 flex justify-center">
-              <nav className="flex items-center gap-1">
+            <div className="mt-4 md:mt-6 flex justify-center">
+              <nav className="flex flex-wrap items-center justify-center gap-1">
                 <Button
                   variant="outline"
                   size="sm"
@@ -665,7 +665,7 @@ export default function CouponsPage() {
 
         <TabsContent value="active" className="mt-6">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-12">
+            <div className="flex flex-col items-center justify-center py-6 md:py-12">
               <div className="relative w-20 h-20">
                 <div className="absolute top-0 left-0 w-full h-full rounded-full border-4 border-t-purple-600 border-b-purple-200 border-l-purple-200 border-r-purple-200 animate-spin"></div>
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
@@ -695,8 +695,8 @@ export default function CouponsPage() {
             </div>
           )}
           {filteredCoupons.length > itemsPerPage && (
-            <div className="mt-6 flex justify-center">
-              <nav className="flex items-center gap-1">
+            <div className="mt-4 md:mt-6 flex justify-center">
+              <nav className="flex flex-wrap items-center justify-center gap-1">
                 <Button
                   variant="outline"
                   size="sm"
@@ -746,7 +746,7 @@ export default function CouponsPage() {
 
         <TabsContent value="scheduled" className="mt-6">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-12">
+            <div className="flex flex-col items-center justify-center py-6 md:py-12">
               <div className="relative w-20 h-20">
                 <div className="absolute top-0 left-0 w-full h-full rounded-full border-4 border-t-purple-600 border-b-purple-200 border-l-purple-200 border-r-purple-200 animate-spin"></div>
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
@@ -776,8 +776,8 @@ export default function CouponsPage() {
             </div>
           )}
           {filteredCoupons.length > itemsPerPage && (
-            <div className="mt-6 flex justify-center">
-              <nav className="flex items-center gap-1">
+            <div className="mt-4 md:mt-6 flex justify-center">
+              <nav className="flex flex-wrap items-center justify-center gap-1">
                 <Button
                   variant="outline"
                   size="sm"
@@ -827,7 +827,7 @@ export default function CouponsPage() {
 
         <TabsContent value="expired" className="mt-6">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-12">
+            <div className="flex flex-col items-center justify-center py-6 md:py-12">
               <div className="relative w-20 h-20">
                 <div className="absolute top-0 left-0 w-full h-full rounded-full border-4 border-t-purple-600 border-b-purple-200 border-l-purple-200 border-r-purple-200 animate-spin"></div>
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
@@ -856,8 +856,8 @@ export default function CouponsPage() {
             </div>
           )}
           {filteredCoupons.length > itemsPerPage && (
-            <div className="mt-6 flex justify-center">
-              <nav className="flex items-center gap-1">
+            <div className="mt-4 md:mt-6 flex justify-center">
+              <nav className="flex flex-wrap items-center justify-center gap-1">
                 <Button
                   variant="outline"
                   size="sm"
@@ -908,15 +908,15 @@ export default function CouponsPage() {
 
       {/* Create Coupon Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Create New Coupon</DialogTitle>
             <DialogDescription>Create a new discount coupon for your clients.</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="code" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="code" className="text-left sm:text-right">
                 Coupon Code
               </Label>
               <Input
@@ -925,12 +925,12 @@ export default function CouponsPage() {
                 value={formData.code}
                 onChange={handleInputChange}
                 placeholder="e.g. SUMMER25"
-                className="col-span-3"
+                className="w-full sm:col-span-3"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="description" className="text-left sm:text-right">
                 Description
               </Label>
               <Textarea
@@ -939,16 +939,16 @@ export default function CouponsPage() {
                 value={formData.description}
                 onChange={handleInputChange}
                 placeholder="Brief description of this coupon"
-                className="col-span-3"
+                className="w-full sm:col-span-3"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="type" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="type" className="text-left sm:text-right">
                 Discount Type
               </Label>
               <Select value={formData.type} onValueChange={(value) => handleSelectChange("type", value)}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="w-full sm:col-span-3">
                   <SelectValue placeholder="Select discount type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -959,11 +959,11 @@ export default function CouponsPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="value" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="value" className="text-left sm:text-right">
                 Discount Value
               </Label>
-              <div className="col-span-3 flex items-center">
+              <div className="w-full sm:col-span-3 flex items-center">
                 <Input
                   id="value"
                   name="value"
@@ -980,8 +980,8 @@ export default function CouponsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="startDate" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="startDate" className="text-left sm:text-right">
                 Start Date
               </Label>
               <Input
@@ -990,12 +990,12 @@ export default function CouponsPage() {
                 value={formData.startDate}
                 onChange={handleInputChange}
                 type="date"
-                className="col-span-3"
+                className="w-full sm:col-span-3"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="endDate" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="endDate" className="text-left sm:text-right">
                 End Date
               </Label>
               <Input
@@ -1004,12 +1004,12 @@ export default function CouponsPage() {
                 value={formData.endDate}
                 onChange={handleInputChange}
                 type="date"
-                className="col-span-3"
+                className="w-full sm:col-span-3"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="usageLimit" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="usageLimit" className="text-left sm:text-right">
                 Usage Limit
               </Label>
               <Input
@@ -1019,12 +1019,12 @@ export default function CouponsPage() {
                 onChange={handleInputChange}
                 type="number"
                 placeholder="e.g. 500"
-                className="col-span-3"
+                className="w-full sm:col-span-3"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="minimumAmount" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="minimumAmount" className="text-left sm:text-right">
                 Minimum Amount
               </Label>
               <Input
@@ -1035,13 +1035,13 @@ export default function CouponsPage() {
                 type="number"
                 step="0.01"
                 placeholder="e.g. 50.00 (optional)"
-                className="col-span-3"
+                className="w-full sm:col-span-3"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Specific Clients</Label>
-              <div className="col-span-3 flex items-center space-x-2">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label className="text-left sm:text-right">Specific Clients</Label>
+              <div className="w-full sm:col-span-3 flex items-center space-x-2">
                 <Checkbox
                   id="specificClient"
                   checked={formData.specificClient}
@@ -1054,9 +1054,9 @@ export default function CouponsPage() {
             </div>
 
             {formData.specificClient && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Select Clients</Label>
-                <div className="col-span-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+                <Label className="text-left sm:text-right">Select Clients</Label>
+                <div className="w-full sm:col-span-3">
                   {loadingUsers ? (
                     <div className="flex items-center space-x-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -1077,9 +1077,9 @@ export default function CouponsPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Restrictions</Label>
-              <div className="col-span-3 space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label className="text-left sm:text-right">Restrictions</Label>
+              <div className="w-full sm:col-span-3 space-y-2">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="newCustomersOnly"
@@ -1103,9 +1103,9 @@ export default function CouponsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Status</Label>
-              <div className="col-span-3 flex items-center space-x-2">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label className="text-left sm:text-right">Status</Label>
+              <div className="w-full sm:col-span-3 flex items-center space-x-2">
                 <Checkbox
                   id="isActive"
                   checked={formData.isActive}
@@ -1138,15 +1138,15 @@ export default function CouponsPage() {
 
       {/* Edit Coupon Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Edit Coupon</DialogTitle>
             <DialogDescription>Update coupon details.</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-code" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="edit-code" className="text-left sm:text-right">
                 Coupon Code
               </Label>
               <Input
@@ -1155,12 +1155,12 @@ export default function CouponsPage() {
                 value={formData.code}
                 onChange={handleInputChange}
                 placeholder="e.g. SUMMER25"
-                className="col-span-3"
+                className="w-full sm:col-span-3"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-description" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="edit-description" className="text-left sm:text-right">
                 Description
               </Label>
               <Textarea
@@ -1169,16 +1169,16 @@ export default function CouponsPage() {
                 value={formData.description}
                 onChange={handleInputChange}
                 placeholder="Brief description of this coupon"
-                className="col-span-3"
+                className="w-full sm:col-span-3"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-type" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="edit-type" className="text-left sm:text-right">
                 Discount Type
               </Label>
               <Select value={formData.type} onValueChange={(value) => handleSelectChange("type", value)}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="w-full sm:col-span-3">
                   <SelectValue placeholder="Select discount type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1189,11 +1189,11 @@ export default function CouponsPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-value" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="edit-value" className="text-left sm:text-right">
                 Discount Value
               </Label>
-              <div className="col-span-3 flex items-center">
+              <div className="w-full sm:col-span-3 flex items-center">
                 <Input
                   id="edit-value"
                   name="value"
@@ -1210,8 +1210,8 @@ export default function CouponsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-startDate" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="edit-startDate" className="text-left sm:text-right">
                 Start Date
               </Label>
               <Input
@@ -1220,12 +1220,12 @@ export default function CouponsPage() {
                 value={formData.startDate}
                 onChange={handleInputChange}
                 type="date"
-                className="col-span-3"
+                className="w-full sm:col-span-3"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-endDate" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="edit-endDate" className="text-left sm:text-right">
                 End Date
               </Label>
               <Input
@@ -1234,12 +1234,12 @@ export default function CouponsPage() {
                 value={formData.endDate}
                 onChange={handleInputChange}
                 type="date"
-                className="col-span-3"
+                className="w-full sm:col-span-3"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-usageLimit" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="edit-usageLimit" className="text-left sm:text-right">
                 Usage Limit
               </Label>
               <Input
@@ -1249,12 +1249,12 @@ export default function CouponsPage() {
                 onChange={handleInputChange}
                 type="number"
                 placeholder="e.g. 500"
-                className="col-span-3"
+                className="w-full sm:col-span-3"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-minimumAmount" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="edit-minimumAmount" className="text-left sm:text-right">
                 Minimum Amount
               </Label>
               <Input
@@ -1265,13 +1265,13 @@ export default function CouponsPage() {
                 type="number"
                 step="0.01"
                 placeholder="e.g. 50.00 (optional)"
-                className="col-span-3"
+                className="w-full sm:col-span-3"
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Specific Clients</Label>
-              <div className="col-span-3 flex items-center space-x-2">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label className="text-left sm:text-right">Specific Clients</Label>
+              <div className="w-full sm:col-span-3 flex items-center space-x-2">
                 <Checkbox
                   id="edit-specificClient"
                   checked={formData.specificClient}
@@ -1284,9 +1284,9 @@ export default function CouponsPage() {
             </div>
 
             {formData.specificClient && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Select Clients</Label>
-                <div className="col-span-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+                <Label className="text-left sm:text-right">Select Clients</Label>
+                <div className="w-full sm:col-span-3">
                   {loadingUsers ? (
                     <div className="flex items-center space-x-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -1307,9 +1307,9 @@ export default function CouponsPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Restrictions</Label>
-              <div className="col-span-3 space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label className="text-left sm:text-right">Restrictions</Label>
+              <div className="w-full sm:col-span-3 space-y-2">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="edit-newCustomersOnly"
@@ -1333,9 +1333,9 @@ export default function CouponsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Status</Label>
-              <div className="col-span-3 flex items-center space-x-2">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <Label className="text-left sm:text-right">Status</Label>
+              <div className="w-full sm:col-span-3 flex items-center space-x-2">
                 <Checkbox
                   id="edit-isActive"
                   checked={formData.isActive}
@@ -1435,8 +1435,8 @@ function CouponCard({
   const status = coupon.status || getCouponStatus(coupon.isActive, new Date(coupon.startDate), new Date(coupon.endDate))
 
   return (
-    <Card className="p-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between">
+    <Card className="p-3 sm:p-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between">
         <div className="mb-4 md:mb-0">
           <div className="flex items-center mb-1">
             <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded mr-3">
@@ -1461,7 +1461,7 @@ function CouponCard({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
           <Button variant="outline" size="sm" onClick={onEdit}>
             <Edit className="h-4 w-4 mr-2" />
             Edit
@@ -1482,7 +1482,7 @@ function CouponCard({
         </div>
       </div>
 
-      <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="mt-3 pt-3 sm:mt-4 sm:pt-4 border-t grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
         <div>
           <p className="text-xs text-gray-500 mb-1">Discount</p>
           <div className="flex items-center">
@@ -1495,7 +1495,7 @@ function CouponCard({
           <p className="text-xs text-gray-500 mb-1">Valid Period</p>
           <div className="flex items-center">
             <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-            <span>
+            <span className="text-xs sm:text-sm break-words">
               {new Date(coupon.startDate).toLocaleDateString()} - {new Date(coupon.endDate).toLocaleDateString()}
             </span>
           </div>
