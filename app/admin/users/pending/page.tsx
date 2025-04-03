@@ -399,7 +399,7 @@ export default function PendingUsersPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     // Don't allow businessId to be changed
-    if (name === "businessId") return
+    // if (name === "businessId") return
 
     if (name === "annualReportFee") {
       // Ensure it's a valid number
@@ -1057,14 +1057,14 @@ export default function PendingUsersPage() {
                     </div>
 
                     <div>
-                      <Label htmlFor="businessId">Business ID (Auto-generated)</Label>
+                      <Label htmlFor="businessId">Business ID</Label>
                       <div className="flex items-center mt-1">
                         <Input
                           id="businessId"
                           name="businessId"
                           value={businessFormData.businessId}
-                          readOnly
-                          className="bg-gray-50"
+                          onChange={handleInputChange}
+                          className="mt-1"
                         />
                         <Button
                           variant="ghost"
