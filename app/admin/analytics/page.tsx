@@ -18,7 +18,6 @@ import {
   FileText,
   DollarSign,
   ShoppingCart,
-  Activity,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -40,7 +39,20 @@ import { useToast } from "@/components/ui/use-toast"
 
 // In the imports section, add these imports:
 import { LineChart as RechartsLineChart, PieChart as RechartsPieChart, BarChart as RechartsBarChart } from "recharts"
-import { Line, Pie, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts"
+import {
+  Line,
+  Pie,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell,
+  Label,
+  ReferenceLine,
+} from "recharts"
 
 // Define interfaces for our data
 interface Invoice {
@@ -2157,15 +2169,231 @@ export default function AnalyticsPage() {
 
             <Card>
               <div className="p-6 border-b">
-                <h3 className="text-lg font-medium">Conversion Funnel</h3>
+                <h3 className="text-lg font-medium">Monthly Revenue</h3>
               </div>
               <div className="p-6">
                 <div className="h-80 w-full">
-                  {/* This would be a chart in a real implementation */}
-                  <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                    <Activity className="h-16 w-16 text-gray-300" />
-                    <span className="ml-4 text-gray-400">Conversion Funnel Chart</span>
-                  </div>
+                  {loadingRevenue ? (
+                    <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsBarChart
+                        data={revenueTrendData}
+                        margin={{
+                          top: 20,
+                          right: 30,
+                          left: 20,
+                          bottom: 20,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                        <XAxis
+                          dataKey="month"
+                          tick={{ fontSize: 12 }}
+                          tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 12 }}
+                          tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          tickFormatter={(value) => `$${value.toLocaleString()}`}
+                        />
+                        <Tooltip
+                          formatter={(value) => [`$${Number(value).toLocaleString()}`, "Revenue"]}
+                          contentStyle={{
+                            backgroundColor: "rgba(255, 255, 255, 0.95)",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                            border: "none",
+                            padding: "10px 14px",
+                          }}
+                          labelStyle={{ fontWeight: "bold", marginBottom: "5px" }}
+                        />
+                        <Legend />
+                        <Bar dataKey="revenue" name="Monthly Revenue" fill="#8884d8" radius={[4, 4, 0, 0]} barSize={30}>
+                          {revenueTrendData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={`#${(index * 500 + 500).toString(16)}`} />
+                          ))}
+                        </Bar>
+                      </RechartsBarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Add this new section after the "Top Products and Monthly Revenue" section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <Card>
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-medium">Monthly Growth Trend</h3>
+              </div>
+              <div className="p-6">
+                <div className="h-80 w-full">
+                  {loadingRevenue ? (
+                    <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsLineChart
+                        data={revenueTrendData.map((item, index, array) => {
+                          // Calculate growth percentage compared to previous month
+                          if (index === 0) return { ...item, growth: 0 }
+                          const prevRevenue = array[index - 1].revenue
+                          const growth = prevRevenue ? ((item.revenue - prevRevenue) / prevRevenue) * 100 : 0
+                          return { ...item, growth: growth }
+                        })}
+                        margin={{
+                          top: 20,
+                          right: 30,
+                          left: 20,
+                          bottom: 20,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                        <XAxis
+                          dataKey="month"
+                          tick={{ fontSize: 12 }}
+                          tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 12 }}
+                          tickLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          axisLine={{ stroke: "rgba(0,0,0,0.1)" }}
+                          tickFormatter={(value) => `${value.toFixed(0)}%`}
+                        />
+                        <Tooltip
+                          formatter={(value) => [`${Number(value).toFixed(2)}%`, "Growth"]}
+                          contentStyle={{
+                            backgroundColor: "rgba(255, 255, 255, 0.95)",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                            border: "none",
+                            padding: "10px 14px",
+                          }}
+                          labelStyle={{ fontWeight: "bold", marginBottom: "5px" }}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="growth"
+                          name="Monthly Growth (%)"
+                          stroke="#ff7300"
+                          strokeWidth={3}
+                          dot={{ r: 6, strokeWidth: 2, fill: "#fff" }}
+                          activeDot={{ r: 8, strokeWidth: 0 }}
+                        />
+                        <ReferenceLine y={0} stroke="red" strokeDasharray="3 3" />
+                      </RechartsLineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-medium">Performance Overview</h3>
+              </div>
+              <div className="p-6">
+                <div className="h-80 w-full">
+                  {loadingRevenue || loadingUsers ? (
+                    <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPieChart>
+                        <Pie
+                          data={[
+                            { name: "Total Revenue", value: totalRevenue, color: "#22c55e" },
+                            {
+                              name: "Monthly Revenue",
+                              value:
+                                revenueTrendData.length > 0 ? revenueTrendData[revenueTrendData.length - 1].revenue : 0,
+                              color: "#3b82f6",
+                            },
+                            { name: "Growth %", value: Math.abs(revenueChange), color: "#f59e0b" },
+                            { name: "Total Users", value: newUsers * 10, color: "#a855f7" }, // Multiplied for better visualization
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          outerRadius={110}
+                          innerRadius={60}
+                          fill="#8884d8"
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {[
+                            { name: "Total Revenue", color: "#22c55e" },
+                            { name: "Monthly Revenue", color: "#3b82f6" },
+                            { name: "Growth %", color: "#f59e0b" },
+                            { name: "Total Users", color: "#a855f7" },
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                          <Label
+                            content={({ viewBox }) => {
+                              if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                                return (
+                                  <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                                    <tspan
+                                      x={viewBox.cx}
+                                      y={(viewBox.cy || 0) - 10}
+                                      className="fill-foreground text-lg font-bold"
+                                      textAnchor="middle"
+                                    >
+                                      ${totalRevenue.toLocaleString()}
+                                    </tspan>
+                                    <tspan
+                                      x={viewBox.cx}
+                                      y={(viewBox.cy || 0) + 10}
+                                      className="fill-muted-foreground text-xs"
+                                      textAnchor="middle"
+                                    >
+                                      Total Revenue
+                                    </tspan>
+                                  </text>
+                                )
+                              }
+                              return null
+                            }}
+                          />
+                        </Pie>
+                        <Tooltip
+                          formatter={(value, name) => {
+                            if (name === "Total Revenue" || name === "Monthly Revenue") {
+                              return [`$${Number(value).toLocaleString()}`, name]
+                            } else if (name === "Growth %") {
+                              return [`${Number(value).toFixed(2)}%`, name]
+                            } else {
+                              return [Number(value / 10).toLocaleString(), name] // Divide by 10 to show actual value
+                            }
+                          }}
+                          contentStyle={{
+                            backgroundColor: "rgba(255, 255, 255, 0.95)",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                            border: "none",
+                            padding: "10px 14px",
+                          }}
+                        />
+                        <Legend
+                          layout="vertical"
+                          verticalAlign="middle"
+                          align="right"
+                          wrapperStyle={{ paddingLeft: "10px" }}
+                        />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </div>
             </Card>
@@ -2670,7 +2898,6 @@ export default function AnalyticsPage() {
                                 dataKey="value"
                                 nameKey="name"
                                 label={({ name, percent }) => (percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : "")}
-                                paddingAngle={5}
                               >
                                 {revenueByProductData.map((entry, index) => (
                                   <Cell
