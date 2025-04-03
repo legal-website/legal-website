@@ -19,7 +19,6 @@ import {
   DollarSign,
   ShoppingCart,
   Activity,
-  PieChart,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -2166,84 +2165,6 @@ export default function AnalyticsPage() {
                   <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
                     <Activity className="h-16 w-16 text-gray-300" />
                     <span className="ml-4 text-gray-400">Conversion Funnel Chart</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Geographic Distribution and Device Usage */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <div className="p-6 border-b">
-                <h3 className="text-lg font-medium">Geographic Distribution</h3>
-              </div>
-              <div className="p-6">
-                <div className="h-80 w-full">
-                  {/* This would be a map chart in a real implementation */}
-                  <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                    <span className="text-gray-400">Geographic Map</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-6 border-b">
-                <h3 className="text-lg font-medium">Device & Browser Usage</h3>
-              </div>
-              <div className="p-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="text-sm font-medium mb-4">Device Type</h4>
-                    <div className="h-40 w-full">
-                      {/* This would be a pie chart in a real implementation */}
-                      <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                        <PieChart className="h-10 w-10 text-gray-300" />
-                      </div>
-                    </div>
-                    <div className="mt-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Desktop</span>
-                        <span className="text-sm font-medium">58%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Mobile</span>
-                        <span className="text-sm font-medium">32%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Tablet</span>
-                        <span className="text-sm font-medium">10%</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-medium mb-4">Browser</h4>
-                    <div className="h-40 w-full">
-                      {/* This would be a pie chart in a real implementation */}
-                      <div className="h-full w-full bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                        <PieChart className="h-10 w-10 text-gray-300" />
-                      </div>
-                    </div>
-                    <div className="mt-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Chrome</span>
-                        <span className="text-sm font-medium">64%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Safari</span>
-                        <span className="text-sm font-medium">18%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Firefox</span>
-                        <span className="text-sm font-medium">12%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Edge</span>
-                        <span className="text-sm font-medium">6%</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
