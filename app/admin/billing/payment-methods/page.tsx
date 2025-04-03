@@ -378,15 +378,17 @@ export default function PaymentMethodsPage() {
   const mobileWallets = paymentMethods.filter((method) => method.type === "mobile_wallet")
 
   return (
-    <div className="px-[3%] py-8 space-y-8 mb-40">
+    <div className="px-3 sm:px-4 md:px-[3%] py-4 sm:py-6 md:py-8 space-y-6 md:space-y-8 mb-20 md:mb-40">
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 shadow-sm">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
           <div>
-            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+            <h1 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
               Payment Methods
             </h1>
-            <p className="text-gray-600 mt-1">Manage your organization's payment methods for clients to use</p>
+            <p className="text-gray-600 mt-1 text-sm sm:text-base">
+              Manage your organization's payment methods for clients to use
+            </p>
           </div>
           <div className="flex gap-3">
             <Button
@@ -410,7 +412,7 @@ export default function PaymentMethodsPage() {
                   Add Payment Method
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[95vw] max-w-[550px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                   <DialogTitle>Add Payment Method</DialogTitle>
                   <DialogDescription>Add a new payment method for clients to use.</DialogDescription>
@@ -419,7 +421,7 @@ export default function PaymentMethodsPage() {
                 <div className="py-4">
                   <div className="mb-4">
                     <Label>Method Type</Label>
-                    <div className="flex flex-wrap mt-2 gap-4">
+                    <div className="flex flex-wrap mt-2 gap-2 sm:gap-4">
                       <div
                         className={`flex items-center p-3 rounded-md cursor-pointer border transition-all duration-200 ${
                           methodType === "bank"
@@ -446,7 +448,7 @@ export default function PaymentMethodsPage() {
                   </div>
 
                   <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
                       <FormField
                         control={form.control}
                         name="name"
@@ -498,7 +500,7 @@ export default function PaymentMethodsPage() {
 
                       {methodType === "bank" ? (
                         <>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <FormField
                               control={form.control}
                               name="iban"
@@ -542,7 +544,7 @@ export default function PaymentMethodsPage() {
                             )}
                           />
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <FormField
                               control={form.control}
                               name="branchName"
@@ -630,7 +632,7 @@ export default function PaymentMethodsPage() {
                         )}
                       />
 
-                      <DialogFooter>
+                      <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
                         <Button type="button" variant="outline" onClick={handleDialogClose}>
                           Cancel
                         </Button>
@@ -651,7 +653,7 @@ export default function PaymentMethodsPage() {
       </div>
 
       <Tabs defaultValue="bank" value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full md:w-[400px] grid-cols-2 p-1 bg-blue-50 rounded-lg">
+        <TabsList className="grid w-full max-w-full sm:max-w-[400px] grid-cols-2 p-1 bg-blue-50 rounded-lg">
           <TabsTrigger
             value="bank"
             className="data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm rounded-md transition-all duration-200"
@@ -674,7 +676,7 @@ export default function PaymentMethodsPage() {
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
             </div>
           ) : bankAccounts.length === 0 ? (
-            <div className="text-center py-12 border rounded-xl bg-white shadow-sm">
+            <div className="text-center py-8 sm:py-12 border rounded-xl bg-white shadow-sm px-4">
               <div className="bg-blue-50 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <Bank className="h-8 w-8 text-blue-600" />
               </div>
@@ -696,7 +698,7 @@ export default function PaymentMethodsPage() {
           ) : (
             <div
               className={cn(
-                "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-opacity duration-300",
+                "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 transition-opacity duration-300",
                 backgroundRefresh && "opacity-60",
               )}
             >
@@ -708,14 +710,14 @@ export default function PaymentMethodsPage() {
                   }`}
                 >
                   <div className={`h-2 w-full ${method.isActive ? "bg-blue-500" : "bg-gray-300"}`}></div>
-                  <CardHeader className="pb-2">
+                  <CardHeader className="pb-2 px-3 sm:px-6">
                     <div className="flex justify-between items-start">
                       <div>
-                        <CardTitle className="flex items-center text-gray-800">
+                        <CardTitle className="flex items-center text-gray-800 text-base sm:text-lg">
                           <Bank className="mr-2 h-5 w-5 text-blue-600" />
                           {method.name}
                         </CardTitle>
-                        <CardDescription className="font-medium">{method.bankName}</CardDescription>
+                        <CardDescription className="font-medium text-xs sm:text-sm">{method.bankName}</CardDescription>
                       </div>
                       {method.isActive ? (
                         <Badge
@@ -736,8 +738,8 @@ export default function PaymentMethodsPage() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="pb-2">
-                    <div className="space-y-3">
+                  <CardContent className="pb-2 px-3 sm:px-6">
+                    <div className="space-y-2 sm:space-y-3 text-sm sm:text-base">
                       <div className="bg-gray-50 p-2 rounded-md">
                         <span className="text-xs font-medium text-gray-500 block">Account Title</span>
                         <p className="font-medium text-gray-800">{method.accountTitle}</p>
@@ -766,23 +768,23 @@ export default function PaymentMethodsPage() {
                       )}
                     </div>
                   </CardContent>
-                  <CardFooter className="flex justify-end gap-2 pt-4 border-t mt-4">
+                  <CardFooter className="flex flex-wrap justify-end gap-2 pt-4 border-t mt-4 px-3 sm:px-6">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => openEditDialog(method)}
-                      className="hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                      className="hover:bg-blue-50 hover:text-blue-700 transition-colors text-xs sm:text-sm"
                     >
-                      <Edit className="h-4 w-4 mr-1" />
+                      <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                       Edit
                     </Button>
                     <Button
                       variant="destructive"
                       size="sm"
                       onClick={() => openDeleteDialog(method)}
-                      className="hover:bg-red-700 transition-colors"
+                      className="hover:bg-red-700 transition-colors text-xs sm:text-sm"
                     >
-                      <Trash2 className="h-4 w-4 mr-1" />
+                      <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                       Delete
                     </Button>
                   </CardFooter>
@@ -798,7 +800,7 @@ export default function PaymentMethodsPage() {
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
             </div>
           ) : mobileWallets.length === 0 ? (
-            <div className="text-center py-12 border rounded-xl bg-white shadow-sm">
+            <div className="text-center py-8 sm:py-12 border rounded-xl bg-white shadow-sm px-4">
               <div className="bg-indigo-50 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <Wallet className="h-8 w-8 text-indigo-600" />
               </div>
@@ -821,7 +823,7 @@ export default function PaymentMethodsPage() {
           ) : (
             <div
               className={cn(
-                "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-opacity duration-300",
+                "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 transition-opacity duration-300",
                 backgroundRefresh && "opacity-60",
               )}
             >
@@ -833,10 +835,10 @@ export default function PaymentMethodsPage() {
                   }`}
                 >
                   <div className={`h-2 w-full ${method.isActive ? "bg-indigo-500" : "bg-gray-300"}`}></div>
-                  <CardHeader className="pb-2">
+                  <CardHeader className="pb-2 px-3 sm:px-6">
                     <div className="flex justify-between items-start">
                       <div>
-                        <CardTitle className="flex items-center text-gray-800">
+                        <CardTitle className="flex items-center text-gray-800 text-base sm:text-lg">
                           <Wallet className="mr-2 h-5 w-5 text-indigo-600" />
                           {method.name}
                         </CardTitle>
@@ -867,8 +869,8 @@ export default function PaymentMethodsPage() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="pb-2">
-                    <div className="space-y-3">
+                  <CardContent className="pb-2 px-3 sm:px-6">
+                    <div className="space-y-2 sm:space-y-3 text-sm sm:text-base">
                       <div className="bg-gray-50 p-2 rounded-md">
                         <span className="text-xs font-medium text-gray-500 block">Account Title</span>
                         <p className="font-medium text-gray-800">{method.accountTitle}</p>
@@ -885,23 +887,23 @@ export default function PaymentMethodsPage() {
                       )}
                     </div>
                   </CardContent>
-                  <CardFooter className="flex justify-end gap-2 pt-4 border-t mt-4">
+                  <CardFooter className="flex flex-wrap justify-end gap-2 pt-4 border-t mt-4 px-3 sm:px-6">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => openEditDialog(method)}
-                      className="hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                      className="hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-xs sm:text-sm"
                     >
-                      <Edit className="h-4 w-4 mr-1" />
+                      <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                       Edit
                     </Button>
                     <Button
                       variant="destructive"
                       size="sm"
                       onClick={() => openDeleteDialog(method)}
-                      className="hover:bg-red-700 transition-colors"
+                      className="hover:bg-red-700 transition-colors text-xs sm:text-sm"
                     >
-                      <Trash2 className="h-4 w-4 mr-1" />
+                      <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                       Delete
                     </Button>
                   </CardFooter>
@@ -914,7 +916,7 @@ export default function PaymentMethodsPage() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[550px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Edit Payment Method</DialogTitle>
             <DialogDescription>Update the payment method details.</DialogDescription>
@@ -922,7 +924,7 @@ export default function PaymentMethodsPage() {
 
           <div className="py-4">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onEdit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(onEdit)} className="space-y-3 sm:space-y-4">
                 <FormField
                   control={form.control}
                   name="name"
@@ -972,7 +974,7 @@ export default function PaymentMethodsPage() {
 
                 {methodType === "bank" ? (
                   <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="iban"
@@ -1016,7 +1018,7 @@ export default function PaymentMethodsPage() {
                       )}
                     />
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="branchName"
@@ -1104,7 +1106,7 @@ export default function PaymentMethodsPage() {
                   )}
                 />
 
-                <DialogFooter>
+                <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
                   <Button type="button" variant="outline" onClick={handleDialogClose}>
                     Cancel
                   </Button>
@@ -1123,14 +1125,14 @@ export default function PaymentMethodsPage() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[95vw] sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently delete the payment method. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
