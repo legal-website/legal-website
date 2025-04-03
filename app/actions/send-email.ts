@@ -74,39 +74,116 @@ export async function sendInvoiceEmail(invoiceId: string, customerEmail: string,
     return { success: false, message: "Email configuration is missing. Please contact the administrator." }
   }
 
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  })
-
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: customerEmail,
-    subject: `Your Invoice #${invoiceNumber}`,
-    text: `
-      Dear Customer,
-
-      Please find attached your invoice #${invoiceNumber}.
-
-      Thank you for your business.
-
-      Regards,
-      The Orizen Team
-    `,
-    html: `
-      <h3>Your Invoice #${invoiceNumber}</h3>
-      <p>Dear Customer,</p>
-      <p>Please find attached your invoice #${invoiceNumber}.</p>
-      <p>Thank you for your business.</p>
-      <p>Regards,<br>The Orizen Team</p>
-    `,
-  }
-
+  // Fetch the invoice data to generate a proper PDF
   try {
-    console.log("Attempting to send invoice email...")
+    const invoiceResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/invoices/${invoiceId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+
+    if (!invoiceResponse.ok) {
+      throw new Error("Failed to fetch invoice data for attachment")
+    }
+
+    // Generate a simple invoice PDF (in a real app, you'd use a PDF generation library)
+    // For now, we'll create a simple HTML attachment
+    const invoiceData = await invoiceResponse.json()
+    const invoice = invoiceData.invoice
+
+    // Create a simple HTML invoice
+    const invoiceHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+          .invoice-header { text-align: center; margin-bottom: 30px; }
+          .invoice-details { margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+          th { background-color: #f2f2f2; }
+          .total { font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="invoice-header">
+          <h1>INVOICE</h1>
+          <h2>#${invoiceNumber}</h2>
+        </div>
+        <div class="invoice-details">
+          <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+          <p><strong>Customer:</strong> ${invoice.customerName}</p>
+          <p><strong>Email:</strong> ${invoice.customerEmail}</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${JSON.parse(invoice.items)
+              .map(
+                (item: any) => `
+              <tr>
+                <td>${item.tier || item.name || "Product"}</td>
+                <td>$${item.price.toFixed(2)}</td>
+              </tr>
+            `,
+              )
+              .join("")}
+            <tr class="total">
+              <td>Total</td>
+              <td>$${invoice.amount.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    })
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: customerEmail,
+      subject: `Your Invoice #${invoiceNumber}`,
+      text: `
+        Dear Customer,
+
+        Please find attached your invoice #${invoiceNumber}.
+
+        Thank you for your business.
+
+        Regards,
+        The Orizen Team
+      `,
+      html: `
+        <h3>Your Invoice #${invoiceNumber}</h3>
+        <p>Dear Customer,</p>
+        <p>Please find attached your invoice #${invoiceNumber}.</p>
+        <p>Thank you for your business.</p>
+        <p>Regards,<br>The Orizen Team</p>
+      `,
+      attachments: [
+        {
+          filename: `Invoice-${invoiceNumber}.html`,
+          content: invoiceHtml,
+          contentType: "text/html",
+        },
+      ],
+    }
+
+    console.log("Attempting to send invoice email with attachment...")
     const info = await transporter.sendMail(mailOptions)
     console.log("Invoice email sent successfully:", info.response)
     return { success: true, message: "Invoice sent successfully!" }

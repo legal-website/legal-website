@@ -66,6 +66,11 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
   const [sendingEmail, setSendingEmail] = useState(false)
   const { addNotification } = useNotifications()
 
+  // Update the rejection dialog to include a text area for notes
+
+  // First, add a new state for rejection reason
+  const [rejectionReason, setRejectionReason] = useState("")
+
   useEffect(() => {
     // Check if user is authenticated and is an admin
     if (session && (session.user as any).role !== "ADMIN" && (session.user as any).role !== "SUPER_ADMIN") {
@@ -243,13 +248,18 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
     }
   }
 
+  // Then update the handleRejectPayment function to include the reason
   const handleRejectPayment = async () => {
     if (!invoice) return
 
     setProcessingAction(true)
     try {
-      const response = await fetch(`/api/admin/invoices/${invoice.id}/reject`, {
+      const response = await fetch(`/api/invoices/${invoice.id}/reject`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reason: rejectionReason }),
       })
 
       if (!response.ok) {
@@ -263,6 +273,7 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
         return {
           ...prev,
           status: "cancelled",
+          rejectionReason: rejectionReason,
         }
       })
 
@@ -270,6 +281,7 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
       addNotification(invoiceEvents.paymentRejected(invoice.invoiceNumber, invoice.customerName))
 
       setRejectDialogOpen(false)
+      setRejectionReason("") // Reset the reason
       toast({
         title: "Payment Rejected",
         description: "The customer has been notified of the rejection.",
@@ -578,6 +590,19 @@ export default function AdminInvoiceDetailPage({ params }: { params: { id: strin
               accepted.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="py-4">
+            <label htmlFor="rejection-reason" className="block text-sm font-medium mb-2">
+              Rejection Reason (optional)
+            </label>
+            <textarea
+              id="rejection-reason"
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Enter reason for rejection (will be included in email to customer)"
+              className="w-full p-2 border border-gray-300 rounded-md text-sm"
+              rows={3}
+            />
+          </div>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <AlertDialogCancel disabled={processingAction} className="text-xs sm:text-sm mt-0">
               Cancel
