@@ -47,6 +47,33 @@ import {
 // Import the usePricing hook
 import { usePricing } from "@/context/pricing-context"
 
+// Add responsive utility classes
+const responsive = {
+  xs: "hidden xs:inline",
+  xsOnly: "xs:hidden",
+  sm: "hidden sm:inline",
+  smOnly: "sm:hidden",
+  md: "hidden md:inline",
+  mdOnly: "md:hidden",
+}
+
+// Add custom breakpoint for extra small screens
+// This needs to be added to your globals.css or tailwind config
+// For now, we'll use inline styles for the xs breakpoint
+const xsBreakpoint = "@media (min-width: 480px)"
+
+// Custom styles for extra small screens
+const styles = {
+  xs: {
+    display: "none",
+  },
+  "@media (min-width: 480px)": {
+    xs: {
+      display: "inline",
+    },
+  },
+}
+
 // Define types for our data
 interface PricingPlan {
   id: number
@@ -543,9 +570,9 @@ export default function SubscriptionsPage() {
   }
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 max-w-[1600px] mx-auto mb-20 md:mb-44">
+    <div className="p-2 sm:p-3 md:p-6 max-w-[1600px] mx-auto mb-16 md:mb-44 overflow-hidden">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 md:mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 md:mb-6 gap-3">
         <div>
           <h1 className="text-2xl font-bold">Pricing Management</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage subscription plans and state filing fees</p>
@@ -554,16 +581,17 @@ export default function SubscriptionsPage() {
           <Button
             variant="outline"
             size="sm"
-            className="flex items-center"
+            className="flex items-center px-2 sm:px-3"
             onClick={fetchPricingData}
             disabled={loading}
           >
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+            <RefreshCw className={`sm:mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
           <Button className="bg-purple-600 hover:bg-purple-700" onClick={savePricingData} disabled={saving}>
             <Save className="mr-2 h-4 w-4" />
-            {saving ? "Saving..." : "Save All Changes"}
+            {saving ? "Saving..." : <span className="hidden xs:inline">Save All Changes</span>}
+            {saving ? "" : <span className="xs:hidden">Save</span>}
           </Button>
         </div>
       </div>
@@ -592,10 +620,16 @@ export default function SubscriptionsPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="plans">Subscription Plans</TabsTrigger>
-          <TabsTrigger value="states">State Filing Fees</TabsTrigger>
-          <TabsTrigger value="customers">Customer Subscriptions</TabsTrigger>
+        <TabsList className="flex flex-wrap">
+          <TabsTrigger value="plans" className="text-xs sm:text-sm">
+            <span className="hidden sm:inline">Subscription</span> Plans
+          </TabsTrigger>
+          <TabsTrigger value="states" className="text-xs sm:text-sm">
+            <span className="hidden sm:inline">State</span> Filing Fees
+          </TabsTrigger>
+          <TabsTrigger value="customers" className="text-xs sm:text-sm">
+            <span className="hidden sm:inline">Customer</span> Subscriptions
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="plans" className="mt-6">
@@ -606,7 +640,7 @@ export default function SubscriptionsPage() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4 lg:gap-6">
             {pricingData.plans.map((plan) => (
               <Card key={plan.id} className="overflow-hidden">
                 <CardHeader className="pb-2">
@@ -660,15 +694,21 @@ export default function SubscriptionsPage() {
               <CardDescription>Manage state filing fees, discounts, and descriptions</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto -mx-4 sm:mx-0">
-                <table className="w-full min-w-[650px]">
+              <div className="overflow-x-auto -mx-2 sm:mx-0">
+                <table className="w-full min-w-[500px] table-fixed">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-4 font-medium text-sm">State</th>
-                      <th className="text-left p-4 font-medium text-sm">Filing Fee</th>
-                      <th className="text-left p-4 font-medium text-sm">Discounted Fee</th>
-                      <th className="text-left p-4 font-medium text-sm">Description</th>
-                      <th className="text-left p-4 font-medium text-sm">Actions</th>
+                      <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm w-[60px] sm:w-auto">State</th>
+                      <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm w-[80px] sm:w-auto">
+                        Filing Fee
+                      </th>
+                      <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm w-[100px] sm:w-auto">
+                        Discounted Fee
+                      </th>
+                      <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">Description</th>
+                      <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm w-[60px] sm:w-auto">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -676,26 +716,26 @@ export default function SubscriptionsPage() {
                       .sort()
                       .map((state) => (
                         <tr key={state} className="border-b">
-                          <td className="p-4 font-medium">{state}</td>
-                          <td className="p-4">
+                          <td className="p-2 sm:p-4 font-medium text-xs sm:text-sm">{state}</td>
+                          <td className="p-2 sm:p-4 truncate">
                             {editingState === state ? (
                               <Input
                                 type="number"
                                 value={editedStateFee}
                                 onChange={(e) => setEditedStateFee(e.target.value)}
-                                className="w-24"
+                                className="w-16 sm:w-24 text-xs sm:text-sm p-1 sm:p-2"
                               />
                             ) : (
                               <>${pricingData.stateFilingFees[state]}</>
                             )}
                           </td>
-                          <td className="p-4">
+                          <td className="p-2 sm:p-4 truncate">
                             {editingState === state ? (
                               <Input
                                 type="number"
                                 value={editedStateDiscount}
                                 onChange={(e) => setEditedStateDiscount(e.target.value)}
-                                className="w-24"
+                                className="w-16 sm:w-24 text-xs sm:text-sm p-1 sm:p-2"
                                 placeholder="No discount"
                               />
                             ) : pricingData.stateDiscounts[state] ? (
@@ -704,7 +744,7 @@ export default function SubscriptionsPage() {
                               <span className="text-gray-400">No discount</span>
                             )}
                           </td>
-                          <td className="p-4">
+                          <td className="p-2 sm:p-4 truncate">
                             {editingState === state ? (
                               <Textarea
                                 value={editedStateDescription}
@@ -712,10 +752,12 @@ export default function SubscriptionsPage() {
                                 className="min-h-[80px]"
                               />
                             ) : (
-                              <div className="max-w-md text-sm">{pricingData.stateDescriptions[state]}</div>
+                              <div className="max-w-[120px] sm:max-w-md text-xs sm:text-sm truncate">
+                                {pricingData.stateDescriptions[state]}
+                              </div>
                             )}
                           </td>
-                          <td className="p-4">
+                          <td className="p-2 sm:p-4 truncate">
                             {editingState === state ? (
                               <div className="flex space-x-2">
                                 <Button variant="outline" size="sm" onClick={handleCancelStateEdit}>
@@ -747,41 +789,47 @@ export default function SubscriptionsPage() {
         <TabsContent value="customers" className="mt-6">
           {/* Customer Subscriptions Section */}
           <div className="mb-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-3 gap-2">
               <h2 className="text-xl font-semibold">Customer Subscriptions</h2>
-              <div className="flex items-center space-x-3 mt-4 md:mt-0">
+              <div className="flex items-center space-x-2 sm:space-x-3 mt-3 md:mt-0">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex items-center"
+                  className="flex items-center h-8 px-2 sm:px-3"
                   onClick={fetchCustomerSubscriptions}
                   disabled={loadingSubscriptions}
                 >
-                  <RefreshCw className={`mr-2 h-4 w-4 ${loadingSubscriptions ? "animate-spin" : ""}`} />
-                  Refresh
+                  <RefreshCw className={`sm:mr-2 h-4 w-4 ${loadingSubscriptions ? "animate-spin" : ""}`} />
+                  <span className="hidden sm:inline">Refresh</span>
                 </Button>
-                <Button variant="outline" size="sm" className="flex items-center" onClick={exportSubscriptions}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Export CSV
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center h-8 px-2 sm:px-3"
+                  onClick={exportSubscriptions}
+                >
+                  <Download className="sm:mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Export CSV</span>
+                  <span className="sm:hidden">Export</span>
                 </Button>
               </div>
             </div>
 
             {/* Search and Sort */}
-            <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 mb-4">
-              <div className="relative flex-1 min-w-[240px]">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-3 w-3 sm:h-4 sm:w-4" />
                 <Input
                   placeholder="Search subscriptions..."
-                  className="pl-10"
+                  className="pl-7 sm:pl-10 h-8 sm:h-10 text-xs sm:text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
 
               {/* In the Search and Sort section, add items per page selector */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500 whitespace-nowrap">Items per page:</span>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">Per page:</span>
                 <Select
                   value={itemsPerPage.toString()}
                   onValueChange={(value) => {
@@ -789,7 +837,7 @@ export default function SubscriptionsPage() {
                     setCurrentPage(1) // Reset to first page when changing items per page
                   }}
                 >
-                  <SelectTrigger className="w-[80px]">
+                  <SelectTrigger className="w-[60px] sm:w-[80px] h-8 sm:h-10 text-xs sm:text-sm">
                     <SelectValue placeholder="10" />
                   </SelectTrigger>
                   <SelectContent>
@@ -801,10 +849,10 @@ export default function SubscriptionsPage() {
                 </Select>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500 whitespace-nowrap">Sort by:</span>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">Sort:</span>
                 <Select value={sortOrder} onValueChange={setSortOrder}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[120px] sm:w-[180px] h-8 sm:h-10 text-xs sm:text-sm">
                     <SelectValue placeholder="Sort order" />
                   </SelectTrigger>
                   <SelectContent>
@@ -832,16 +880,26 @@ export default function SubscriptionsPage() {
             ) : (
               // Replace the Card component with this updated version that includes pagination
               <Card>
-                <div className="overflow-x-auto -mx-4 sm:mx-0">
-                  <table className="w-full min-w-[700px]">
+                <div className="overflow-x-auto -mx-2 sm:mx-0">
+                  <table className="w-full min-w-[500px] table-fixed">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left p-4 font-medium text-sm">Invoice</th>
-                        <th className="text-left p-4 font-medium text-sm">Customer</th>
-                        <th className="text-left p-4 font-medium text-sm">Package</th>
-                        <th className="text-left p-4 font-medium text-sm">Amount</th>
-                        <th className="text-left p-4 font-medium text-sm">Payment Date</th>
-                        <th className="text-left p-4 font-medium text-sm">Actions</th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm w-[80px] sm:w-auto">
+                          Invoice
+                        </th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">Customer</th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm w-[80px] sm:w-auto">
+                          Package
+                        </th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm w-[70px] sm:w-auto">
+                          Amount
+                        </th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm w-[90px] sm:w-auto">
+                          Payment Date
+                        </th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm w-[60px] sm:w-auto">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -854,27 +912,42 @@ export default function SubscriptionsPage() {
                       ) : (
                         currentSubscriptions.map((subscription) => (
                           <tr key={subscription.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                            <td className="p-4">
+                            <td className="p-2 sm:p-4">
                               <div className="flex items-center">
-                                <FileText className="h-4 w-4 mr-2 text-gray-400" />
-                                <span>{subscription.invoiceNumber}</span>
+                                <FileText className="h-4 w-4 mr-1 sm:mr-2 text-gray-400 flex-shrink-0" />
+                                <span className="truncate max-w-[80px] sm:max-w-[120px] md:max-w-none">
+                                  {subscription.invoiceNumber}
+                                </span>
                               </div>
                             </td>
-                            <td className="p-4">
+                            <td className="p-2 sm:p-4">
                               <div>
-                                <p className="font-medium">{subscription.customerName}</p>
-                                <p className="text-sm text-gray-500">{subscription.customerEmail}</p>
+                                <p className="font-medium truncate max-w-[150px] sm:max-w-[200px] md:max-w-none">
+                                  {subscription.customerName}
+                                </p>
+                                <p className="text-sm text-gray-500 truncate max-w-[150px] sm:max-w-[200px] md:max-w-none">
+                                  {subscription.customerEmail}
+                                </p>
                               </div>
                             </td>
-                            <td className="p-4 font-medium">{subscription.packageName}</td>
-                            <td className="p-4 font-medium">${subscription.amount.toFixed(2)}</td>
-                            <td className="p-4 text-gray-500">
+                            <td className="p-2 sm:p-4 font-medium truncate max-w-[80px] sm:max-w-[120px] md:max-w-none">
+                              {subscription.packageName}
+                            </td>
+                            <td className="p-2 sm:p-4 font-medium text-xs sm:text-sm whitespace-nowrap">
+                              ${subscription.amount.toFixed(2)}
+                            </td>
+                            <td className="p-2 sm:p-4 text-gray-500 text-xs sm:text-sm whitespace-nowrap">
                               {formatDate(subscription.paymentDate || subscription.createdAt)}
                             </td>
-                            <td className="p-4">
-                              <Button variant="ghost" size="sm" onClick={() => viewSubscriptionDetails(subscription)}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                View
+                            <td className="p-2 sm:p-4 truncate">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => viewSubscriptionDetails(subscription)}
+                                className="px-2 sm:px-3"
+                              >
+                                <Eye className="h-4 w-4 sm:mr-2" />
+                                <span className="hidden sm:inline">View</span>
                               </Button>
                             </td>
                           </tr>
@@ -886,18 +959,24 @@ export default function SubscriptionsPage() {
 
                 {/* Pagination Controls */}
                 {filteredSubscriptions.length > 0 && (
-                  <div className="flex flex-col sm:flex-row items-center justify-between p-3 sm:p-4 border-t gap-3">
-                    <div className="text-sm text-gray-500">
-                      Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredSubscriptions.length)} of{" "}
-                      {filteredSubscriptions.length} subscriptions
+                  <div className="flex flex-col sm:flex-row items-center justify-between p-2 sm:p-4 border-t gap-2 sm:gap-3">
+                    <div className="text-xs sm:text-sm text-gray-500">
+                      <span className="hidden sm:inline">
+                        Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredSubscriptions.length)} of{" "}
+                        {filteredSubscriptions.length} subscriptions
+                      </span>
+                      <span className="sm:hidden">
+                        {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredSubscriptions.length)} of{" "}
+                        {filteredSubscriptions.length}
+                      </span>
                     </div>
-                    <div className="flex items-center space-x-1 sm:space-x-2">
+                    <div className="flex items-center space-x-1 sm:space-x-2 flex-wrap">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={prevPage}
                         disabled={currentPage === 1}
-                        className="text-xs sm:text-sm px-2 sm:px-3"
+                        className="text-xs sm:text-sm px-2 sm:px-3 h-7 sm:h-8"
                       >
                         Prev
                       </Button>
@@ -922,7 +1001,7 @@ export default function SubscriptionsPage() {
                               key={pageToShow}
                               variant={currentPage === pageToShow ? "default" : "outline"}
                               size="sm"
-                              className="w-8 h-8 p-0"
+                              className="w-6 h-7 sm:w-8 sm:h-8 p-0 text-xs sm:text-sm"
                               onClick={() => goToPage(pageToShow)}
                             >
                               {pageToShow}
@@ -936,7 +1015,7 @@ export default function SubscriptionsPage() {
                         size="sm"
                         onClick={nextPage}
                         disabled={currentPage === totalPages}
-                        className="text-xs sm:text-sm px-2 sm:px-3"
+                        className="text-xs sm:text-sm px-2 sm:px-3 h-7 sm:h-8"
                       >
                         Next
                       </Button>
@@ -951,7 +1030,7 @@ export default function SubscriptionsPage() {
 
       {/* Plan Edit Dialog - Updated for better responsiveness and scrolling */}
       <Dialog open={showPlanDialog} onOpenChange={setShowPlanDialog}>
-        <DialogContent className="w-[95vw] max-w-[600px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+        <DialogContent className="w-[95vw] max-w-[600px] max-h-[90vh] overflow-y-auto p-3 sm:p-6">
           <DialogHeader className="sticky top-0 bg-white dark:bg-gray-950 pt-4 pb-2 z-10">
             <DialogTitle>{editingPlan?.id ? "Edit" : "Create New"} Subscription Plan</DialogTitle>
             <DialogDescription>
@@ -962,8 +1041,8 @@ export default function SubscriptionsPage() {
           </DialogHeader>
 
           {editingPlan && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+            <div className="grid gap-3 sm:gap-4 py-3 sm:py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-1 sm:gap-4">
                 <Label htmlFor="plan-name" className="sm:text-right">
                   Plan Name
                 </Label>
@@ -976,7 +1055,7 @@ export default function SubscriptionsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-1 sm:gap-4">
                 <Label htmlFor="plan-price" className="sm:text-right">
                   Price
                 </Label>
@@ -1002,7 +1081,7 @@ export default function SubscriptionsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-1 sm:gap-4">
                 <Label className="sm:text-right">Billing Cycle</Label>
                 <div className="col-span-1 sm:col-span-3">
                   <Select
@@ -1021,7 +1100,7 @@ export default function SubscriptionsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-2 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-1 sm:gap-4">
                 <Label htmlFor="plan-description" className="sm:text-right pt-2">
                   Description
                 </Label>
@@ -1034,7 +1113,7 @@ export default function SubscriptionsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-1 sm:gap-4">
                 <Label htmlFor="includes-package" className="sm:text-right">
                   Includes Package
                 </Label>
@@ -1047,7 +1126,7 @@ export default function SubscriptionsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-1 sm:gap-4">
                 <Label htmlFor="plan-recommended" className="sm:text-right">
                   Recommended
                 </Label>
@@ -1060,7 +1139,7 @@ export default function SubscriptionsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-1 sm:gap-4">
                 <Label htmlFor="assist-badge" className="sm:text-right">
                   Assist Badge
                 </Label>
@@ -1073,7 +1152,7 @@ export default function SubscriptionsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-2 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-1 sm:gap-4">
                 <Label className="sm:text-right pt-2">Features</Label>
                 <div className="col-span-1 sm:col-span-3 space-y-2">
                   {editingPlan.features.map((feature, index) => (
@@ -1127,7 +1206,7 @@ export default function SubscriptionsPage() {
 
       {/* Delete Confirmation Dialog - Updated for better responsiveness */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className="w-[95vw] max-w-[450px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+        <AlertDialogContent className="w-[95vw] max-w-[450px] max-h-[90vh] overflow-y-auto p-3 sm:p-6">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1147,7 +1226,7 @@ export default function SubscriptionsPage() {
       {/* Subscription Details Dialog */}
       {selectedSubscription && (
         <Dialog open={showSubscriptionDialog} onOpenChange={setShowSubscriptionDialog}>
-          <DialogContent className="w-[95vw] max-w-[700px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+          <DialogContent className="w-[95vw] max-w-[700px] max-h-[90vh] overflow-y-auto p-3 sm:p-6">
             <DialogHeader className="sticky top-0 bg-white dark:bg-gray-950 pt-4 pb-2 z-10">
               <DialogTitle>Subscription Details</DialogTitle>
               <DialogDescription>Viewing details for invoice {selectedSubscription.invoiceNumber}</DialogDescription>
@@ -1155,7 +1234,7 @@ export default function SubscriptionsPage() {
 
             <div className="py-4">
               {/* Subscription Header */}
-              <div className="flex flex-col sm:flex-row sm:justify-between mb-4 sm:mb-8 gap-4">
+              <div className="flex flex-col sm:flex-row sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-4">
                 <div>
                   <h3 className="text-lg font-bold mb-1">Customer Information</h3>
                   <p className="font-medium">{selectedSubscription.customerName}</p>
@@ -1201,52 +1280,58 @@ export default function SubscriptionsPage() {
               {/* Subscription Items */}
               <div className="mb-8">
                 <h3 className="text-lg font-bold mb-4">Items</h3>
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2 font-medium text-sm">Item</th>
-                      <th className="text-right p-2 font-medium text-sm">Price</th>
-                      <th className="text-right p-2 font-medium text-sm">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Array.isArray(selectedSubscription.items) ? (
-                      selectedSubscription.items.map((item, index) => (
-                        <tr key={index} className="border-b">
-                          <td className="p-2">
-                            <div>
-                              <p>{item.tier} Package</p>
-                              {item.state && <p className="text-sm text-gray-500">{item.state} State Filing Fee</p>}
-                            </div>
-                          </td>
-                          <td className="p-2 text-right">
-                            <div>
-                              <p>${item.price.toFixed(2)}</p>
-                              {item.stateFee && <p className="text-sm text-gray-500">${item.stateFee.toFixed(2)}</p>}
-                            </div>
-                          </td>
-                          <td className="p-2 text-right">
-                            ${(item.price + (item.stateFee || 0) - (item.discount || 0)).toFixed(2)}
+                <div className="overflow-x-auto -mx-2 sm:mx-0">
+                  <table className="w-full min-w-[300px]">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">Item</th>
+                        <th className="text-right p-2 sm:p-4 font-medium text-xs sm:text-sm">Price</th>
+                        <th className="text-right p-2 sm:p-4 font-medium text-xs sm:text-sm">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.isArray(selectedSubscription.items) ? (
+                        selectedSubscription.items.map((item, index) => (
+                          <tr key={index} className="border-b">
+                            <td className="p-1 sm:p-2">
+                              <div>
+                                <p className="truncate max-w-[120px] sm:max-w-none">{item.tier} Package</p>
+                                {item.state && (
+                                  <p className="text-xs sm:text-sm text-gray-500 truncate max-w-[120px] sm:max-w-none">
+                                    {item.state} State Filing Fee
+                                  </p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-1 sm:p-2 text-right whitespace-nowrap">
+                              <div>
+                                <p>${item.price.toFixed(2)}</p>
+                                {item.stateFee && <p className="text-sm text-gray-500">${item.stateFee.toFixed(2)}</p>}
+                              </div>
+                            </td>
+                            <td className="p-1 sm:p-2 text-right whitespace-nowrap">
+                              ${(item.price + (item.stateFee || 0) - (item.discount || 0)).toFixed(2)}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="p-2 text-center text-gray-500">
+                            No items found or invalid items format
                           </td>
                         </tr>
-                      ))
-                    ) : (
+                      )}
+                    </tbody>
+                    <tfoot>
                       <tr>
-                        <td colSpan={3} className="p-2 text-center text-gray-500">
-                          No items found or invalid items format
+                        <td colSpan={2} className="p-2 text-right font-medium">
+                          Total
                         </td>
+                        <td className="p-2 text-right font-bold">${selectedSubscription.amount.toFixed(2)}</td>
                       </tr>
-                    )}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td colSpan={2} className="p-2 text-right font-medium">
-                        Total
-                      </td>
-                      <td className="p-2 text-right font-bold">${selectedSubscription.amount.toFixed(2)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
             </div>
 
