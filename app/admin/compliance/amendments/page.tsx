@@ -623,10 +623,10 @@ export default function AmendmentsPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 px-[5%] mb-40">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Compliance Amendments</h1>
-        <div className="space-x-2">
+    <div className="container mx-auto py-4 sm:py-6 px-3 sm:px-[5%] mb-20 sm:mb-40">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold">Compliance Amendments</h1>
+        <div className="flex space-x-2">
           <Button variant="outline" onClick={testDatabaseConnection} size="sm">
             Test DB Connection
           </Button>
@@ -656,9 +656,9 @@ export default function AmendmentsPage() {
         <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="space-y-4 mb-4">
             {/* Filters row */}
-            <div className="flex flex-col md:flex-row justify-end items-start md:items-center gap-4">
-              <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-                <div className="relative flex-1 md:w-64">
+            <div className="flex flex-col sm:flex-row justify-end items-start sm:items-center gap-4">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-64">
                   <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
                   <Input
                     placeholder="Filter by client name/email"
@@ -671,47 +671,49 @@ export default function AmendmentsPage() {
                   />
                 </div>
 
-                <Select
-                  value={sortBy}
-                  onValueChange={(value: SortOption) => {
-                    setSortBy(value)
-                    setCurrentPage(1) // Reset to first page when sort changes
-                  }}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <div className="flex items-center">
-                      {sortBy.includes("desc") ? (
-                        <SortDesc className="mr-2 h-4 w-4" />
-                      ) : (
-                        <SortAsc className="mr-2 h-4 w-4" />
-                      )}
-                      <span>Sort by</span>
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Newest First</SelectItem>
-                    <SelectItem value="oldest">Oldest First</SelectItem>
-                    <SelectItem value="name-asc">Name (A-Z)</SelectItem>
-                    <SelectItem value="name-desc">Name (Z-A)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2 mt-2 sm:mt-0">
+                  <Select
+                    value={sortBy}
+                    onValueChange={(value: SortOption) => {
+                      setSortBy(value)
+                      setCurrentPage(1) // Reset to first page when sort changes
+                    }}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <div className="flex items-center">
+                        {sortBy.includes("desc") ? (
+                          <SortDesc className="mr-2 h-4 w-4" />
+                        ) : (
+                          <SortAsc className="mr-2 h-4 w-4" />
+                        )}
+                        <span>Sort by</span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest First</SelectItem>
+                      <SelectItem value="oldest">Oldest First</SelectItem>
+                      <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+                      <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleManualRefresh}
-                  disabled={loading}
-                  className="relative"
-                >
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-                  {refreshing && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500"></span>}
-                </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleManualRefresh}
+                    disabled={loading}
+                    className="relative"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                    {refreshing && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500"></span>}
+                  </Button>
+                </div>
               </div>
             </div>
 
             {/* Tabs row */}
-            <div className="w-full">
-              <TabsList className="flex flex-wrap w-full">
+            <div className="w-full overflow-x-auto pb-2">
+              <TabsList className="flex flex-nowrap min-w-max">
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value={AmendmentStatus.PENDING}>Pending</TabsTrigger>
                 <TabsTrigger value={AmendmentStatus.IN_REVIEW}>In Review</TabsTrigger>
@@ -733,25 +735,25 @@ export default function AmendmentsPage() {
               </div>
             ) : (
               <>
-                <div className="grid gap-6 md:grid-cols-2">
+                <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
                   {currentItems.map((amendment) => (
                     <Card
                       key={amendment.id}
                       className="overflow-hidden border-l-2 border-l-primary shadow-sm hover:shadow-md transition-shadow"
                     >
                       <CardHeader className="pb-2 bg-gray-50">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-lg">{amendment.type}</CardTitle>
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                          <CardTitle className="text-lg break-words">{amendment.type}</CardTitle>
                           <StatusBadge status={amendment.status} />
                         </div>
-                        <CardDescription>
+                        <CardDescription className="break-words">
                           Submitted by {amendment.userName} ({amendment.userEmail})
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="pb-2 pt-4">
                         <div className="mb-3">
                           <h4 className="text-sm font-medium text-gray-700">Details:</h4>
-                          <p className="text-sm text-gray-600 mt-1">{amendment.details}</p>
+                          <p className="text-sm text-gray-600 mt-1 break-words">{amendment.details}</p>
                         </div>
 
                         {amendment.documentUrl && (
@@ -784,7 +786,7 @@ export default function AmendmentsPage() {
                         {amendment.notes && (
                           <div className="mb-3 p-2 bg-gray-50 rounded-md">
                             <h4 className="text-sm font-medium text-gray-700">Notes:</h4>
-                            <p className="text-sm text-gray-600 mt-1">{amendment.notes}</p>
+                            <p className="text-sm text-gray-600 mt-1 break-words">{amendment.notes}</p>
                           </div>
                         )}
 
@@ -873,18 +875,19 @@ export default function AmendmentsPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleOpenStatusChangeDialog(amendment.id, amendment.status)}
-                          className="ml-auto"
+                          className="w-full sm:w-auto sm:ml-auto mb-2 sm:mb-0"
                         >
                           Change Status
                         </Button>
 
                         {/* Original action buttons for pending amendments */}
                         {amendment.status === AmendmentStatus.PENDING && (
-                          <>
+                          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                             <Button
                               size="sm"
                               onClick={() => approveAmendment(amendment.id)}
                               disabled={loadingAmendmentId === amendment.id}
+                              className="flex-1 sm:flex-none"
                             >
                               {loadingAmendmentId === amendment.id &&
                               amendment.id === selectedAmendmentId &&
@@ -898,6 +901,7 @@ export default function AmendmentsPage() {
                               variant="outline"
                               onClick={() => rejectAmendment(amendment.id)}
                               disabled={loadingAmendmentId === amendment.id}
+                              className="flex-1 sm:flex-none"
                             >
                               {loadingAmendmentId === amendment.id &&
                               amendment.id === selectedAmendmentId &&
@@ -911,6 +915,7 @@ export default function AmendmentsPage() {
                               variant="outline"
                               onClick={() => handleRequestPayment(amendment.id)}
                               disabled={loadingAmendmentId === amendment.id}
+                              className="flex-1 sm:flex-none"
                             >
                               {loadingAmendmentId === amendment.id &&
                               amendment.id === selectedAmendmentId &&
@@ -923,11 +928,11 @@ export default function AmendmentsPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => debugAmendment(amendment.id)}
-                              className="ml-auto"
+                              className="flex-1 sm:flex-none"
                             >
                               Debug
                             </Button>
-                          </>
+                          </div>
                         )}
                       </CardFooter>
                     </Card>
@@ -936,8 +941,8 @@ export default function AmendmentsPage() {
 
                 {/* Pagination controls */}
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-6 bg-white p-4 rounded-lg shadow-sm">
-                    <div className="text-sm text-gray-500">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 bg-white p-3 sm:p-4 rounded-lg shadow-sm">
+                    <div className="text-sm text-gray-500 text-center sm:text-left">
                       Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredAmendments.length)} of{" "}
                       {filteredAmendments.length} amendments
                     </div>
@@ -979,7 +984,7 @@ export default function AmendmentsPage() {
           if (!loadingAmendmentId) setIsDialogOpen(open)
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Request Payment</DialogTitle>
             <DialogDescription>Enter the payment amount required for this amendment.</DialogDescription>
@@ -1042,7 +1047,7 @@ export default function AmendmentsPage() {
           if (!loadingAmendmentId) setIsStatusChangeDialogOpen(open)
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Change Amendment Status</DialogTitle>
             <DialogDescription>Select a new status for this amendment.</DialogDescription>

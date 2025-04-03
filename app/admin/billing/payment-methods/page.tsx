@@ -410,7 +410,7 @@ export default function PaymentMethodsPage() {
                 <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all duration-300">
                   <Plus className="mr-1 sm:mr-2 h-4 w-4" />
                   <span className="hidden sm:inline">Add Payment Method</span>
-                  <span className="sm:hidden">Add</span>
+                  <span className="sm:hidden">Add Method</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="w-[95vw] sm:max-w-[550px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
