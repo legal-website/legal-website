@@ -1319,8 +1319,6 @@ export default function AllUsersPage() {
   const handleSortChange = (value: string) => {
     setSortOrder(value as "newest" | "oldest" | "pending" | "approved" | "none")
     setCurrentPage(1) // Reset to first page when sorting changes
-    setSortOrder(value as "newest" | "oldest" | "pending" | "approved" | "none")
-    setCurrentPage(1) // Reset to first page when sorting changes
   }
 
   // Add this function to handle date filter changes
@@ -1411,7 +1409,7 @@ export default function AllUsersPage() {
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto mb-40">
       {/* Include the online status tracker */}
       <OnlineStatusTracker />
 
@@ -1424,19 +1422,19 @@ export default function AllUsersPage() {
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
           <Button variant="outline" size="sm" className="flex items-center" onClick={exportUserData}>
             <Download className="mr-2 h-4 w-4" />
-            Export
+            <span className="hidden sm:inline">Export</span>
           </Button>
           {/* Update the Add User button color (around line 660) */}
           <Button className="bg-[#22c984] hover:bg-[#1ba36d]" onClick={() => setShowAddUserDialog(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Add User
+            <span className="hidden sm:inline">Add User</span>
+            <span className="sm:hidden">Add</span>
           </Button>
         </div>
       </div>
 
-      {/* Replace the filters and search section with this updated version (around line 670) */}
-      {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      {/* Filters and Search - Responsive Layout */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -1467,7 +1465,7 @@ export default function AllUsersPage() {
             <SelectTrigger>
               <div className="flex items-center">
                 <ArrowUpDown className="mr-2 h-4 w-4" />
-                <span>
+                <span className="truncate">
                   {sortOrder === "newest"
                     ? "Newest First"
                     : sortOrder === "oldest"
@@ -1528,8 +1526,8 @@ export default function AllUsersPage() {
 
       {/* Active Filters */}
       {(sortOrder !== "none" || dateFilter.startDate || dateFilter.endDate) && (
-        <div className="flex items-center mb-4 p-2 bg-muted rounded-md">
-          <div className="flex-1 flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center mb-4 p-2 bg-muted rounded-md">
+          <div className="flex-1 flex flex-wrap gap-2 mb-2 sm:mb-0">
             <span className="text-sm font-medium">Active Filters:</span>
             {sortOrder !== "none" && (
               <Badge variant="outline" className="mr-2">
@@ -1560,330 +1558,329 @@ export default function AllUsersPage() {
         </div>
       )}
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="all">All Users</TabsTrigger>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="inactive">Inactive</TabsTrigger>
-          <TabsTrigger value="validationEmailSent">Validation Email Sent</TabsTrigger>
-        </TabsList>
+      {/* Tabs - Scrollable on mobile */}
+      <div className="overflow-x-auto pb-2 -mx-4 sm:mx-0 px-4 sm:px-0">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6 min-w-[500px]">
+          <TabsList>
+            <TabsTrigger value="all">All Users</TabsTrigger>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="pending">Pending</TabsTrigger>
+            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+            <TabsTrigger value="validationEmailSent">Validation Email Sent</TabsTrigger>
+          </TabsList>
 
-        {/* Update the TabsContent to use paginatedUsers instead of filteredUsers (around line 720) */}
-        {/* For each TabsContent, replace users={filteredUsers} with users={paginatedUsers} */}
-        {/* For example: */}
-        <TabsContent value="all">
-          <UserTable
-            users={paginatedUsers}
-            onViewUser={viewUserDetails}
-            onEditUser={handleEditUser}
-            onResetPassword={handleResetPassword}
-            onChangeRole={handleChangeRole}
-            onToggleStatus={toggleUserStatus}
-            onDeleteUser={handleDeleteUser}
-            loading={loading}
-            formatDate={formatDate}
-            getStatusColor={getStatusColor}
-          />
-          {/* Add Pagination */}
-          {filteredUsers.length > 0 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-muted-foreground">
-                Showing{" "}
-                <span className="font-medium">
-                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
-                </span>{" "}
-                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
-                <span className="font-medium">{filteredUsers.length}</span> users
-              </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="sr-only">Previous page</span>
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          <TabsContent value="all">
+            <UserTable
+              users={paginatedUsers}
+              onViewUser={viewUserDetails}
+              onEditUser={handleEditUser}
+              onResetPassword={handleResetPassword}
+              onChangeRole={handleChangeRole}
+              onToggleStatus={toggleUserStatus}
+              onDeleteUser={handleDeleteUser}
+              loading={loading}
+              formatDate={formatDate}
+              getStatusColor={getStatusColor}
+            />
+            {/* Add Pagination */}
+            {filteredUsers.length > 0 && (
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing{" "}
+                  <span className="font-medium">
+                    {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
+                  </span>{" "}
+                  to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span>{" "}
+                  of <span className="font-medium">{filteredUsers.length}</span> users
+                </div>
+                <div className="flex items-center gap-1 overflow-x-auto pb-2">
                   <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
+                    variant="outline"
                     size="icon"
-                    onClick={() => goToPage(page)}
-                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                    onClick={goToPreviousPage}
+                    disabled={currentPage === 1}
+                    className="h-8 w-8"
                   >
-                    {page}
-                    <span className="sr-only">Page {page}</span>
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="sr-only">Previous page</span>
                   </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="sr-only">Next page</span>
-                </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="icon"
+                      onClick={() => goToPage(page)}
+                      className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                    >
+                      {page}
+                      <span className="sr-only">Page {page}</span>
+                    </Button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={goToNextPage}
+                    disabled={currentPage === totalPages}
+                    className="h-8 w-8"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="sr-only">Next page</span>
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </TabsContent>
+            )}
+          </TabsContent>
 
-        {/* Do the same for the other TabsContent sections (active, pending, inactive, validationEmailSent) */}
-        <TabsContent value="active">
-          <UserTable
-            users={paginatedUsers}
-            onViewUser={viewUserDetails}
-            onEditUser={handleEditUser}
-            onResetPassword={handleResetPassword}
-            onChangeRole={handleChangeRole}
-            onToggleStatus={toggleUserStatus}
-            onDeleteUser={handleDeleteUser}
-            loading={loading}
-            formatDate={formatDate}
-            getStatusColor={getStatusColor}
-          />
-          {/* Add Pagination */}
-          {filteredUsers.length > 0 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-muted-foreground">
-                Showing{" "}
-                <span className="font-medium">
-                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
-                </span>{" "}
-                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
-                <span className="font-medium">{filteredUsers.length}</span> users
-              </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="sr-only">Previous page</span>
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          {/* Do the same for the other TabsContent sections (active, pending, inactive, validationEmailSent) */}
+          <TabsContent value="active">
+            <UserTable
+              users={paginatedUsers}
+              onViewUser={viewUserDetails}
+              onEditUser={handleEditUser}
+              onResetPassword={handleResetPassword}
+              onChangeRole={handleChangeRole}
+              onToggleStatus={toggleUserStatus}
+              onDeleteUser={handleDeleteUser}
+              loading={loading}
+              formatDate={formatDate}
+              getStatusColor={getStatusColor}
+            />
+            {/* Add Pagination */}
+            {filteredUsers.length > 0 && (
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing{" "}
+                  <span className="font-medium">
+                    {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
+                  </span>{" "}
+                  to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span>{" "}
+                  of <span className="font-medium">{filteredUsers.length}</span> users
+                </div>
+                <div className="flex items-center gap-1 overflow-x-auto pb-2">
                   <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
+                    variant="outline"
                     size="icon"
-                    onClick={() => goToPage(page)}
-                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                    onClick={goToPreviousPage}
+                    disabled={currentPage === 1}
+                    className="h-8 w-8"
                   >
-                    {page}
-                    <span className="sr-only">Page {page}</span>
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="sr-only">Previous page</span>
                   </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="sr-only">Next page</span>
-                </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="icon"
+                      onClick={() => goToPage(page)}
+                      className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                    >
+                      {page}
+                      <span className="sr-only">Page {page}</span>
+                    </Button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={goToNextPage}
+                    disabled={currentPage === totalPages}
+                    className="h-8 w-8"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="sr-only">Next page</span>
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </TabsContent>
+            )}
+          </TabsContent>
 
-        <TabsContent value="pending">
-          <UserTable
-            users={paginatedUsers}
-            onViewUser={viewUserDetails}
-            onEditUser={handleEditUser}
-            onResetPassword={handleResetPassword}
-            onChangeRole={handleChangeRole}
-            onToggleStatus={toggleUserStatus}
-            onDeleteUser={handleDeleteUser}
-            loading={loading}
-            formatDate={formatDate}
-            getStatusColor={getStatusColor}
-          />
-          {/* Add Pagination */}
-          {filteredUsers.length > 0 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-muted-foreground">
-                Showing{" "}
-                <span className="font-medium">
-                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
-                </span>{" "}
-                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
-                <span className="font-medium">{filteredUsers.length}</span> users
-              </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="sr-only">Previous page</span>
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          <TabsContent value="pending">
+            <UserTable
+              users={paginatedUsers}
+              onViewUser={viewUserDetails}
+              onEditUser={handleEditUser}
+              onResetPassword={handleResetPassword}
+              onChangeRole={handleChangeRole}
+              onToggleStatus={toggleUserStatus}
+              onDeleteUser={handleDeleteUser}
+              loading={loading}
+              formatDate={formatDate}
+              getStatusColor={getStatusColor}
+            />
+            {/* Add Pagination */}
+            {filteredUsers.length > 0 && (
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing{" "}
+                  <span className="font-medium">
+                    {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
+                  </span>{" "}
+                  to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span>{" "}
+                  of <span className="font-medium">{filteredUsers.length}</span> users
+                </div>
+                <div className="flex items-center gap-1 overflow-x-auto pb-2">
                   <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
+                    variant="outline"
                     size="icon"
-                    onClick={() => goToPage(page)}
-                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                    onClick={goToPreviousPage}
+                    disabled={currentPage === 1}
+                    className="h-8 w-8"
                   >
-                    {page}
-                    <span className="sr-only">Page {page}</span>
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="sr-only">Previous page</span>
                   </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="sr-only">Next page</span>
-                </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="icon"
+                      onClick={() => goToPage(page)}
+                      className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                    >
+                      {page}
+                      <span className="sr-only">Page {page}</span>
+                    </Button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={goToNextPage}
+                    disabled={currentPage === totalPages}
+                    className="h-8 w-8"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="sr-only">Next page</span>
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </TabsContent>
+            )}
+          </TabsContent>
 
-        <TabsContent value="inactive">
-          <UserTable
-            users={paginatedUsers}
-            onViewUser={viewUserDetails}
-            onEditUser={handleEditUser}
-            onResetPassword={handleResetPassword}
-            onChangeRole={handleChangeRole}
-            onToggleStatus={toggleUserStatus}
-            onDeleteUser={handleDeleteUser}
-            loading={loading}
-            formatDate={formatDate}
-            getStatusColor={getStatusColor}
-          />
-          {/* Add Pagination */}
-          {filteredUsers.length > 0 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-muted-foreground">
-                Showing{" "}
-                <span className="font-medium">
-                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
-                </span>{" "}
-                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
-                <span className="font-medium">{filteredUsers.length}</span> users
-              </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="sr-only">Previous page</span>
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          <TabsContent value="inactive">
+            <UserTable
+              users={paginatedUsers}
+              onViewUser={viewUserDetails}
+              onEditUser={handleEditUser}
+              onResetPassword={handleResetPassword}
+              onChangeRole={handleChangeRole}
+              onToggleStatus={toggleUserStatus}
+              onDeleteUser={handleDeleteUser}
+              loading={loading}
+              formatDate={formatDate}
+              getStatusColor={getStatusColor}
+            />
+            {/* Add Pagination */}
+            {filteredUsers.length > 0 && (
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing{" "}
+                  <span className="font-medium">
+                    {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
+                  </span>{" "}
+                  to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span>{" "}
+                  of <span className="font-medium">{filteredUsers.length}</span> users
+                </div>
+                <div className="flex items-center gap-1 overflow-x-auto pb-2">
                   <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
+                    variant="outline"
                     size="icon"
-                    onClick={() => goToPage(page)}
-                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                    onClick={goToPreviousPage}
+                    disabled={currentPage === 1}
+                    className="h-8 w-8"
                   >
-                    {page}
-                    <span className="sr-only">Page {page}</span>
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="sr-only">Previous page</span>
                   </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="sr-only">Next page</span>
-                </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="icon"
+                      onClick={() => goToPage(page)}
+                      className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                    >
+                      {page}
+                      <span className="sr-only">Page {page}</span>
+                    </Button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={goToNextPage}
+                    disabled={currentPage === totalPages}
+                    className="h-8 w-8"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="sr-only">Next page</span>
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </TabsContent>
+            )}
+          </TabsContent>
 
-        <TabsContent value="validationEmailSent">
-          <UserTable
-            users={paginatedUsers}
-            onViewUser={viewUserDetails}
-            onEditUser={handleEditUser}
-            onResetPassword={handleResetPassword}
-            onChangeRole={handleChangeRole}
-            onToggleStatus={toggleUserStatus}
-            onDeleteUser={handleDeleteUser}
-            loading={loading}
-            formatDate={formatDate}
-            getStatusColor={getStatusColor}
-          />
-          {/* Add Pagination */}
-          {filteredUsers.length > 0 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-muted-foreground">
-                Showing{" "}
-                <span className="font-medium">
-                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
-                </span>{" "}
-                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
-                <span className="font-medium">{filteredUsers.length}</span> users
-              </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="sr-only">Previous page</span>
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          <TabsContent value="validationEmailSent">
+            <UserTable
+              users={paginatedUsers}
+              onViewUser={viewUserDetails}
+              onEditUser={handleEditUser}
+              onResetPassword={handleResetPassword}
+              onChangeRole={handleChangeRole}
+              onToggleStatus={toggleUserStatus}
+              onDeleteUser={handleDeleteUser}
+              loading={loading}
+              formatDate={formatDate}
+              getStatusColor={getStatusColor}
+            />
+            {/* Add Pagination */}
+            {filteredUsers.length > 0 && (
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing{" "}
+                  <span className="font-medium">
+                    {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
+                  </span>{" "}
+                  to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span>{" "}
+                  of <span className="font-medium">{filteredUsers.length}</span> users
+                </div>
+                <div className="flex items-center gap-1 overflow-x-auto pb-2">
                   <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
+                    variant="outline"
                     size="icon"
-                    onClick={() => goToPage(page)}
-                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                    onClick={goToPreviousPage}
+                    disabled={currentPage === 1}
+                    className="h-8 w-8"
                   >
-                    {page}
-                    <span className="sr-only">Page {page}</span>
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="sr-only">Previous page</span>
                   </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="sr-only">Next page</span>
-                </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="icon"
+                      onClick={() => goToPage(page)}
+                      className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
+                    >
+                      {page}
+                      <span className="sr-only">Page {page}</span>
+                    </Button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={goToNextPage}
+                    disabled={currentPage === totalPages}
+                    className="h-8 w-8"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="sr-only">Next page</span>
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {/* User Details Dialog */}
       {selectedUser && (
@@ -1954,7 +1951,7 @@ export default function AllUsersPage() {
                 <div className="md:w-2/3 space-y-6">
                   <Card className="p-6">
                     <h3 className="text-lg font-medium mb-4">Subscription</h3>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Items/Packages</p>
                         <p className="font-medium">{selectedUser.subscriptionPlan || "None"}</p>
@@ -2004,45 +2001,46 @@ export default function AllUsersPage() {
                       <div className="mt-4">
                         <h4 className="text-sm font-medium mb-2">Invoice History</h4>
                         <div className="max-h-40 overflow-y-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b">
-                                <th className="text-left py-2">Invoice #</th>
-                                <th className="text-left py-2">Date</th>
-                                <th className="text-left py-2">Amount</th>
-                                <th className="text-left py-2">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {selectedUser.invoices.map((invoice: any) => (
-                                <tr key={invoice.id} className="border-b">
-                                  <td className="py-2">{invoice.invoiceNumber}</td>
-                                  <td className="py-2">{new Date(invoice.createdAt).toLocaleDateString()}</td>
-                                  <td className="py-2">${invoice.amount.toFixed(2)}</td>
-                                  <td className="py-2">
-                                    <span
-                                      className={`px-1.5 py-0.5 text-xs rounded-full ${
-                                        invoice.status === "paid"
-                                          ? "bg-green-100 text-green-800"
-                                          : invoice.status === "pending"
-                                            ? "bg-yellow-100 text-yellow-800"
-                                            : "bg-red-100 text-red-800"
-                                      }`}
-                                    >
-                                      {invoice.status}
-                                    </span>
-                                  </td>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b">
+                                  <th className="text-left py-2">Invoice #</th>
+                                  <th className="text-left py-2">Date</th>
+                                  <th className="text-left py-2">Amount</th>
+                                  <th className="text-left py-2">Status</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody>
+                                {selectedUser.invoices.map((invoice: any) => (
+                                  <tr key={invoice.id} className="border-b">
+                                    <td className="py-2">{invoice.invoiceNumber}</td>
+                                    <td className="py-2">{new Date(invoice.createdAt).toLocaleDateString()}</td>
+                                    <td className="py-2">${invoice.amount.toFixed(2)}</td>
+                                    <td className="py-2">
+                                      <span
+                                        className={`px-1.5 py-0.5 text-xs rounded-full ${
+                                          invoice.status === "paid"
+                                            ? "bg-green-100 text-green-800"
+                                            : invoice.status === "pending"
+                                              ? "bg-yellow-100 text-yellow-800"
+                                              : "bg-red-100 text-red-800"
+                                        }`}
+                                      >
+                                        {invoice.status}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       </div>
                     )}
                   </Card>
 
                   {/* Security Info */}
-
                   <Card className="p-6">
                     <h3 className="text-lg font-medium mb-4">Security</h3>
                     <div className="space-y-4">
@@ -2107,44 +2105,6 @@ export default function AllUsersPage() {
                     <h3 className="font-medium">Recent Activity</h3>
                   </div>
                   <div className="p-4">
-                    {/* Find the section where we render the activity items in the user details dialog
-                    // Around line 2000-2030, update the activity rendering code to add a null check
-
-                    // Replace this part:
-                    <div className="space-y-3">
-                      {selectedUser.activity.slice(0, 4).map((activity, index) => (
-                        <div key={index} className="flex items-start">
-                          <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
-                            {activity.iconType === "post" ? (
-                              <FileText className="h-4 w-4 text-blue-500" />
-                            ) : activity.iconType === "comment" ? (
-                              <MessageSquare className="h-4 w-4 text-green-500" />
-                            ) : activity.iconType === "like" ? (
-                              <ThumbsUp className="h-4 w-4 text-red-500" />
-                            ) : (
-                              <Clock className="h-4 w-4 text-gray-500" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{activity.action}</p>
-                            <p className="text-xs text-gray-500">
-                              {typeof activity.date === 'string'
-                                ? new Date(activity.date).toLocaleString('en-US', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })
-                                : 'Unknown date'}
-                            </p>
-                            <p className="text-xs text-gray-500">{activity.details}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    // With this improved version that includes a null check: */}
                     {selectedUser.activity && selectedUser.activity.length > 0 ? (
                       <div className="space-y-3">
                         {selectedUser.activity.slice(0, 4).map((activity, index) => (
@@ -2181,7 +2141,6 @@ export default function AllUsersPage() {
                     ) : (
                       <p className="text-sm text-gray-500 dark:text-gray-400">No activity found</p>
                     )}
-                    {/* End of activity rendering code */}
                   </div>
                 </Card>
               </div>
@@ -2222,7 +2181,7 @@ export default function AllUsersPage() {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="firstName">First Name</Label>
                 <Input
@@ -2348,7 +2307,7 @@ export default function AllUsersPage() {
       {/* Edit User Dialog */}
       {selectedUser && (
         <Dialog open={showEditUserDialog} onOpenChange={setShowEditUserDialog}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit User</DialogTitle>
               <DialogDescription>Update information for {selectedUser.name}</DialogDescription>
@@ -2540,8 +2499,6 @@ function UserTable({
     )
   }
 
-  // Find the UserTable component and update the table headers and rows:
-
   return (
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
@@ -2551,9 +2508,9 @@ function UserTable({
               <th className="text-left p-4 font-medium">Name</th>
               <th className="text-left p-4 font-medium">Email</th>
               <th className="text-left p-4 font-medium">Status</th>
-              <th className="text-left p-4 font-medium">Role</th>
-              <th className="text-left p-4 font-medium">Company</th>
-              <th className="text-left p-4 font-medium">Last Active</th>
+              <th className="text-left p-4 font-medium hidden md:table-cell">Role</th>
+              <th className="text-left p-4 font-medium hidden lg:table-cell">Company</th>
+              <th className="text-left p-4 font-medium hidden lg:table-cell">Last Active</th>
               <th className="text-left p-4 font-medium">Actions</th>
             </tr>
           </thead>
@@ -2568,21 +2525,21 @@ function UserTable({
                         <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
                       </span>
                     )}
-                    {user.name}
+                    <span className="truncate max-w-[120px] md:max-w-none">{user.name}</span>
                   </div>
                 </td>
-                <td className="p-4">{user.email}</td>
+                <td className="p-4 truncate max-w-[120px] md:max-w-none">{user.email}</td>
                 <td className="p-4">
                   <Badge className={getStatusColor(user.status)}>{user.status}</Badge>
                 </td>
-                <td className="p-4">{user.role}</td>
-                <td className="p-4">{user.company}</td>
-                <td className="p-4">
+                <td className="p-4 hidden md:table-cell">{user.role}</td>
+                <td className="p-4 hidden lg:table-cell truncate max-w-[120px] xl:max-w-none">{user.company}</td>
+                <td className="p-4 hidden lg:table-cell">
                   {user.isOnline ? <span className="text-green-600 font-medium">Online</span> : <span>Offline</span>}
                 </td>
                 <td className="p-4">
                   <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => onViewUser(user)}>
+                    <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => onViewUser(user)}>
                       View
                     </Button>
                     <DropdownMenu>
@@ -2593,6 +2550,9 @@ function UserTable({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => onViewUser(user)} className="sm:hidden">
+                          View Profile
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onEditUser(user)}>Edit Profile</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onResetPassword(user)}>Reset Password</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onChangeRole(user)}>Change Role</DropdownMenuItem>
