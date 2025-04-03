@@ -726,7 +726,7 @@ export default function AdminCommunityModerationPage() {
 
     return (
       <Pagination>
-        <PaginationContent>
+        <PaginationContent className="flex flex-wrap justify-center gap-1">
           <PaginationItem>
             <PaginationPrevious
               onClick={() => pagination.page > 1 && handlePageChange(pagination.page - 1)}
@@ -817,10 +817,10 @@ export default function AdminCommunityModerationPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 px-4 md:px-6 mb-20">
+    <div className="container mx-auto py-4 md:py-6 px-3 md:px-6 mb-20 max-w-[100vw] overflow-x-hidden">
       {/* Then in the header section of the page: */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-        <h1 className="text-3xl font-bold">Community Moderation</h1>
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 md:mb-6 gap-3 md:gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold">Community Moderation</h1>
         <div className="flex flex-wrap gap-2">
           <DebugButton />
           <Button
@@ -835,55 +835,66 @@ export default function AdminCommunityModerationPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="grid w-full grid-cols-3 mb-4">
-          <TabsTrigger value="all" className="flex items-center gap-2">
-            <MessageCircle className="h-4 w-4" />
-            All Content
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4 md:mb-6">
+        <TabsList className="grid w-full grid-cols-3 mb-4 overflow-x-auto">
+          <TabsTrigger
+            value="all"
+            className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-1.5 md:py-2 text-xs md:text-sm"
+          >
+            <MessageCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="whitespace-nowrap">All Content</span>
           </TabsTrigger>
-          <TabsTrigger value="flagged" className="flex items-center gap-2">
-            <Flag className="h-4 w-4" />
-            Flagged Content
-            <Badge variant="destructive" className="ml-1">
+          <TabsTrigger
+            value="flagged"
+            className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-1.5 md:py-2 text-xs md:text-sm"
+          >
+            <Flag className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="whitespace-nowrap">Flagged Content</span>
+            <Badge variant="destructive" className="ml-1 text-xs px-1.5 py-0">
               {flaggedContent.posts.length + flaggedContent.comments.length}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="best-answers" className="flex items-center gap-2">
-            <Award className="h-4 w-4" />
-            Best Answers
+          <TabsTrigger
+            value="best-answers"
+            className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-1.5 md:py-2 text-xs md:text-sm"
+          >
+            <Award className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="whitespace-nowrap">Best Answers</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="all">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
-            <div className="md:col-span-3">
-              <Select value={selectedFilter} onValueChange={handleFilterChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Filter content" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Content</SelectItem>
-                  <SelectItem value="questions">Questions Only</SelectItem>
-                  <SelectItem value="discussions">Discussions Only</SelectItem>
-                  <SelectItem value="needs_answer">Needs Answer</SelectItem>
-                  <SelectItem value="has_best_answer">Has Best Answer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid grid-cols-1 gap-3 md:gap-4 mb-4 md:mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+              <div className="w-full">
+                <Select value={selectedFilter} onValueChange={handleFilterChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filter content" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Content</SelectItem>
+                    <SelectItem value="questions">Questions Only</SelectItem>
+                    <SelectItem value="discussions">Discussions Only</SelectItem>
+                    <SelectItem value="needs_answer">Needs Answer</SelectItem>
+                    <SelectItem value="has_best_answer">Has Best Answer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="md:col-span-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search discussions..."
-                  className="pl-9"
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                />
+              <div className="w-full md:col-span-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search discussions..."
+                    className="pl-9"
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="md:col-span-3">
+            <div className="w-full">
               <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as any)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Sort by" />
@@ -898,20 +909,20 @@ export default function AdminCommunityModerationPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
             {/* Sidebar */}
-            <div className="space-y-6">
+            <div className="space-y-4 md:space-y-6 order-2 lg:order-1">
               {/* Filters */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>Filters</CardTitle>
-                  <CardDescription>Filter posts by status and tags</CardDescription>
+                <CardHeader className="pb-2 md:pb-3 px-3 md:px-6 pt-3 md:pt-6">
+                  <CardTitle className="text-lg md:text-xl">Filters</CardTitle>
+                  <CardDescription className="text-xs md:text-sm">Filter posts by status and tags</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Status</label>
+                <CardContent className="space-y-3 md:space-y-4 px-3 md:px-6 pb-3 md:pb-6">
+                  <div className="space-y-1 md:space-y-2">
+                    <label className="text-xs md:text-sm font-medium">Status</label>
                     <Select value={selectedStatus} onValueChange={handleStatusChange}>
-                      <SelectTrigger>
+                      <SelectTrigger className="text-xs md:text-sm">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -923,10 +934,10 @@ export default function AdminCommunityModerationPage() {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Tag</label>
+                  <div className="space-y-1 md:space-y-2">
+                    <label className="text-xs md:text-sm font-medium">Tag</label>
                     <Select value={selectedTag} onValueChange={handleTagChange}>
-                      <SelectTrigger>
+                      <SelectTrigger className="text-xs md:text-sm">
                         <SelectValue placeholder="Select tag" />
                       </SelectTrigger>
                       <SelectContent>
@@ -944,17 +955,17 @@ export default function AdminCommunityModerationPage() {
 
               {/* Moderation Guidelines */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>Moderation Guidelines</CardTitle>
+                <CardHeader className="pb-2 md:pb-3 px-3 md:px-6 pt-3 md:pt-6">
+                  <CardTitle className="text-lg md:text-xl">Moderation Guidelines</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4 text-sm">
+                <CardContent className="space-y-3 md:space-y-4 text-xs md:text-sm px-3 md:px-6 pb-3 md:pb-6">
                   <Collapsible className="space-y-2">
                     <CollapsibleTrigger className="flex items-center justify-between w-full font-medium">
                       <span>Content Standards</span>
-                      <Shield className="h-4 w-4" />
+                      <Shield className="h-3.5 w-3.5 md:h-4 md:w-4" />
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="text-muted-foreground pl-4 border-l-2 border-muted">
-                      <ul className="list-disc pl-4 space-y-1">
+                    <CollapsibleContent className="text-muted-foreground pl-3 md:pl-4 border-l-2 border-muted">
+                      <ul className="list-disc pl-3 md:pl-4 space-y-1">
                         <li>No offensive language or personal attacks</li>
                         <li>No spam or promotional content</li>
                         <li>Content must be relevant to the community</li>
@@ -965,10 +976,10 @@ export default function AdminCommunityModerationPage() {
                   <Collapsible className="space-y-2">
                     <CollapsibleTrigger className="flex items-center justify-between w-full font-medium">
                       <span>Best Answer Guidelines</span>
-                      <Award className="h-4 w-4" />
+                      <Award className="h-3.5 w-3.5 md:h-4 md:w-4" />
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="text-muted-foreground pl-4 border-l-2 border-muted">
-                      <ul className="list-disc pl-4 space-y-1">
+                    <CollapsibleContent className="text-muted-foreground pl-3 md:pl-4 border-l-2 border-muted">
+                      <ul className="list-disc pl-3 md:pl-4 space-y-1">
                         <li>Mark answers that are accurate and helpful</li>
                         <li>Best answers should be comprehensive</li>
                         <li>Consider community upvotes when selecting</li>
@@ -979,10 +990,10 @@ export default function AdminCommunityModerationPage() {
                   <Collapsible className="space-y-2">
                     <CollapsibleTrigger className="flex items-center justify-between w-full font-medium">
                       <span>Flagged Content Process</span>
-                      <Flag className="h-4 w-4" />
+                      <Flag className="h-3.5 w-3.5 md:h-4 md:w-4" />
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="text-muted-foreground pl-4 border-l-2 border-muted">
-                      <ul className="list-disc pl-4 space-y-1">
+                    <CollapsibleContent className="text-muted-foreground pl-3 md:pl-4 border-l-2 border-muted">
+                      <ul className="list-disc pl-3 md:pl-4 space-y-1">
                         <li>Review all flagged content within 24 hours</li>
                         <li>Add moderation notes for context</li>
                         <li>Take appropriate action (approve/delete)</li>
@@ -994,10 +1005,10 @@ export default function AdminCommunityModerationPage() {
             </div>
 
             {/* Main Content */}
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-3 order-1 lg:order-2">
               <Card>
-                <CardHeader>
-                  <CardTitle>
+                <CardHeader className="pb-2 md:pb-3 px-3 md:px-6 pt-3 md:pt-6">
+                  <CardTitle className="text-lg md:text-xl">
                     {selectedStatus === "all"
                       ? "All Posts"
                       : selectedStatus === "pending"
@@ -1006,90 +1017,104 @@ export default function AdminCommunityModerationPage() {
                           ? "Published Posts"
                           : "Draft Posts"}
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs md:text-sm">
                     {pagination.total} posts found
                     {selectedTag && selectedTag !== "all_tags" && ` with tag "${selectedTag}"`}
                     {searchTerm && ` matching "${searchTerm}"`}
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-3 md:px-6 pb-3 md:pb-6">
                   {loading ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3 md:space-y-4">
                       {Array.from({ length: 3 }).map((_, i) => (
-                        <div key={i} className="border rounded-lg p-4 animate-pulse">
-                          <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
-                          <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                        <div key={i} className="border rounded-lg p-3 md:p-4 animate-pulse">
+                          <div className="h-5 md:h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                          <div className="h-3 md:h-4 bg-gray-200 rounded w-1/2 mb-3 md:mb-4"></div>
                           <div className="flex gap-2">
-                            <div className="h-6 bg-gray-200 rounded w-20"></div>
-                            <div className="h-6 bg-gray-200 rounded w-20"></div>
+                            <div className="h-5 md:h-6 bg-gray-200 rounded w-16 md:w-20"></div>
+                            <div className="h-5 md:h-6 bg-gray-200 rounded w-16 md:w-20"></div>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : posts.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3 md:space-y-4">
                       {posts.map((post) => (
-                        <div key={post.id} className="border rounded-lg p-4">
-                          <div className="flex items-start justify-between">
+                        <div key={post.id} className="border rounded-lg p-3 md:p-4">
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                             <div>
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-semibold text-lg">{post.title}</h3>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="font-semibold text-base md:text-lg break-words">{post.title}</h3>
                                 {post.flagged && (
-                                  <Badge variant="destructive" className="flex items-center gap-1">
+                                  <Badge variant="destructive" className="flex items-center gap-1 text-xs">
                                     <Flag className="h-3 w-3" />
                                     Flagged ({post.flagCount})
                                   </Badge>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                                <span>By {post.author.name}</span>
+                              <div className="flex flex-wrap items-center gap-1 md:gap-2 text-xs md:text-sm text-muted-foreground mt-1">
+                                <span className="truncate max-w-[120px] md:max-w-none">By {post.author.name}</span>
                                 <span>•</span>
                                 <span>{formatDate(post.date)}</span>
                               </div>
                             </div>
-                            <Badge className={cn(getStatusBadgeClass(post.status))}>{post.status}</Badge>
+                            <Badge
+                              className={cn(getStatusBadgeClass(post.status), "text-xs md:text-sm whitespace-nowrap")}
+                            >
+                              {post.status}
+                            </Badge>
                           </div>
 
-                          <p className="mt-2 text-sm line-clamp-2">{post.content}</p>
+                          <p className="mt-2 text-xs md:text-sm line-clamp-2 break-words">{post.content}</p>
 
-                          <div className="flex flex-wrap gap-2 mt-3">
+                          <div className="flex flex-wrap gap-1 md:gap-2 mt-2 md:mt-3">
                             {post.tags.map((tag) => (
-                              <Badge key={tag} variant="outline" className="text-xs">
+                              <Badge key={tag} variant="outline" className="text-xs px-1.5 py-0.5">
                                 {tag}
                               </Badge>
                             ))}
                           </div>
 
-                          <div className="flex items-center justify-between mt-4">
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-3 md:mt-4 gap-2">
+                            <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-muted-foreground">
                               <div className="flex items-center gap-1">
-                                <ThumbsUp className="h-4 w-4" />
+                                <ThumbsUp className="h-3.5 w-3.5 md:h-4 md:w-4" />
                                 {post.likes}
                               </div>
                               <div className="flex items-center gap-1">
-                                <MessageSquare className="h-4 w-4" />
+                                <MessageSquare className="h-3.5 w-3.5 md:h-4 md:w-4" />
                                 {post.replies}
                               </div>
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <Button size="sm" variant="secondary" onClick={() => handleViewComments(post)}>
-                                <Eye className="h-4 w-4 mr-1" />
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleViewComments(post)}
+                                className="text-xs h-8 md:h-9"
+                              >
+                                <Eye className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
                                 View & Moderate
                               </Button>
-                              <Button size="sm" variant="destructive" onClick={() => handleDeletePost(post.id)}>
-                                <Trash2 className="h-4 w-4" />
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleDeletePost(post.id)}
+                                className="h-8 md:h-9 w-8 md:w-9 p-0"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
                               </Button>
                             </div>
                           </div>
                         </div>
                       ))}
 
-                      {renderPagination()}
+                      <div className="mt-4 md:mt-6">{renderPagination()}</div>
                     </div>
                   ) : (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">No posts found</p>
+                    <div className="text-center py-6 md:py-8">
+                      <p className="text-muted-foreground text-sm md:text-base">No posts found</p>
                       {(selectedTag || searchTerm || selectedStatus !== "all") && (
                         <Button
                           variant="link"
@@ -1099,6 +1124,7 @@ export default function AdminCommunityModerationPage() {
                             setSearchTerm("")
                             setSelectedStatus("all")
                           }}
+                          className="text-xs md:text-sm mt-2"
                         >
                           Clear filters
                         </Button>
@@ -1113,50 +1139,52 @@ export default function AdminCommunityModerationPage() {
 
         <TabsContent value="flagged">
           <Card>
-            <CardHeader>
-              <CardTitle>Flagged Content</CardTitle>
-              <CardDescription>Content that has been flagged by users or the system for review</CardDescription>
+            <CardHeader className="pb-2 md:pb-3 px-3 md:px-6 pt-3 md:pt-6">
+              <CardTitle className="text-lg md:text-xl">Flagged Content</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                Content that has been flagged by users or the system for review
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
+            <CardContent className="px-3 md:px-6 pb-3 md:pb-6">
+              <div className="space-y-4 md:space-y-6">
                 {flaggedContent.posts.length === 0 && flaggedContent.comments.length === 0 ? (
-                  <div className="text-center py-8">
-                    <CheckCircle className="h-12 w-12 mx-auto mb-3 text-green-500" />
-                    <p className="text-lg font-medium">No flagged content to review</p>
-                    <p className="text-muted-foreground">All content has been moderated</p>
+                  <div className="text-center py-6 md:py-8">
+                    <CheckCircle className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-3 text-green-500" />
+                    <p className="text-base md:text-lg font-medium">No flagged content to review</p>
+                    <p className="text-xs md:text-sm text-muted-foreground">All content has been moderated</p>
                   </div>
                 ) : (
                   <>
                     {flaggedContent.posts.length > 0 && (
                       <div>
-                        <h3 className="text-lg font-medium mb-3">Flagged Posts</h3>
-                        <div className="space-y-4">
+                        <h3 className="text-base md:text-lg font-medium mb-2 md:mb-3">Flagged Posts</h3>
+                        <div className="space-y-3 md:space-y-4">
                           {flaggedContent.posts.map((post) => (
-                            <div key={post.id} className="border rounded-lg p-4 bg-red-50 dark:bg-red-900/10">
-                              <div className="flex items-start justify-between">
+                            <div key={post.id} className="border rounded-lg p-3 md:p-4 bg-red-50 dark:bg-red-900/10">
+                              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                                 <div>
-                                  <div className="flex items-center gap-2">
-                                    <h3 className="font-semibold text-lg">{post.title}</h3>
-                                    <Badge variant="destructive" className="flex items-center gap-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h3 className="font-semibold text-base md:text-lg break-words">{post.title}</h3>
+                                    <Badge variant="destructive" className="flex items-center gap-1 text-xs">
                                       <Flag className="h-3 w-3" />
                                       Flagged ({post.flagCount})
                                     </Badge>
                                   </div>
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                                    <span>By {post.author.name}</span>
+                                  <div className="flex flex-wrap items-center gap-1 md:gap-2 text-xs md:text-sm text-muted-foreground mt-1">
+                                    <span className="truncate max-w-[120px] md:max-w-none">By {post.author.name}</span>
                                     <span>•</span>
                                     <span>{formatDate(post.date)}</span>
                                   </div>
                                 </div>
                               </div>
 
-                              <p className="mt-2 text-sm">{post.content}</p>
+                              <p className="mt-2 text-xs md:text-sm break-words">{post.content}</p>
 
-                              <div className="mt-4 space-y-2">
+                              <div className="mt-3 md:mt-4 space-y-2">
                                 <div className="flex items-center gap-2">
                                   <Textarea
                                     placeholder="Add moderation note..."
-                                    className="text-sm"
+                                    className="text-xs md:text-sm"
                                     value={moderationNote}
                                     onChange={(e) => setModerationNote(e.target.value)}
                                   />
@@ -1166,12 +1194,18 @@ export default function AdminCommunityModerationPage() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => handleResolveFlagged(post.id, "post")}
+                                    className="text-xs h-8 md:h-9"
                                   >
-                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    <CheckCircle className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
                                     Approve
                                   </Button>
-                                  <Button size="sm" variant="destructive" onClick={() => handleDeletePost(post.id)}>
-                                    <XCircle className="h-4 w-4 mr-1" />
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleDeletePost(post.id)}
+                                    className="text-xs h-8 md:h-9"
+                                  >
+                                    <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
                                     Delete
                                   </Button>
                                 </div>
@@ -1190,50 +1224,54 @@ export default function AdminCommunityModerationPage() {
 
         <TabsContent value="best-answers">
           <Card>
-            <CardHeader>
-              <CardTitle>Best Answers</CardTitle>
-              <CardDescription>Manage and review best answers across the community</CardDescription>
+            <CardHeader className="pb-2 md:pb-3 px-3 md:px-6 pt-3 md:pt-6">
+              <CardTitle className="text-lg md:text-xl">Best Answers</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                Manage and review best answers across the community
+              </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 md:px-6 pb-3 md:pb-6">
               {loadingBestAnswers ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="flex justify-center py-6 md:py-8">
+                  <Loader2 className="h-6 w-6 md:h-8 md:w-8 animate-spin text-primary" />
                 </div>
               ) : bestAnswers.length > 0 ? (
-                <div className="space-y-6">
+                <div className="space-y-4 md:space-y-6">
                   {bestAnswers.map((comment) => (
-                    <div key={comment.id} className="border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/10">
-                      <div className="flex items-start gap-4">
-                        <Avatar className="h-10 w-10">
+                    <div key={comment.id} className="border rounded-lg p-3 md:p-4 bg-yellow-50 dark:bg-yellow-900/10">
+                      <div className="flex items-start gap-3 md:gap-4">
+                        <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0">
                           <AvatarImage
                             src={comment.author.avatar || "/placeholder.svg?height=40&width=40"}
                             alt={comment.author.name}
                           />
                           <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
                         </Avatar>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div>
-                              <p className="font-medium">{comment.author.name}</p>
+                              <p className="font-medium text-sm md:text-base truncate">{comment.author.name}</p>
                               <p className="text-xs text-muted-foreground">{formatDate(comment.date)}</p>
                             </div>
-                            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 text-xs w-fit">
                               <Award className="h-3 w-3 mr-1" />
                               Best Answer
                             </Badge>
                           </div>
                           <div className="mt-2">
-                            <p className="text-sm">{comment.content}</p>
+                            <p className="text-xs md:text-sm break-words">{comment.content}</p>
                           </div>
                           {comment.moderationNotes && (
-                            <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
+                            <div className="mt-2 md:mt-3 p-2 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-200 dark:border-blue-800">
                               <p className="text-xs font-medium text-blue-800 dark:text-blue-300">Moderation Note:</p>
-                              <p className="text-sm text-blue-700 dark:text-blue-400">{comment.moderationNotes}</p>
+                              <p className="text-xs md:text-sm text-blue-700 dark:text-blue-400">
+                                {comment.moderationNotes}
+                              </p>
                             </div>
                           )}
                         </div>
                       </div>
-                      <div className="mt-4 flex justify-end">
+                      <div className="mt-3 md:mt-4 flex justify-end">
                         <Button
                           size="sm"
                           variant="outline"
@@ -1246,8 +1284,9 @@ export default function AdminCommunityModerationPage() {
                               }
                             }
                           }}
+                          className="text-xs h-8 md:h-9"
                         >
-                          <Eye className="h-4 w-4 mr-1" />
+                          <Eye className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
                           View Post
                         </Button>
                       </div>
@@ -1255,10 +1294,10 @@ export default function AdminCommunityModerationPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <Award className="h-12 w-12 mx-auto mb-3 text-yellow-500" />
-                  <p className="text-lg font-medium">No Best Answers Yet</p>
-                  <p className="text-muted-foreground mb-4">
+                <div className="text-center py-6 md:py-8">
+                  <Award className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-3 text-yellow-500" />
+                  <p className="text-base md:text-lg font-medium">No Best Answers Yet</p>
+                  <p className="text-xs md:text-sm text-muted-foreground mb-3 md:mb-4">
                     Mark helpful comments as best answers to help other users find solutions quickly.
                   </p>
                 </div>
@@ -1270,49 +1309,51 @@ export default function AdminCommunityModerationPage() {
 
       {/* Comments Dialog */}
       <Dialog open={showCommentsDialog} onOpenChange={setShowCommentsDialog}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[90vw] md:max-w-[700px] max-h-[90vh] overflow-y-auto p-3 md:p-6">
           {selectedPostForComments && (
             <>
-              <DialogHeader>
-                <DialogTitle>Moderate: "{selectedPostForComments.title}"</DialogTitle>
+              <DialogHeader className="mb-2 md:mb-4">
+                <DialogTitle className="text-base md:text-lg break-words">
+                  Moderate: "{selectedPostForComments.title}"
+                </DialogTitle>
               </DialogHeader>
 
-              <div className="mt-4">
-                <div className="border rounded-lg p-4 mb-6">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Avatar>
+              <div className="mt-2 md:mt-4">
+                <div className="border rounded-lg p-3 md:p-4 mb-4 md:mb-6">
+                  <div className="flex items-center gap-2 md:gap-3 mb-2">
+                    <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0">
                       <AvatarImage
                         src={selectedPostForComments.author.avatar || "/placeholder.svg?height=40&width=40"}
                         alt={selectedPostForComments.author.name}
                       />
                       <AvatarFallback>{selectedPostForComments.author.name.substring(0, 2)}</AvatarFallback>
                     </Avatar>
-                    <div>
-                      <p className="font-medium">{selectedPostForComments.author.name}</p>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm md:text-base truncate">{selectedPostForComments.author.name}</p>
                       <p className="text-xs text-muted-foreground">{formatDate(selectedPostForComments.date)}</p>
                     </div>
                     {selectedPostForComments.flagged && (
-                      <Badge variant="destructive" className="ml-auto flex items-center gap-1">
+                      <Badge variant="destructive" className="ml-auto flex items-center gap-1 text-xs">
                         <Flag className="h-3 w-3" />
                         Flagged
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm mb-3">{selectedPostForComments.content}</p>
-                  <div className="flex flex-wrap gap-2">
+                  <p className="text-xs md:text-sm mb-2 md:mb-3 break-words">{selectedPostForComments.content}</p>
+                  <div className="flex flex-wrap gap-1 md:gap-2">
                     {selectedPostForComments.tags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
+                      <Badge key={tag} variant="outline" className="text-xs px-1.5 py-0.5">
                         {tag}
                       </Badge>
                     ))}
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium">Comments ({selectedPostComments.length})</h3>
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 md:mb-4 gap-2">
+                  <h3 className="text-base md:text-lg font-medium">Comments ({selectedPostComments.length})</h3>
+                  <div className="flex items-center">
                     <Select defaultValue="all">
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-full sm:w-[180px] text-xs md:text-sm h-8 md:h-9">
                         <SelectValue placeholder="Filter comments" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1325,39 +1366,40 @@ export default function AdminCommunityModerationPage() {
                 </div>
 
                 {isLoadingComments ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <div className="flex justify-center py-6 md:py-8">
+                    <Loader2 className="h-6 w-6 md:h-8 md:w-8 animate-spin text-primary" />
                   </div>
                 ) : selectedPostComments.length > 0 ? (
-                  <div className="space-y-6">
+                  <div className="space-y-4 md:space-y-6">
                     {selectedPostComments.map((comment) => (
                       <div
                         key={comment.id}
                         className={cn(
-                          "flex gap-3 border-b pb-4",
-                          comment.isBestAnswer && "bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-lg border-yellow-200",
+                          "flex gap-2 md:gap-3 border-b pb-3 md:pb-4",
+                          comment.isBestAnswer &&
+                            "bg-yellow-50 dark:bg-yellow-900/10 p-2 md:p-3 rounded-lg border-yellow-200",
                         )}
                       >
-                        <Avatar>
+                        <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0">
                           <AvatarImage
                             src={comment.author.avatar || "/placeholder.svg?height=40&width=40"}
                             alt={comment.author.name}
                           />
                           <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
                         </Avatar>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium">{comment.author.name}</p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1 gap-1">
+                            <div className="flex flex-wrap items-center gap-1 md:gap-2">
+                              <p className="font-medium text-sm md:text-base truncate">{comment.author.name}</p>
                               <span className="text-xs text-muted-foreground">{formatDate(comment.date)}</span>
                               {comment.isBestAnswer && (
-                                <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                                <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 text-xs">
                                   <Award className="h-3 w-3 mr-1" />
                                   Best Answer
                                 </Badge>
                               )}
                               {comment.flagged && (
-                                <Badge variant="destructive" className="flex items-center gap-1">
+                                <Badge variant="destructive" className="flex items-center gap-1 text-xs">
                                   <Flag className="h-3 w-3" />
                                   Flagged ({comment.flagCount})
                                 </Badge>
@@ -1365,19 +1407,19 @@ export default function AdminCommunityModerationPage() {
                             </div>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
+                                <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8">
+                                  <MoreHorizontal className="h-3.5 w-3.5 md:h-4 md:w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
+                              <DropdownMenuContent align="end" className="text-xs md:text-sm">
                                 {!comment.isBestAnswer ? (
                                   <DropdownMenuItem onClick={() => handleMarkBestAnswer(comment.id)}>
-                                    <Award className="h-4 w-4 mr-2" />
+                                    <Award className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2" />
                                     Mark as Best Answer
                                   </DropdownMenuItem>
                                 ) : (
                                   <DropdownMenuItem onClick={() => handleRemoveBestAnswer(comment.id)}>
-                                    <Award className="h-4 w-4 mr-2" />
+                                    <Award className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2" />
                                     Remove Best Answer
                                   </DropdownMenuItem>
                                 )}
@@ -1388,7 +1430,7 @@ export default function AdminCommunityModerationPage() {
                                     document.getElementById(`moderation-note-${comment.id}`)?.focus()
                                   }}
                                 >
-                                  <PencilIcon className="h-4 w-4 mr-2" />
+                                  <PencilIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2" />
                                   Edit Moderation Note
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
@@ -1396,24 +1438,26 @@ export default function AdminCommunityModerationPage() {
                                   className="text-red-600"
                                   onClick={() => handleDeleteComment(comment.id)}
                                 >
-                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2" />
                                   Delete Comment
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
-                          <p className="text-gray-700 mb-2">{comment.content}</p>
+                          <p className="text-xs md:text-sm text-gray-700 mb-2 break-words">{comment.content}</p>
                           {comment.moderationNotes && (
                             <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/10 rounded border border-yellow-200 dark:border-yellow-800">
                               <p className="text-xs font-medium text-yellow-800 dark:text-yellow-300">
                                 Moderation Note:
                               </p>
-                              <p className="text-sm text-yellow-700 dark:text-yellow-400">{comment.moderationNotes}</p>
+                              <p className="text-xs md:text-sm text-yellow-700 dark:text-yellow-400">
+                                {comment.moderationNotes}
+                              </p>
                             </div>
                           )}
-                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-gray-500">
                             <div className="flex items-center gap-1">
-                              <ThumbsUp className="h-4 w-4" />
+                              <ThumbsUp className="h-3.5 w-3.5 md:h-4 md:w-4" />
                               <span>{comment.likes} Likes</span>
                             </div>
                           </div>
@@ -1422,33 +1466,33 @@ export default function AdminCommunityModerationPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <MessageSquare className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p>No comments yet for this post.</p>
+                  <div className="text-center py-6 md:py-8 text-gray-500">
+                    <MessageSquare className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-3 text-gray-300" />
+                    <p className="text-sm md:text-base">No comments yet for this post.</p>
                   </div>
                 )}
 
-                <div className="mt-6 space-y-2">
-                  <h4 className="font-medium">Moderation Notes</h4>
-                  <div className="space-y-4">
+                <div className="mt-4 md:mt-6 space-y-2">
+                  <h4 className="font-medium text-sm md:text-base">Moderation Notes</h4>
+                  <div className="space-y-3 md:space-y-4">
                     {selectedPostComments.map((comment) => (
-                      <div key={comment.id} className="border rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Avatar className="h-6 w-6">
+                      <div key={comment.id} className="border rounded-lg p-2 md:p-3">
+                        <div className="flex items-center gap-2 mb-1 md:mb-2">
+                          <Avatar className="h-5 w-5 md:h-6 md:w-6">
                             <AvatarImage
                               src={comment.author.avatar || "/placeholder.svg?height=30&width=30"}
                               alt={comment.author.name}
                             />
                             <AvatarFallback>{comment.author.name.substring(0, 2)}</AvatarFallback>
                           </Avatar>
-                          <p className="text-sm font-medium">{comment.author.name}</p>
+                          <p className="text-xs md:text-sm font-medium truncate">{comment.author.name}</p>
                         </div>
-                        <p className="text-sm text-muted-foreground mb-2 line-clamp-1">{comment.content}</p>
-                        <div className="flex gap-2">
+                        <p className="text-xs md:text-sm text-muted-foreground mb-2 line-clamp-1">{comment.content}</p>
+                        <div className="flex flex-col sm:flex-row gap-2">
                           <Textarea
                             id={`moderation-note-${comment.id}`}
                             placeholder="Add moderation note for this comment..."
-                            className="text-sm"
+                            className="text-xs md:text-sm flex-1 min-h-[60px]"
                             value={commentModerationNotes[comment.id] || ""}
                             onChange={(e) =>
                               setCommentModerationNotes((prev) => ({
@@ -1463,6 +1507,7 @@ export default function AdminCommunityModerationPage() {
                               setModerationNote(commentModerationNotes[comment.id] || "")
                               handleAddModerationNote(comment.id)
                             }}
+                            className="text-xs h-8 md:h-9 whitespace-nowrap"
                           >
                             Save
                           </Button>
