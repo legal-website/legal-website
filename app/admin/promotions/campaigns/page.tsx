@@ -588,49 +588,53 @@ export default function AdminAffiliatePage() {
       <>
         <div className="flex justify-between items-center mb-6">{renderRefreshButton()}</div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-4 sm:mb-6">
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="pt-4 sm:pt-6">
               <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-600" />
-                <h3 className="font-medium">Total Affiliates</h3>
+                <Users className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                <h3 className="font-medium text-sm sm:text-base">Total Affiliates</h3>
               </div>
-              <p className="text-2xl font-bold mt-2">{dashboardData?.stats?.totalAffiliates || 0}</p>
+              <p className="text-xl sm:text-2xl font-bold mt-2">{dashboardData?.stats?.totalAffiliates || 0}</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="pt-4 sm:pt-6">
               <div className="flex items-center gap-2">
-                <MousePointer className="h-5 w-5 text-purple-600" />
-                <h3 className="font-medium">Total Clicks</h3>
+                <MousePointer className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
+                <h3 className="font-medium text-sm sm:text-base">Total Clicks</h3>
               </div>
-              <p className="text-2xl font-bold mt-2">{dashboardData?.stats?.totalClicks || 0}</p>
+              <p className="text-xl sm:text-2xl font-bold mt-2">{dashboardData?.stats?.totalClicks || 0}</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="pt-4 sm:pt-6">
               <div className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-green-600" />
-                <h3 className="font-medium">Conversion Rate</h3>
+                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                <h3 className="font-medium text-sm sm:text-base">Conversion Rate</h3>
               </div>
-              <p className="text-2xl font-bold mt-2">{dashboardData?.stats?.conversionRate?.toFixed(1) || 0}%</p>
+              <p className="text-xl sm:text-2xl font-bold mt-2">
+                {dashboardData?.stats?.conversionRate?.toFixed(1) || 0}%
+              </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="pt-4 sm:pt-6">
               <div className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-amber-600" />
-                <h3 className="font-medium">Total Commission</h3>
+                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
+                <h3 className="font-medium text-sm sm:text-base">Total Commission</h3>
               </div>
-              <p className="text-2xl font-bold mt-2">{formatCurrency(dashboardData?.stats?.totalCommission || 0)}</p>
+              <p className="text-xl sm:text-2xl font-bold mt-2">
+                {formatCurrency(dashboardData?.stats?.totalCommission || 0)}
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 mb-4 sm:mb-6">
           <Card className="lg:col-span-8">
             <CardHeader>
               <CardTitle>Pending Payments</CardTitle>
@@ -639,34 +643,36 @@ export default function AdminAffiliatePage() {
             <CardContent>
               {visiblePendingPayments.length > 0 ? (
                 <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Affiliate</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Commission</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {visiblePendingPayments.map((conversion: any) => (
-                        <TableRow key={conversion.id}>
-                          <TableCell>{formatDate(conversion.createdAt)}</TableCell>
-                          <TableCell>{conversion.link.user.name || conversion.link.user.email}</TableCell>
-                          <TableCell>{formatCurrency(Number(conversion.amount))}</TableCell>
-                          <TableCell>{formatCurrency(Number(conversion.commission))}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline" onClick={() => setSelectedConversion(conversion)}>
-                                Review
-                              </Button>
-                            </div>
-                          </TableCell>
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Affiliate</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Commission</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {visiblePendingPayments.map((conversion: any) => (
+                          <TableRow key={conversion.id}>
+                            <TableCell>{formatDate(conversion.createdAt)}</TableCell>
+                            <TableCell>{conversion.link.user.name || conversion.link.user.email}</TableCell>
+                            <TableCell>{formatCurrency(Number(conversion.amount))}</TableCell>
+                            <TableCell>{formatCurrency(Number(conversion.commission))}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="outline" onClick={() => setSelectedConversion(conversion)}>
+                                  Review
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                   {hasMorePayments && (
                     <div className="mt-4 text-center">
                       <Button variant="outline" onClick={() => setShowMoreCount((prev) => prev + 5)}>
@@ -770,44 +776,46 @@ export default function AdminAffiliatePage() {
           </CardHeader>
           <CardContent>
             {stats?.recentConversions?.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Affiliate</TableHead>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Commission</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stats.recentConversions.map((conversion: any) => (
-                    <TableRow key={conversion.id}>
-                      <TableCell>{formatDate(conversion.createdAt)}</TableCell>
-                      <TableCell>{conversion.link.user.name || conversion.link.user.email}</TableCell>
-                      <TableCell>{conversion.orderId}</TableCell>
-                      <TableCell>{formatCurrency(Number(conversion.amount))}</TableCell>
-                      <TableCell>{formatCurrency(Number(conversion.commission))}</TableCell>
-                      <TableCell>
-                        <Badge
-                          className={
-                            conversion.status === "APPROVED"
-                              ? "bg-green-100 text-green-800"
-                              : conversion.status === "PAID"
-                                ? "bg-blue-100 text-blue-800"
-                                : conversion.status === "PENDING"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-800"
-                          }
-                        >
-                          {conversion.status.charAt(0) + conversion.status.slice(1).toLowerCase()}
-                        </Badge>
-                      </TableCell>
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Affiliate</TableHead>
+                      <TableHead>Order ID</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Commission</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {stats.recentConversions.map((conversion: any) => (
+                      <TableRow key={conversion.id}>
+                        <TableCell>{formatDate(conversion.createdAt)}</TableCell>
+                        <TableCell>{conversion.link.user.name || conversion.link.user.email}</TableCell>
+                        <TableCell>{conversion.orderId}</TableCell>
+                        <TableCell>{formatCurrency(Number(conversion.amount))}</TableCell>
+                        <TableCell>{formatCurrency(Number(conversion.commission))}</TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              conversion.status === "APPROVED"
+                                ? "bg-green-100 text-green-800"
+                                : conversion.status === "PAID"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : conversion.status === "PENDING"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-red-100 text-red-800"
+                            }
+                          >
+                            {conversion.status.charAt(0) + conversion.status.slice(1).toLowerCase()}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <div className="text-center py-4 text-gray-500">No conversions yet</div>
             )}
@@ -852,12 +860,12 @@ export default function AdminAffiliatePage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 max-w-sm">
+          <div className="mb-4 flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2">
+            <div className="relative w-full sm:flex-1 sm:max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
               <Input
                 placeholder="Search affiliates..."
-                className="pl-8"
+                className="pl-8 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -870,7 +878,7 @@ export default function AdminAffiliatePage() {
             )}
           </div>
 
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -913,8 +921,8 @@ export default function AdminAffiliatePage() {
           </div>
 
           {pagination.affiliates.pages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-gray-500">
+            <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
+              <p className="text-xs sm:text-sm text-gray-500">
                 Showing {(pagination.affiliates.page - 1) * 10 + 1} to{" "}
                 {Math.min(pagination.affiliates.page * 10, pagination.affiliates.total)} of{" "}
                 {pagination.affiliates.total} affiliates
@@ -923,6 +931,7 @@ export default function AdminAffiliatePage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-8 w-8 p-0 sm:h-9 sm:w-9"
                   onClick={() =>
                     setPagination((prev) => ({
                       ...prev,
@@ -932,10 +941,12 @@ export default function AdminAffiliatePage() {
                   disabled={pagination.affiliates.page === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only">Previous page</span>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-8 w-8 p-0 sm:h-9 sm:w-9"
                   onClick={() =>
                     setPagination((prev) => ({
                       ...prev,
@@ -945,6 +956,7 @@ export default function AdminAffiliatePage() {
                   disabled={pagination.affiliates.page === pagination.affiliates.pages}
                 >
                   <ChevronRight className="h-4 w-4" />
+                  <span className="sr-only">Next page</span>
                 </Button>
               </div>
             </div>
@@ -989,12 +1001,12 @@ export default function AdminAffiliatePage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 max-w-sm">
+          <div className="mb-4 flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2">
+            <div className="relative w-full sm:flex-1 sm:max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
               <Input
                 placeholder="Search by order ID..."
-                className="pl-8"
+                className="pl-8 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -1019,7 +1031,7 @@ export default function AdminAffiliatePage() {
             )}
           </div>
 
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1080,8 +1092,8 @@ export default function AdminAffiliatePage() {
           </div>
 
           {pagination.conversions.pages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-gray-500">
+            <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
+              <p className="text-xs sm:text-sm text-gray-500">
                 Showing {(pagination.conversions.page - 1) * 10 + 1} to{" "}
                 {Math.min(pagination.conversions.page * 10, pagination.conversions.total)} of{" "}
                 {pagination.conversions.total} conversions
@@ -1090,6 +1102,7 @@ export default function AdminAffiliatePage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-8 w-8 p-0 sm:h-9 sm:w-9"
                   onClick={() =>
                     setPagination((prev) => ({
                       ...prev,
@@ -1099,10 +1112,12 @@ export default function AdminAffiliatePage() {
                   disabled={pagination.conversions.page === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only">Previous page</span>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-8 w-8 p-0 sm:h-9 sm:w-9"
                   onClick={() =>
                     setPagination((prev) => ({
                       ...prev,
@@ -1112,6 +1127,7 @@ export default function AdminAffiliatePage() {
                   disabled={pagination.conversions.page === pagination.conversions.pages}
                 >
                   <ChevronRight className="h-4 w-4" />
+                  <span className="sr-only">Next page</span>
                 </Button>
               </div>
             </div>
@@ -1119,7 +1135,7 @@ export default function AdminAffiliatePage() {
 
           {/* Conversion Review Dialog */}
           <Dialog open={!!selectedConversion} onOpenChange={(open) => !open && setSelectedConversion(null)}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-[95vw] sm:w-auto">
               <DialogHeader>
                 <DialogTitle>Review Conversion</DialogTitle>
                 <DialogDescription>Review and update the status of this conversion</DialogDescription>
@@ -1223,12 +1239,12 @@ export default function AdminAffiliatePage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 max-w-sm">
+          <div className="mb-4 flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2">
+            <div className="relative w-full sm:flex-1 sm:max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
               <Input
                 placeholder="Search by affiliate..."
-                className="pl-8"
+                className="pl-8 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -1253,7 +1269,7 @@ export default function AdminAffiliatePage() {
             )}
           </div>
 
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1321,8 +1337,8 @@ export default function AdminAffiliatePage() {
           </div>
 
           {pagination.payouts.pages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-gray-500">
+            <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
+              <p className="text-xs sm:text-sm text-gray-500">
                 Showing {(pagination.payouts.page - 1) * 10 + 1} to{" "}
                 {Math.min(pagination.payouts.page * 10, pagination.payouts.total)} of {pagination.payouts.total} payouts
               </p>
@@ -1330,6 +1346,7 @@ export default function AdminAffiliatePage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-8 w-8 p-0 sm:h-9 sm:w-9"
                   onClick={() =>
                     setPagination((prev) => ({
                       ...prev,
@@ -1339,10 +1356,12 @@ export default function AdminAffiliatePage() {
                   disabled={pagination.payouts.page === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only">Previous page</span>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-8 w-8 p-0 sm:h-9 sm:w-9"
                   onClick={() =>
                     setPagination((prev) => ({
                       ...prev,
@@ -1352,6 +1371,7 @@ export default function AdminAffiliatePage() {
                   disabled={pagination.payouts.page === pagination.payouts.pages}
                 >
                   <ChevronRight className="h-4 w-4" />
+                  <span className="sr-only">Next page</span>
                 </Button>
               </div>
             </div>
@@ -1359,7 +1379,7 @@ export default function AdminAffiliatePage() {
 
           {/* Payout Review Dialog */}
           <Dialog open={!!selectedPayout} onOpenChange={(open) => !open && setSelectedPayout(null)}>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-[95vw] sm:w-auto">
               <DialogHeader>
                 <DialogTitle>Review Payout</DialogTitle>
                 <DialogDescription>Review and update the status of this payout request</DialogDescription>
@@ -1589,15 +1609,18 @@ export default function AdminAffiliatePage() {
           )}
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="grid gap-2">
-              <Label htmlFor="commission-rate">Commission Rate (%)</Label>
+              <Label htmlFor="commission-rate" className="text-sm sm:text-base">
+                Commission Rate (%)
+              </Label>
               {editingSettings ? (
                 <Input
                   id="commission-rate"
                   type="number"
                   min="1"
                   max="100"
+                  className="max-w-xs"
                   value={updatedSettings?.commissionRate}
                   onChange={(e) =>
                     setUpdatedSettings({
@@ -1607,7 +1630,7 @@ export default function AdminAffiliatePage() {
                   }
                 />
               ) : (
-                <p className="text-lg font-medium">{settings?.commissionRate}%</p>
+                <p className="text-base sm:text-lg font-medium">{settings?.commissionRate}%</p>
               )}
               <p className="text-sm text-gray-500">
                 The percentage of the purchase amount that affiliates earn as commission
@@ -1615,12 +1638,15 @@ export default function AdminAffiliatePage() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="min-payout">Minimum Payout Amount ($)</Label>
+              <Label htmlFor="min-payout" className="text-sm sm:text-base">
+                Minimum Payout Amount ($)
+              </Label>
               {editingSettings ? (
                 <Input
                   id="min-payout"
                   type="number"
                   min="1"
+                  className="max-w-xs"
                   value={updatedSettings?.minPayoutAmount}
                   onChange={(e) =>
                     setUpdatedSettings({
@@ -1630,7 +1656,7 @@ export default function AdminAffiliatePage() {
                   }
                 />
               ) : (
-                <p className="text-lg font-medium">${settings?.minPayoutAmount}</p>
+                <p className="text-base sm:text-lg font-medium">${settings?.minPayoutAmount}</p>
               )}
               <p className="text-sm text-gray-500">
                 The minimum amount an affiliate must earn before they can request a payout
@@ -1638,12 +1664,15 @@ export default function AdminAffiliatePage() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="cookie-duration">Cookie Duration (Days)</Label>
+              <Label htmlFor="cookie-duration" className="text-sm sm:text-base">
+                Cookie Duration (Days)
+              </Label>
               {editingSettings ? (
                 <Input
                   id="cookie-duration"
                   type="number"
                   min="1"
+                  className="max-w-xs"
                   value={updatedSettings?.cookieDuration}
                   onChange={(e) =>
                     setUpdatedSettings({
@@ -1653,7 +1682,7 @@ export default function AdminAffiliatePage() {
                   }
                 />
               ) : (
-                <p className="text-lg font-medium">{settings?.cookieDuration} days</p>
+                <p className="text-base sm:text-lg font-medium">{settings?.cookieDuration} days</p>
               )}
               <p className="text-sm text-gray-500">
                 How long the affiliate cookie lasts after a user clicks an affiliate link
@@ -1666,14 +1695,14 @@ export default function AdminAffiliatePage() {
   }
 
   return (
-    <div className="p-8 mb-40">
-      <h1 className="text-3xl font-bold mb-6">Affiliate Program Management</h1>
+    <div className="p-4 sm:p-6 lg:p-8 mb-20 sm:mb-40 w-full overflow-x-hidden">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Affiliate Program Management</h1>
 
       {renderLoadingOverlay()}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-          <TabsList className="mb-4 sm:mb-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
+          <TabsList className="mb-4 sm:mb-0 overflow-x-auto max-w-full flex-wrap">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
             <TabsTrigger value="conversions">Conversions</TabsTrigger>
@@ -1701,7 +1730,7 @@ const CommissionChart = ({ data }: { data: any[] }) => {
   return (
     <div className="h-full w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+        <AreaChart data={data} margin={{ top: 20, right: 10, left: 0, bottom: 20 }}>
           <defs>
             <linearGradient id="colorCommission" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.8} />
@@ -1752,7 +1781,7 @@ const ClicksChart = ({ data }: { data: any[] }) => {
   return (
     <div className="h-full w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+        <BarChart data={data} margin={{ top: 20, right: 10, left: 0, bottom: 20 }}>
           <defs>
             <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
