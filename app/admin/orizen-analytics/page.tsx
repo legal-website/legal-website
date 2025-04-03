@@ -376,33 +376,50 @@ export default function AnalyticsDashboard() {
   const hasErrors = Object.keys(errors).length > 0
 
   return (
-    <div className="container mx-auto py-6 space-y-8 mb-40 px-[3%]">
+    <div className="w-full max-w-[100vw] overflow-x-hidden py-4 sm:py-6 space-y-4 sm:space-y-8 mb-20 sm:mb-40 px-3 sm:px-4 md:px-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold">Orizen Analytics Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Orizen Analytics Dashboard</h1>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={refreshConnection} disabled={isRefreshing}>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshConnection}
+            disabled={isRefreshing}
+            className="text-xs sm:text-sm"
+          >
             {isRefreshing ? "Refreshing..." : "Refresh Data"}
           </Button>
 
-          <Button variant="outline" size="sm" onClick={() => router.push("/admin/orizen-analytics/test")}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/admin/orizen-analytics/test")}
+            className="text-xs sm:text-sm"
+          >
             Test API Connection
           </Button>
 
-          <Button variant="outline" size="sm" onClick={() => selectDateRange(7)}>
-            Last 7 days
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => selectDateRange(30)}>
-            Last 30 days
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => selectDateRange(90)}>
-            Last 90 days
-          </Button>
+          <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
+            <Button variant="outline" size="sm" onClick={() => selectDateRange(7)} className="text-xs sm:text-sm">
+              Last 7 days
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => selectDateRange(30)} className="text-xs sm:text-sm">
+              Last 30 days
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => selectDateRange(90)} className="text-xs sm:text-sm">
+              Last 90 days
+            </Button>
+          </div>
 
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="w-[240px] justify-start text-left font-normal">
-                <CalendarIcon className="mr-2 h-4 w-4" />
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-[240px] justify-start text-left font-normal text-xs sm:text-sm mt-2 sm:mt-0"
+              >
+                <CalendarIcon className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                 {date.from ? (
                   date.to ? (
                     <>
@@ -416,14 +433,14 @@ export default function AnalyticsDashboard() {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
+            <PopoverContent className="w-auto p-0 max-w-[calc(100vw-2rem)]" align="end">
               <Calendar
                 initialFocus
                 mode="range"
                 defaultMonth={date.from || new Date()}
                 selected={date}
                 onSelect={(range) => range && setDate(range as DateRange)}
-                numberOfMonths={2}
+                numberOfMonths={window.innerWidth < 768 ? 1 : 2}
               />
             </PopoverContent>
           </Popover>
@@ -436,14 +453,13 @@ export default function AnalyticsDashboard() {
           <AlertTitle>Connection Issues</AlertTitle>
           <AlertDescription>
             <p>There were issues connecting to Google Analytics. Using fallback data.</p>
-            <div className="mt-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={() => setUseMockData(!useMockData)}>
                 {useMockData ? "Try Real Data" : "Use Mock Data"}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="ml-2"
                 onClick={() => (window.location.href = "/admin/orizen-analytics/test")}
               >
                 Test Connection
@@ -454,7 +470,7 @@ export default function AnalyticsDashboard() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Users</CardDescription>
@@ -533,14 +549,14 @@ export default function AnalyticsDashboard() {
       </div>
 
       {/* Page Views Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="col-span-1 lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Page Views Over Time</CardTitle>
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-6">
+        <Card className="col-span-1">
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl">Page Views Over Time</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
             {loading.pageViews ? (
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton className="h-[200px] sm:h-[250px] md:h-[300px] w-full" />
             ) : (
               <ChartContainer
                 config={{
@@ -549,7 +565,7 @@ export default function AnalyticsDashboard() {
                     color: "hsl(var(--chart-1))",
                   },
                 }}
-                className="h-[300px]"
+                className="h-[200px] sm:h-[250px] md:h-[300px]"
               >
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={pageViews}>
@@ -574,12 +590,12 @@ export default function AnalyticsDashboard() {
       </div>
 
       {/* Top Pages and Demographics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Top Pages</CardTitle>
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl">Top Pages</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
             {loading.topPages ? (
               <div className="space-y-4">
                 {Array(5)
@@ -592,17 +608,22 @@ export default function AnalyticsDashboard() {
                   ))}
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-2 sm:space-y-4">
                 {safeSlice(topPages, 0, 7).map((page, index) => (
                   <div key={index} className="flex justify-between items-center">
                     <div className="flex items-center">
-                      <span className="font-medium text-sm truncate max-w-[250px]" title={page.page}>
+                      <span
+                        className="font-medium text-xs sm:text-sm truncate max-w-[120px] sm:max-w-[180px] md:max-w-[250px]"
+                        title={page.page}
+                      >
                         {page.page}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">{page.pageviews.toLocaleString()}</span>
-                      <span className="text-xs text-muted-foreground">{formatDuration(page.avgTimeOnPage)}</span>
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <span className="text-xs sm:text-sm font-semibold">{page.pageviews.toLocaleString()}</span>
+                      <span className="text-[10px] sm:text-xs text-muted-foreground">
+                        {formatDuration(page.avgTimeOnPage)}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -612,10 +633,10 @@ export default function AnalyticsDashboard() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>User Demographics</CardTitle>
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl">User Demographics</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
             {loading.demographics ? (
               <Skeleton className="h-[300px] w-full" />
             ) : (
@@ -626,7 +647,7 @@ export default function AnalyticsDashboard() {
                     color: "hsl(var(--chart-1))",
                   },
                 }}
-                className="h-[300px]"
+                className="h-[200px] sm:h-[250px] md:h-[300px]"
               >
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={safeSlice(demographics, 0, 7)}>
@@ -645,12 +666,12 @@ export default function AnalyticsDashboard() {
       </div>
 
       {/* Traffic Sources and Devices */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Traffic Sources</CardTitle>
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl">Traffic Sources</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
             {loading.trafficSources ? (
               <Skeleton className="h-[300px] w-full" />
             ) : (
@@ -661,7 +682,7 @@ export default function AnalyticsDashboard() {
                     color: "hsl(var(--chart-1))",
                   },
                 }}
-                className="h-[300px]"
+                className="h-[200px] sm:h-[250px] md:h-[300px]"
               >
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={safeSlice(trafficSources, 0, 7)} layout="vertical">
@@ -679,14 +700,14 @@ export default function AnalyticsDashboard() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Device Categories</CardTitle>
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl">Device Categories</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
             {loading.devices ? (
               <Skeleton className="h-[300px] w-full" />
             ) : (
-              <div className="h-[300px] flex items-center justify-center">
+              <div className="h-[200px] sm:h-[250px] md:h-[300px] flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
