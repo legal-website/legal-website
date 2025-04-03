@@ -45,6 +45,18 @@ interface PendingUser {
   accountManagerRequest?: AccountManagerRequest
 }
 
+// Add this CSS class for extra small screens
+const globalStyles = `
+  @media (min-width: 400px) {
+    .xs\\:inline {
+      display: inline;
+    }
+    .xs\\:hidden {
+      display: none;
+    }
+  }
+`
+
 interface PhoneNumberRequest {
   id?: string
   status: "requested" | "pending" | "approved" | "rejected"
@@ -789,15 +801,26 @@ export default function PendingUsersPage() {
   const rejectedCount = pendingUsers.filter((user) => user.business?.serviceStatus === "Rejected").length
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+    <div className="px-3 sm:px-4 md:px-6 max-w-[1600px] mx-auto mb-20 md:mb-40 overflow-x-hidden">
+      <style jsx global>
+        {globalStyles}
+      </style>
+      {/* Rest of the component */}
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6">
         <div>
-          <h1 className="text-2xl font-bold">LLC Management</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage business information and LLC status</p>
+          <h1 className="text-xl md:text-2xl font-bold">LLC Management</h1>
+          <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-1">
+            Manage business information and LLC status
+          </p>
         </div>
-        <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <Button variant="outline" size="sm" className="flex items-center" onClick={fetchUsers}>
+        <div className="flex items-center mt-3 md:mt-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center w-full md:w-auto justify-center"
+            onClick={fetchUsers}
+          >
             <Filter className="mr-2 h-4 w-4" />
             Refresh Data
           </Button>
@@ -805,8 +828,8 @@ export default function PendingUsersPage() {
       </div>
 
       {/* Replace the search div with this updated version that includes filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div className="relative md:max-w-md w-full">
+      <div className="flex flex-col gap-3 mb-4 md:mb-6">
+        <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="Search users..."
@@ -816,10 +839,10 @@ export default function PendingUsersPage() {
           />
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="w-full">
             <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-full md:w-[180px]">
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
@@ -831,55 +854,55 @@ export default function PendingUsersPage() {
             </Select>
           </div>
 
-          <div className="flex gap-2">
-            <div>
-              <Input
-                type="date"
-                placeholder="Start Date"
-                value={dateFilter.startDate}
-                onChange={(e) => {
-                  const newStartDate = e.target.value
-                  // Validate that start date is before end date if both exist
-                  if (newStartDate && dateFilter.endDate && new Date(newStartDate) > new Date(dateFilter.endDate)) {
-                    toast({
-                      title: "Invalid Date Range",
-                      description: "The start date must be before or equal to the end date.",
-                      variant: "destructive",
-                    })
-                    return // Don't update with invalid range
-                  }
-                  setDateFilter((prev) => ({ ...prev, startDate: newStartDate }))
-                }}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <Input
-                type="date"
-                placeholder="End Date"
-                value={dateFilter.endDate}
-                onChange={(e) => {
-                  const newEndDate = e.target.value
-                  // Validate that end date is after start date if both exist
-                  if (dateFilter.startDate && newEndDate && new Date(dateFilter.startDate) > new Date(newEndDate)) {
-                    toast({
-                      title: "Invalid Date Range",
-                      description: "The end date must be after or equal to the start date.",
-                      variant: "destructive",
-                    })
-                    return // Don't update with invalid range
-                  }
-                  setDateFilter((prev) => ({ ...prev, endDate: newEndDate }))
-                }}
-                className="w-full"
-              />
-            </div>
-            {(dateFilter.startDate || dateFilter.endDate) && (
+          <div className="w-full">
+            <Input
+              type="date"
+              placeholder="Start Date"
+              value={dateFilter.startDate}
+              onChange={(e) => {
+                const newStartDate = e.target.value
+                // Validate that start date is before end date if both exist
+                if (newStartDate && dateFilter.endDate && new Date(newStartDate) > new Date(dateFilter.endDate)) {
+                  toast({
+                    title: "Invalid Date Range",
+                    description: "The start date must be before or equal to the end date.",
+                    variant: "destructive",
+                  })
+                  return // Don't update with invalid range
+                }
+                setDateFilter((prev) => ({ ...prev, startDate: newStartDate }))
+              }}
+              className="w-full"
+            />
+          </div>
+          <div className="w-full">
+            <Input
+              type="date"
+              placeholder="End Date"
+              value={dateFilter.endDate}
+              onChange={(e) => {
+                const newEndDate = e.target.value
+                // Validate that end date is after start date if both exist
+                if (dateFilter.startDate && newEndDate && new Date(dateFilter.startDate) > new Date(newEndDate)) {
+                  toast({
+                    title: "Invalid Date Range",
+                    description: "The end date must be after or equal to the start date.",
+                    variant: "destructive",
+                  })
+                  return // Don't update with invalid range
+                }
+                setDateFilter((prev) => ({ ...prev, endDate: newEndDate }))
+              }}
+              className="w-full"
+            />
+          </div>
+          {(dateFilter.startDate || dateFilter.endDate) && (
+            <div className="flex items-center justify-start sm:justify-end">
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 onClick={() => setDateFilter({ startDate: "", endDate: "" })}
-                className="shrink-0"
+                className="h-10"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -891,25 +914,33 @@ export default function PendingUsersPage() {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-4 w-4"
+                  className="h-4 w-4 mr-2"
                 >
                   <path d="M18 6 6 18" />
                   <path d="m6 6 12 12" />
                 </svg>
-                <span className="sr-only">Clear dates</span>
+                Clear Dates
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="all">All Users ({pendingUsers.length})</TabsTrigger>
-          <TabsTrigger value="pending">Pending LLC ({pendingCount})</TabsTrigger>
-          <TabsTrigger value="approved">Approved LLC ({approvedCount})</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected LLC ({rejectedCount})</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4 md:mb-6">
+        <TabsList className="w-full grid grid-cols-2 md:grid-cols-4 h-auto">
+          <TabsTrigger value="all" className="py-2 text-xs md:text-sm">
+            All Users ({pendingUsers.length})
+          </TabsTrigger>
+          <TabsTrigger value="pending" className="py-2 text-xs md:text-sm">
+            Pending ({pendingCount})
+          </TabsTrigger>
+          <TabsTrigger value="approved" className="py-2 text-xs md:text-sm">
+            Approved ({approvedCount})
+          </TabsTrigger>
+          <TabsTrigger value="rejected" className="py-2 text-xs md:text-sm">
+            Rejected ({rejectedCount})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="all">
@@ -992,7 +1023,7 @@ export default function PendingUsersPage() {
       {/* LLC Details Dialog */}
       {selectedUser && (
         <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
-          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] max-w-[700px] max-h-[90vh] overflow-y-auto p-4 md:p-6">
             <DialogHeader>
               <DialogTitle>LLC Management</DialogTitle>
               <DialogDescription>Update business information and LLC status</DialogDescription>
@@ -1013,7 +1044,7 @@ export default function PendingUsersPage() {
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Business Information</h3>
                 <Card className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                     <div>
                       <Label htmlFor="name">Business Name</Label>
                       <Input
@@ -1181,7 +1212,7 @@ export default function PendingUsersPage() {
       {/* Phone Number Request Dialog */}
       {selectedUser && (
         <Dialog open={showPhoneDialog} onOpenChange={setShowPhoneDialog}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="w-[95vw] max-w-[500px] p-4 md:p-6">
             <DialogHeader>
               <DialogTitle>US Phone Number Request</DialogTitle>
               <DialogDescription>
@@ -1261,7 +1292,7 @@ export default function PendingUsersPage() {
       {/* Account Manager Request Dialog */}
       {selectedUser && (
         <Dialog open={showAccountManagerDialog} onOpenChange={setShowAccountManagerDialog}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="w-[95vw] max-w-[500px] p-4 md:p-6">
             <DialogHeader>
               <DialogTitle>Account Manager Request</DialogTitle>
               <DialogDescription>
@@ -1376,10 +1407,10 @@ function Pagination({
   // Generate page numbers to display
   const getPageNumbers = () => {
     const pages = []
-    const maxPagesToShow = 5 // Show at most 5 page numbers
+    const maxPagesToShow = 3 // Show fewer pages on mobile
 
     if (totalPages <= maxPagesToShow) {
-      // If we have 5 or fewer pages, show all of them
+      // If we have 3 or fewer pages, show all of them
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i)
       }
@@ -1388,17 +1419,17 @@ function Pagination({
       pages.push(1)
 
       // Calculate start and end of page range around current page
-      let startPage = Math.max(2, currentPage - 1)
-      let endPage = Math.min(totalPages - 1, currentPage + 1)
+      let startPage = Math.max(2, currentPage - 0)
+      let endPage = Math.min(totalPages - 1, currentPage + 0)
 
       // Adjust if we're near the beginning
-      if (currentPage <= 3) {
-        endPage = 4
+      if (currentPage <= 2) {
+        endPage = 2
       }
 
       // Adjust if we're near the end
-      if (currentPage >= totalPages - 2) {
-        startPage = totalPages - 3
+      if (currentPage >= totalPages - 1) {
+        startPage = totalPages - 1
       }
 
       // Add ellipsis after first page if needed
@@ -1426,19 +1457,19 @@ function Pagination({
   const pageNumbers = getPageNumbers()
 
   return (
-    <div className="mt-6 flex flex-col sm:flex-row items-center justify-between">
-      <div className="text-sm text-gray-500 mb-4 sm:mb-0">
+    <div className="mt-4 md:mt-6 flex flex-col sm:flex-row items-center justify-between">
+      <div className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-0 text-center sm:text-left">
         Showing <span className="font-medium">{startItem}</span> to <span className="font-medium">{endItem}</span> of{" "}
         <span className="font-medium">{totalItems}</span> results
       </div>
 
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-1 sm:space-x-2">
         <Button
           variant="outline"
           size="sm"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="h-8 w-8 p-0"
+          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
         >
           <ChevronLeft className="h-4 w-4" />
           <span className="sr-only">Previous page</span>
@@ -1448,7 +1479,7 @@ function Pagination({
           // Render ellipsis
           if (pageNumber < 0) {
             return (
-              <span key={`ellipsis-${index}`} className="px-2">
+              <span key={`ellipsis-${index}`} className="px-1 sm:px-2">
                 ...
               </span>
             )
@@ -1461,7 +1492,7 @@ function Pagination({
               variant={currentPage === pageNumber ? "default" : "outline"}
               size="sm"
               onClick={() => onPageChange(pageNumber)}
-              className="h-8 w-8 p-0"
+              className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-xs"
             >
               {pageNumber}
             </Button>
@@ -1473,7 +1504,7 @@ function Pagination({
           size="sm"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="h-8 w-8 p-0"
+          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
         >
           <ChevronRight className="h-4 w-4" />
           <span className="sr-only">Next page</span>
@@ -1499,7 +1530,7 @@ function UserList({
 }) {
   if (users.length === 0) {
     return (
-      <Card className="p-8 text-center">
+      <Card className="p-4 md:p-8 text-center">
         <p>No users found</p>
       </Card>
     )
@@ -1532,28 +1563,28 @@ function UserList({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {users.map((user) => (
-        <Card key={user.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
-          <div className="flex flex-col md:flex-row md:items-center justify-between">
-            <div className="mb-4 md:mb-0">
+        <Card key={user.id} className="p-3 md:p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
+          <div className="flex flex-col space-y-3">
+            <div>
               <div className="flex items-center mb-1">
                 <p className="font-medium">{user.name}</p>
               </div>
               <p className="text-sm text-gray-500">{user.email}</p>
-              <div className="flex flex-wrap items-center mt-1 gap-y-1">
-                <span className="text-xs text-gray-500">Business: {user.business?.name || "Not set"}</span>
-                <span className="mx-2 text-gray-300">•</span>
-                <span className="text-xs text-gray-500">Status: {user.business?.serviceStatus || "Pending"}</span>
+              <div className="flex flex-wrap items-center mt-1 gap-y-1 text-xs">
+                <span className="text-gray-500">Business: {user.business?.name || "Not set"}</span>
+                <span className="mx-2 text-gray-300 hidden xs:inline">•</span>
+                <span className="text-gray-500">Status: {user.business?.serviceStatus || "Pending"}</span>
                 {user.business?.businessId && (
                   <>
-                    <span className="mx-2 text-gray-300">•</span>
-                    <span className="text-xs text-gray-500">
-                      ID: {user.business.businessId}
+                    <span className="mx-2 text-gray-300 hidden sm:inline">•</span>
+                    <span className="text-gray-500 flex items-center mt-1 sm:mt-0">
+                      <span className="mr-1">ID: {user.business.businessId}</span>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-5 w-5 p-0 ml-1"
+                        className="h-5 w-5 p-0"
                         onClick={() => copyToClipboard(user.business?.businessId || "", "Business ID")}
                       >
                         <Copy className="h-3 w-3" />
@@ -1563,8 +1594,8 @@ function UserList({
                 )}
                 {user.business?.formationDate && (
                   <>
-                    <span className="mx-2 text-gray-300">•</span>
-                    <span className="text-xs text-gray-500">
+                    <span className="mx-2 text-gray-300 hidden md:inline">•</span>
+                    <span className="text-gray-500 block md:inline mt-1 md:mt-0">
                       Formation: {new Date(user.business.formationDate).toLocaleDateString()}
                     </span>
                   </>
@@ -1572,31 +1603,31 @@ function UserList({
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
-              <Button variant="outline" size="sm" onClick={() => onViewDetails(user)}>
-                <Eye className="h-4 w-4 mr-2" />
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => onViewDetails(user)}>
+                <Eye className="h-3 w-3 mr-1" />
                 Manage LLC
               </Button>
               {getPhoneRequestButtonText(user) && (
                 <Button
                   variant="outline"
                   size="sm"
+                  className={`text-xs h-8 ${user.phoneRequest?.status === "requested" ? "border-blue-300 text-blue-600" : ""}`}
                   onClick={() => onViewPhoneRequest(user)}
-                  className={user.phoneRequest?.status === "requested" ? "border-blue-300 text-blue-600" : ""}
                 >
-                  <Phone className="h-4 w-4 mr-2" />
-                  {getPhoneRequestButtonText(user)}
+                  <Phone className="h-3 w-3 mr-1" />
+                  <span className="hidden xs:inline">US Phone</span>
                 </Button>
               )}
               {getAccountManagerButtonText(user) && (
                 <Button
                   variant="outline"
                   size="sm"
+                  className={`text-xs h-8 ${user.accountManagerRequest?.status === "requested" ? "border-blue-300 text-blue-600" : ""}`}
                   onClick={() => onViewAccountManagerRequest(user)}
-                  className={user.accountManagerRequest?.status === "requested" ? "border-blue-300 text-blue-600" : ""}
                 >
-                  <User className="h-4 w-4 mr-2" />
-                  {getAccountManagerButtonText(user)}
+                  <User className="h-3 w-3 mr-1" />
+                  <span className="hidden xs:inline">Manager</span>
                 </Button>
               )}
             </div>
