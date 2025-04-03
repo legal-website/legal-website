@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { PrismaClient } from "@prisma/client"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import { sendPaymentRejectionEmail } from "@/lib/auth-service"
 
 const prisma = new PrismaClient()
 
@@ -37,6 +38,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     })
 
     console.log("Invoice rejected successfully")
+
+    // Send rejection email to the customer
+    try {
+      const body = await req.json()
+      const reason = body?.reason || "" // Get rejection reason if provided
+
+      // Check if user is logged in by checking if userId exists
+      const isLoggedIn = !!invoice.userId
+
+      await sendPaymentRejectionEmail(invoice.customerEmail, invoice.customerName, invoiceId, reason, isLoggedIn)
+      console.log("Rejection email sent to:", invoice.customerEmail)
+    } catch (emailError) {
+      console.error("Error sending rejection email:", emailError)
+      // Don't fail the request if email sending fails
+    }
 
     return NextResponse.json({ success: true, invoice: updatedInvoice })
   } catch (error: any) {
