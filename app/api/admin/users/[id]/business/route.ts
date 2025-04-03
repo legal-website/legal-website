@@ -53,8 +53,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         where: { id: user.businessId },
         data: {
           name,
-          // Don't update businessId if it already exists
-          ...(user.business?.businessId ? {} : { businessId }),
+          businessId,
           ein,
           formationDate: formationDate ? new Date(formationDate) : undefined,
           industry: customData,
@@ -86,6 +85,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
     // Return the business with the custom fields
     return NextResponse.json({
+      success: true,
       business: {
         ...business,
         serviceStatus,
