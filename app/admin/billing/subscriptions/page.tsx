@@ -543,9 +543,9 @@ export default function SubscriptionsPage() {
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-44">
+    <div className="p-3 sm:p-4 md:p-6 max-w-[1600px] mx-auto mb-20 md:mb-44">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 md:mb-6">
         <div>
           <h1 className="text-2xl font-bold">Pricing Management</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage subscription plans and state filing fees</p>
@@ -606,7 +606,7 @@ export default function SubscriptionsPage() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
             {pricingData.plans.map((plan) => (
               <Card key={plan.id} className="overflow-hidden">
                 <CardHeader className="pb-2">
@@ -660,8 +660,8 @@ export default function SubscriptionsPage() {
               <CardDescription>Manage state filing fees, discounts, and descriptions</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <table className="w-full min-w-[650px]">
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-4 font-medium text-sm">State</th>
@@ -768,7 +768,7 @@ export default function SubscriptionsPage() {
             </div>
 
             {/* Search and Sort */}
-            <div className="flex flex-wrap items-center gap-4 mb-4">
+            <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 mb-4">
               <div className="relative flex-1 min-w-[240px]">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
@@ -832,8 +832,8 @@ export default function SubscriptionsPage() {
             ) : (
               // Replace the Card component with this updated version that includes pagination
               <Card>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <table className="w-full min-w-[700px]">
                     <thead>
                       <tr className="border-b">
                         <th className="text-left p-4 font-medium text-sm">Invoice</th>
@@ -886,14 +886,20 @@ export default function SubscriptionsPage() {
 
                 {/* Pagination Controls */}
                 {filteredSubscriptions.length > 0 && (
-                  <div className="flex items-center justify-between p-4 border-t">
+                  <div className="flex flex-col sm:flex-row items-center justify-between p-3 sm:p-4 border-t gap-3">
                     <div className="text-sm text-gray-500">
                       Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredSubscriptions.length)} of{" "}
                       {filteredSubscriptions.length} subscriptions
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm" onClick={prevPage} disabled={currentPage === 1}>
-                        Previous
+                    <div className="flex items-center space-x-1 sm:space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={prevPage}
+                        disabled={currentPage === 1}
+                        className="text-xs sm:text-sm px-2 sm:px-3"
+                      >
+                        Prev
                       </Button>
 
                       {/* Page number buttons */}
@@ -925,7 +931,13 @@ export default function SubscriptionsPage() {
                         })}
                       </div>
 
-                      <Button variant="outline" size="sm" onClick={nextPage} disabled={currentPage === totalPages}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={nextPage}
+                        disabled={currentPage === totalPages}
+                        className="text-xs sm:text-sm px-2 sm:px-3"
+                      >
                         Next
                       </Button>
                     </div>
@@ -939,7 +951,7 @@ export default function SubscriptionsPage() {
 
       {/* Plan Edit Dialog - Updated for better responsiveness and scrolling */}
       <Dialog open={showPlanDialog} onOpenChange={setShowPlanDialog}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[600px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader className="sticky top-0 bg-white dark:bg-gray-950 pt-4 pb-2 z-10">
             <DialogTitle>{editingPlan?.id ? "Edit" : "Create New"} Subscription Plan</DialogTitle>
             <DialogDescription>
@@ -951,8 +963,8 @@ export default function SubscriptionsPage() {
 
           {editingPlan && (
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="plan-name" className="text-right">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+                <Label htmlFor="plan-name" className="sm:text-right">
                   Plan Name
                 </Label>
                 <Input
@@ -960,15 +972,15 @@ export default function SubscriptionsPage() {
                   value={editingPlan.name}
                   onChange={(e) => setEditingPlan({ ...editingPlan, name: e.target.value })}
                   placeholder="e.g. Professional Plus"
-                  className="col-span-3"
+                  className="col-span-1 sm:col-span-3"
                 />
               </div>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="plan-price" className="text-right">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+                <Label htmlFor="plan-price" className="sm:text-right">
                   Price
                 </Label>
-                <div className="col-span-3 flex">
+                <div className="col-span-1 sm:col-span-3 flex">
                   <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 dark:bg-gray-800 dark:border-gray-600">
                     $
                   </span>
@@ -990,9 +1002,9 @@ export default function SubscriptionsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Billing Cycle</Label>
-                <div className="col-span-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+                <Label className="sm:text-right">Billing Cycle</Label>
+                <div className="col-span-1 sm:col-span-3">
                   <Select
                     value={editingPlan.billingCycle}
                     onValueChange={(value) => setEditingPlan({ ...editingPlan, billingCycle: value })}
@@ -1009,8 +1021,8 @@ export default function SubscriptionsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="plan-description" className="text-right pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-2 sm:gap-4">
+                <Label htmlFor="plan-description" className="sm:text-right pt-2">
                   Description
                 </Label>
                 <Textarea
@@ -1018,12 +1030,12 @@ export default function SubscriptionsPage() {
                   value={editingPlan.description}
                   onChange={(e) => setEditingPlan({ ...editingPlan, description: e.target.value })}
                   placeholder="Brief description of the plan"
-                  className="col-span-3"
+                  className="col-span-1 sm:col-span-3"
                 />
               </div>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="includes-package" className="text-right">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+                <Label htmlFor="includes-package" className="sm:text-right">
                   Includes Package
                 </Label>
                 <Input
@@ -1031,15 +1043,15 @@ export default function SubscriptionsPage() {
                   value={editingPlan.includesPackage}
                   onChange={(e) => setEditingPlan({ ...editingPlan, includesPackage: e.target.value })}
                   placeholder="e.g. Basic"
-                  className="col-span-3"
+                  className="col-span-1 sm:col-span-3"
                 />
               </div>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="plan-recommended" className="text-right">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+                <Label htmlFor="plan-recommended" className="sm:text-right">
                   Recommended
                 </Label>
-                <div className="col-span-3">
+                <div className="col-span-1 sm:col-span-3">
                   <Switch
                     id="plan-recommended"
                     checked={editingPlan.isRecommended}
@@ -1048,11 +1060,11 @@ export default function SubscriptionsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="assist-badge" className="text-right">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-4">
+                <Label htmlFor="assist-badge" className="sm:text-right">
                   Assist Badge
                 </Label>
-                <div className="col-span-3">
+                <div className="col-span-1 sm:col-span-3">
                   <Switch
                     id="assist-badge"
                     checked={editingPlan.hasAssistBadge}
@@ -1061,11 +1073,11 @@ export default function SubscriptionsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label className="text-right pt-2">Features</Label>
-                <div className="col-span-3 space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-2 sm:gap-4">
+                <Label className="sm:text-right pt-2">Features</Label>
+                <div className="col-span-1 sm:col-span-3 space-y-2">
                   {editingPlan.features.map((feature, index) => (
-                    <div key={index} className="flex items-center space-x-2">
+                    <div key={index} className="flex items-center space-x-1 sm:space-x-2">
                       <Input
                         value={feature}
                         onChange={(e) => {
@@ -1080,7 +1092,7 @@ export default function SubscriptionsPage() {
                       </Button>
                     </div>
                   ))}
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1 sm:space-x-2">
                     <Input
                       placeholder="Add a new feature"
                       value={newFeature}
@@ -1115,7 +1127,7 @@ export default function SubscriptionsPage() {
 
       {/* Delete Confirmation Dialog - Updated for better responsiveness */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className="max-w-[450px] max-h-[90vh] overflow-y-auto">
+        <AlertDialogContent className="w-[95vw] max-w-[450px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1135,7 +1147,7 @@ export default function SubscriptionsPage() {
       {/* Subscription Details Dialog */}
       {selectedSubscription && (
         <Dialog open={showSubscriptionDialog} onOpenChange={setShowSubscriptionDialog}>
-          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] max-w-[700px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader className="sticky top-0 bg-white dark:bg-gray-950 pt-4 pb-2 z-10">
               <DialogTitle>Subscription Details</DialogTitle>
               <DialogDescription>Viewing details for invoice {selectedSubscription.invoiceNumber}</DialogDescription>
@@ -1143,7 +1155,7 @@ export default function SubscriptionsPage() {
 
             <div className="py-4">
               {/* Subscription Header */}
-              <div className="flex flex-col md:flex-row md:justify-between mb-8">
+              <div className="flex flex-col sm:flex-row sm:justify-between mb-4 sm:mb-8 gap-4">
                 <div>
                   <h3 className="text-lg font-bold mb-1">Customer Information</h3>
                   <p className="font-medium">{selectedSubscription.customerName}</p>
@@ -1173,7 +1185,7 @@ export default function SubscriptionsPage() {
               <div className="mb-8">
                 <h3 className="text-lg font-bold mb-4">Subscription Details</h3>
                 <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-500">Package</p>
                       <p className="font-medium">{selectedSubscription.packageName}</p>
