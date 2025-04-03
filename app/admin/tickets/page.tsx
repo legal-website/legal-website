@@ -662,9 +662,9 @@ export default function AdminTicketsPage() {
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+    <div className="p-3 sm:p-4 md:p-6 max-w-[1600px] mx-auto mb-20 md:mb-40">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6">
         <div>
           <h1 className="text-2xl font-bold">Support Tickets</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage and respond to customer support requests</p>
@@ -729,7 +729,7 @@ export default function AdminTicketsPage() {
 
       {/* Stats Cards */}
       {ticketStats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 md:mb-6">
           <Card>
             <CardContent className="p-4 flex items-center justify-between">
               <div>
@@ -780,7 +780,7 @@ export default function AdminTicketsPage() {
       )}
 
       {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4 mb-4 md:mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -842,7 +842,7 @@ export default function AdminTicketsPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList>
+        <TabsList className="flex-wrap overflow-x-auto">
           <TabsTrigger value="all">All Tickets</TabsTrigger>
           <TabsTrigger value="open">Open</TabsTrigger>
           <TabsTrigger value="in-progress">In Progress</TabsTrigger>
@@ -883,132 +883,134 @@ export default function AdminTicketsPage() {
                   </p>
                 </div>
               ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("id")}>
-                          ID {getSortIcon("id")}
-                        </button>
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("subject")}>
-                          Subject {getSortIcon("subject")}
-                        </button>
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm">Customer</th>
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("status")}>
-                          Status {getSortIcon("status")}
-                        </button>
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("priority")}>
-                          Priority {getSortIcon("priority")}
-                        </button>
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm">Category</th>
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("updatedAt")}>
-                          Last Updated {getSortIcon("updatedAt")}
-                        </button>
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm">Assigned To</th>
-                      <th className="text-left p-4 font-medium text-sm">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTickets.map((ticket) => (
-                      <tr
-                        key={ticket.id}
-                        className={`border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer ${
-                          ticketsWithNewMessages.includes(ticket.id) ? "bg-green-100 dark:bg-green-900/20" : ""
-                        }`}
-                      >
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
-                          <span className="font-mono text-sm">{ticket.id.substring(0, 8)}</span>
-                        </td>
-                        <td className="p-4 font-medium" onClick={() => viewTicketDetails(ticket)}>
-                          <div className="flex items-center">
-                            {ticket.subject}
-                            {unreadCounts[ticket.id] > 0 && (
-                              <Badge className="ml-2 bg-red-500" variant="secondary">
-                                {unreadCounts[ticket.id]}
-                              </Badge>
-                            )}
-                            {ticketsWithNewMessages.includes(ticket.id) && (
-                              <Badge className="ml-2 bg-green-500" variant="secondary">
-                                New
-                              </Badge>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
-                          <div>
-                            <p>{ticket.creator?.name || "Unknown"}</p>
-                            <p className="text-sm text-gray-500">{ticket.creator?.email}</p>
-                          </div>
-                        </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
-                          <TicketStatusBadge status={ticket.status} />
-                        </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
-                          <TicketPriorityBadge priority={ticket.priority} />
-                        </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
-                            <Tag className="h-3 w-3 mr-1" />
-                            {ticket.category}
-                          </span>
-                        </td>
-                        <td className="p-4 text-gray-500 text-sm" onClick={() => viewTicketDetails(ticket)}>
-                          {formatDate(ticket.updatedAt)}
-                        </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
-                          {ticket.assignee ? (
-                            <div className="flex items-center">
-                              <Avatar className="h-6 w-6 mr-2">
-                                <AvatarFallback>
-                                  {ticket.assignee.name
-                                    ? ticket.assignee.name.charAt(0).toUpperCase()
-                                    : ticket.assignee.email.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span>{ticket.assignee.name || ticket.assignee.email}</span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-500">Unassigned</span>
-                          )}
-                        </td>
-                        <td className="p-4">
-                          <div className="flex space-x-2">
-                            <Button variant="ghost" size="sm" onClick={() => viewTicketDetails(ticket)}>
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-700"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setTicketToDelete(ticket.id)
-                                setIsDeleteDialogOpen(true)
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
+                <div className="w-full overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                  <table className="w-full min-w-[800px]">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">
+                          <button className="flex items-center" onClick={() => handleSort("id")}>
+                            ID {getSortIcon("id")}
+                          </button>
+                        </th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">
+                          <button className="flex items-center" onClick={() => handleSort("subject")}>
+                            Subject {getSortIcon("subject")}
+                          </button>
+                        </th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">Customer</th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">
+                          <button className="flex items-center" onClick={() => handleSort("status")}>
+                            Status {getSortIcon("status")}
+                          </button>
+                        </th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">
+                          <button className="flex items-center" onClick={() => handleSort("priority")}>
+                            Priority {getSortIcon("priority")}
+                          </button>
+                        </th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">Category</th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">
+                          <button className="flex items-center" onClick={() => handleSort("updatedAt")}>
+                            Last Updated {getSortIcon("updatedAt")}
+                          </button>
+                        </th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">Assigned To</th>
+                        <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {filteredTickets.map((ticket) => (
+                        <tr
+                          key={ticket.id}
+                          className={`border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer ${
+                            ticketsWithNewMessages.includes(ticket.id) ? "bg-green-100 dark:bg-green-900/20" : ""
+                          }`}
+                        >
+                          <td className="p-2 sm:p-4" onClick={() => viewTicketDetails(ticket)}>
+                            <span className="font-mono text-sm">{ticket.id.substring(0, 8)}</span>
+                          </td>
+                          <td className="p-2 sm:p-4 font-medium" onClick={() => viewTicketDetails(ticket)}>
+                            <div className="flex items-center">
+                              {ticket.subject}
+                              {unreadCounts[ticket.id] > 0 && (
+                                <Badge className="ml-2 bg-red-500" variant="secondary">
+                                  {unreadCounts[ticket.id]}
+                                </Badge>
+                              )}
+                              {ticketsWithNewMessages.includes(ticket.id) && (
+                                <Badge className="ml-2 bg-green-500" variant="secondary">
+                                  New
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-2 sm:p-4" onClick={() => viewTicketDetails(ticket)}>
+                            <div>
+                              <p>{ticket.creator?.name || "Unknown"}</p>
+                              <p className="text-sm text-gray-500">{ticket.creator?.email}</p>
+                            </div>
+                          </td>
+                          <td className="p-2 sm:p-4" onClick={() => viewTicketDetails(ticket)}>
+                            <TicketStatusBadge status={ticket.status} />
+                          </td>
+                          <td className="p-2 sm:p-4" onClick={() => viewTicketDetails(ticket)}>
+                            <TicketPriorityBadge priority={ticket.priority} />
+                          </td>
+                          <td className="p-2 sm:p-4" onClick={() => viewTicketDetails(ticket)}>
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
+                              <Tag className="h-3 w-3 mr-1" />
+                              {ticket.category}
+                            </span>
+                          </td>
+                          <td className="p-2 sm:p-4 text-gray-500 text-sm" onClick={() => viewTicketDetails(ticket)}>
+                            {formatDate(ticket.updatedAt)}
+                          </td>
+                          <td className="p-2 sm:p-4" onClick={() => viewTicketDetails(ticket)}>
+                            {ticket.assignee ? (
+                              <div className="flex items-center">
+                                <Avatar className="h-6 w-6 mr-2">
+                                  <AvatarFallback>
+                                    {ticket.assignee.name
+                                      ? ticket.assignee.name.charAt(0).toUpperCase()
+                                      : ticket.assignee.email.charAt(0).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span>{ticket.assignee.name || ticket.assignee.email}</span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-500">Unassigned</span>
+                            )}
+                          </td>
+                          <td className="p-2 sm:p-4">
+                            <div className="flex space-x-2">
+                              <Button variant="ghost" size="sm" onClick={() => viewTicketDetails(ticket)}>
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setTicketToDelete(ticket.id)
+                                  setIsDeleteDialogOpen(true)
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
 
             {/* Pagination */}
             {pagination && pagination.pages > 1 && (
-              <div className="flex items-center justify-between px-4 py-4 border-t">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-2 sm:px-4 py-3 sm:py-4 border-t gap-2">
                 <div className="text-sm text-gray-500">
                   Showing {(pagination.current - 1) * pagination.perPage + 1} to{" "}
                   {Math.min(pagination.current * pagination.perPage, pagination.total)} of {pagination.total} tickets
@@ -1069,7 +1071,7 @@ export default function AdminTicketsPage() {
       {selectedTicket && (
         <Dialog open={showTicketDialog} onOpenChange={setShowTicketDialog}>
           <DialogContent
-            className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto"
+            className="w-[calc(100vw-32px)] sm:max-w-[600px] md:max-w-[800px] max-h-[90vh] overflow-y-auto p-3 sm:p-6"
             aria-describedby="ticket-details-description"
           >
             <div id="ticket-details-description" className="sr-only">
@@ -1081,7 +1083,7 @@ export default function AdminTicketsPage() {
 
             <div className="py-4">
               {/* Ticket Info */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-1">Ticket ID</h3>
                   <p className="font-mono">{selectedTicket.id}</p>
@@ -1191,10 +1193,10 @@ export default function AdminTicketsPage() {
                       key={message.id}
                       className={`p-4 rounded-lg ${
                         message.sender === selectedTicket.creatorId
-                          ? "bg-blue-50 dark:bg-blue-900/20 ml-0 mr-12"
+                          ? "bg-blue-50 dark:bg-blue-900/20 ml-0 mr-4 sm:mr-12"
                           : message.sender === "system"
                             ? "bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 mx-auto text-center"
-                            : "bg-gray-50 dark:bg-gray-800 ml-12 mr-0"
+                            : "bg-gray-50 dark:bg-gray-800 ml-4 sm:ml-12 mr-0"
                       }`}
                     >
                       <div className="flex items-center mb-2">
@@ -1206,7 +1208,7 @@ export default function AdminTicketsPage() {
                           <p className="text-xs text-gray-500">{formatDate(message.createdAt)}</p>
                         </div>
                       </div>
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      <p className="text-xs sm:text-sm whitespace-pre-wrap break-words">{message.content}</p>
                       {message.attachments && message.attachments.length > 0 && (
                         <div className="mt-3 pt-3 border-t">
                           <div className="flex items-center text-sm text-gray-500 mb-2">
@@ -1217,7 +1219,7 @@ export default function AdminTicketsPage() {
                             {message.attachments.map((attachment) => (
                               <div
                                 key={attachment.id}
-                                className="flex items-center p-2 border rounded-md bg-gray-50 dark:bg-gray-800"
+                                className="flex flex-wrap sm:flex-nowrap items-center p-2 border rounded-md bg-gray-50 dark:bg-gray-800"
                               >
                                 <FileText className="h-4 w-4 mr-2 text-gray-500" />
                                 <div className="flex-1 min-w-0">
@@ -1245,7 +1247,7 @@ export default function AdminTicketsPage() {
                   <h3 className="text-lg font-medium mb-2">Reply</h3>
                   <Textarea
                     placeholder="Type your reply here..."
-                    className="min-h-[100px] mb-2"
+                    className="min-h-[80px] sm:min-h-[100px] mb-2 text-sm"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                   />
