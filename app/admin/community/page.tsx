@@ -922,7 +922,7 @@ export default function AdminCommunityPage() {
 
     return (
       <Pagination>
-        <PaginationContent>
+        <PaginationContent className="flex-wrap">
           <PaginationItem>
             <PaginationPrevious
               onClick={() => pagination.page > 1 && handlePageChange(pagination.page - 1)}
@@ -1051,10 +1051,10 @@ export default function AdminCommunityPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 px-4 md:px-6 mb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-        <h1 className="text-3xl font-bold">Community Management</h1>
-        <div className="flex flex-wrap gap-2">
+    <div className="w-full max-w-[100vw] overflow-x-hidden mx-auto py-4 sm:py-6 px-3 sm:px-4 md:px-6 mb-16 sm:mb-20">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold">Community Management</h1>
+        <div className="flex flex-wrap gap-1.5 sm:gap-2">
           {/* 
             Debug Posts button - Commented out but kept for future use
             This button helps debug post data in the database
@@ -1113,7 +1113,7 @@ export default function AdminCommunityPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
         {renderStatCard(stats.published)}
         {renderStatCard(stats.pending)}
         {renderStatCard(stats.draft)}
@@ -1123,9 +1123,9 @@ export default function AdminCommunityPage() {
 
       {/* Add the filters section after the stats cards */}
       {/* Insert this after the stats cards section (around line 620) */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4 mb-4 sm:mb-6">
         {/* Client Filter - Left */}
-        <div className="md:col-span-3">
+        <div className="sm:col-span-1 lg:col-span-3">
           <Select value={selectedClient} onValueChange={handleClientChange}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Filter by client" />
@@ -1142,7 +1142,7 @@ export default function AdminCommunityPage() {
         </div>
 
         {/* Search - Middle (Full Width) */}
-        <div className="md:col-span-6">
+        <div className="sm:col-span-2 lg:col-span-6 mt-3 sm:mt-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
@@ -1166,7 +1166,7 @@ export default function AdminCommunityPage() {
         </div>
 
         {/* Sort Order Filter - Right */}
-        <div className="md:col-span-3">
+        <div className="sm:col-span-1 lg:col-span-3">
           <Select value={sortOrder} onValueChange={handleSortOrderChange}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Sort by" />
@@ -1181,16 +1181,16 @@ export default function AdminCommunityPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Filters */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Filters</CardTitle>
-              <CardDescription>Filter posts by status and tags</CardDescription>
+            <CardHeader className="pb-2 sm:pb-3">
+              <CardTitle className="text-base sm:text-lg">Filters</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Filter posts by status and tags</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Status</label>
                 <Select value={selectedStatus} onValueChange={handleStatusChange}>
@@ -1227,11 +1227,11 @@ export default function AdminCommunityPage() {
 
           {/* Popular Tags */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Popular Tags</CardTitle>
-              <CardDescription>Most used tags in the community</CardDescription>
+            <CardHeader className="pb-2 sm:pb-3">
+              <CardTitle className="text-base sm:text-lg">Popular Tags</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Most used tags in the community</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
               <div className="flex flex-wrap gap-2">
                 {tags.slice(0, 10).map((tag) => (
                   <Badge key={tag.id} variant="secondary" className="flex items-center gap-1">
@@ -1246,11 +1246,11 @@ export default function AdminCommunityPage() {
 
           {/* Recent Activities */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Recent Activities</CardTitle>
-              <CardDescription>Latest actions in the community</CardDescription>
+            <CardHeader className="pb-2 sm:pb-3">
+              <CardTitle className="text-base sm:text-lg">Recent Activities</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Latest actions in the community</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
               <div className="space-y-4">
                 {recentActivities.map((activity) => (
                   <div key={activity.id} className="flex items-start gap-3">
@@ -1288,7 +1288,7 @@ export default function AdminCommunityPage() {
                 {searchTerm && ` matching "${searchTerm}"`}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
               {loading ? (
                 <div className="space-y-4">
                   {Array.from({ length: 3 }).map((_, i) => (
@@ -1305,7 +1305,7 @@ export default function AdminCommunityPage() {
               ) : posts.length > 0 ? (
                 <div className="space-y-4">
                   {posts.map((post) => (
-                    <div key={post.id} className="border rounded-lg p-4">
+                    <div key={post.id} className="border rounded-lg p-3 sm:p-4">
                       <div className="flex items-start justify-between">
                         <div>
                           <h3 className="font-semibold text-lg">{post.title}</h3>
@@ -1340,7 +1340,7 @@ export default function AdminCommunityPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2 sm:mt-0">
                           {post.status === VALID_STATUSES.PENDING && (
                             <>
                               <Button size="sm" onClick={() => handleApprovePost(post.id)}>
@@ -1398,7 +1398,7 @@ export default function AdminCommunityPage() {
       </div>
       {/* Comments Dialog */}
       <Dialog open={showCommentsDialog} onOpenChange={setShowCommentsDialog}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-[90vw] sm:max-w-[700px] max-h-[80vh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           {selectedPostForComments && (
             <>
               <DialogHeader>
@@ -1413,7 +1413,7 @@ export default function AdminCommunityPage() {
                 ) : selectedPostComments.length > 0 ? (
                   <div className="space-y-6">
                     {selectedPostComments.map((comment) => (
-                      <div key={comment.id} className="flex gap-3 border-b pb-4">
+                      <div key={comment.id} className="flex gap-2 sm:gap-3 border-b pb-3 sm:pb-4">
                         <Image
                           src={comment.author.avatar || "/placeholder.svg?height=40&width=40"}
                           alt={comment.author.name}
