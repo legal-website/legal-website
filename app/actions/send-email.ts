@@ -74,7 +74,7 @@ export async function sendInvoiceEmail(invoiceId: string, customerEmail: string,
     return { success: false, message: "Email configuration is missing. Please contact the administrator." }
   }
 
-  // Fetch the invoice data to generate a proper PDF
+  // Fetch the invoice data to include in the email body
   try {
     const invoiceResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/invoices/${invoiceId}`, {
       method: "GET",
@@ -84,63 +84,116 @@ export async function sendInvoiceEmail(invoiceId: string, customerEmail: string,
     })
 
     if (!invoiceResponse.ok) {
-      throw new Error("Failed to fetch invoice data for attachment")
+      throw new Error("Failed to fetch invoice data")
     }
 
-    // Generate a simple invoice PDF (in a real app, you'd use a PDF generation library)
-    // For now, we'll create a simple HTML attachment
     const invoiceData = await invoiceResponse.json()
     const invoice = invoiceData.invoice
 
-    // Create a simple HTML invoice
-    const invoiceHtml = `
+    // Parse items and filter out any currency_info items
+    let items = []
+    try {
+      items = typeof invoice.items === "string" ? JSON.parse(invoice.items) : invoice.items || []
+      // Filter out any items with tier containing "currency_info"
+      items = items.filter((item: any) => !(item.tier && item.tier.includes("currency_info")))
+    } catch (error) {
+      console.error("Error parsing invoice items:", error)
+      items = []
+    }
+
+    // Format the invoice items as HTML
+    const itemsHtml = items
+      .map(
+        (item: any) => `
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding: 10px;">${item.tier || item.name || "Product"}</td>
+        <td style="padding: 10px; text-align: right;">$${item.price.toFixed(2)}</td>
+      </tr>
+    `,
+      )
+      .join("")
+
+    // Create a nicely formatted email with all invoice details
+    const emailHtml = `
       <!DOCTYPE html>
       <html>
       <head>
         <style>
-          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-          .invoice-header { text-align: center; margin-bottom: 30px; }
+          body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #f8f9fa; padding: 20px; text-align: center; border-bottom: 3px solid #22c984; }
+          .content { padding: 20px; }
           .invoice-details { margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
-          th { background-color: #f2f2f2; }
-          .total { font-weight: bold; }
+          .invoice-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          .invoice-table th { background-color: #f8f9fa; text-align: left; padding: 10px; }
+          .invoice-table td { padding: 10px; border-bottom: 1px solid #eee; }
+          .total-row { font-weight: bold; background-color: #f8f9fa; }
+          .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; }
+          .button { display: inline-block; background-color: #22c984; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin: 20px 0; }
         </style>
       </head>
       <body>
-        <div class="invoice-header">
-          <h1>INVOICE</h1>
-          <h2>#${invoiceNumber}</h2>
+        <div class="container">
+          <div class="header">
+            <h1>INVOICE</h1>
+            <h2>#${invoiceNumber}</h2>
+          </div>
+          <div class="content">
+            <p>Dear ${invoice.customerName},</p>
+            <p>Thank you for your business. Please find your invoice details below:</p>
+            
+            <div class="invoice-details">
+              <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
+              <p><strong>Date:</strong> ${new Date(invoice.createdAt).toLocaleDateString()}</p>
+              <p><strong>Status:</strong> ${invoice.status.toUpperCase()}</p>
+            </div>
+            
+            <h3>Order Summary</h3>
+            <table class="invoice-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th style="text-align: right;">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsHtml}
+                <tr class="total-row">
+                  <td>Total</td>
+                  <td style="text-align: right;">$${invoice.amount.toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <div class="customer-info">
+              <h3>Customer Information</h3>
+              <p><strong>Name:</strong> ${invoice.customerName}</p>
+              <p><strong>Email:</strong> ${invoice.customerEmail}</p>
+              ${invoice.customerPhone ? `<p><strong>Phone:</strong> ${invoice.customerPhone}</p>` : ""}
+              ${invoice.customerCompany ? `<p><strong>Company:</strong> ${invoice.customerCompany}</p>` : ""}
+            </div>
+            
+            ${
+              invoice.customerAddress
+                ? `
+            <div class="billing-address">
+              <h3>Billing Address</h3>
+              <p>${invoice.customerAddress}</p>
+              <p>${invoice.customerCity}${invoice.customerState ? `, ${invoice.customerState}` : ""} ${invoice.customerZip || ""}</p>
+              <p>${invoice.customerCountry || ""}</p>
+            </div>
+            `
+                : ""
+            }
+            
+            <p>If you have any questions about this invoice, please contact our support team.</p>
+            
+            <p>Regards,<br>The Orizen Team</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Orizen. All rights reserved.</p>
+          </div>
         </div>
-        <div class="invoice-details">
-          <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-          <p><strong>Customer:</strong> ${invoice.customerName}</p>
-          <p><strong>Email:</strong> ${invoice.customerEmail}</p>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${JSON.parse(invoice.items)
-              .map(
-                (item: any) => `
-              <tr>
-                <td>${item.tier || item.name || "Product"}</td>
-                <td>$${item.price.toFixed(2)}</td>
-              </tr>
-            `,
-              )
-              .join("")}
-            <tr class="total">
-              <td>Total</td>
-              <td>$${invoice.amount.toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
       </body>
       </html>
     `
@@ -157,33 +210,10 @@ export async function sendInvoiceEmail(invoiceId: string, customerEmail: string,
       from: process.env.EMAIL_USER,
       to: customerEmail,
       subject: `Your Invoice #${invoiceNumber}`,
-      text: `
-        Dear Customer,
-
-        Please find attached your invoice #${invoiceNumber}.
-
-        Thank you for your business.
-
-        Regards,
-        The Orizen Team
-      `,
-      html: `
-        <h3>Your Invoice #${invoiceNumber}</h3>
-        <p>Dear Customer,</p>
-        <p>Please find attached your invoice #${invoiceNumber}.</p>
-        <p>Thank you for your business.</p>
-        <p>Regards,<br>The Orizen Team</p>
-      `,
-      attachments: [
-        {
-          filename: `Invoice-${invoiceNumber}.html`,
-          content: invoiceHtml,
-          contentType: "text/html",
-        },
-      ],
+      html: emailHtml,
     }
 
-    console.log("Attempting to send invoice email with attachment...")
+    console.log("Attempting to send invoice email...")
     const info = await transporter.sendMail(mailOptions)
     console.log("Invoice email sent successfully:", info.response)
     return { success: true, message: "Invoice sent successfully!" }
