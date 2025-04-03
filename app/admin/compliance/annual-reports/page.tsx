@@ -871,7 +871,7 @@ export default function AdminAnnualReportsPage() {
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+    <div className="p-3 sm:p-4 md:p-6 max-w-[1600px] mx-auto mb-20 md:mb-40 overflow-x-hidden">
       {backgroundRefreshing && (
         <div className="fixed top-0 left-0 right-0 h-1 z-50">
           <div className="h-full bg-primary animate-pulse"></div>
@@ -879,7 +879,7 @@ export default function AdminAnnualReportsPage() {
       )}
 
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6">
         <div>
           <h1 className="text-2xl font-bold">Annual Reports Management</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage deadlines, filings, and requirements</p>
@@ -899,7 +899,7 @@ export default function AdminAnnualReportsPage() {
       </div>
 
       {/* Search and Sort */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-4">
+      <div className="mb-4 md:mb-6 flex flex-col sm:flex-row gap-3 md:gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -931,15 +931,21 @@ export default function AdminAnnualReportsPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="deadlines">Deadlines</TabsTrigger>
-          <TabsTrigger value="filings">Filings</TabsTrigger>
-          <TabsTrigger value="requirements">Requirements</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 h-auto">
+          <TabsTrigger value="deadlines" className="px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+            Deadlines
+          </TabsTrigger>
+          <TabsTrigger value="filings" className="px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+            Filings
+          </TabsTrigger>
+          <TabsTrigger value="requirements" className="px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+            Requirements
+          </TabsTrigger>
         </TabsList>
 
         {/* Deadlines Tab */}
         <TabsContent value="deadlines">
-          <Card className="p-6">
+          <Card className="p-3 sm:p-4 md:p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold">Annual Report Deadlines</h2>
               <Button onClick={() => setShowAddDeadlineDialog(true)}>
@@ -948,16 +954,16 @@ export default function AdminAnnualReportsPage() {
               </Button>
             </div>
 
-            <div className="rounded-md border">
-              <Table>
+            <div className="rounded-md border overflow-x-auto">
+              <Table className="min-w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Fee</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap">Title</TableHead>
+                    <TableHead className="whitespace-nowrap">User</TableHead>
+                    <TableHead className="whitespace-nowrap">Due Date</TableHead>
+                    <TableHead className="whitespace-nowrap">Fee</TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -970,11 +976,15 @@ export default function AdminAnnualReportsPage() {
                   ) : (
                     getPageItems(sortedDeadlines).map((deadline) => (
                       <TableRow key={deadline.id}>
-                        <TableCell className="font-medium">{deadline.title}</TableCell>
+                        <TableCell className="font-medium break-words max-w-[150px] sm:max-w-none">
+                          {deadline.title}
+                        </TableCell>
                         <TableCell>
                           <div>
-                            <p>{deadline.userName || "Unknown"}</p>
-                            <p className="text-sm text-muted-foreground">{deadline.userEmail}</p>
+                            <p className="truncate max-w-[120px] sm:max-w-none">{deadline.userName || "Unknown"}</p>
+                            <p className="text-sm text-muted-foreground truncate max-w-[120px] sm:max-w-none">
+                              {deadline.userEmail}
+                            </p>
                           </div>
                         </TableCell>
                         <TableCell>{formatDate(deadline.dueDate)}</TableCell>
@@ -985,7 +995,7 @@ export default function AdminAnnualReportsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end space-x-2">
+                          <div className="flex flex-wrap justify-end gap-2">
                             <Button
                               variant="outline"
                               size="sm"
@@ -1026,7 +1036,7 @@ export default function AdminAnnualReportsPage() {
 
             {/* Pagination */}
             {getTotalPages() > 1 && (
-              <div className="flex items-center justify-between mt-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4">
                 <div className="text-sm text-muted-foreground">
                   Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
                   {Math.min(currentPage * itemsPerPage, sortedDeadlines.length)} of {sortedDeadlines.length} entries
@@ -1059,7 +1069,7 @@ export default function AdminAnnualReportsPage() {
 
         {/* Filings Tab */}
         <TabsContent value="filings">
-          <Card className="p-6">
+          <Card className="p-3 sm:p-4 md:p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold">Annual Report Filings</h2>
               <Button onClick={() => fetchData(true)} disabled={refreshing}>
@@ -1068,16 +1078,16 @@ export default function AdminAnnualReportsPage() {
               </Button>
             </div>
 
-            <div className="rounded-md border">
-              <Table>
+            <div className="rounded-md border overflow-x-auto">
+              <Table className="min-w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Deadline</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Filed Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap">Deadline</TableHead>
+                    <TableHead className="whitespace-nowrap">User</TableHead>
+                    <TableHead className="whitespace-nowrap">Due Date</TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="whitespace-nowrap">Filed Date</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1090,13 +1100,15 @@ export default function AdminAnnualReportsPage() {
                   ) : (
                     getPageItems(sortedFilings).map((filing: any) => (
                       <TableRow key={filing.id}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium break-words max-w-[150px] sm:max-w-none">
                           {filing.deadlineTitle || filing.deadline?.title || "Unknown Deadline"}
                         </TableCell>
                         <TableCell>
                           <div>
-                            <p>{filing.userName || filing.user?.name || "Unknown"}</p>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="truncate max-w-[120px] sm:max-w-none">
+                              {filing.userName || filing.user?.name || "Unknown"}
+                            </p>
+                            <p className="text-sm text-muted-foreground truncate max-w-[120px] sm:max-w-none">
                               {filing.userEmail || filing.user?.email || "unknown@example.com"}
                             </p>
                           </div>
@@ -1112,7 +1124,7 @@ export default function AdminAnnualReportsPage() {
                         </TableCell>
                         <TableCell>{filing.filedDate ? formatDate(filing.filedDate) : "Not filed yet"}</TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end space-x-2">
+                          <div className="flex flex-wrap justify-end gap-2">
                             <Button
                               variant="outline"
                               size="sm"
@@ -1150,7 +1162,7 @@ export default function AdminAnnualReportsPage() {
 
             {/* Pagination */}
             {getTotalPages() > 1 && (
-              <div className="flex items-center justify-between mt-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4">
                 <div className="text-sm text-muted-foreground">
                   Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
                   {Math.min(currentPage * itemsPerPage, sortedFilings.length)} of {sortedFilings.length} entries
@@ -1183,7 +1195,7 @@ export default function AdminAnnualReportsPage() {
 
         {/* Requirements Tab */}
         <TabsContent value="requirements">
-          <Card className="p-6">
+          <Card className="p-3 sm:p-4 md:p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold">Filing Requirements</h2>
               <Button onClick={() => setShowAddRequirementDialog(true)}>
@@ -1192,14 +1204,14 @@ export default function AdminAnnualReportsPage() {
               </Button>
             </div>
 
-            <div className="rounded-md border">
-              <Table>
+            <div className="rounded-md border overflow-x-auto">
+              <Table className="min-w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap">Title</TableHead>
+                    <TableHead className="whitespace-nowrap">Description</TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1212,7 +1224,9 @@ export default function AdminAnnualReportsPage() {
                   ) : (
                     getPageItems(sortedRequirements).map((requirement) => (
                       <TableRow key={requirement.id}>
-                        <TableCell className="font-medium">{requirement.title}</TableCell>
+                        <TableCell className="font-medium break-words max-w-[150px] sm:max-w-none">
+                          {requirement.title}
+                        </TableCell>
                         <TableCell>{requirement.description}</TableCell>
                         <TableCell>
                           <Badge
@@ -1224,7 +1238,7 @@ export default function AdminAnnualReportsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end space-x-2">
+                          <div className="flex flex-wrap justify-end gap-2">
                             <Button
                               variant="outline"
                               size="sm"
@@ -1263,7 +1277,7 @@ export default function AdminAnnualReportsPage() {
 
             {/* Pagination */}
             {getTotalPages() > 1 && (
-              <div className="flex items-center justify-between mt-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4">
                 <div className="text-sm text-muted-foreground">
                   Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
                   {Math.min(currentPage * itemsPerPage, sortedRequirements.length)} of {sortedRequirements.length}{" "}
@@ -1298,7 +1312,7 @@ export default function AdminAnnualReportsPage() {
 
       {/* Add Deadline Dialog */}
       <Dialog open={showAddDeadlineDialog} onOpenChange={setShowAddDeadlineDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[600px] p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Add New Deadline</DialogTitle>
             <DialogDescription>Create a new annual report deadline for a user</DialogDescription>
@@ -1357,7 +1371,7 @@ export default function AdminAnnualReportsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <Label htmlFor="fee">Fee ($)</Label>
                 <Input
@@ -1384,7 +1398,7 @@ export default function AdminAnnualReportsPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowAddDeadlineDialog(false)}>
               Cancel
             </Button>
@@ -1395,7 +1409,7 @@ export default function AdminAnnualReportsPage() {
 
       {/* Edit Deadline Dialog */}
       <Dialog open={showEditDeadlineDialog} onOpenChange={setShowEditDeadlineDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[600px] p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Edit Deadline</DialogTitle>
             <DialogDescription>Update the annual report deadline</DialogDescription>
@@ -1452,7 +1466,7 @@ export default function AdminAnnualReportsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <Label htmlFor="fee">Fee ($)</Label>
                 <Input
@@ -1477,7 +1491,7 @@ export default function AdminAnnualReportsPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowEditDeadlineDialog(false)}>
               Cancel
             </Button>
@@ -1488,14 +1502,14 @@ export default function AdminAnnualReportsPage() {
 
       {/* Delete Deadline Dialog */}
       <AlertDialog open={showDeleteDeadlineDialog} onOpenChange={setShowDeleteDeadlineDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] p-4 sm:p-6">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Deadline</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete this deadline? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteDeadline} className="bg-red-600 hover:bg-red-700">
               Delete
@@ -1507,7 +1521,7 @@ export default function AdminAnnualReportsPage() {
       {/* View Filing Dialog */}
       {selectedFiling && (
         <Dialog open={showViewFilingDialog} onOpenChange={setShowViewFilingDialog}>
-          <DialogContent className="sm:max-w-[800px]">
+          <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[800px] p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>Filing Details</DialogTitle>
               <DialogDescription>
@@ -1516,7 +1530,7 @@ export default function AdminAnnualReportsPage() {
             </DialogHeader>
 
             <div className="grid gap-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div>
                   <h3 className="text-sm font-medium mb-1">User</h3>
                   <p>{selectedFiling.userName || "Unknown"}</p>
@@ -1544,7 +1558,7 @@ export default function AdminAnnualReportsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 {selectedFiling.receiptUrl && (
                   <div>
                     <h3 className="text-sm font-medium mb-2">Payment Receipt</h3>
@@ -1584,7 +1598,7 @@ export default function AdminAnnualReportsPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 {selectedFiling.userNotes && (
                   <div>
                     <h3 className="text-sm font-medium mb-1">User Notes</h3>
@@ -1601,7 +1615,7 @@ export default function AdminAnnualReportsPage() {
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => setShowViewFilingDialog(false)}>
                 Close
               </Button>
@@ -1627,7 +1641,7 @@ export default function AdminAnnualReportsPage() {
       {/* Update Filing Dialog */}
       {selectedFiling && (
         <Dialog open={showUpdateFilingDialog} onOpenChange={setShowUpdateFilingDialog}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[600px] p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>Update Filing</DialogTitle>
               <DialogDescription>Update the filing status and upload report</DialogDescription>
@@ -1676,7 +1690,7 @@ export default function AdminAnnualReportsPage() {
 
               <div>
                 <Label htmlFor="reportFile">Or Upload Report File</Label>
-                <div className="border-2 border-dashed rounded-md p-6 text-center mt-2">
+                <div className="border-2 border-dashed rounded-md p-3 sm:p-6 text-center mt-2">
                   <input
                     type="file"
                     id="reportFile"
@@ -1701,7 +1715,7 @@ export default function AdminAnnualReportsPage() {
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => setShowUpdateFilingDialog(false)}>
                 Cancel
               </Button>
@@ -1713,7 +1727,7 @@ export default function AdminAnnualReportsPage() {
 
       {/* Add Requirement Dialog */}
       <Dialog open={showAddRequirementDialog} onOpenChange={setShowAddRequirementDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[600px] p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Add Filing Requirement</DialogTitle>
             <DialogDescription>Create a new filing requirement</DialogDescription>
@@ -1766,7 +1780,7 @@ export default function AdminAnnualReportsPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowAddRequirementDialog(false)}>
               Cancel
             </Button>
@@ -1777,7 +1791,7 @@ export default function AdminAnnualReportsPage() {
 
       {/* Edit Requirement Dialog */}
       <Dialog open={showEditRequirementDialog} onOpenChange={setShowEditRequirementDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[600px] p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Edit Filing Requirement</DialogTitle>
             <DialogDescription>Update the filing requirement</DialogDescription>
@@ -1827,7 +1841,7 @@ export default function AdminAnnualReportsPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowEditRequirementDialog(false)}>
               Cancel
             </Button>
@@ -1838,14 +1852,14 @@ export default function AdminAnnualReportsPage() {
 
       {/* Delete Requirement Dialog */}
       <AlertDialog open={showDeleteRequirementDialog} onOpenChange={setShowDeleteRequirementDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] p-4 sm:p-6">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Requirement</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete this filing requirement? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteRequirement} className="bg-red-600 hover:bg-red-700">
               Delete

@@ -71,7 +71,7 @@ export default function PricingPreview() {
   // Show loading state
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 mb-40">
         <div className="flex justify-between items-center">
           <Skeleton className="h-10 w-48" />
           <Skeleton className="h-10 w-32" />
