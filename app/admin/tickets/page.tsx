@@ -662,27 +662,29 @@ export default function AdminTicketsPage() {
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+    <div className="p-3 sm:p-4 md:p-6 max-w-[1600px] mx-auto mb-20 md:mb-40">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Support Tickets</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage and respond to customer support requests</p>
+          <h1 className="text-xl md:text-2xl font-bold">Support Tickets</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm md:text-base">
+            Manage and respond to customer support requests
+          </p>
         </div>
-        <div className="flex items-center space-x-3 mt-4 md:mt-0">
+        <div className="flex items-center space-x-2 sm:space-x-3 mt-4 md:mt-0">
           <Dialog open={showClientFilterDialog} onOpenChange={setShowClientFilterDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="flex items-center">
-                <Users className="mr-2 h-4 w-4" />
-                Client Filter
+              <Button variant="outline" size="sm" className="flex items-center text-xs sm:text-sm">
+                <Users className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Client Filter</span>
                 {clientFilter !== "all" && (
-                  <Badge className="ml-2 bg-primary" variant="secondary">
+                  <Badge className="ml-1 sm:ml-2 bg-primary" variant="secondary">
                     1
                   </Badge>
                 )}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[425px] w-[95vw] max-w-[95vw] sm:w-auto">
               <DialogHeader>
                 <DialogTitle>Filter by Client</DialogTitle>
               </DialogHeader>
@@ -711,68 +713,68 @@ export default function AdminTicketsPage() {
           <Button
             variant={hasNewMessages ? "default" : "outline"}
             size="sm"
-            className="flex items-center"
+            className="flex items-center text-xs sm:text-sm"
             onClick={handleManualRefresh}
             disabled={isRefreshing}
           >
             {isRefreshing ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
             ) : hasNewMessages ? (
-              <Bell className="mr-2 h-4 w-4" />
+              <Bell className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
             ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
+              <RefreshCw className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
             )}
-            {hasNewMessages ? "New Messages" : "Refresh"}
+            <span className="hidden xs:inline">{hasNewMessages ? "New Messages" : "Refresh"}</span>
           </Button>
         </div>
       </div>
 
       {/* Stats Cards */}
       {ticketStats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
           <Card>
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="p-3 sm:p-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Open Tickets</p>
-                <h3 className="text-2xl font-bold">{ticketStats.openTickets}</h3>
+                <p className="text-xs sm:text-sm font-medium text-gray-500">Open Tickets</p>
+                <h3 className="text-lg sm:text-2xl font-bold">{ticketStats.openTickets}</h3>
               </div>
-              <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                <MessageSquare className="h-6 w-6" />
+              <div className="h-8 w-8 sm:h-12 sm:w-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                <MessageSquare className="h-4 w-4 sm:h-6 sm:w-6" />
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="p-3 sm:p-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">In Progress</p>
-                <h3 className="text-2xl font-bold">{ticketStats.inProgressTickets}</h3>
+                <p className="text-xs sm:text-sm font-medium text-gray-500">In Progress</p>
+                <h3 className="text-lg sm:text-2xl font-bold">{ticketStats.inProgressTickets}</h3>
               </div>
-              <div className="h-12 w-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
-                <Clock className="h-6 w-6" />
+              <div className="h-8 w-8 sm:h-12 sm:w-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
+                <Clock className="h-4 w-4 sm:h-6 sm:w-6" />
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="p-3 sm:p-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Resolved</p>
-                <h3 className="text-2xl font-bold">{ticketStats.resolvedTickets}</h3>
+                <p className="text-xs sm:text-sm font-medium text-gray-500">Resolved</p>
+                <h3 className="text-lg sm:text-2xl font-bold">{ticketStats.resolvedTickets}</h3>
               </div>
-              <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
-                <CheckCircle2 className="h-6 w-6" />
+              <div className="h-8 w-8 sm:h-12 sm:w-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                <CheckCircle2 className="h-4 w-4 sm:h-6 sm:w-6" />
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="p-3 sm:p-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">High Priority</p>
-                <h3 className="text-2xl font-bold">
+                <p className="text-xs sm:text-sm font-medium text-gray-500">High Priority</p>
+                <h3 className="text-lg sm:text-2xl font-bold">
                   {ticketStats.highPriorityTickets + ticketStats.urgentPriorityTickets}
                 </h3>
               </div>
-              <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center text-red-600">
-                <AlertCircle className="h-6 w-6" />
+              <div className="h-8 w-8 sm:h-12 sm:w-12 bg-red-100 rounded-full flex items-center justify-center text-red-600">
+                <AlertCircle className="h-4 w-4 sm:h-6 sm:w-6" />
               </div>
             </CardContent>
           </Card>
@@ -780,7 +782,7 @@ export default function AdminTicketsPage() {
       )}
 
       {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -793,7 +795,7 @@ export default function AdminTicketsPage() {
 
         <div className="flex space-x-2">
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="flex-1">
+            <SelectTrigger className="flex-1 text-xs sm:text-sm">
               <SelectValue placeholder="All Priorities" />
             </SelectTrigger>
             <SelectContent>
@@ -805,7 +807,7 @@ export default function AdminTicketsPage() {
             </SelectContent>
           </Select>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="flex-1">
+            <SelectTrigger className="flex-1 text-xs sm:text-sm">
               <SelectValue placeholder="All Categories" />
             </SelectTrigger>
             <SelectContent>
@@ -820,10 +822,10 @@ export default function AdminTicketsPage() {
           </Select>
         </div>
 
-        <div className="flex items-center justify-end space-x-2">
-          <span className="text-sm text-gray-500">Assigned to:</span>
+        <div className="flex items-center justify-start sm:justify-end space-x-2">
+          <span className="text-xs sm:text-sm text-gray-500">Assigned to:</span>
           <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-[150px] sm:w-[200px] text-xs sm:text-sm">
               <SelectValue placeholder="Anyone" />
             </SelectTrigger>
             <SelectContent>
@@ -841,187 +843,278 @@ export default function AdminTicketsPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="all">All Tickets</TabsTrigger>
-          <TabsTrigger value="open">Open</TabsTrigger>
-          <TabsTrigger value="in-progress">In Progress</TabsTrigger>
-          <TabsTrigger value="resolved">Resolved</TabsTrigger>
-          <TabsTrigger value="closed">Closed</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4 sm:mb-6">
+        <TabsList className="w-full overflow-x-auto flex flex-nowrap justify-start sm:justify-center">
+          <TabsTrigger value="all" className="text-xs sm:text-sm">
+            All Tickets
+          </TabsTrigger>
+          <TabsTrigger value="open" className="text-xs sm:text-sm">
+            Open
+          </TabsTrigger>
+          <TabsTrigger value="in-progress" className="text-xs sm:text-sm">
+            In Progress
+          </TabsTrigger>
+          <TabsTrigger value="resolved" className="text-xs sm:text-sm">
+            Resolved
+          </TabsTrigger>
+          <TabsTrigger value="closed" className="text-xs sm:text-sm">
+            Closed
+          </TabsTrigger>
           <TabsTrigger
             value="new-messages"
-            className={
+            className={`text-xs sm:text-sm ${
               ticketsWithNewMessages.length > 0
                 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                 : ""
-            }
+            }`}
           >
-            New Messages {ticketsWithNewMessages.length > 0 && `(${ticketsWithNewMessages.length})`}
+            New {ticketsWithNewMessages.length > 0 && `(${ticketsWithNewMessages.length})`}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab}>
           <Card>
-            <div className="overflow-x-auto">
-              {isLoading ? (
-                <div className="p-8 text-center">
-                  <Loader2 className="h-8 w-8 mx-auto animate-spin text-gray-400 mb-3" />
-                  <p className="text-gray-500">Loading tickets...</p>
-                </div>
-              ) : filteredTickets.length === 0 ? (
-                <div className="p-8 text-center">
-                  <TicketIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-                  <h3 className="font-medium text-lg mb-1">No tickets found</h3>
-                  <p className="text-gray-500 text-sm mb-4">
-                    {searchQuery ||
-                    priorityFilter !== "all" ||
-                    categoryFilter !== "all" ||
-                    assigneeFilter !== "anyone" ||
-                    clientFilter !== "all"
-                      ? "Try adjusting your filters"
-                      : "There are no tickets in this category"}
-                  </p>
-                </div>
-              ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("id")}>
-                          ID {getSortIcon("id")}
-                        </button>
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("subject")}>
-                          Subject {getSortIcon("subject")}
-                        </button>
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm">Customer</th>
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("status")}>
-                          Status {getSortIcon("status")}
-                        </button>
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("priority")}>
-                          Priority {getSortIcon("priority")}
-                        </button>
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm">Category</th>
-                      <th className="text-left p-4 font-medium text-sm">
-                        <button className="flex items-center" onClick={() => handleSort("updatedAt")}>
-                          Last Updated {getSortIcon("updatedAt")}
-                        </button>
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm">Assigned To</th>
-                      <th className="text-left p-4 font-medium text-sm">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTickets.map((ticket) => (
-                      <tr
-                        key={ticket.id}
-                        className={`border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer ${
-                          ticketsWithNewMessages.includes(ticket.id) ? "bg-green-100 dark:bg-green-900/20" : ""
-                        }`}
-                      >
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
-                          <span className="font-mono text-sm">{ticket.id.substring(0, 8)}</span>
-                        </td>
-                        <td className="p-4 font-medium" onClick={() => viewTicketDetails(ticket)}>
-                          <div className="flex items-center">
-                            {ticket.subject}
+            {isLoading ? (
+              <div className="p-8 text-center">
+                <Loader2 className="h-8 w-8 mx-auto animate-spin text-gray-400 mb-3" />
+                <p className="text-gray-500">Loading tickets...</p>
+              </div>
+            ) : filteredTickets.length === 0 ? (
+              <div className="p-8 text-center">
+                <TicketIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                <h3 className="font-medium text-lg mb-1">No tickets found</h3>
+                <p className="text-gray-500 text-sm mb-4">
+                  {searchQuery ||
+                  priorityFilter !== "all" ||
+                  categoryFilter !== "all" ||
+                  assigneeFilter !== "anyone" ||
+                  clientFilter !== "all"
+                    ? "Try adjusting your filters"
+                    : "There are no tickets in this category"}
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Mobile card view */}
+                <div className="md:hidden">
+                  {filteredTickets.map((ticket) => (
+                    <div
+                      key={ticket.id}
+                      className={`p-4 border-b hover:bg-gray-50 dark:hover:bg-gray-800 ${
+                        ticketsWithNewMessages.includes(ticket.id) ? "bg-green-100 dark:bg-green-900/20" : ""
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center mb-1">
+                            <h3 className="font-medium text-sm line-clamp-1 mr-2">{ticket.subject}</h3>
                             {unreadCounts[ticket.id] > 0 && (
-                              <Badge className="ml-2 bg-red-500" variant="secondary">
+                              <Badge className="ml-1 bg-red-500" variant="secondary">
                                 {unreadCounts[ticket.id]}
                               </Badge>
                             )}
                             {ticketsWithNewMessages.includes(ticket.id) && (
-                              <Badge className="ml-2 bg-green-500" variant="secondary">
+                              <Badge className="ml-1 bg-green-500" variant="secondary">
                                 New
                               </Badge>
                             )}
                           </div>
-                        </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
-                          <div>
-                            <p>{ticket.creator?.name || "Unknown"}</p>
-                            <p className="text-sm text-gray-500">{ticket.creator?.email}</p>
+                          <p className="text-xs text-gray-500 mb-2">ID: {ticket.id.substring(0, 8)}</p>
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            <TicketStatusBadge status={ticket.status} />
+                            <TicketPriorityBadge priority={ticket.priority} />
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
+                              <Tag className="h-3 w-3 mr-1" />
+                              {ticket.category}
+                            </span>
                           </div>
-                        </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
-                          <TicketStatusBadge status={ticket.status} />
-                        </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
-                          <TicketPriorityBadge priority={ticket.priority} />
-                        </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
-                            <Tag className="h-3 w-3 mr-1" />
-                            {ticket.category}
-                          </span>
-                        </td>
-                        <td className="p-4 text-gray-500 text-sm" onClick={() => viewTicketDetails(ticket)}>
-                          {formatDate(ticket.updatedAt)}
-                        </td>
-                        <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
-                          {ticket.assignee ? (
+                          <div className="flex justify-between items-center text-xs text-gray-500">
                             <div className="flex items-center">
-                              <Avatar className="h-6 w-6 mr-2">
-                                <AvatarFallback>
-                                  {ticket.assignee.name
-                                    ? ticket.assignee.name.charAt(0).toUpperCase()
-                                    : ticket.assignee.email.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span>{ticket.assignee.name || ticket.assignee.email}</span>
+                              {ticket.assignee ? (
+                                <div className="flex items-center">
+                                  <Avatar className="h-4 w-4 mr-1">
+                                    <AvatarFallback>
+                                      {ticket.assignee.name
+                                        ? ticket.assignee.name.charAt(0).toUpperCase()
+                                        : ticket.assignee.email.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="truncate max-w-[100px]">
+                                    {ticket.assignee.name || ticket.assignee.email}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span>Unassigned</span>
+                              )}
                             </div>
-                          ) : (
-                            <span className="text-gray-500">Unassigned</span>
-                          )}
-                        </td>
-                        <td className="p-4">
-                          <div className="flex space-x-2">
-                            <Button variant="ghost" size="sm" onClick={() => viewTicketDetails(ticket)}>
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-700"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setTicketToDelete(ticket.id)
-                                setIsDeleteDialogOpen(true)
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <span>{formatDate(ticket.updatedAt)}</span>
                           </div>
-                        </td>
+                        </div>
+                        <div className="flex flex-col space-y-1 ml-2">
+                          <Button variant="ghost" size="sm" onClick={() => viewTicketDetails(ticket)}>
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-700"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setTicketToDelete(ticket.id)
+                              setIsDeleteDialogOpen(true)
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop table view */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-4 font-medium text-sm">
+                          <button className="flex items-center" onClick={() => handleSort("id")}>
+                            ID {getSortIcon("id")}
+                          </button>
+                        </th>
+                        <th className="text-left p-4 font-medium text-sm">
+                          <button className="flex items-center" onClick={() => handleSort("subject")}>
+                            Subject {getSortIcon("subject")}
+                          </button>
+                        </th>
+                        <th className="text-left p-4 font-medium text-sm">Customer</th>
+                        <th className="text-left p-4 font-medium text-sm">
+                          <button className="flex items-center" onClick={() => handleSort("status")}>
+                            Status {getSortIcon("status")}
+                          </button>
+                        </th>
+                        <th className="text-left p-4 font-medium text-sm">
+                          <button className="flex items-center" onClick={() => handleSort("priority")}>
+                            Priority {getSortIcon("priority")}
+                          </button>
+                        </th>
+                        <th className="text-left p-4 font-medium text-sm">Category</th>
+                        <th className="text-left p-4 font-medium text-sm">
+                          <button className="flex items-center" onClick={() => handleSort("updatedAt")}>
+                            Last Updated {getSortIcon("updatedAt")}
+                          </button>
+                        </th>
+                        <th className="text-left p-4 font-medium text-sm">Assigned To</th>
+                        <th className="text-left p-4 font-medium text-sm">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+                    </thead>
+                    <tbody>
+                      {filteredTickets.map((ticket) => (
+                        <tr
+                          key={ticket.id}
+                          className={`border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer ${
+                            ticketsWithNewMessages.includes(ticket.id) ? "bg-green-100 dark:bg-green-900/20" : ""
+                          }`}
+                        >
+                          <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
+                            <span className="font-mono text-sm">{ticket.id.substring(0, 8)}</span>
+                          </td>
+                          <td className="p-4 font-medium" onClick={() => viewTicketDetails(ticket)}>
+                            <div className="flex items-center">
+                              {ticket.subject}
+                              {unreadCounts[ticket.id] > 0 && (
+                                <Badge className="ml-2 bg-red-500" variant="secondary">
+                                  {unreadCounts[ticket.id]}
+                                </Badge>
+                              )}
+                              {ticketsWithNewMessages.includes(ticket.id) && (
+                                <Badge className="ml-2 bg-green-500" variant="secondary">
+                                  New
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
+                            <div>
+                              <p>{ticket.creator?.name || "Unknown"}</p>
+                              <p className="text-sm text-gray-500">{ticket.creator?.email}</p>
+                            </div>
+                          </td>
+                          <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
+                            <TicketStatusBadge status={ticket.status} />
+                          </td>
+                          <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
+                            <TicketPriorityBadge priority={ticket.priority} />
+                          </td>
+                          <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
+                              <Tag className="h-3 w-3 mr-1" />
+                              {ticket.category}
+                            </span>
+                          </td>
+                          <td className="p-4 text-gray-500 text-sm" onClick={() => viewTicketDetails(ticket)}>
+                            {formatDate(ticket.updatedAt)}
+                          </td>
+                          <td className="p-4" onClick={() => viewTicketDetails(ticket)}>
+                            {ticket.assignee ? (
+                              <div className="flex items-center">
+                                <Avatar className="h-6 w-6 mr-2">
+                                  <AvatarFallback>
+                                    {ticket.assignee.name
+                                      ? ticket.assignee.name.charAt(0).toUpperCase()
+                                      : ticket.assignee.email.charAt(0).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span>{ticket.assignee.name || ticket.assignee.email}</span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-500">Unassigned</span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex space-x-2">
+                              <Button variant="ghost" size="sm" onClick={() => viewTicketDetails(ticket)}>
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setTicketToDelete(ticket.id)
+                                  setIsDeleteDialogOpen(true)
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
 
             {/* Pagination */}
             {pagination && pagination.pages > 1 && (
-              <div className="flex items-center justify-between px-4 py-4 border-t">
-                <div className="text-sm text-gray-500">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-4 border-t">
+                <div className="text-xs sm:text-sm text-gray-500 mb-2 sm:mb-0 text-center sm:text-left">
                   Showing {(pagination.current - 1) * pagination.perPage + 1} to{" "}
                   {Math.min(pagination.current * pagination.perPage, pagination.total)} of {pagination.total} tickets
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex justify-center sm:justify-end space-x-1 sm:space-x-2">
                   <Button
                     variant="outline"
                     size="sm"
+                    className="text-xs sm:text-sm px-1 sm:px-2"
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
                   >
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
+                    <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                    <span className="hidden sm:inline">Previous</span>
                   </Button>
                   <div className="flex items-center space-x-1">
                     {Array.from({ length: pagination.pages }, (_, i) => i + 1)
@@ -1036,11 +1129,11 @@ export default function AdminTicketsPage() {
 
                         return (
                           <div key={page} className="flex items-center">
-                            {showEllipsisBefore && <span className="px-2 text-gray-400">...</span>}
+                            {showEllipsisBefore && <span className="px-1 sm:px-2 text-gray-400">...</span>}
                             <Button
                               variant={currentPage === page ? "default" : "outline"}
                               size="sm"
-                              className="w-8 h-8 p-0"
+                              className="w-6 h-6 sm:w-8 sm:h-8 p-0 text-xs sm:text-sm"
                               onClick={() => handlePageChange(page)}
                             >
                               {page}
@@ -1052,11 +1145,12 @@ export default function AdminTicketsPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="text-xs sm:text-sm px-1 sm:px-2"
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={pagination && currentPage === pagination.pages}
                   >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
+                    <span className="hidden sm:inline">Next</span>
+                    <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 sm:ml-1" />
                   </Button>
                 </div>
               </div>
@@ -1069,31 +1163,31 @@ export default function AdminTicketsPage() {
       {selectedTicket && (
         <Dialog open={showTicketDialog} onOpenChange={setShowTicketDialog}>
           <DialogContent
-            className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto"
+            className="sm:max-w-[800px] w-[95vw] max-w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto"
             aria-describedby="ticket-details-description"
           >
             <div id="ticket-details-description" className="sr-only">
               Ticket details and conversation history
             </div>
             <DialogHeader>
-              <DialogTitle className="text-xl">{selectedTicket.subject}</DialogTitle>
+              <DialogTitle className="text-base sm:text-xl break-words">{selectedTicket.subject}</DialogTitle>
             </DialogHeader>
 
-            <div className="py-4">
+            <div className="py-2 sm:py-4">
               {/* Ticket Info */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Ticket ID</h3>
-                  <p className="font-mono">{selectedTicket.id}</p>
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1">Ticket ID</h3>
+                  <p className="font-mono text-xs sm:text-sm break-all">{selectedTicket.id}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Status</h3>
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1">Status</h3>
                   <Select
                     value={selectedTicket.status}
                     onValueChange={(value) => handleUpdateTicketStatus(value as TicketStatus)}
                     disabled={isSubmitting}
                   >
-                    <SelectTrigger className="h-8">
+                    <SelectTrigger className="h-7 sm:h-8 text-xs sm:text-sm">
                       <SelectValue placeholder="Open" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1105,13 +1199,13 @@ export default function AdminTicketsPage() {
                   </Select>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Priority</h3>
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1">Priority</h3>
                   <Select
                     value={selectedTicket.priority}
                     onValueChange={(value) => handleUpdateTicketPriority(value as TicketPriority)}
                     disabled={isSubmitting}
                   >
-                    <SelectTrigger className="h-8">
+                    <SelectTrigger className="h-7 sm:h-8 text-xs sm:text-sm">
                       <SelectValue placeholder="Low" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1123,24 +1217,24 @@ export default function AdminTicketsPage() {
                   </Select>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Customer</h3>
-                  <p>{selectedTicket.creator?.name || "Unknown"}</p>
-                  <p className="text-sm text-gray-500">{selectedTicket.creator?.email}</p>
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1">Customer</h3>
+                  <p className="text-xs sm:text-sm">{selectedTicket.creator?.name || "Unknown"}</p>
+                  <p className="text-xs text-gray-500 break-all">{selectedTicket.creator?.email}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Category</h3>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1">Category</h3>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
                     {selectedTicket.category}
                   </span>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Assigned To</h3>
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1">Assigned To</h3>
                   <Select
                     value={selectedTicket.assigneeId || "unassigned"}
                     onValueChange={(value) => handleAssignTicket(value === "unassigned" ? null : value)}
                     disabled={isSubmitting}
                   >
-                    <SelectTrigger className="h-8">
+                    <SelectTrigger className="h-7 sm:h-8 text-xs sm:text-sm">
                       <SelectValue placeholder="Unassigned" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1154,20 +1248,21 @@ export default function AdminTicketsPage() {
                   </Select>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Created</h3>
-                  <p className="text-sm">{formatDate(selectedTicket.createdAt)}</p>
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1">Created</h3>
+                  <p className="text-xs sm:text-sm">{formatDate(selectedTicket.createdAt)}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Last Updated</h3>
-                  <p className="text-sm">{formatDate(selectedTicket.updatedAt)}</p>
+                  <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1">Last Updated</h3>
+                  <p className="text-xs sm:text-sm">{formatDate(selectedTicket.updatedAt)}</p>
                 </div>
               </div>
 
               {/* Ticket Actions */}
-              <div className="flex flex-wrap gap-2 mb-6">
+              <div className="flex flex-wrap gap-2 mb-4 sm:mb-6">
                 <Button
                   variant="outline"
                   size="sm"
+                  className="text-xs sm:text-sm"
                   onClick={() => {
                     setTicketToDelete(selectedTicket.id)
                     setIsDeleteDialogOpen(true)
@@ -1175,42 +1270,47 @@ export default function AdminTicketsPage() {
                 >
                   Delete Ticket
                 </Button>
-                <Button variant="outline" size="sm" className="ml-auto" onClick={refreshSelectedTicket}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto text-xs sm:text-sm"
+                  onClick={refreshSelectedTicket}
+                >
+                  <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                   Refresh
                 </Button>
               </div>
 
               {/* Conversation */}
-              <div className="space-y-4 mb-6">
-                <h3 className="text-lg font-medium">Conversation</h3>
+              <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
+                <h3 className="text-base sm:text-lg font-medium">Conversation</h3>
 
                 {selectedTicket.messages &&
                   selectedTicket.messages.map((message) => (
                     <div
                       key={message.id}
-                      className={`p-4 rounded-lg ${
+                      className={`p-3 sm:p-4 rounded-lg ${
                         message.sender === selectedTicket.creatorId
-                          ? "bg-blue-50 dark:bg-blue-900/20 ml-0 mr-12"
+                          ? "bg-blue-50 dark:bg-blue-900/20 ml-0 mr-4 sm:mr-12"
                           : message.sender === "system"
                             ? "bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 mx-auto text-center"
-                            : "bg-gray-50 dark:bg-gray-800 ml-12 mr-0"
+                            : "bg-gray-50 dark:bg-gray-800 ml-4 sm:ml-12 mr-0"
                       }`}
                     >
                       <div className="flex items-center mb-2">
-                        <Avatar className="h-8 w-8 mr-2">
+                        <Avatar className="h-6 w-6 sm:h-8 sm:w-8 mr-2">
                           <AvatarFallback>{message.senderName.charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium">{message.senderName}</p>
+                          <p className="font-medium text-xs sm:text-sm">{message.senderName}</p>
                           <p className="text-xs text-gray-500">{formatDate(message.createdAt)}</p>
                         </div>
                       </div>
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      <p className="text-xs sm:text-sm whitespace-pre-wrap break-words">{message.content}</p>
                       {message.attachments && message.attachments.length > 0 && (
                         <div className="mt-3 pt-3 border-t">
-                          <div className="flex items-center text-sm text-gray-500 mb-2">
-                            <Paperclip className="h-4 w-4 mr-1" />
+                          <div className="flex items-center text-xs sm:text-sm text-gray-500 mb-2">
+                            <Paperclip className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                             <span>Attachments ({message.attachments.length})</span>
                           </div>
                           <div className="space-y-2">
@@ -1219,12 +1319,12 @@ export default function AdminTicketsPage() {
                                 key={attachment.id}
                                 className="flex items-center p-2 border rounded-md bg-gray-50 dark:bg-gray-800"
                               >
-                                <FileText className="h-4 w-4 mr-2 text-gray-500" />
+                                <FileText className="h-3 w-3 sm:h-4 sm:w-4 mr-2 text-gray-500" />
                                 <div className="flex-1 min-w-0">
-                                  <div className="truncate font-medium text-sm">{attachment.name}</div>
+                                  <div className="truncate font-medium text-xs sm:text-sm">{attachment.name}</div>
                                   <div className="text-xs text-gray-500">{attachment.size}</div>
                                 </div>
-                                <Button variant="ghost" size="sm" asChild>
+                                <Button variant="ghost" size="sm" className="text-xs" asChild>
                                   <a href={attachment.fileUrl} target="_blank" rel="noopener noreferrer">
                                     Download
                                   </a>
@@ -1242,10 +1342,10 @@ export default function AdminTicketsPage() {
               {/* Reply Form */}
               {selectedTicket.status !== "closed" && (
                 <div>
-                  <h3 className="text-lg font-medium mb-2">Reply</h3>
+                  <h3 className="text-base sm:text-lg font-medium mb-2">Reply</h3>
                   <Textarea
                     placeholder="Type your reply here..."
-                    className="min-h-[100px] mb-2"
+                    className="min-h-[80px] sm:min-h-[100px] mb-2 text-xs sm:text-sm"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                   />
@@ -1254,16 +1354,16 @@ export default function AdminTicketsPage() {
                     <Button
                       onClick={handleSendMessage}
                       disabled={!newMessage.trim() || isSubmitting}
-                      className="bg-[#22c984] hover:bg-[#0f442e]"
+                      className="bg-[#22c984] hover:bg-[#0f442e] text-xs sm:text-sm"
                     >
                       {isSubmitting ? (
                         <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
                           Sending...
                         </>
                       ) : (
                         <>
-                          <Send className="h-4 w-4 mr-2" />
+                          <Send className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                           Send Reply
                         </>
                       )}
@@ -1278,19 +1378,26 @@ export default function AdminTicketsPage() {
 
       {/* Delete Ticket Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] w-[95vw] max-w-[95vw] sm:w-auto">
           <DialogHeader>
             <DialogTitle>Delete Ticket</DialogTitle>
           </DialogHeader>
-          <p className="py-4">Are you sure you want to delete this ticket? This action cannot be undone.</p>
+          <p className="py-4 text-sm sm:text-base">
+            Are you sure you want to delete this ticket? This action cannot be undone.
+          </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+            <Button variant="outline" className="text-xs sm:text-sm" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteTicket} disabled={isSubmitting}>
+            <Button
+              variant="destructive"
+              className="text-xs sm:text-sm"
+              onClick={handleDeleteTicket}
+              disabled={isSubmitting}
+            >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
                   Deleting...
                 </>
               ) : (
