@@ -533,52 +533,57 @@ export default function ClientDocumentsPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="p-6 flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="relative w-20 h-20">
+      <div className="p-4 sm:p-6 flex flex-col items-center justify-center min-h-[50vh] sm:min-h-[60vh]">
+        <div className="relative w-16 h-16 sm:w-20 sm:h-20">
           <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 className="w-10 h-10 text-purple-500 animate-spin" />
+            <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 text-purple-500 animate-spin" />
           </div>
-          <div className="absolute inset-0 border-t-4 border-purple-500 rounded-full animate-pulse opacity-75"></div>
+          <div className="absolute inset-0 border-t-3 sm:border-t-4 border-purple-500 rounded-full animate-pulse opacity-75"></div>
         </div>
-        <p className="mt-4 text-lg font-medium text-gray-700 dark:text-gray-300">Loading documents...</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Please wait while we fetch your documents</p>
+        <p className="mt-4 text-base sm:text-lg font-medium text-gray-700 dark:text-gray-300">Loading documents...</p>
+        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Please wait while we fetch your documents</p>
       </div>
     )
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto mb-40">
+    <div className="p-3 sm:p-4 md:p-6 max-w-[1600px] mx-auto mb-20 md:mb-40">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+      <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Client Documents</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage all client documents in the system</p>
+          <h1 className="text-xl md:text-2xl font-bold">Client Documents</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm md:text-base">
+            Manage all client documents in the system
+          </p>
         </div>
-        <div className="flex items-center space-x-3 mt-4 md:mt-0">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {selectedDocuments.size > 0 && (
             <Button
               variant="destructive"
               size="sm"
-              className="flex items-center"
+              className="flex items-center text-xs sm:text-sm"
               onClick={() => setShowBulkDeleteConfirm(true)}
             >
-              <Trash className="mr-2 h-4 w-4" />
-              Delete Selected ({selectedDocuments.size})
+              <Trash className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+              Delete ({selectedDocuments.size})
             </Button>
           )}
-          <Button variant="outline" size="sm" className="flex items-center">
-            <Download className="mr-2 h-4 w-4" />
+          <Button variant="outline" size="sm" className="flex items-center text-xs sm:text-sm">
+            <Download className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
             Export
           </Button>
-          <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setShowUploadDialog(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Upload Document
+          <Button
+            className="bg-purple-600 hover:bg-purple-700 text-xs sm:text-sm"
+            onClick={() => setShowUploadDialog(true)}
+          >
+            <Plus className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+            Upload
           </Button>
         </div>
       </div>
 
       {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 gap-3 mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -589,50 +594,51 @@ export default function ClientDocumentsPage() {
           />
         </div>
 
-        <div>
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select category" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {category}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div>
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              {/* Since we don't have status in our model, we'll just show "all" */}
-            </SelectContent>
-          </Select>
-        </div>
+          <div>
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="flex space-x-2">
-          <Button variant="outline" className="flex-1">
-            <Filter className="mr-2 h-4 w-4" />
-            More Filters
-          </Button>
-          {error && (
-            <Button variant="outline" onClick={() => fetchDocuments()}>
-              <RefreshCcw className="mr-2 h-4 w-4" />
-              Retry
+          <div className="flex space-x-2">
+            <Button variant="outline" className="flex-1 text-xs sm:text-sm">
+              <Filter className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+              Filters
             </Button>
-          )}
+            {error && (
+              <Button variant="outline" onClick={() => fetchDocuments()} className="text-xs sm:text-sm">
+                <RefreshCcw className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+                Retry
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Documents Table */}
-      <Card>
-        <div className="overflow-x-auto">
+      <Card className="overflow-hidden">
+        <div className="overflow-auto">
           {error ? (
             <div className="p-8 text-center">
               <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
@@ -641,139 +647,148 @@ export default function ClientDocumentsPage() {
               <Button onClick={() => fetchDocuments()}>Try Again</Button>
             </div>
           ) : filteredDocuments.length > 0 ? (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="p-4 w-10">
-                    <Checkbox
-                      checked={selectedDocuments.size === filteredDocuments.length && filteredDocuments.length > 0}
-                      onCheckedChange={toggleSelectAll}
-                      aria-label="Select all documents"
-                    />
-                  </th>
-                  <th className="text-left p-4 font-medium text-sm">Document</th>
-                  <th className="text-left p-4 font-medium text-sm">Category</th>
-                  <th className="text-left p-4 font-medium text-sm">Upload Date</th>
-                  <th className="text-left p-4 font-medium text-sm">Type</th>
-                  <th className="text-left p-4 font-medium text-sm">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredDocuments.map((doc: DocumentType) => (
-                  <tr key={doc.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <td className="p-4">
+            <div className="min-w-full overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="p-2 sm:p-4 w-10">
                       <Checkbox
-                        checked={selectedDocuments.has(doc.id)}
-                        onCheckedChange={() => toggleDocumentSelection(doc.id)}
-                        aria-label={`Select ${doc.name}`}
+                        checked={selectedDocuments.size === filteredDocuments.length && filteredDocuments.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all documents"
                       />
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
-                          <FileTypeIcon
-                            fileType={doc.fileType}
-                            fileName={doc.name}
-                            size={20}
-                            className="text-gray-500"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{doc.name}</p>
-                            {doc.isPermanent && (
-                              <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 flex items-center">
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                                Permanent
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-500">
-                            {formatBytes(doc.fileSize || 0)} • {(doc.fileType || doc.type || "Unknown").toUpperCase()}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4">{doc.category}</td>
-                    <td className="p-4">
-                      {doc.uploadDate
-                        ? new Date(doc.uploadDate).toLocaleDateString()
-                        : doc.createdAt
-                          ? new Date(doc.createdAt).toLocaleDateString()
-                          : "Unknown date"}
-                    </td>
-                    <td className="p-4">
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full flex items-center w-fit ${
-                          doc.status === "Verified"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                            : doc.status === "Pending"
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                              : doc.status === "Rejected"
-                                ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                                : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-                        }`}
-                      >
-                        {doc.status === "Verified" ? (
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                        ) : doc.status === "Pending" ? (
-                          <Clock className="h-3 w-3 mr-1" />
-                        ) : doc.status === "Rejected" ? (
-                          <XCircle className="h-3 w-3 mr-1" />
-                        ) : (
-                          <Clock className="h-3 w-3 mr-1" />
-                        )}
-                        {doc.status || "Pending"}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDownload(doc)}
-                          disabled={downloading === doc.id}
-                        >
-                          {downloading === doc.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Download className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleDownload(doc)}>
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-600 dark:text-red-400"
-                              onClick={() => confirmDelete(doc)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </td>
+                    </th>
+                    <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">Document</th>
+                    <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm hidden md:table-cell">
+                      Category
+                    </th>
+                    <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm hidden sm:table-cell">
+                      Upload Date
+                    </th>
+                    <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm hidden lg:table-cell">Type</th>
+                    <th className="text-left p-2 sm:p-4 font-medium text-xs sm:text-sm">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredDocuments.map((doc: DocumentType) => (
+                    <tr key={doc.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="p-2 sm:p-4">
+                        <Checkbox
+                          checked={selectedDocuments.has(doc.id)}
+                          onCheckedChange={() => toggleDocumentSelection(doc.id)}
+                          aria-label={`Select ${doc.name}`}
+                        />
+                      </td>
+                      <td className="p-2 sm:p-4">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
+                            <FileTypeIcon
+                              fileType={doc.fileType}
+                              fileName={doc.name}
+                              size={16}
+                              className="text-gray-500"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                              <p className="font-medium text-xs sm:text-sm truncate max-w-[120px] sm:max-w-[200px]">
+                                {doc.name}
+                              </p>
+                              {doc.isPermanent && (
+                                <span className="px-1 py-0.5 text-[10px] rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 flex items-center">
+                                  <AlertCircle className="h-2 w-2 mr-0.5" />
+                                  Permanent
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 truncate max-w-[150px] sm:max-w-none">
+                              {formatBytes(doc.fileSize || 0)} • <span className="md:hidden">{doc.category}</span>
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-2 sm:p-4 hidden md:table-cell text-xs sm:text-sm">{doc.category}</td>
+                      <td className="p-2 sm:p-4 hidden sm:table-cell text-xs sm:text-sm">
+                        {doc.uploadDate
+                          ? new Date(doc.uploadDate).toLocaleDateString()
+                          : doc.createdAt
+                            ? new Date(doc.createdAt).toLocaleDateString()
+                            : "Unknown date"}
+                      </td>
+                      <td className="p-2 sm:p-4 hidden lg:table-cell">
+                        <span
+                          className={`px-1.5 py-0.5 text-[10px] sm:text-xs rounded-full flex items-center w-fit ${
+                            doc.status === "Verified"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                              : doc.status === "Pending"
+                                ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                                : doc.status === "Rejected"
+                                  ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                  : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                          }`}
+                        >
+                          {doc.status === "Verified" ? (
+                            <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
+                          ) : doc.status === "Pending" ? (
+                            <Clock className="h-2.5 w-2.5 mr-0.5" />
+                          ) : doc.status === "Rejected" ? (
+                            <XCircle className="h-2.5 w-2.5 mr-0.5" />
+                          ) : (
+                            <Clock className="h-2.5 w-2.5 mr-0.5" />
+                          )}
+                          {doc.status || "Pending"}
+                        </span>
+                      </td>
+                      <td className="p-2 sm:p-4">
+                        <div className="flex space-x-1 sm:space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleDownload(doc)}
+                            disabled={downloading === doc.id}
+                          >
+                            {downloading === doc.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel className="text-xs">Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleDownload(doc)} className="text-xs">
+                                <Download className="h-3.5 w-3.5 mr-2" />
+                                Download
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-red-600 dark:text-red-400 text-xs"
+                                onClick={() => confirmDelete(doc)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
-            <div className="p-8 text-center">
-              <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium mb-2">No documents found</h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-4">
+            <div className="p-4 sm:p-8 text-center">
+              <FileText className="h-8 w-8 sm:h-12 sm:w-12 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-base sm:text-lg font-medium mb-2">No documents found</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-4 text-sm">
                 No documents match your current filters. Try adjusting your search criteria.
               </p>
             </div>
@@ -782,19 +797,20 @@ export default function ClientDocumentsPage() {
 
         {/* Pagination */}
         {pagination.pages > 1 && (
-          <div className="flex items-center justify-between px-4 py-4 border-t">
-            <div className="text-sm text-gray-500">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-3 py-3 sm:px-4 sm:py-4 border-t text-xs sm:text-sm">
+            <div className="text-gray-500 mb-3 sm:mb-0">
               Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
               {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} documents
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-center sm:justify-end space-x-1 sm:space-x-2">
               <Button
                 variant="outline"
                 size="sm"
+                className="h-7 w-7 p-0 sm:h-8 sm:w-8"
                 onClick={() => handlePageChange(pagination.page - 1)}
                 disabled={pagination.page === 1}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               {Array.from({ length: pagination.pages }, (_, i) => i + 1)
                 .filter((page) => {
@@ -812,25 +828,27 @@ export default function ClientDocumentsPage() {
 
                   return (
                     <Fragment key={page}>
-                      {showEllipsisBefore && <span className="px-2">...</span>}
+                      {showEllipsisBefore && <span className="px-1 sm:px-2">...</span>}
                       <Button
                         variant={pagination.page === page ? "default" : "outline"}
                         size="sm"
+                        className="h-7 w-7 p-0 sm:h-8 sm:w-8 text-xs"
                         onClick={() => handlePageChange(page)}
                       >
                         {page}
                       </Button>
-                      {showEllipsisAfter && <span className="px-2">...</span>}
+                      {showEllipsisAfter && <span className="px-1 sm:px-2">...</span>}
                     </Fragment>
                   )
                 })}
               <Button
                 variant="outline"
                 size="sm"
+                className="h-7 w-7 p-0 sm:h-8 sm:w-8"
                 onClick={() => handlePageChange(pagination.page + 1)}
                 disabled={pagination.page === pagination.pages}
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </div>
           </div>
@@ -839,37 +857,42 @@ export default function ClientDocumentsPage() {
 
       {/* Upload Document Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-[95vw]">
+        <DialogContent className="sm:max-w-[500px] md:max-w-[600px] max-h-[90vh] overflow-y-auto w-[95vw] p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle>Upload Document</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg">Upload Document</DialogTitle>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-1 items-center gap-2">
-              <Label htmlFor="document-name">Document Name*</Label>
+          <div className="grid gap-3 sm:gap-4 py-3 sm:py-4">
+            <div className="grid grid-cols-1 items-center gap-1.5 sm:gap-2">
+              <Label htmlFor="document-name" className="text-xs sm:text-sm">
+                Document Name*
+              </Label>
               <Input
                 id="document-name"
                 placeholder="e.g. Articles of Organization"
                 value={uploadForm.name}
                 onChange={(e) => setUploadForm({ ...uploadForm, name: e.target.value })}
                 required
+                className="text-xs sm:text-sm"
               />
             </div>
 
-            <div className="grid grid-cols-1 items-center gap-2">
-              <Label htmlFor="document-category">Document Category*</Label>
+            <div className="grid grid-cols-1 items-center gap-1.5 sm:gap-2">
+              <Label htmlFor="document-category" className="text-xs sm:text-sm">
+                Document Category*
+              </Label>
               <Select
                 value={uploadForm.category}
                 onValueChange={(value) => setUploadForm({ ...uploadForm, category: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories
                     .filter((c) => c !== "All")
                     .map((category) => (
-                      <SelectItem key={category} value={category}>
+                      <SelectItem key={category} value={category} className="text-xs sm:text-sm">
                         {category}
                       </SelectItem>
                     ))}
@@ -877,37 +900,40 @@ export default function ClientDocumentsPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-1 items-center gap-2">
-              <Label htmlFor="document-description">Description (Optional)</Label>
+            <div className="grid grid-cols-1 items-center gap-1.5 sm:gap-2">
+              <Label htmlFor="document-description" className="text-xs sm:text-sm">
+                Description (Optional)
+              </Label>
               <Textarea
                 id="document-description"
                 placeholder="Brief description of the document"
                 value={uploadForm.description}
                 onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
+                className="text-xs sm:text-sm min-h-[60px] sm:min-h-[80px]"
               />
             </div>
 
-            <div className="grid grid-cols-1 items-center gap-2">
+            <div className="grid grid-cols-1 items-center gap-1.5 sm:gap-2">
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="document-permanent"
                   checked={uploadForm.isPermanent}
                   onCheckedChange={(checked) => setUploadForm({ ...uploadForm, isPermanent: checked === true })}
                 />
-                <Label htmlFor="document-permanent" className="text-sm font-medium">
+                <Label htmlFor="document-permanent" className="text-xs sm:text-sm font-medium">
                   Document is permanent
                 </Label>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 items-center gap-2">
-              <Label>Client*</Label>
+            <div className="grid grid-cols-1 items-center gap-1.5 sm:gap-2">
+              <Label className="text-xs sm:text-sm">Client*</Label>
               <div className="space-y-2">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5" />
                   <Input
                     placeholder="Search clients by email..."
-                    className="pl-10"
+                    className="pl-9 text-xs sm:text-sm"
                     value={searchUserQuery}
                     onChange={(e) => {
                       setSearchUserQuery(e.target.value)
@@ -920,17 +946,17 @@ export default function ClientDocumentsPage() {
 
                 {loadingUsers && (
                   <div className="py-2 text-center">
-                    <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent"></div>
-                    <span className="ml-2 text-sm text-gray-500">Searching users...</span>
+                    <div className="inline-block h-3 w-3 sm:h-4 sm:w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent"></div>
+                    <span className="ml-2 text-xs text-gray-500">Searching users...</span>
                   </div>
                 )}
 
                 {!loadingUsers && users.length > 0 && (
-                  <div className="max-h-60 overflow-y-auto border rounded-md mt-2">
+                  <div className="max-h-40 sm:max-h-60 overflow-y-auto border rounded-md mt-2">
                     {users.map((user) => (
                       <div
                         key={user.id}
-                        className={`flex items-center justify-between p-2 hover:bg-gray-100 cursor-pointer ${
+                        className={`flex items-center justify-between p-1.5 sm:p-2 hover:bg-gray-100 cursor-pointer ${
                           selectedUserId === user.id ? "bg-purple-50" : ""
                         }`}
                         onClick={() => {
@@ -938,9 +964,9 @@ export default function ClientDocumentsPage() {
                           setUploadForm({ ...uploadForm, userId: user.id })
                         }}
                       >
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                            <span className="text-xs text-gray-600 font-medium">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                            <span className="text-[10px] sm:text-xs text-gray-600 font-medium">
                               {user.name
                                 ? user.name
                                     .split(" ")
@@ -950,14 +976,14 @@ export default function ClientDocumentsPage() {
                                 : user.email[0].toUpperCase()}
                             </span>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium">{user.name || "Unnamed User"}</p>
-                            <p className="text-xs text-gray-500">{user.email}</p>
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-medium truncate">{user.name || "Unnamed User"}</p>
+                            <p className="text-[10px] sm:text-xs text-gray-500 truncate">{user.email}</p>
                           </div>
                         </div>
                         {selectedUserId === user.id && (
-                          <div className="h-5 w-5 rounded-full bg-purple-200 flex items-center justify-center">
-                            <Check className="h-3 w-3 text-purple-600" />
+                          <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-purple-200 flex items-center justify-center flex-shrink-0">
+                            <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-purple-600" />
                           </div>
                         )}
                       </div>
@@ -966,45 +992,58 @@ export default function ClientDocumentsPage() {
                 )}
 
                 {!loadingUsers && searchUserQuery.length > 2 && users.length === 0 && (
-                  <p className="text-sm text-gray-500 py-2">No users found. Try a different search term.</p>
+                  <p className="text-xs sm:text-sm text-gray-500 py-2">No users found. Try a different search term.</p>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 items-center gap-2">
-              <Label>File*</Label>
-              <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-6 text-center">
-                <FileUp className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                <p className="text-sm text-gray-500 mb-2">Drag and drop your file here, or click to browse</p>
-                <p className="text-xs text-gray-400">Supports PDF, DOCX, XLSX, JPG, PNG (Max 10MB)</p>
+            <div className="grid grid-cols-1 items-center gap-1.5 sm:gap-2">
+              <Label className="text-xs sm:text-sm">File*</Label>
+              <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-6 text-center">
+                <FileUp className="mx-auto h-6 w-6 sm:h-8 sm:w-8 text-gray-400 mb-2" />
+                <p className="text-xs sm:text-sm text-gray-500 mb-1 sm:mb-2">
+                  Drag and drop your file here, or click to browse
+                </p>
+                <p className="text-[10px] sm:text-xs text-gray-400">Supports PDF, DOCX, XLSX, JPG, PNG (Max 10MB)</p>
                 <Input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-                <Button variant="outline" className="mt-4" onClick={() => fileInputRef.current?.click()}>
+                <Button
+                  variant="outline"
+                  className="mt-3 sm:mt-4 text-xs sm:text-sm h-8 sm:h-9"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   Browse Files
                 </Button>
                 {uploadForm.file && (
-                  <div className="mt-4 text-left p-2 bg-gray-50 rounded flex items-center gap-2">
+                  <div className="mt-3 sm:mt-4 text-left p-1.5 sm:p-2 bg-gray-50 rounded flex items-center gap-1.5 sm:gap-2">
                     <FileTypeIcon
                       fileType={uploadForm.file.type}
                       fileName={uploadForm.file.name}
-                      size={16}
-                      className="text-gray-500"
+                      size={14}
+                      className="text-gray-500 flex-shrink-0"
                     />
-                    <span className="text-sm truncate">{uploadForm.file.name}</span>
-                    <span className="text-xs text-gray-500">({formatBytes(uploadForm.file.size)})</span>
+                    <span className="text-xs truncate">{uploadForm.file.name}</span>
+                    <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                      ({formatBytes(uploadForm.file.size)})
+                    </span>
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowUploadDialog(false)} disabled={uploading}>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowUploadDialog(false)}
+              disabled={uploading}
+              className="w-full sm:w-auto text-xs sm:text-sm"
+            >
               Cancel
             </Button>
-            <Button onClick={handleUpload} disabled={uploading}>
+            <Button onClick={handleUpload} disabled={uploading} className="w-full sm:w-auto text-xs sm:text-sm">
               {uploading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                   Uploading...
                 </>
               ) : (
@@ -1017,26 +1056,26 @@ export default function ClientDocumentsPage() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] p-4 sm:p-6 w-[95vw]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
               Confirm Deletion
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p>Are you sure you want to delete this document?</p>
+          <div className="py-3 sm:py-4">
+            <p className="text-xs sm:text-sm">Are you sure you want to delete this document?</p>
             {documentToDelete && (
-              <div className="mt-2 p-3 bg-gray-50 rounded-md">
-                <p className="font-medium">{documentToDelete.name}</p>
-                <p className="text-sm text-gray-500">
+              <div className="mt-2 p-2 sm:p-3 bg-gray-50 rounded-md">
+                <p className="font-medium text-xs sm:text-sm">{documentToDelete.name}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500">
                   {documentToDelete.category} • {formatBytes(documentToDelete.fileSize || 0)}
                 </p>
               </div>
             )}
-            <p className="mt-4 text-sm text-red-500">This action cannot be undone.</p>
+            <p className="mt-3 sm:mt-4 text-[10px] sm:text-xs text-red-500">This action cannot be undone.</p>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <Button
               variant="outline"
               onClick={() => {
@@ -1044,13 +1083,19 @@ export default function ClientDocumentsPage() {
                 setDocumentToDelete(null)
               }}
               disabled={deleting}
+              className="w-full sm:w-auto text-xs sm:text-sm"
             >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="w-full sm:w-auto text-xs sm:text-sm"
+            >
               {deleting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                   Deleting...
                 </>
               ) : (
@@ -1061,27 +1106,28 @@ export default function ClientDocumentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Bulk Delete Confirmation Dialog */}
       <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] p-4 sm:p-6 w-[95vw]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
               Confirm Bulk Deletion
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p>Are you sure you want to delete {selectedDocuments.size} selected documents?</p>
-            <div className="mt-2 p-3 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
+          <div className="py-3 sm:py-4">
+            <p className="text-xs sm:text-sm">
+              Are you sure you want to delete {selectedDocuments.size} selected documents?
+            </p>
+            <div className="mt-2 p-2 sm:p-3 bg-gray-50 rounded-md max-h-32 sm:max-h-40 overflow-y-auto">
               <ul className="space-y-1">
                 {Array.from(selectedDocuments).map((id) => {
                   const doc = documents.find((d) => d.id === id)
                   return doc ? (
-                    <li key={id} className="text-sm flex items-center gap-2">
+                    <li key={id} className="text-[10px] sm:text-xs flex items-center gap-1.5 sm:gap-2">
                       <FileTypeIcon
                         fileType={doc.fileType}
                         fileName={doc.name}
-                        size={14}
+                        size={12}
                         className="text-gray-500 flex-shrink-0"
                       />
                       <span className="truncate">{doc.name}</span>
@@ -1090,16 +1136,26 @@ export default function ClientDocumentsPage() {
                 })}
               </ul>
             </div>
-            <p className="mt-4 text-sm text-red-500">This action cannot be undone.</p>
+            <p className="mt-3 sm:mt-4 text-[10px] sm:text-xs text-red-500">This action cannot be undone.</p>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBulkDeleteConfirm(false)} disabled={bulkDeleting}>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkDeleteConfirm(false)}
+              disabled={bulkDeleting}
+              className="w-full sm:w-auto text-xs sm:text-sm"
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleting}>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="w-full sm:w-auto text-xs sm:text-sm"
+            >
               {bulkDeleting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                   Deleting...
                 </>
               ) : (
