@@ -48,7 +48,7 @@ export default function HowToStart() {
         id="how"
         className="bg-[#f9f6f1] py-10 sm:py-16 md:py-20 px-4 sm:px-6 md:px-8 mt-10 sm:mt-16 md:mt-20 overflow-x-hidden"
       >
-        <div className="container mx-auto">
+        <div className="container mx-auto md:px-[4%]">
           <h2
             className="text-center mb-8 sm:mb-10 md:mb-12 text-gray-900 text-2xl sm:text-3xl md:text-4xl font-medium"
             style={{ fontFamily: "Montserrat", background: "none" }}
@@ -88,7 +88,7 @@ export default function HowToStart() {
           </div>
 
           {/* CTA Section */}
-          <div className="mt-10 sm:mt-16 md:mt-20 flex justify-center px-4 sm:px-8 md:px-12 lg:px-16">
+          <div className="mt-10 sm:mt-16 md:mt-20 flex justify-center px-4 sm:px-8 md:px-12 lg:px-16 md:-mx-[4%]">
             <div className="bg-[#1a3449] rounded-xl sm:rounded-2xl p-6 sm:p-8 md:p-10 w-full max-w-[780px] flex flex-col md:flex-row items-center justify-between text-center md:text-left gap-4 md:gap-6">
               <h3
                 className="text-white text-2xl sm:text-3xl md:text-4xl lg:text-[45px] font-medium leading-tight md:ml-0 lg:ml-6"
