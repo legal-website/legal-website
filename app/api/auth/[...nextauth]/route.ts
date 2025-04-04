@@ -2,7 +2,7 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { db } from "@/lib/db"
 import type { NextAuthOptions } from "next-auth"
-import { verifyPassword, hashPassword } from "@/lib/auth-service"
+import { verifyPassword } from "@/lib/auth-service"
 
 export const authOptions: NextAuthOptions = {
   debug: true, // Enable debug mode to see more detailed logs
@@ -34,59 +34,38 @@ export const authOptions: NextAuthOptions = {
 
           console.log(`[NextAuth] User found: ${user.email}, checking password...`)
 
-          let isAuthenticated = false
-          let shouldUpdatePassword = false
-
-          // FIRST: Try direct comparison (for plaintext passwords in database)
+          // Try direct comparison first (simplest approach)
           if (user.password === credentials.password) {
             console.log("[NextAuth] Direct password match successful")
-            isAuthenticated = true
-            shouldUpdatePassword = true // Flag to update to proper hash format
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name || "",
+              role: user.role,
+              image: user.image || null,
+            }
           }
-          // SECOND: Try hash verification (for properly hashed passwords)
-          else if (user.password.includes(".")) {
-            try {
-              const isValid = await verifyPassword(user.password, credentials.password)
-              console.log(`[NextAuth] Hash verification result: ${isValid}`)
-              if (isValid) {
-                isAuthenticated = true
+
+          // If direct comparison fails, try verification with hash
+          try {
+            const isValid = await verifyPassword(user.password, credentials.password)
+            console.log(`[NextAuth] Hash verification result: ${isValid}`)
+
+            if (isValid) {
+              return {
+                id: user.id,
+                email: user.email,
+                name: user.name || "",
+                role: user.role,
+                image: user.image || null,
               }
-            } catch (verifyError) {
-              console.error("[NextAuth] Password verification error:", verifyError)
             }
+          } catch (verifyError) {
+            console.error("[NextAuth] Password verification error:", verifyError)
           }
 
-          if (!isAuthenticated) {
-            console.log("[NextAuth] Authentication failed - invalid credentials")
-            return null
-          }
-
-          // If authenticated with plaintext password, update to proper hash format
-          if (shouldUpdatePassword) {
-            try {
-              const hashedPassword = await hashPassword(credentials.password)
-              await db.user.update({
-                where: { id: user.id },
-                data: { password: hashedPassword },
-              })
-              console.log("[NextAuth] Updated user password to secure hash format")
-            } catch (updateError) {
-              console.error("[NextAuth] Failed to update password:", updateError)
-              // Continue with login even if update fails
-            }
-          }
-
-          // Authentication successful
-          console.log("[NextAuth] Authentication successful")
-
-          // Return a simplified user object with only the properties NextAuth expects
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name || "",
-            role: user.role,
-            image: user.image || null,
-          }
+          console.log("[NextAuth] Authentication failed - invalid credentials")
+          return null
         } catch (error) {
           console.error("[NextAuth] Auth error:", error)
           return null
@@ -96,7 +75,6 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user }) {
-      // When user logs in, add their data to the token
       if (user) {
         token.id = user.id
         token.email = user.email
@@ -107,7 +85,6 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
-      // Add user data from token to the session
       if (session.user) {
         session.user.id = token.id as string
         session.user.email = token.email as string
