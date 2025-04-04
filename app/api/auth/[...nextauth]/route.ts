@@ -2,10 +2,8 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { db } from "@/lib/db"
 import type { NextAuthOptions } from "next-auth"
-import { verifyPassword } from "@/lib/auth-service"
 
 export const authOptions: NextAuthOptions = {
-  debug: true, // Enable debug mode to see more detailed logs
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -15,59 +13,34 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          console.log("[NextAuth] Missing credentials")
           return null
         }
 
         try {
-          console.log(`[NextAuth] Attempting login for email: ${credentials.email}`)
-
-          // Find user in database using Prisma client directly
+          // Find user in database
           const user = await db.user.findUnique({
             where: { email: credentials.email },
           })
 
           if (!user) {
-            console.log(`[NextAuth] User not found: ${credentials.email}`)
             return null
           }
 
-          console.log(`[NextAuth] User found: ${user.email}, checking password...`)
-
-          // Try direct comparison first (simplest approach)
-          if (user.password === credentials.password) {
-            console.log("[NextAuth] Direct password match successful")
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name || "",
-              role: user.role,
-              image: user.image || null,
-            }
+          // Simple direct comparison of passwords
+          if (user.password !== credentials.password) {
+            return null
           }
 
-          // If direct comparison fails, try verification with hash
-          try {
-            const isValid = await verifyPassword(user.password, credentials.password)
-            console.log(`[NextAuth] Hash verification result: ${isValid}`)
-
-            if (isValid) {
-              return {
-                id: user.id,
-                email: user.email,
-                name: user.name || "",
-                role: user.role,
-                image: user.image || null,
-              }
-            }
-          } catch (verifyError) {
-            console.error("[NextAuth] Password verification error:", verifyError)
+          // Return the user object
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name || "",
+            role: user.role,
+            image: user.image || null,
           }
-
-          console.log("[NextAuth] Authentication failed - invalid credentials")
-          return null
         } catch (error) {
-          console.error("[NextAuth] Auth error:", error)
+          console.error("Auth error:", error)
           return null
         }
       },

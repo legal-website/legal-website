@@ -51,34 +51,14 @@ const transporter = nodemailer.createTransport({
 
 // Hash password using scrypt (Node.js built-in)
 export async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16).toString("hex")
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer
-  return `${buf.toString("hex")}.${salt}`
+  // For plaintext storage, just return the password as-is
+  return password
 }
 
 // Verify password
 export async function verifyPassword(hashedPassword: string, plainPassword: string): Promise<boolean> {
-  try {
-    // Check if the password is in the expected format
-    if (!hashedPassword.includes(".")) {
-      console.error("Password is not in the expected hash.salt format")
-      // If not in the expected format, fall back to direct comparison
-      return hashedPassword === plainPassword
-    }
-
-    const [hashed, salt] = hashedPassword.split(".")
-
-    if (!hashed || !salt) {
-      console.error("Invalid password format after splitting")
-      return false
-    }
-
-    const buf = (await scryptAsync(plainPassword, salt, 64)) as Buffer
-    return buf.toString("hex") === hashed
-  } catch (error) {
-    console.error("Password verification error:", error)
-    return false
-  }
+  // For plaintext comparison, just compare directly
+  return hashedPassword === plainPassword
 }
 
 // Register user
@@ -103,7 +83,8 @@ export async function registerUser(
     throw new Error(passwordCheck.message)
   }
 
-  const hashedPassword = await hashPassword(password)
+  // Store password as plaintext
+  const hashedPassword = password
   const verificationToken = uuidv4()
 
   // Create user without setting verificationToken directly
@@ -150,7 +131,8 @@ export async function loginUser(email: string, password: string) {
     throw new Error("Email not verified. Please check your email for verification link.")
   }
 
-  const isValid = await verifyPassword(user.password, password)
+  // Direct comparison for plaintext passwords
+  const isValid = user.password === password
 
   if (!isValid) {
     return null
@@ -266,7 +248,8 @@ export async function resetPassword(token: string, newPassword: string) {
     throw new Error("Invalid or expired reset token")
   }
 
-  const hashedPassword = await hashPassword(newPassword)
+  // Store new password as plaintext
+  const hashedPassword = newPassword
 
   const updatedUser = await prisma.user.update({
     where: { id: verificationToken.userId },
@@ -300,13 +283,12 @@ export async function getOrCreateUserFromOAuth(
   if (!user) {
     // Create a new user with a random password
     const randomPassword = randomBytes(16).toString("hex")
-    const hashedPassword = await hashPassword(randomPassword)
 
     user = await prisma.user.create({
       data: {
         email,
         name: name || email.split("@")[0],
-        password: hashedPassword,
+        password: randomPassword, // Store as plaintext
         emailVerified: new Date(), // Email is verified via OAuth
         image,
         role: "CLIENT",
