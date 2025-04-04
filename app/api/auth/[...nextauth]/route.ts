@@ -2,6 +2,8 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { db } from "@/lib/db"
 import type { NextAuthOptions } from "next-auth"
+// Import the verifyPassword function at the top of the file
+import { verifyPassword } from "@/lib/auth-service"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -13,22 +15,66 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null
+          console.log("Missing credentials");
+          return null;
         }
 
         try {
-          // Find user in database
+          // Find user in database - use the correct where clause format
           const user = await db.user.findUnique({
             where: { email: credentials.email },
-          })
+          });
 
           if (!user) {
-            return null
+            console.log(`User not found: ${credentials.email}`);
+            return null;
           }
 
-          // Check if password matches
-          if (user.password !== credentials.password) {
-            return null
+          console.log(`User found: ${user.email}, checking password...`);
+          
+          // Check if the password is in the expected format (contains a dot for hash.salt)
+          if (!user.password.includes('.')) {
+            console.log("Password is not in the expected hash.salt format");
+            
+            // Fallback to direct comparison for legacy passwords
+            if (user.password === credentials.password) {
+              console.log("Direct password match successful (legacy format)");
+              return {
+                id: user.id,
+                email: user.email,
+                name: user.name || "",
+                role: user.role,
+              };
+            } else {
+              console.log("Direct password match failed (legacy format)");
+              return null;
+            }
+          }
+          
+          // For properly hashed passwords, use verifyPassword
+          try {
+            const isPasswordValid = await verifyPassword(user.password, credentials.password);
+            console.log(`Password verification result: ${isPasswordValid}`);
+            
+            if (!isPasswordValid) {
+              return null;
+            }
+          } catch (verifyError) {
+            console.error("Password verification error:", verifyError);
+            
+            // Fallback to direct comparison if verification throws an error
+            if (user.password === credentials.password) {
+              console.log("Direct password match successful (after verification error)");
+              return {
+                id: user.id,
+                email: user.email,
+                name: user.name || "",
+                role: user.role,
+              };
+            } else {
+              console.log("Direct password match failed (after verification error)");
+              return null;
+            }
           }
 
           // Return the user without checking role
@@ -38,10 +84,10 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             name: user.name || "",
             role: user.role,
-          }
+          };
         } catch (error) {
-          console.error("Auth error:", error)
-          return null
+          console.error("Auth error:", error);
+          return null;
         }
       },
     }),
@@ -74,4 +120,3 @@ export const authOptions: NextAuthOptions = {
 const handler = NextAuth(authOptions)
 
 export { handler as GET, handler as POST }
-

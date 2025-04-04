@@ -59,7 +59,20 @@ export async function hashPassword(password: string): Promise<string> {
 // Verify password
 export async function verifyPassword(hashedPassword: string, plainPassword: string): Promise<boolean> {
   try {
+    // Check if the password is in the expected format
+    if (!hashedPassword.includes(".")) {
+      console.error("Password is not in the expected hash.salt format")
+      // If not in the expected format, fall back to direct comparison
+      return hashedPassword === plainPassword
+    }
+
     const [hashed, salt] = hashedPassword.split(".")
+
+    if (!hashed || !salt) {
+      console.error("Invalid password format after splitting")
+      return false
+    }
+
     const buf = (await scryptAsync(plainPassword, salt, 64)) as Buffer
     return buf.toString("hex") === hashed
   } catch (error) {
