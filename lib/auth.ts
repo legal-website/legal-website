@@ -41,7 +41,7 @@ export async function requireAdmin() {
    redirect("/login?callbackUrl=/admin")
  }
 
- if (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN") {
+ if (session.user.role !== "ADMIN" && session.user.role !== "SUPPORT") {
    redirect("/dashboard")
  }
 
@@ -56,7 +56,7 @@ export async function requireSuperAdmin() {
    redirect("/login?callbackUrl=/admin")
  }
 
- if (session.user.role !== "SUPER_ADMIN") {
+ if (session.user.role !== "ADMIN") {
    redirect("/admin")
  }
 
@@ -75,5 +75,5 @@ export async function hasRole(session: any, role: string) {
 
 // Check if user is a super admin
 export async function isSuperAdmin(session: any) {
- return session?.user?.role === "SUPER_ADMIN"
+ return session?.user?.role === "ADMIN"
 }
