@@ -146,7 +146,6 @@ const menuItems: MenuItem[] = [
       },
     ],
   },
-  
 ]
 
 // Async function to fetch user profile
@@ -211,6 +210,12 @@ export default function AdminSidebar() {
     const getProfileData = async () => {
       if (status === "authenticated") {
         try {
+          // First check if role is available in the session
+          if (session?.user?.role) {
+            setUserRole(session.user.role)
+          }
+
+          // Then fetch additional profile data
           const userData = await fetchUserProfile()
           if (userData && userData.image) {
             // Add timestamp to prevent caching
@@ -219,7 +224,8 @@ export default function AdminSidebar() {
           if (userData && userData.name) {
             setUserName(userData.name)
           }
-          if (userData && userData.role) {
+          // Only update role from API if it exists and session didn't have it
+          if (userData && userData.role && !session?.user?.role) {
             setUserRole(userData.role)
           }
         } catch (error) {
@@ -229,7 +235,7 @@ export default function AdminSidebar() {
     }
 
     getProfileData()
-  }, [status, timestamp])
+  }, [status, timestamp, session])
 
   // Handle profile picture upload - similar to navbar implementation
   const handleProfilePictureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -281,7 +287,11 @@ export default function AdminSidebar() {
   const getFormattedRole = (): string => {
     if (!userRole) return "User"
 
-    // Convert role like "ADMIN" to "Admin" or "SUPER_ADMIN" to "Super Admin"
+    // Handle common role values
+    if (userRole === "ADMIN") return "Admin"
+    if (userRole === "SUPER_ADMIN") return "Super Admin"
+
+    // For other formats, convert role like "ADMIN" to "Admin" or "SUPER_ADMIN" to "Super Admin"
     return userRole
       .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
