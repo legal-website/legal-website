@@ -68,8 +68,6 @@ function LoginForm() {
         const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard"
         router.push(callbackUrl)
         router.refresh()
-
-        // Note: The middleware will handle redirecting to verify-email if needed
       }
     } catch (err) {
       console.error("Unexpected login error:", err)

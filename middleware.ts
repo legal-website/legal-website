@@ -17,27 +17,17 @@ export async function middleware(request: NextRequest) {
     console.log(`API Request: ${path}`)
   }
 
-  // Get the token
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  })
-
-  // Check if user is authenticated but email is not verified
-  if (token && token.isVerified === false) {
-    // Don't redirect if already on the verify-email page or accessing API routes
-    if (!path.startsWith("/verify-email") && !path.startsWith("/api/")) {
-      const url = new URL(`/verify-email`, request.url)
-      url.searchParams.set("email", token.email as string)
-      return NextResponse.redirect(url)
-    }
-  }
-
   // Check if the path is for admin routes
   const isAdminPath = path.startsWith("/admin")
 
   // Check if the path is for dashboard routes
   const isDashboardPath = path.startsWith("/dashboard")
+
+  // Get the token
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  })
 
   // If trying to access admin routes
   if (isAdminPath) {
