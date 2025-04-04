@@ -38,12 +38,18 @@ export default function PaymentPage() {
       try {
         setLoadingPaymentMethods(true)
 
-        // Fetch bank accounts
-        const bankResponse = await fetch("/api/payment-methods?type=bank")
+        // Always fetch from the public endpoint that doesn't require authentication
+        const response = await fetch("/api/payment-methods/public")
 
-        // If unauthorized, show a fallback payment method
-        if (bankResponse.status === 401) {
-          // Create a fallback payment method
+        if (!response.ok) {
+          throw new Error("Failed to fetch payment methods")
+        }
+
+        const data = await response.json()
+        const methods = data.paymentMethods || []
+
+        if (methods.length === 0) {
+          // Fallback only if no payment methods are returned from the API
           const fallbackMethods: PaymentMethod[] = [
             {
               id: "default-bank",
@@ -71,38 +77,27 @@ export default function PaymentPage() {
             },
           ]
 
+          console.warn("No payment methods found, using fallback methods")
           setPaymentMethods(fallbackMethods)
           setSelectedPaymentMethod(fallbackMethods[0].id)
-          setLoadingPaymentMethods(false)
-          return
-        }
+        } else {
+          console.log("Loaded payment methods:", methods)
+          setPaymentMethods(methods)
 
-        if (!bankResponse.ok) {
-          throw new Error("Failed to fetch bank payment methods")
-        }
-
-        const bankData = await bankResponse.json()
-
-        // Fetch mobile wallets
-        const walletResponse = await fetch("/api/payment-methods?type=mobile_wallet")
-        if (!walletResponse.ok) {
-          throw new Error("Failed to fetch mobile wallet payment methods")
-        }
-
-        const walletData = await walletResponse.json()
-
-        // Combine the results
-        const allMethods = [...(bankData.paymentMethods || []), ...(walletData.paymentMethods || [])]
-
-        setPaymentMethods(allMethods)
-
-        // Set the first payment method as selected by default if available
-        if (allMethods.length > 0) {
-          setSelectedPaymentMethod(allMethods[0].id)
+          // Set the first payment method as selected by default
+          if (methods.length > 0) {
+            setSelectedPaymentMethod(methods[0].id)
+          }
         }
       } catch (error) {
         console.error("Error fetching payment methods:", error)
-        // Create a fallback payment method
+        toast({
+          title: "Error loading payment methods",
+          description: "Please refresh the page or contact support.",
+          variant: "destructive",
+        })
+
+        // Use fallback methods as a last resort
         const fallbackMethods: PaymentMethod[] = [
           {
             id: "default-bank",
