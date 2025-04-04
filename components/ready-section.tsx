@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Phone, MessageSquare } from "lucide-react";
 import { ScrollAnimation } from "./GlobalScrollAnimation";
+import Link from "next/link"
 
 export default function ReadySection() {
   return (
@@ -25,9 +26,11 @@ export default function ReadySection() {
                   >
                     Start your LLC with a top choice of millions for online small business formation.
                   </p>
+                  <Link href="/#pricing" scroll={true}>
                   <Button className="px-[160px] py-3 text-[16px] bg-[#22c984] hover:bg-[#1eac73] text-white rounded-md shadow-md">
                     Start my LLC
                   </Button>
+                  </Link>
                 </div>
                 <div className="absolute right-0 top-0 h-full flex items-center">
                   <Image src="/alpha.webp" alt="Support" width={350} height={200} />
@@ -67,9 +70,11 @@ export default function ReadySection() {
                 >
                   Get the right guidance with an attorney by your side.
                 </p>
+                <Link href="/app/contact">
                 <Button className="text-[16px] font-[400] px-[80px] py-3 bg-[#22c984] hover:bg-[#1eac73] text-white rounded-md shadow-md">
                   Get Orizen help
                 </Button>
+                </Link>
               </div>
 
               <div className="col-span-3 text-left flex flex-col gap-4">
