@@ -13,9 +13,9 @@ export default function CustomerSuccess() {
   useEffect(() => {
     const timer = setInterval(() => {
       setCount((prev) => {
-        if (prev >= 20) {
+        if (prev >= 8) {
           clearInterval(timer)
-          return 20
+          return 8
         }
         return prev + 1
       })
@@ -115,7 +115,7 @@ export default function CustomerSuccess() {
                 className="text-2xl sm:text-3xl md:text-4xl mb-1 sm:mb-2 font-medium"
                 style={{ fontFamily: "Montserrat" }}
               >
-                4M+
+                7500+
               </h3>
               <p className="text-gray-700 text-sm sm:text-base md:text-lg" style={{ fontFamily: "Nethead" }}>
                 businesses formed
