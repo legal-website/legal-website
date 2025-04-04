@@ -16,7 +16,6 @@ import {
   LayoutDashboard,
   Users,
   FileText,
-  Settings,
   Tag,
   BarChart3,
   Shield,
@@ -147,12 +146,7 @@ const menuItems: MenuItem[] = [
       },
     ],
   },
-  {
-    icon: Settings,
-    label: "System Settings",
-    href: "/admin/settings",
-    badgeKey: "settings",
-  },
+  
 ]
 
 // Async function to fetch user profile
