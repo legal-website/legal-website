@@ -31,13 +31,14 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          // Return the user object
+          // Return the user object with emailVerified status
           return {
             id: user.id,
             email: user.email,
             name: user.name || "",
             role: user.role,
             image: user.image || null,
+            emailVerified: user.emailVerified || false,
           }
         } catch (error) {
           console.error("Auth error:", error)
@@ -54,6 +55,7 @@ export const authOptions: NextAuthOptions = {
         token.name = user.name
         token.role = user.role
         token.picture = user.image
+        token.emailVerified = user.emailVerified
       }
       return token
     },
@@ -64,6 +66,7 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name as string
         session.user.role = token.role as string
         session.user.image = token.picture as string | null
+        session.user.emailVerified = token.emailVerified as boolean
       }
       return session
     },
