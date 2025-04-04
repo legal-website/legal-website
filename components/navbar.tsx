@@ -36,7 +36,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDebounce } from "@/hooks/use-debounce"
 import { SearchResults } from "./search-results"
-import { search } from "@/actions/search"
+import type { SearchResult } from "@/types/search"
 
 // Add a function to fetch the latest user data
 async function fetchUserProfile() {
@@ -84,7 +84,7 @@ export default function Navbar() {
   const [mobileUserMenuOpen, setMobileUserMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
-  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
 
   // Handle cart click on mobile - navigate to cart page
@@ -461,6 +461,8 @@ useEffect(() => {
         // Add a small delay to ensure the loading spinner is visible
         await new Promise((resolve) => setTimeout(resolve, 300))
 
+        // Use dynamic import to ensure search function is only loaded on the server
+        const { search } = await import("@/actions/search")
         const results = await search({ query: debouncedSearchQuery })
 
         // Only update state if component is still mounted
