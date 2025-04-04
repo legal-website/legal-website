@@ -9,7 +9,7 @@ import * as bcryptjs from "bcryptjs"
 export const authOptions = nextAuthOptions
 
 // Export the auth function
-export const auth = () => getServerSession(authOptions)
+export const auth = async () => getServerSession(authOptions)
 
 // Hash password function for user creation/authentication
 export async function hashPassword(password: string): Promise<string> {
@@ -64,17 +64,17 @@ export async function requireSuperAdmin() {
 }
 
 // Get user role from session
-export function getUserRole(session: any) {
+export async function getUserRole(session: any) {
   return session?.user?.role || null
 }
 
 // Check if user has a specific role
-export function hasRole(session: any, role: string) {
+export async function hasRole(session: any, role: string) {
   return session?.user?.role === role
 }
 
 // Check if user is a super admin
-export function isSuperAdmin(session: any) {
+export async function isSuperAdmin(session: any) {
   return session?.user?.role === "SUPER_ADMIN"
 }
 
