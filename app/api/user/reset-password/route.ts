@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
-import bcrypt from "bcryptjs"
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,16 +19,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Password is required" }, { status: 400 })
     }
 
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(body.password, 10)
-
-    // Update the user's password
+    // Store the password directly without hashing
     await db.user.update({
       where: {
         id: session.user.id,
       },
       data: {
-        password: hashedPassword,
+        password: body.password, // Store password as plaintext
       },
     })
 
