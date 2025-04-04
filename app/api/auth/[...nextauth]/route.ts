@@ -2,8 +2,6 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { db } from "@/lib/db"
 import type { NextAuthOptions } from "next-auth"
-// Import the verifyPassword function at the top of the file
-import { verifyPassword } from "@/lib/auth-service"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -13,7 +11,6 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      // Replace the current authorize function with this updated version
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
           return null
@@ -29,9 +26,8 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          // Check if password matches using the verifyPassword function
-          const isPasswordValid = await verifyPassword(user.password, credentials.password)
-          if (!isPasswordValid) {
+          // Check if password matches
+          if (user.password !== credentials.password) {
             return null
           }
 
