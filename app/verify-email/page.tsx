@@ -16,11 +16,41 @@ export default function VerifyEmailPage() {
   const email = searchParams?.get("email") || ""
   const token = searchParams?.get("token") || ""
   const redirect = searchParams?.get("redirect") || "/login"
+  const verified = searchParams?.get("verified") === "true"
+  const error = searchParams?.get("error")
 
   useEffect(() => {
+    // Check if we're returning from a verification redirect
+    if (verified) {
+      setStatus("success")
+      setMessage("Your email has been successfully verified. You can now log in to your account.")
+      // Auto-redirect after 3 seconds
+      setTimeout(() => {
+        router.push("/login")
+      }, 3000)
+      return
+    }
+
+    // Check if there's an error from redirect
+    if (error) {
+      setStatus("error")
+      let errorMessage = "Failed to verify your email. Please try again or contact support."
+
+      if (error === "missing_token") {
+        errorMessage = "Verification token is missing. Please check your email link and try again."
+      } else if (error === "invalid_token") {
+        errorMessage = "Invalid or expired verification token. Please request a new verification email."
+      }
+
+      setMessage(errorMessage)
+      return
+    }
+
     // If we have a token, try to verify it
     if (token) {
-      verifyToken(token, redirect)
+      // Instead of making a fetch request, redirect to the API route
+      // The API will handle verification and redirect back with success/error params
+      window.location.href = `/api/auth/verify-email?token=${token}&redirect=/verify-email`
     }
     // If we only have an email, show the "check your inbox" message
     else if (email) {
@@ -34,31 +64,7 @@ export default function VerifyEmailPage() {
       setStatus("error")
       setMessage("No email or verification token provided. Please check your email link and try again.")
     }
-  }, [email, token, redirect])
-
-  const verifyToken = async (token: string, redirect: string) => {
-    try {
-      // Make a direct API call to verify the token
-      const response = await fetch(`/api/auth/verify-email?token=${token}`)
-      const data = await response.json()
-
-      if (response.ok) {
-        setStatus("success")
-        setMessage(data.message || "Your email has been successfully verified. You can now log in to your account.")
-        // Auto-redirect after 3 seconds
-        setTimeout(() => {
-          router.push(redirect)
-        }, 3000)
-      } else {
-        setStatus("error")
-        setMessage(data.error || "Failed to verify your email. Please try again or contact support.")
-      }
-    } catch (error) {
-      console.error("Error verifying email:", error)
-      setStatus("error")
-      setMessage("An unexpected error occurred. Please try again or contact support.")
-    }
-  }
+  }, [email, token, redirect, verified, error, router])
 
   const resendVerificationEmail = async () => {
     if (!email) return
