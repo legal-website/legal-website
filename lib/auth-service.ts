@@ -10,7 +10,7 @@ const scryptAsync = promisify(scrypt)
 const prisma = new PrismaClient()
 
 // Password strength validation
-export function isStrongPassword(password: string): { isStrong: boolean; message: string } {
+export async function isStrongPassword(password: string): Promise<{ isStrong: boolean; message: string }> {
   const minLength = 8
   const hasUpperCase = /[A-Z]/.test(password)
   const hasLowerCase = /[a-z]/.test(password)
@@ -87,9 +87,9 @@ export async function registerUser(
   }
 
   // Validate password strength
-  const passwordCheck = isStrongPassword(password)
-  if (!passwordCheck.isStrong) {
-    throw new Error(passwordCheck.message)
+  const passwordCheck = await isStrongPassword(password)
+  if (!(await passwordCheck).isStrong) {
+    throw new Error((await passwordCheck).message)
   }
 
   const hashedPassword = await hashPassword(password)
@@ -184,7 +184,7 @@ export async function verifyEmail(token: string) {
   })
 
   if (!verificationToken || verificationToken.expires < new Date()) {
-    throw new Error("Invalid or expired verification token")
+    throw new Error("Invalid or expired token")
   }
 
   const updatedUser = await prisma.user.update({
@@ -199,7 +199,7 @@ export async function verifyEmail(token: string) {
     where: { id: verificationToken.id },
   })
 
-  // Remove password from response
+  // Remove sensitive data before returning
   const { password: _, ...userWithoutPassword } = updatedUser
   return userWithoutPassword
 }
@@ -237,9 +237,9 @@ export async function requestPasswordReset(email: string) {
 // Reset password
 export async function resetPassword(token: string, newPassword: string) {
   // Validate password strength
-  const passwordCheck = isStrongPassword(newPassword)
-  if (!passwordCheck.isStrong) {
-    throw new Error(passwordCheck.message)
+  const passwordCheck = await isStrongPassword(newPassword)
+  if (!(await passwordCheck).isStrong) {
+    throw new Error((await passwordCheck).message)
   }
 
   const verificationToken = await prisma.verificationToken.findUnique({

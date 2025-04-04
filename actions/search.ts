@@ -24,7 +24,7 @@ export async function search({ query }: { query: string }): Promise<SearchResult
     )
 
     results.push(
-      ...posts.rows.map((post) => ({
+      ...posts.rows.map((post: { id: any; title: any; content: string }) => ({
         id: post.id,
         title: post.title,
         excerpt: post.content.substring(0, 100) + "...",
@@ -45,7 +45,7 @@ export async function search({ query }: { query: string }): Promise<SearchResult
     )
 
     results.push(
-      ...documents.rows.map((doc) => ({
+      ...documents.rows.map((doc: { id: any; name: any; description: string }) => ({
         id: doc.id,
         title: doc.name,
         excerpt: doc.description?.substring(0, 100) + "..." || "No description",
