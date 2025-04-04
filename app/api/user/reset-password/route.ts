@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
+import { isStrongPassword } from "@/lib/auth-service"
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,6 +18,12 @@ export async function POST(req: NextRequest) {
 
     if (!body.password) {
       return NextResponse.json({ error: "Password is required" }, { status: 400 })
+    }
+
+    // Validate password strength
+    const passwordCheck = isStrongPassword(body.password)
+    if (!passwordCheck.isStrong) {
+      return NextResponse.json({ error: passwordCheck.message }, { status: 400 })
     }
 
     // Store the password directly without hashing
