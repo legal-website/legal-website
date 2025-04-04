@@ -2,8 +2,7 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { db } from "@/lib/db"
 import type { NextAuthOptions } from "next-auth"
-// Import the verifyPassword function at the top of the file
-import { verifyPassword } from "@/lib/auth-service"
+import { verifyPassword, hashPassword } from "@/lib/auth-service"
 
 export const authOptions: NextAuthOptions = {
   debug: true, // Enable debug mode to see more detailed logs
@@ -14,7 +13,6 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      // Replace the current authorize function with this updated version
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
           console.log("[NextAuth] Missing credentials")
@@ -37,13 +35,15 @@ export const authOptions: NextAuthOptions = {
           console.log(`[NextAuth] User found: ${user.email}, checking password...`)
 
           let isAuthenticated = false
+          let shouldUpdatePassword = false
 
-          // First try direct comparison (for legacy passwords or testing)
+          // FIRST: Try direct comparison (for plaintext passwords in database)
           if (user.password === credentials.password) {
             console.log("[NextAuth] Direct password match successful")
             isAuthenticated = true
+            shouldUpdatePassword = true // Flag to update to proper hash format
           }
-          // Then try hash verification if not already authenticated
+          // SECOND: Try hash verification (for properly hashed passwords)
           else if (user.password.includes(".")) {
             try {
               const isValid = await verifyPassword(user.password, credentials.password)
@@ -59,6 +59,21 @@ export const authOptions: NextAuthOptions = {
           if (!isAuthenticated) {
             console.log("[NextAuth] Authentication failed - invalid credentials")
             return null
+          }
+
+          // If authenticated with plaintext password, update to proper hash format
+          if (shouldUpdatePassword) {
+            try {
+              const hashedPassword = await hashPassword(credentials.password)
+              await db.user.update({
+                where: { id: user.id },
+                data: { password: hashedPassword },
+              })
+              console.log("[NextAuth] Updated user password to secure hash format")
+            } catch (updateError) {
+              console.error("[NextAuth] Failed to update password:", updateError)
+              // Continue with login even if update fails
+            }
           }
 
           // Authentication successful
