@@ -1,5 +1,3 @@
-"use server"
-
 import { PrismaClient } from "@prisma/client"
 import { v4 as uuidv4 } from "uuid"
 import nodemailer from "nodemailer"
@@ -10,7 +8,7 @@ const scryptAsync = promisify(scrypt)
 const prisma = new PrismaClient()
 
 // Password strength validation
-export async function isStrongPassword(password: string): Promise<{ isStrong: boolean; message: string }> {
+export function isStrongPassword(password: string): { isStrong: boolean; message: string } {
   const minLength = 8
   const hasUpperCase = /[A-Z]/.test(password)
   const hasLowerCase = /[a-z]/.test(password)
@@ -40,7 +38,7 @@ export async function isStrongPassword(password: string): Promise<{ isStrong: bo
   return { isStrong: true, message: "Password is strong" }
 }
 
-// Setup email transporter - SERVER ONLY
+// Setup email transporter
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_SERVER_HOST,
   port: Number(process.env.EMAIL_SERVER_PORT),
@@ -87,9 +85,9 @@ export async function registerUser(
   }
 
   // Validate password strength
-  const passwordCheck = await isStrongPassword(password)
-  if (!(await passwordCheck).isStrong) {
-    throw new Error((await passwordCheck).message)
+  const passwordCheck = isStrongPassword(password)
+  if (!passwordCheck.isStrong) {
+    throw new Error(passwordCheck.message)
   }
 
   const hashedPassword = await hashPassword(password)
@@ -184,7 +182,7 @@ export async function verifyEmail(token: string) {
   })
 
   if (!verificationToken || verificationToken.expires < new Date()) {
-    throw new Error("Invalid or expired token")
+    throw new Error("Invalid or expired verification token")
   }
 
   const updatedUser = await prisma.user.update({
@@ -199,7 +197,7 @@ export async function verifyEmail(token: string) {
     where: { id: verificationToken.id },
   })
 
-  // Remove sensitive data before returning
+  // Remove password from response
   const { password: _, ...userWithoutPassword } = updatedUser
   return userWithoutPassword
 }
@@ -237,9 +235,9 @@ export async function requestPasswordReset(email: string) {
 // Reset password
 export async function resetPassword(token: string, newPassword: string) {
   // Validate password strength
-  const passwordCheck = await isStrongPassword(newPassword)
-  if (!(await passwordCheck).isStrong) {
-    throw new Error((await passwordCheck).message)
+  const passwordCheck = isStrongPassword(newPassword)
+  if (!passwordCheck.isStrong) {
+    throw new Error(passwordCheck.message)
   }
 
   const verificationToken = await prisma.verificationToken.findUnique({
