@@ -20,7 +20,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          // Find user in database - use the correct where clause format
+          // Find user in database using Prisma client directly
           const user = await db.user.findUnique({
             where: { email: credentials.email },
           });
