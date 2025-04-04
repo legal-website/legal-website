@@ -6,6 +6,7 @@ import type { NextAuthOptions } from "next-auth"
 import { verifyPassword } from "@/lib/auth-service"
 
 export const authOptions: NextAuthOptions = {
+  debug: true, // Enable debug mode to see more detailed logs
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -13,97 +14,91 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
+      // Replace the current authorize function with this updated version
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          console.log("Missing credentials");
-          return null;
+          console.log("[NextAuth] Missing credentials")
+          return null
         }
 
         try {
+          console.log(`[NextAuth] Attempting login for email: ${credentials.email}`)
+
           // Find user in database using Prisma client directly
           const user = await db.user.findUnique({
             where: { email: credentials.email },
-          });
+          })
 
           if (!user) {
-            console.log(`User not found: ${credentials.email}`);
-            return null;
+            console.log(`[NextAuth] User not found: ${credentials.email}`)
+            return null
           }
 
-          console.log(`User found: ${user.email}, checking password...`);
-          
-          // Check if the password is in the expected format (contains a dot for hash.salt)
-          if (!user.password.includes('.')) {
-            console.log("Password is not in the expected hash.salt format");
-            
-            // Fallback to direct comparison for legacy passwords
-            if (user.password === credentials.password) {
-              console.log("Direct password match successful (legacy format)");
-              return {
-                id: user.id,
-                email: user.email,
-                name: user.name || "",
-                role: user.role,
-              };
-            } else {
-              console.log("Direct password match failed (legacy format)");
-              return null;
-            }
+          console.log(`[NextAuth] User found: ${user.email}, checking password...`)
+
+          let isAuthenticated = false
+
+          // First try direct comparison (for legacy passwords or testing)
+          if (user.password === credentials.password) {
+            console.log("[NextAuth] Direct password match successful")
+            isAuthenticated = true
           }
-          
-          // For properly hashed passwords, use verifyPassword
-          try {
-            const isPasswordValid = await verifyPassword(user.password, credentials.password);
-            console.log(`Password verification result: ${isPasswordValid}`);
-            
-            if (!isPasswordValid) {
-              return null;
-            }
-          } catch (verifyError) {
-            console.error("Password verification error:", verifyError);
-            
-            // Fallback to direct comparison if verification throws an error
-            if (user.password === credentials.password) {
-              console.log("Direct password match successful (after verification error)");
-              return {
-                id: user.id,
-                email: user.email,
-                name: user.name || "",
-                role: user.role,
-              };
-            } else {
-              console.log("Direct password match failed (after verification error)");
-              return null;
+          // Then try hash verification if not already authenticated
+          else if (user.password.includes(".")) {
+            try {
+              const isValid = await verifyPassword(user.password, credentials.password)
+              console.log(`[NextAuth] Hash verification result: ${isValid}`)
+              if (isValid) {
+                isAuthenticated = true
+              }
+            } catch (verifyError) {
+              console.error("[NextAuth] Password verification error:", verifyError)
             }
           }
 
-          // Return the user without checking role
-          // This allows any role (ADMIN, SUPPORT, CLIENT) to log in
+          if (!isAuthenticated) {
+            console.log("[NextAuth] Authentication failed - invalid credentials")
+            return null
+          }
+
+          // Authentication successful
+          console.log("[NextAuth] Authentication successful")
+
+          // Return a simplified user object with only the properties NextAuth expects
           return {
             id: user.id,
             email: user.email,
             name: user.name || "",
             role: user.role,
-          };
+            image: user.image || null,
+          }
         } catch (error) {
-          console.error("Auth error:", error);
-          return null;
+          console.error("[NextAuth] Auth error:", error)
+          return null
         }
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
+      // When user logs in, add their data to the token
       if (user) {
         token.id = user.id
+        token.email = user.email
+        token.name = user.name
         token.role = user.role
+        token.picture = user.image
       }
       return token
     },
     async session({ session, token }) {
+      // Add user data from token to the session
       if (session.user) {
         session.user.id = token.id as string
+        session.user.email = token.email as string
+        session.user.name = token.name as string
         session.user.role = token.role as string
+        session.user.image = token.picture as string | null
       }
       return session
     },
@@ -114,9 +109,12 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
+  secret: process.env.NEXTAUTH_SECRET || "your-fallback-secret-should-be-changed",
 }
 
 const handler = NextAuth(authOptions)
 
 export { handler as GET, handler as POST }
+
