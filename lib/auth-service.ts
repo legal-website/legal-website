@@ -1,3 +1,5 @@
+"use server"
+
 import { PrismaClient } from "@prisma/client"
 import { v4 as uuidv4 } from "uuid"
 import nodemailer from "nodemailer"
@@ -38,7 +40,7 @@ export function isStrongPassword(password: string): { isStrong: boolean; message
   return { isStrong: true, message: "Password is strong" }
 }
 
-// Setup email transporter
+// Setup email transporter - SERVER ONLY
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_SERVER_HOST,
   port: Number(process.env.EMAIL_SERVER_PORT),

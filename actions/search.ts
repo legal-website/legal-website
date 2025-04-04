@@ -1,3 +1,5 @@
+"use server"
+
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 
@@ -38,6 +40,7 @@ export interface SearchResult {
 }
 
 export async function search({ query }: { query: string }): Promise<SearchResult[]> {
+  "use server"
   try {
     const session = await auth()
     const userId = session?.user?.id

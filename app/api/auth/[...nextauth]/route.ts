@@ -2,6 +2,7 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { db } from "@/lib/db"
 import type { NextAuthOptions } from "next-auth"
+import { verifyPassword } from "@/lib/auth-service"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -26,8 +27,9 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          // Check if password matches
-          if (user.password !== credentials.password) {
+          // Check if password matches using the proper verification method
+          const isValidPassword = await verifyPassword(user.password, credentials.password)
+          if (!isValidPassword) {
             return null
           }
 
