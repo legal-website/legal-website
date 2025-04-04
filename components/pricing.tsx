@@ -289,7 +289,7 @@ export default function PricingCards() {
   // Show loading state
   if (loading) {
     return (
-      <div  id="pricing" className="flex justify-center items-center min-h-[200px] sm:min-h-[400px]">
+      <div className="flex justify-center items-center min-h-[200px] sm:min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-t-2 border-b-2 border-[#22c984]"></div>
       </div>
     )
@@ -311,7 +311,7 @@ export default function PricingCards() {
 
   return (
     <ScrollAnimation>
-      <div className="w-full max-w-full mx-auto px-3 sm:px-[5%] py-4 sm:py-8 overflow-x-hidden">
+      <div id="pricing" className="w-full max-w-full mx-auto px-3 sm:px-[5%] py-4 sm:py-8 overflow-x-hidden">
         {/* State Selection Dropdown */}
         <div className="mb-4 sm:mb-8 w-full max-w-xs mx-auto relative">
           <div className="flex items-center">

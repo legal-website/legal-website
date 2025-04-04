@@ -14,20 +14,29 @@ export default function SettingsPage() {
   const { theme, setTheme, layoutDensity, setLayoutDensity } = useTheme()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   // Load user settings and login sessions
   useEffect(() => {
     const loadUserData = async () => {
-      // Load user settings
-      const settings = await getUserSettings()
-      if (settings) {
-        setTheme((settings.theme as any) || "light")
-        setLayoutDensity((settings.layoutDensity as any) || "comfortable")
+      try {
+        // Load user settings
+        const settings = await getUserSettings()
+        if (settings) {
+          setTheme((settings.theme as any) || "light")
+          setLayoutDensity((settings.layoutDensity as any) || "comfortable")
+        }
+      } catch (error) {
+        console.error("Error loading user settings:", error)
+      } finally {
+        setIsLoading(false)
       }
     }
 
-    loadUserData()
-  }, [setTheme, setLayoutDensity])
+    if (isLoading) {
+      loadUserData()
+    }
+  }, [isLoading, setTheme, setLayoutDensity])
 
   // Helper function to get theme-specific classes
   const getThemeClasses = (lightClass = "", darkClass = "", comfortClass = "") => {
@@ -69,6 +78,17 @@ export default function SettingsPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-4 sm:p-6 md:p-8 mb-20 md:mb-40 w-full overflow-x-hidden">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Appearance Settings</h1>
+        <div className="flex items-center justify-center p-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    )
   }
 
   return (
