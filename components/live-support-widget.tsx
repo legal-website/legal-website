@@ -1,12 +1,11 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { MessageCircle, X, Send, Loader2, ExternalLink } from "lucide-react"
 import { useTheme } from "@/context/theme-context"
+import { useUser } from "@/context/user-context"
 import TawkChatWidget from "./tawk-chat-widget"
 
 interface Message {
@@ -28,12 +27,11 @@ export default function LiveSupportWidget() {
     },
   ])
   const [isTyping, setIsTyping] = useState(false)
-  const [userName, setUserName] = useState("")
-  const [userEmail, setUserEmail] = useState("")
   const [showUserForm, setShowUserForm] = useState(true)
   const [tawkLoaded, setTawkLoaded] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { theme } = useTheme()
+  const { userName, userEmail, isLoading } = useUser()
 
   // Your Tawk.to property ID and widget ID from the script
   const TAWK_PROPERTY_ID = "67f00b05d92782190b0d0ee5"
@@ -44,17 +42,24 @@ export default function LiveSupportWidget() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Check if user info is stored in localStorage
+  // Skip user form if we already have user data
   useEffect(() => {
-    const storedName = localStorage.getItem("chat_widget_name")
-    const storedEmail = localStorage.getItem("chat_widget_email")
-
-    if (storedName && storedEmail) {
-      setUserName(storedName)
-      setUserEmail(storedEmail)
+    if (!isLoading && (userName || userEmail)) {
       setShowUserForm(false)
+
+      // Add welcome message with user's name if available
+      if (userName && messages.length === 1) {
+        const welcomeMessage: Message = {
+          id: Date.now().toString(),
+          text: `Hi ${userName}! How can we help you today?`,
+          sender: "support",
+          timestamp: new Date(),
+        }
+
+        setMessages((prev) => [prev[0], welcomeMessage])
+      }
     }
-  }, [])
+  }, [isLoading, userName, userEmail, messages.length])
 
   // Handle Tawk.to API
   useEffect(() => {
@@ -63,21 +68,6 @@ export default function LiveSupportWidget() {
       if (typeof window !== "undefined" && window.Tawk_API) {
         if (!tawkLoaded) {
           setTawkLoaded(true)
-        }
-
-        // Set visitor data
-        if (typeof window.Tawk_API.onLoad === "function") {
-          window.Tawk_API.onLoad = () => {
-            window.Tawk_API?.setAttributes(
-              {
-                name: userName,
-                email: userEmail,
-              },
-              (error) => {
-                // Handle error if needed
-              },
-            )
-          }
         }
 
         // Open Tawk chat window when our custom widget is opened
@@ -92,40 +82,7 @@ export default function LiveSupportWidget() {
         window.Tawk_API.hideWidget()
       }
     }
-  }, [isOpen, showUserForm, userName, userEmail, tawkLoaded])
-
-  const handleUserFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (userName.trim() && userEmail.trim()) {
-      // Store user info in localStorage
-      localStorage.setItem("chat_widget_name", userName)
-      localStorage.setItem("chat_widget_email", userEmail)
-      setShowUserForm(false)
-
-      // Add welcome message
-      const welcomeMessage: Message = {
-        id: Date.now().toString(),
-        text: `Thanks ${userName}! What can we help you with today?`,
-        sender: "support",
-        timestamp: new Date(),
-      }
-
-      setMessages((prev) => [...prev, welcomeMessage])
-
-      // If Tawk is loaded, set visitor data
-      if (typeof window !== "undefined" && window.Tawk_API && typeof window.Tawk_API.setAttributes === "function") {
-        window.Tawk_API.setAttributes(
-          {
-            name: userName,
-            email: userEmail,
-          },
-          (error) => {
-            // Handle error if needed
-          },
-        )
-      }
-    }
-  }
+  }, [isOpen, showUserForm, tawkLoaded])
 
   const handleSendMessage = () => {
     if (!message.trim()) return
@@ -196,41 +153,35 @@ export default function LiveSupportWidget() {
           <p className="text-sm opacity-90">We typically reply within minutes</p>
         </div>
 
-        {showUserForm ? (
+        {showUserForm && isLoading ? (
+          <div className="p-4 flex justify-center items-center h-40">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          </div>
+        ) : showUserForm ? (
           <div className="p-4">
             <h4 className="font-medium mb-3">Please introduce yourself</h4>
-            <form onSubmit={handleUserFormSubmit} className="space-y-3">
+            <div className="space-y-3">
               <div>
-                <label htmlFor="name" className="text-sm font-medium block mb-1">
-                  Your Name
-                </label>
+                <label className="text-sm font-medium block mb-1">Your Name</label>
                 <Input
-                  id="name"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  placeholder="John Doe"
-                  required
-                  className={theme === "dark" ? "bg-gray-700 border-gray-600" : ""}
+                  value={userName || "Guest"}
+                  readOnly
+                  className={`bg-gray-100 ${theme === "dark" ? "text-gray-800" : ""}`}
                 />
               </div>
               <div>
-                <label htmlFor="email" className="text-sm font-medium block mb-1">
-                  Your Email
-                </label>
+                <label className="text-sm font-medium block mb-1">Your Email</label>
                 <Input
-                  id="email"
                   type="email"
-                  value={userEmail}
-                  onChange={(e) => setUserEmail(e.target.value)}
-                  placeholder="john@example.com"
-                  required
-                  className={theme === "dark" ? "bg-gray-700 border-gray-600" : ""}
+                  value={userEmail || "guest@example.com"}
+                  readOnly
+                  className={`bg-gray-100 ${theme === "dark" ? "text-gray-800" : ""}`}
                 />
               </div>
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
+              <Button onClick={() => setShowUserForm(false)} className="w-full bg-blue-600 hover:bg-blue-700">
                 Start Chat
               </Button>
-            </form>
+            </div>
           </div>
         ) : (
           <>

@@ -1,44 +1,64 @@
 interface TawkToAPI {
-    maximize: () => void
-    minimize: () => void
-    toggle: () => void
-    popup: () => void
-    showWidget: () => void
-    hideWidget: () => void
-    toggleVisibility: () => void
-    endChat: () => void
-    isChatMaximized: () => boolean
-    isChatMinimized: () => boolean
-    isChatHidden: () => boolean
-    isChatOngoing: () => boolean
-    isVisitorEngaged: () => boolean
-    onLoaded: (callback: () => void) => void
-    onLoad: () => void
-    onStatusChange: (callback: (status: string) => void) => void
-    onChatMaximized: (callback: () => void) => void
-    onChatMinimized: (callback: () => void) => void
-    onChatHidden: (callback: () => void) => void
-    onChatStarted: (callback: () => void) => void
-    onChatEnded: (callback: () => void) => void
-    onPrechatSubmit: (callback: (data: any) => void) => void
-    onOfflineSubmit: (callback: (data: any) => void) => void
-    addEvent: (event: string, metadata: any, callback: () => void) => void
-    addTags: (tags: string[], callback: () => void) => void
-    removeTags: (tags: string[], callback: () => void) => void
-    setAttributes: (attributes: Record<string, string>, callback: (error: any) => void) => void
-    visitor: {
-      name: string
-      email: string
-    }
+  // Core methods
+  maximize: () => void
+  minimize: () => void
+  toggle: () => void
+  popup: () => void
+  getWindowType: () => string
+  showWidget: () => void
+  hideWidget: () => void
+  toggleVisibility: () => void
+  getStatus: () => string
+  isChatMaximized: () => boolean
+  isChatMinimized: () => boolean
+  isChatHidden: () => boolean
+  isChatOngoing: () => boolean
+  isVisitorEngaged: () => boolean
+  endChat: () => void
+
+  // Visitor methods
+  setAttributes: (attributes: Record<string, string>, callback?: (error: Error | null) => void) => void
+  addEvent: (event: string, metadata: any, callback?: (error: Error | null) => void) => void
+  addTags: (tags: string[], callback?: (error: Error | null) => void) => void
+  removeTags: (tags: string[], callback?: (error: Error | null) => void) => void
+
+  // Event handlers
+  onLoad: (() => void) | null
+  onStatusChange: ((status: string) => void) | null
+  onBeforeLoad: (() => void) | null
+  onChatMaximized: (() => void) | null
+  onChatMinimized: (() => void) | null
+  onChatHidden: (() => void) | null
+  onChatStarted: (() => void) | null
+  onChatEnded: (() => void) | null
+  onPrechatSubmit: ((data: any) => void) | null
+  onOfflineSubmit: ((data: any) => void) | null
+  onChatMessageVisitor: ((message: string) => void) | null
+  onChatMessageAgent: ((message: string) => void) | null
+  onChatMessageSystem: ((message: string) => void) | null
+  onAgentJoinChat: ((data: any) => void) | null
+  onAgentLeaveChat: ((data: any) => void) | null
+  onChatSatisfaction: ((satisfaction: string) => void) | null
+  onVisitorNameChanged: ((visitorName: string) => void) | null
+  onFileUpload: ((data: any) => void) | null
+  onTagsUpdated: ((data: string[]) => void) | null
+
+  // Custom properties
+  visitor?: {
+    name?: string
+    email?: string
+    [key: string]: any
   }
-  
-  declare global {
-    interface Window {
-      Tawk_API?: TawkToAPI
-      Tawk_LoadStart?: Date
-    }
+  customStyle?: {
+    zIndex?: number
+    [key: string]: any
   }
-  
-  export {}
-  
-  
+  language?: string
+  [key: string]: any
+}
+
+interface Window {
+  Tawk_API?: TawkToAPI
+  Tawk_LoadStart?: Date
+}
+
