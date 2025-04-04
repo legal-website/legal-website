@@ -31,14 +31,17 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          // Return the user object with emailVerified status
+          // Check if the user's email is verified
+          const isEmailVerified = await checkEmailVerification(user.id, user.email)
+
+          // Return the user object
           return {
             id: user.id,
             email: user.email,
             name: user.name || "",
             role: user.role,
             image: user.image || null,
-            emailVerified: user.emailVerified || false,
+            isVerified: isEmailVerified, // Use a different property name
           }
         } catch (error) {
           console.error("Auth error:", error)
@@ -55,7 +58,7 @@ export const authOptions: NextAuthOptions = {
         token.name = user.name
         token.role = user.role
         token.picture = user.image
-        token.emailVerified = user.emailVerified
+        token.isVerified = user.isVerified // Use the same property name
       }
       return token
     },
@@ -66,7 +69,8 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name as string
         session.user.role = token.role as string
         session.user.image = token.picture as string | null
-        session.user.emailVerified = token.emailVerified as boolean
+        // Add isVerified to the session user object
+        session.user.isVerified = token.isVerified as boolean
       }
       return session
     },
@@ -80,6 +84,31 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   secret: process.env.NEXTAUTH_SECRET || "your-fallback-secret-should-be-changed",
+}
+
+// Helper function to check if the user's email is verified
+async function checkEmailVerification(userId: string, email: string): Promise<boolean> {
+  try {
+    // Check if there's an active verification token for this user
+    const verificationToken = await db.verificationToken.findFirst({
+      where: {
+        userId: userId,
+        identifier: email,
+        expires: {
+          gt: new Date(), // Token hasn't expired
+        },
+      },
+      orderBy: {
+        expires: "desc", // Get the most recent token
+      },
+    })
+
+    // If there's no token or the token is used (null), the email is verified
+    return !verificationToken
+  } catch (error) {
+    console.error("Error checking email verification:", error)
+    return false // Default to unverified if there's an error
+  }
 }
 
 const handler = NextAuth(authOptions)

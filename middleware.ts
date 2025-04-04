@@ -17,28 +17,27 @@ export async function middleware(request: NextRequest) {
     console.log(`API Request: ${path}`)
   }
 
-  // Check if the path is for admin routes
-  const isAdminPath = path.startsWith("/admin")
-
-  // Check if the path is for dashboard routes
-  const isDashboardPath = path.startsWith("/dashboard")
-
   // Get the token
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
   })
 
-  // Check if the path is for verify-email page
-  const isVerifyEmailPath = path.startsWith("/verify-email")
-
-  // If user is logged in but email is not verified, redirect to verify-email page
-  // Skip this check for API routes and the verify-email page itself
-  if (token && !token.emailVerified && !path.startsWith("/api/") && !isVerifyEmailPath) {
-    const url = new URL("/verify-email", request.url)
-    url.searchParams.set("email", token.email as string)
-    return NextResponse.redirect(url)
+  // Check if user is authenticated but email is not verified
+  if (token && token.isVerified === false) {
+    // Don't redirect if already on the verify-email page or accessing API routes
+    if (!path.startsWith("/verify-email") && !path.startsWith("/api/")) {
+      const url = new URL(`/verify-email`, request.url)
+      url.searchParams.set("email", token.email as string)
+      return NextResponse.redirect(url)
+    }
   }
+
+  // Check if the path is for admin routes
+  const isAdminPath = path.startsWith("/admin")
+
+  // Check if the path is for dashboard routes
+  const isDashboardPath = path.startsWith("/dashboard")
 
   // If trying to access admin routes
   if (isAdminPath) {
