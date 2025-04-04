@@ -1162,12 +1162,13 @@ export default function AllUsersPage() {
         body: JSON.stringify({
           name: `${newUserData.firstName} ${newUserData.lastName}`.trim(),
           email: newUserData.email,
-          password: newUserData.password,
+          password: newUserData.password, // Send the password as plaintext
           phone: newUserData.phone,
           company: newUserData.company,
           role: newUserData.role,
           notes: newUserData.notes,
           sendInvite: newUserData.sendInvite,
+          skipHashing: true, // Add this flag to tell the API not to hash the password
         }),
       })
 

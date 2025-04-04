@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await req.json()
-    const { name, email, password, role, sendInvite, phone, company, notes } = data
+    const { name, email, password, role, sendInvite, phone, company, notes, skipHashing } = data
 
     // Extract business data if provided
     const businessData = {
@@ -144,8 +144,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User with this email already exists" }, { status: 400 })
     }
 
-    // Hash the password
-    const hashedPassword = await hash(password, 10)
+    // Hash the password only if skipHashing is not true
+    const hashedPassword = skipHashing ? password : await hash(password, 10)
 
     // Create the user with fields that exist in the schema
     const user = await db.user.create({
