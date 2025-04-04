@@ -70,7 +70,7 @@ export default function ReadySection() {
                 >
                   Get the right guidance with an attorney by your side.
                 </p>
-                <Link href="/app/contact">
+                <Link href="/contact">
                 <Button className="text-[16px] font-[400] px-[80px] py-3 bg-[#22c984] hover:bg-[#1eac73] text-white rounded-md shadow-md">
                   Get Orizen help
                 </Button>

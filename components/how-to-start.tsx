@@ -1,6 +1,7 @@
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { ScrollAnimation } from "./GlobalScrollAnimation"
+import Link from "next/link"
 
 export default function HowToStart() {
   const steps = [
@@ -97,10 +98,11 @@ export default function HowToStart() {
                 Ready to get
                 <br /> your LLC?
               </h3>
-
+              <Link href="/#pricing" scroll={true}>
               <Button className="bg-[#22c984] hover:bg-[#1eac73] text-white w-full md:w-auto px-6 sm:px-8 md:px-12 lg:px-16 py-3 sm:py-4 text-base sm:text-lg rounded-[10px] shadow-lg transform transition-transform duration-300 hover:scale-105 md:mr-0 lg:mr-6">
                 Start my LLC
               </Button>
+              </Link>
             </div>
           </div>
         </div>

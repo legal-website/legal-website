@@ -522,7 +522,7 @@ useEffect(() => {
             </Link>
             <div className="hidden md:flex space-x-8 flex-1 justify-center">
               {[
-                { title: "Pricing", id: "pricing-section" },
+                { title: "Pricing", id: "pricing" },
                 { title: "Why Choose Us", id: "whyuse" },
                 { title: "How To Start", id: "how" },
                 { title: "FAQs", id: "faqs" },
@@ -646,7 +646,7 @@ useEffect(() => {
                 </Link>
                 <div className="flex flex-col space-y-4">
                   {[
-                    { title: "Pricing", id: "pricing-section" },
+                    { title: "Pricing", id: "pricing" },
                     { title: "Why Choose Us", id: "whyuse" },
                     { title: "How To Start", id: "how" },
                     { title: "FAQs", id: "faqs" },
@@ -985,12 +985,6 @@ useEffect(() => {
                       {isLoading ? "Signing in..." : "Sign In"}
                     </Button>
                   </form>
-                  <div className="text-center mt-3 text-xs md:text-sm">
-                    Don&apos;t have an account?{" "}
-                    <a href="/sign-up" className="text-[#22c984] underline">
-                      Sign up instead
-                    </a>
-                  </div>
                 </div>
               </motion.div>
             </div>

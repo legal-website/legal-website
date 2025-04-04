@@ -2,6 +2,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { FaStore, FaCheckCircle, FaClipboardList } from "react-icons/fa"
 import { ScrollAnimation } from "./GlobalScrollAnimation"
+import Link from "next/link"
 
 export default function CTASection() {
   return (
@@ -24,9 +25,11 @@ export default function CTASection() {
                 Start your LLC with the <span className="font-bold">industry leader</span> in online business formation.
               </p>
               <div className="mt-3 sm:mt-4 flex justify-center md:justify-start">
+              <Link href="/#pricing" scroll={true}>
                 <Button className="py-2 sm:py-3 text-sm sm:text-base md:text-lg bg-[#22c984] hover:bg-[#1eac73] text-white rounded-md shadow-md w-full sm:w-auto px-4 sm:px-6 md:px-8 lg:px-12">
                   Start my LLC
                 </Button>
+                </Link>
               </div>
             </div>
             <div className="w-full md:w-1/2 flex justify-center mt-4 md:mt-0">
