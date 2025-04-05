@@ -1496,44 +1496,11 @@ export default function DashboardPage() {
                   </tr>
                 ))
               ) : (
-                <>
-                  <tr>
-                    <td className="py-4 font-medium">Company documents</td>
-                    <td className="py-4">28 Mar 2024</td>
-                    <td className="py-4">
-                      <span className="font-medium">24</span>
-                    </td>
-                    <td className="py-4">
-                      <Button variant="ghost" size="icon">
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-4 font-medium">Scanned mail</td>
-                    <td className="py-4">04 Apr 2024</td>
-                    <td className="py-4">
-                      <span className="font-medium">18</span>
-                    </td>
-                    <td className="py-4">
-                      <Button variant="ghost" size="icon">
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-4 font-medium">Scanned mail</td>
-                    <td className="py-4">24 May 2024</td>
-                    <td className="py-4">
-                      <span className="font-medium">32</span>
-                    </td>
-                    <td className="py-4">
-                      <Button variant="ghost" size="icon">
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                </>
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-gray-500">
+                    No documents available
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

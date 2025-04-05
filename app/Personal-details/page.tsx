@@ -556,62 +556,64 @@ export default function PersonalDetailsPage() {
                 <h3 className="text-xl font-semibold border-b pb-2">Additional Members</h3>
 
                 {personalDetails.members.map((member: Member, index: number) => (
-                  <div key={member.id || index} className="border rounded-lg p-4 space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 sm:p-4 bg-gray-50">
-                      <div className="flex items-center gap-2">
-                        <CollapsibleTrigger asChild>
-                          <Button variant="ghost" size="sm" className="p-0 h-8 w-8 min-w-8 flex-shrink-0">
-                            {member.isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                          </Button>
-                        </CollapsibleTrigger>
-                        <h4 className="font-medium text-sm sm:text-base truncate">
-                          {member.memberName ? member.memberName : `Member ${index + 1}`}
-                        </h4>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Name</p>
-                      <p className="mt-1">{member.memberName}</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">ID Card (Front)</p>
-                        <div className="mt-1 border rounded-lg overflow-hidden">
-                          <img
-                            src={member.idCardFrontUrl || "/placeholder.svg"}
-                            alt="Member ID Card Front"
-                            className="w-full h-auto object-cover"
-                          />
+                  <Collapsible key={member.id || index}>
+                    <div className="border rounded-lg p-4 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 sm:p-4 bg-gray-50">
+                        <div className="flex items-center gap-2">
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-0 h-8 w-8 min-w-8 flex-shrink-0">
+                              {member.isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </Button>
+                          </CollapsibleTrigger>
+                          <h4 className="font-medium text-sm sm:text-base truncate">
+                            {member.memberName ? member.memberName : `Member ${index + 1}`}
+                          </h4>
                         </div>
                       </div>
 
                       <div>
-                        <p className="text-sm font-medium text-gray-500">ID Card (Back)</p>
-                        <div className="mt-1 border rounded-lg overflow-hidden">
-                          <img
-                            src={member.idCardBackUrl || "/placeholder.svg"}
-                            alt="Member ID Card Back"
-                            className="w-full h-auto object-cover"
-                          />
-                        </div>
+                        <p className="text-sm font-medium text-gray-500">Name</p>
+                        <p className="mt-1">{member.memberName}</p>
                       </div>
 
-                      {member.passportUrl && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                         <div>
-                          <p className="text-sm font-medium text-gray-500">Passport</p>
+                          <p className="text-sm font-medium text-gray-500">ID Card (Front)</p>
                           <div className="mt-1 border rounded-lg overflow-hidden">
                             <img
-                              src={member.passportUrl || "/placeholder.svg"}
-                              alt="Member Passport"
+                              src={member.idCardFrontUrl || "/placeholder.svg"}
+                              alt="Member ID Card Front"
                               className="w-full h-auto object-cover"
                             />
                           </div>
                         </div>
-                      )}
+
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">ID Card (Back)</p>
+                          <div className="mt-1 border rounded-lg overflow-hidden">
+                            <img
+                              src={member.idCardBackUrl || "/placeholder.svg"}
+                              alt="Member ID Card Back"
+                              className="w-full h-auto object-cover"
+                            />
+                          </div>
+                        </div>
+
+                        {member.passportUrl && (
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">Passport</p>
+                            <div className="mt-1 border rounded-lg overflow-hidden">
+                              <img
+                                src={member.passportUrl || "/placeholder.svg"}
+                                alt="Member Passport"
+                                className="w-full h-auto object-cover"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </Collapsible>
                 ))}
               </div>
             )}

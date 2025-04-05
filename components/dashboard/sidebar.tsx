@@ -163,7 +163,7 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
   const router = useRouter()
   const { data: session, status } = useSession()
   const [expandedItems, setExpandedItems] = useState<string[]>([])
-  const [businessName, setBusinessName] = useState("Rapid Ventures LLC")
+  const [businessName, setBusinessName] = useState("Your LLC")
   const [profileImage, setProfileImage] = useState<string | null>(null)
   const [showUploadOption, setShowUploadOption] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
