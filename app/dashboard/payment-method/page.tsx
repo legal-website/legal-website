@@ -317,6 +317,7 @@ export default function ClientPaymentMethodsPage() {
                 />
                 {refreshing ? "Refreshing..." : "Refresh"}
               </Button>
+              {/* 
               <Button
                 variant="default"
                 onClick={() => openAddDialog(activeTab as "bank_account" | "mobile_wallet")}
@@ -326,6 +327,7 @@ export default function ClientPaymentMethodsPage() {
                 <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
                 Add New
               </Button>
+              */}
             </div>
           </div>
         </div>
