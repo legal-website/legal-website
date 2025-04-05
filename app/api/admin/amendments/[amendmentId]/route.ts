@@ -103,3 +103,64 @@ export async function GET(request: Request, { params }: { params: { amendmentId:
   }
 }
 
+// Add DELETE method to handle amendment deletion
+export async function DELETE(request: Request, { params }: { params: { amendmentId: string } }) {
+  console.log(`DELETE /api/admin/amendments/${params.amendmentId} - Start`)
+
+  try {
+    // Check authentication and authorization
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      console.log(`DELETE /api/admin/amendments/${params.amendmentId} - Unauthorized`)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (session.user.role !== "ADMIN") {
+      console.log(`DELETE /api/admin/amendments/${params.amendmentId} - Forbidden`)
+      return NextResponse.json({ error: "Forbidden - Only administrators can delete amendments" }, { status: 403 })
+    }
+
+    // Get the amendment ID from the URL
+    const { amendmentId } = params
+
+    if (!amendmentId) {
+      console.log(`DELETE /api/admin/amendments/${params.amendmentId} - Missing amendment ID`)
+      return NextResponse.json({ error: "Amendment ID is required" }, { status: 400 })
+    }
+
+    // Check if amendment exists
+    console.log(`Checking if amendment ${amendmentId} exists before deletion`)
+    const existingAmendment = await db.amendment.findUnique({
+      where: { id: amendmentId },
+    })
+
+    if (!existingAmendment) {
+      console.log(`Amendment ${amendmentId} not found for deletion`)
+      return NextResponse.json({ error: "Amendment not found" }, { status: 404 })
+    }
+
+    // First delete any related status history records
+    await db.amendmentStatusHistory.deleteMany({
+      where: { amendmentId },
+    })
+
+    // Then delete the amendment
+    await db.amendment.delete({
+      where: { id: amendmentId },
+    })
+
+    console.log(`Amendment ${amendmentId} successfully deleted`)
+    return NextResponse.json({ success: true, message: "Amendment deleted successfully" })
+  } catch (error) {
+    console.error("Error deleting amendment:", error)
+    return NextResponse.json(
+      {
+        error: "Failed to delete amendment: " + (error instanceof Error ? error.message : "Unknown error"),
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+      { status: 500 },
+    )
+  }
+}
+
