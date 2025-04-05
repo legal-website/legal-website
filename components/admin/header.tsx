@@ -1,13 +1,14 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Bell, Moon, Sun, MessageSquare, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useTheme } from "@/context/theme-context"
 import { useToast } from "@/components/ui/use-toast"
+import { formatTicketId, getTicketsWithNewMessages, getStoredMessageCounts } from "@/lib/ticket-notifications"
 
 // Update the Notification interface to include "tickets" as a source type
 export interface Notification {
@@ -22,7 +23,6 @@ export interface Notification {
 
 // Create a context for notifications that can be used across the app
 import { createContext, useContext } from "react"
-import { getTicketsWithNewMessages, getStoredMessageCounts, formatTicketId } from "@/lib/ticket-notifications"
 
 interface NotificationContextType {
   notifications: Notification[]
@@ -73,69 +73,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     localStorage.setItem("adminNotifications", JSON.stringify(notifications))
   }, [notifications])
 
-  // Check for pending notifications
-  useEffect(() => {
-    const pendingNotifications = localStorage.getItem("pendingNotifications")
-    if (pendingNotifications) {
-      try {
-        const parsedNotifications = JSON.parse(pendingNotifications)
-        parsedNotifications.forEach((notification: any) => {
-          const newNotification: Notification = {
-            id: String(Date.now() + Math.random()), // Convert to string
-            title: notification.title,
-            description: notification.description,
-            time: "Just now",
-            read: false,
-            source: notification.source || "system",
-          }
-          setNotifications((prev) => [newNotification, ...prev])
-        })
-        // Clear pending notifications
-        localStorage.removeItem("pendingNotifications")
-      } catch (e) {
-        console.error("Failed to process pending notifications", e)
-      }
-    }
-  }, [])
-
-  // Add a useEffect to check for ticket notifications
-  useEffect(() => {
-    // Check for ticket notifications
-    const checkTicketNotifications = () => {
-      const ticketNotifications = localStorage.getItem("ticketNotifications")
-      if (ticketNotifications) {
-        try {
-          const parsedNotifications = JSON.parse(ticketNotifications)
-          if (Array.isArray(parsedNotifications) && parsedNotifications.length > 0) {
-            parsedNotifications.forEach((notification: any) => {
-              const newNotification: Notification = {
-                id: String(Date.now() + Math.random()), // Convert to string
-                title: notification.title || "New ticket message",
-                description: notification.description || "You have a new message in a ticket",
-                time: "Just now",
-                read: false,
-                source: "tickets",
-              }
-              setNotifications((prev) => [newNotification, ...prev])
-            })
-            // Clear ticket notifications
-            localStorage.removeItem("ticketNotifications")
-          }
-        } catch (e) {
-          console.error("Failed to process ticket notifications", e)
-        }
-      }
-    }
-
-    // Check for ticket notifications on mount
-    checkTicketNotifications()
-
-    // Set up interval to check for new ticket notifications
-    const intervalId = setInterval(checkTicketNotifications, 30000) // Check every 30 seconds
-
-    return () => clearInterval(intervalId)
-  }, [])
-
   const addNotification = (notification: Omit<Notification, "id" | "time" | "read">) => {
     const newNotification: Notification = {
       ...notification,
@@ -162,79 +99,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setNotifications((prev) => prev.filter((notification) => !notification.read))
   }
 
-  // Add this function near the other notification check functions
-  const checkForTicketNotifications = () => {
-    try {
-      // Check if there are any tickets with new messages
-      const ticketsWithNewMessages = getTicketsWithNewMessages()
-      if (ticketsWithNewMessages.length > 0) {
-        // Get the stored message counts to get ticket subjects
-        const storedCounts = getStoredMessageCounts()
-
-        // If there's just one ticket with new messages
-        if (ticketsWithNewMessages.length === 1) {
-          const ticketId = ticketsWithNewMessages[0]
-          const ticketInfo = storedCounts[ticketId]
-          if (ticketInfo) {
-            addNotification({
-              title: "New Message in Ticket",
-              description: `You have a new message in ticket #${formatTicketId(ticketId)}: ${ticketInfo.subject}`,
-              source: "tickets",
-              ticketId,
-            })
-          }
-        } else {
-          // Multiple tickets with new messages
-          addNotification({
-            title: "New Messages in Tickets",
-            description: `You have new messages in ${ticketsWithNewMessages.length} tickets`,
-            source: "tickets",
-          })
-        }
-      }
-
-      // Check for unread ticket messages count
-      const unreadTicketsData = localStorage.getItem("unreadTicketMessages")
-      if (unreadTicketsData) {
-        const unreadTickets = JSON.parse(unreadTicketsData)
-        const totalUnread = Object.values(unreadTickets).reduce((sum: number, count: any) => sum + Number(count), 0)
-
-        if (totalUnread > 0) {
-          // Add a notification for unread messages
-          addNotification({
-            title: "Unread Ticket Messages",
-            description: `You have ${totalUnread} unread message${totalUnread > 1 ? "s" : ""} in your tickets`,
-            source: "tickets",
-          })
-
-          // Clear the localStorage entry to avoid duplicate notifications
-          localStorage.removeItem("unreadTicketMessages")
-        }
-      }
-    } catch (error) {
-      console.error("Error checking for ticket notifications:", error)
-    }
-  }
-
-  const checkForPendingNotifications = () => {
-    // Implementation for checking pending notifications
-    // This is a placeholder, replace with your actual logic
-    console.log("Checking for pending notifications")
-  }
-
-  const checkForInvoiceNotifications = () => {
-    // Implementation for checking invoice notifications
-    // This is a placeholder, replace with your actual logic
-    console.log("Checking for invoice notifications")
-  }
-
-  // Find the useEffect that calls checkForPendingNotifications and add:
-  useEffect(() => {
-    checkForPendingNotifications()
-    checkForInvoiceNotifications() // If this exists
-    checkForTicketNotifications() // Add this line
-  }, [])
-
   return (
     <NotificationContext.Provider
       value={{
@@ -251,14 +115,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 }
 
 export default function AdminHeader() {
-  // At the top of the AdminHeader component, add:
   const [newMessageTicketsCount, setNewMessageTicketsCount] = useState(0)
+  const [newTicketsWithMessages, setNewTicketsWithMessages] = useState<string[]>([])
+  const { notifications, markAsRead, clearAllRead } = useNotifications()
+  const { theme, setTheme } = useTheme()
+  const { toast } = useToast()
+  const router = useRouter()
 
-  // Add a useEffect to check for tickets with new messages
   useEffect(() => {
     const checkNewMessageTickets = () => {
       const ticketsWithNewMessages = getTicketsWithNewMessages()
       setNewMessageTicketsCount(ticketsWithNewMessages.length)
+      setNewTicketsWithMessages(ticketsWithNewMessages)
     }
 
     // Check on mount
@@ -270,11 +138,6 @@ export default function AdminHeader() {
     return () => clearInterval(intervalId)
   }, [])
 
-  const { notifications, markAsRead, clearAllRead } = useNotifications()
-  const { theme, setTheme } = useTheme()
-  const { toast } = useToast()
-
-  // Update the unreadCount calculation
   const unreadCount = notifications.filter((notification) => !notification.read).length + newMessageTicketsCount
 
   const handleClearAllRead = () => {
@@ -285,7 +148,6 @@ export default function AdminHeader() {
     })
   }
 
-  // Update the getSourceIcon function to handle ticket notifications
   const getSourceIcon = (source: string) => {
     switch (source) {
       case "invoices":
@@ -323,21 +185,30 @@ export default function AdminHeader() {
                 <h3 className="font-medium">Ticket Messages</h3>
               </div>
               <div className="max-h-80 overflow-y-auto">
-                {newMessageTicketsCount > 0 ? (
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-left p-3"
-                    onClick={() => (window.location.href = "/admin/tickets")}
-                  >
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    <div>
-                      <p className="font-medium text-sm">New Ticket Messages</p>
-                      <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">
-                        You have {newMessageTicketsCount} ticket{newMessageTicketsCount > 1 ? "s" : ""} with new
-                        messages
-                      </p>
-                    </div>
-                  </Button>
+                {newTicketsWithMessages.length > 0 ? (
+                  newTicketsWithMessages.map((ticketId) => {
+                    const storedCounts = getStoredMessageCounts()
+                    const ticketInfo = storedCounts[ticketId]
+
+                    return (
+                      <DropdownMenuItem
+                        key={ticketId}
+                        className="w-full justify-start text-left p-3"
+                        onClick={() => {
+                          markAsRead(ticketId)
+                          router.push(`/admin/tickets/${ticketId}`)
+                        }}
+                      >
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        <div>
+                          <p className="font-medium text-sm">New Message in Ticket #{formatTicketId(ticketId)}</p>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">
+                            {ticketInfo?.subject || "Unknown Ticket"}
+                          </p>
+                        </div>
+                      </DropdownMenuItem>
+                    )
+                  })
                 ) : (
                   <div className="p-4 text-center text-gray-500 dark:text-gray-400">
                     <p>No new messages</p>
@@ -345,12 +216,7 @@ export default function AdminHeader() {
                 )}
               </div>
               <div className="p-2 border-t">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => (window.location.href = "/admin/tickets")}
-                >
+                <Button variant="ghost" size="sm" className="w-full" onClick={() => router.push("/admin/tickets")}>
                   View all tickets
                 </Button>
               </div>
