@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   title: "Orizen Inc - Start your LLC",
   description: "Start your LLC with confidence",
   icons: {
-    icon: '/faviconorizen.png',
+    icon: '/favicon.png',
   },
 };
 
