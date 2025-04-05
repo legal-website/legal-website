@@ -961,6 +961,11 @@ useEffect(() => {
                         )}
                       </button>
                     </div>
+                    <div className="text-right">
+                      <Link href="/forgot-password" className="text-sm text-[#22c984] hover:underline">
+                        Forgot Password?
+                      </Link>
+                    </div>
                     <div>
                       <label className="flex items-center space-x-2">
                         <input
