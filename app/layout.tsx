@@ -19,9 +19,11 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Orizen Inc - Start your LLC",
-  icons: "/faviconorizen.png",
   description: "Start your LLC with confidence",
-}
+  icons: {
+    icon: '/faviconorizen.png',
+  },
+};
 
 export default function RootLayout({
   children,
