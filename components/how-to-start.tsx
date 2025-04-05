@@ -15,7 +15,7 @@ export default function HowToStart() {
       icon: "/agent.svg",
       title: "Pick a registered agent",
       description:
-        "Also called a statutory agent or resident agent, a registered agent receives your LLC's Orizen notices and Orizen documents during normal business hours. Most states require it, and we can do it for you.",
+        "Also called a statutory agent or resident agent, a registered agent receives your LLC's Orizen Inc notices and Orizen Inc documents during normal business hours. Most states require it, and we can do it for you.",
     },
     {
       icon: "/organization.svg",

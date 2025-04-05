@@ -10,7 +10,6 @@ interface User {
   name: string | null
   email: string
 }
-
 interface Deadline {
   id: string
   title: string

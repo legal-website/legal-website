@@ -11,7 +11,7 @@ export default function WhyUseOrizen() {
             className="text-2xl sm:text-3xl md:text-[40px] font-medium text-center mb-6 sm:mb-8 md:mb-12 text-gray-900"
             style={{ fontFamily: "Montserrat" }}
           >
-            Why use Orizen to set up your LLC?
+            Why use Orizen Inc to set up your LLC?
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5 md:gap-6">

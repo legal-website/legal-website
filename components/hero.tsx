@@ -114,8 +114,8 @@ export default function Hero() {
               {/* Testimonial Card */}
               <div className="bg-white p-3 sm:p-4 md:p-6 rounded-xl md:rounded-2xl shadow-lg absolute right-3 bottom-3 sm:right-4 sm:bottom-4 md:right-6 md:bottom-6 max-w-[180px] sm:max-w-[220px] md:max-w-sm">
                 <p className="text-gray-800 text-xs sm:text-sm md:text-lg italic leading-tight sm:leading-relaxed">
-                  Orizen was an incredible partner. My business feels so sound that I can&apos;t wait to hire more
-                  people... and have Orizen there with me as I grow.
+                  Orizen Inc was an incredible partner. My business feels so sound that I can&apos;t wait to hire more
+                  people... and have Orizen Inc there with me as I grow.
                 </p>
                 <div className="mt-2 md:mt-4">
                   <p className="font-semibold text-gray-900 text-xs sm:text-sm md:text-base">Shannon Greevy</p>

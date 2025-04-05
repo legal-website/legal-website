@@ -9,19 +9,19 @@ export function ContactPopup() {
   const [isOpen, setIsOpen] = useState(false)
 
   const emails = [
-    { address: "test@mail.com", label: "General Inquiries" },
-    { address: "info@orizen.com", label: "Information" },
-    { address: "orizeninc@gmail.com", label: "Support" },
+    { address: "Hello@orizeninc.com", label: "General Inquiries" },
+    { address: "info@orizeninc.com", label: "Information" },
+    { address: "Support@orizeninc.com", label: "Support" },
   ]
 
   const phones = [
-    { number: "+923165010567", label: "Customer Support" },
-    { number: "+923135971857", label: "Sales" },
+    { number: "+92 329 9438557", label: "Customer Support" },
+    { number: "+92 337 8378594", label: "Sales" },
   ]
 
   const whatsapp = [
-    { number: "+923165010567", label: "Customer Support", link: "demo.link.com" },
-    { number: "+923135971857", label: "Sales", link: "demo2.link.com" },
+    { number: "+92 329 9438557", label: "Customer Support", link: "https://wa.link/nrfsdc" },
+    { number: "+92 337 8378594", label: "Sales", link: "https://wa.link/p473ft" },
   ]
 
   return (
@@ -39,7 +39,7 @@ export function ContactPopup() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[550px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">Contact Orizen Support</DialogTitle>
+          <DialogTitle className="text-xl font-bold">Contact Orizen Inc Support</DialogTitle>
         </DialogHeader>
 
         <div className="py-4">

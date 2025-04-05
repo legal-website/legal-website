@@ -1,9 +1,9 @@
-import { PrismaClient } from "@prisma/client"
+
 import { v4 as uuidv4 } from "uuid"
 import nodemailer from "nodemailer"
 import { scrypt, randomBytes } from "crypto"
 import { promisify } from "util"
-
+import { PrismaClient } from "@prisma/client"
 const scryptAsync = promisify(scrypt)
 const prisma = new PrismaClient()
 

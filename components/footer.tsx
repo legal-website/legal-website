@@ -160,7 +160,7 @@ export default function Footer() {
             <h3 className="font-semibold text-lg mb-6">Orizen Inc Tools</h3>
             <div className="space-y-3">
               <Link href="/login" className="block text-gray-300 hover:text-[#22c984] transition-colors">
-                Orizen Login
+                Orizen Inc Login
               </Link>
               <Link
                 href="/dashboard/business/profile"
@@ -188,7 +188,7 @@ export default function Footer() {
 
           {/* Logo Section */}
           <div className="flex flex-col items-center">
-            <div className="border-[10px] md:border-[14px] border-[#22c984] rounded-lg flex items-center justify-center overflow-hidden w-40 h-40 md:w-52 md:h-52 shadow-[0_4px_10px_rgba(0,0,0,0.15)]">
+            <div className=" flex items-center justify-center overflow-hidden w-40 h-40 md:w-52 md:h-52 shadow-[0_4px_10px_rgba(0,0,0,0.15)]">
               <Image
                 src="/iconfooter.webp"
                 alt="Footer Logo"
@@ -251,7 +251,7 @@ export default function Footer() {
         {/* New Bottom Bar */}
         <div className="border-t border-gray-800 py-4">
           <div className="container mx-auto px-4 md:px-6 lg:px-12 text-center text-gray-400 text-sm flex flex-col md:flex-row justify-between items-center gap-2">
-            <span>© 2024 Orizen Exposition. All rights reserved</span>
+            <span>© 2024 Orizen Inc Exposition. All rights reserved</span>
             <span>
               Developed by
               <Link
