@@ -167,7 +167,7 @@ export default function CustomerSuccess() {
           <div className="sm:col-span-2 lg:col-span-3 grid grid-cols-2 sm:grid-cols-1 gap-4 sm:gap-6 md:gap-8 lg:space-y-8 lg:block">
             <div className="bg-gray-100 p-4 sm:p-6 md:p-8 rounded-lg sm:rounded-xl md:rounded-2xl flex items-center justify-center">
               <Image
-                src="/lz.svg"
+                src="/ori.svg"
                 alt="Orizen Inc Guarantee"
                 width={120}
                 height={120}

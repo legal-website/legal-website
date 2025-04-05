@@ -63,7 +63,7 @@ export default function NeedProjectSection() {
 
               <div className="space-y-4">
                 <h3 className="text-xl font-medium text-white">Call Us Anytime</h3>
-                <p className="text-4xl font-bold text-white tracking-tight">+123 456 (4567) 890</p>
+                <p className="text-4xl font-bold text-white tracking-tight">+92329 9438557</p>
                 <p className="text-gray-400 max-w-sm">
                   Expertly streamline collaborative strategies and implement industry-leading best practices for
                   seamless LLC operations.

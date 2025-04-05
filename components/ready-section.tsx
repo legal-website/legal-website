@@ -91,7 +91,7 @@ export default function ReadySection() {
                       href="tel:(855)787-1221"
                       className="text-[#22c984] hover:underline"
                     >
-                      (855) 787-1221
+                      +923299438557
                     </a>
                   </h3>
                 </div>

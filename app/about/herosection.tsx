@@ -173,7 +173,7 @@ export default function AboutUs() {
 
       {/* Video Modal */}
       <VideoModal
-        videoId="dQw4w9WgXcQ" // Replace with your actual YouTube video ID
+        videoId="tVaZ_BpV1vc" // Replace with your actual YouTube video ID
         isOpen={isVideoModalOpen}
         onClose={() => setIsVideoModalOpen(false)}
       />

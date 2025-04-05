@@ -107,23 +107,25 @@ export default function Footer() {
             <h3 className="font-semibold text-lg mb-6">Contact Us Directly</h3>
             <div className="space-y-4">
               <Link
-                href="tel:(123) 456-7896"
+                href="tel:+923299438557"
                 className="flex items-center gap-2 text-gray-300 hover:text-[#22c984] transition-colors"
               >
-                <Phone className="h-4 w-4 flex-shrink-0" /> <span className="break-all">(123) 456-7896</span>
+                <Phone className="h-4 w-4 flex-shrink-0" /> <span className="break-all">+92329 9438557</span>
               </Link>
               <Link
-                href="mailto:info@orizen.com"
+                href="mailto:Info@orizeninc.com"
                 className="flex items-center gap-2 text-gray-300 hover:text-[#22c984] transition-colors"
               >
-                <Mail className="h-4 w-4 flex-shrink-0" /> <span className="break-all">info@orizen.com</span>
+                <Mail className="h-4 w-4 flex-shrink-0" /> <span className="break-all">Info@orizeninc.com</span>
               </Link>
             </div>
 
             <div className="mt-8 bg-[#262626] p-6 md:p-10 rounded-lg shadow-lg">
+            <Link href="/#pricing" scroll={true}>
               <Button className="w-full bg-[#22c984] hover:bg-[#8ef9cc] hover:text-black py-3 transition-all duration-300 shadow-md hover:shadow-lg">
                 START A PROJECT
               </Button>
+              </Link>
               <Button
                 variant="outline"
                 className="w-full py-3 mt-4 text-black border-white hover:bg-[#22c984] hover:border-[#22c984] transition-all duration-300 shadow-md hover:shadow-lg"
@@ -157,11 +159,30 @@ export default function Footer() {
           <div className="ml-0 sm:ml-[15px] md:ml-[35px]">
             <h3 className="font-semibold text-lg mb-6">Orizen Inc Tools</h3>
             <div className="space-y-3">
-              {["Orizen Login", "Track Your Package", "Insights", "Careers"].map((item) => (
-                <Link key={item} href="#" className="block text-gray-300 hover:text-[#22c984] transition-colors">
-                  {item}
-                </Link>
-              ))}
+              <Link href="/login" className="block text-gray-300 hover:text-[#22c984] transition-colors">
+                Orizen Login
+              </Link>
+              <Link
+                href="/dashboard/business/profile"
+                className="block text-gray-300 hover:text-[#22c984] transition-colors"
+              >
+                Business Profile
+              </Link>
+              <Link href="/dashboard" className="block text-gray-300 hover:text-[#22c984] transition-colors">
+                Track LLC Progress
+              </Link>
+              <Link href="/dashboard/affiliate" className="block text-gray-300 hover:text-[#22c984] transition-colors">
+                Become a Affiliate Partner
+              </Link>
+              <Link href="/dashboard/community" className="block text-gray-300 hover:text-[#22c984] transition-colors">
+                Contribute
+              </Link>
+              <Link
+                href="/dashboard/documents/business"
+                className="block text-gray-300 hover:text-[#22c984] transition-colors"
+              >
+                My Documents
+              </Link>
             </div>
           </div>
 
@@ -232,7 +253,7 @@ export default function Footer() {
           <div className="container mx-auto px-4 md:px-6 lg:px-12 text-center text-gray-400 text-sm flex flex-col md:flex-row justify-between items-center gap-2">
             <span>© 2024 Orizen Exposition. All rights reserved</span>
             <span>
-              Web Design by
+              Developed by
               <Link
                 href="https://beta-tech.solutions"
                 className="hover:text-[#22c984] transition-colors"

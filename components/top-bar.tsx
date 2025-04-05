@@ -22,23 +22,22 @@ export default function TopBar() {
             <div className="flex items-center">
               <Phone className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-1.5 text-white group-hover:text-black transition-colors" />
               <a
-                href="tel:+1 123 456 789"
+                href="tel:+923299438557"
                 className="text-[12px] sm:text-[14px] font-medium hover:text-black transition-colors"
               >
-                +1 123 456 789
+                +92 329 9438557
               </a>
             </div>
           </div>
-
           {/* Right Section - Contact & Socials */}
           <div className="flex items-center space-x-2 sm:space-x-6">
             {/* Email */}
             <Link
-              href="mailto:info@orizen.com"
+              href="mailto:Info@orizeninc.com"
               className="flex items-center text-[12px] sm:text-[14px] font-medium hover:text-gray-300"
             >
               <Mail className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-1.5 text-[#22c984]" />
-              info@orizen.com
+              Info@orizeninc.com
             </Link>
 
             {/* Social Icons - Hidden on mobile */}
