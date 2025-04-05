@@ -2,7 +2,6 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { Role } from "@/lib/enums"
 import { v4 as uuidv4 } from "uuid"
 
 // Add the GET function to fetch a post by ID
@@ -42,16 +41,21 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     // Check if current user has liked the post
     const session = await getServerSession(authOptions)
+    const userId = session?.user ? (session.user as any).id : null
     let isLiked = false
 
-    if (session?.user) {
-      const like = await db.like.findFirst({
-        where: {
-          postId: postId,
-          authorId: (session.user as any).id,
-        },
-      })
-      isLiked = !!like
+    if (userId) {
+      try {
+        const likeCheck = await db.like.findFirst({
+          where: {
+            postId: postId,
+            authorId: userId,
+          },
+        })
+        isLiked = !!likeCheck
+      } catch (e) {
+        console.log("Like check failed")
+      }
     }
 
     // Format the post for response
@@ -62,17 +66,18 @@ export async function GET(request: Request, { params }: { params: { id: string }
       author: {
         id: post.author?.id || "",
         name: post.author?.name || "Unknown",
-        avatar: post.author?.image || `/api/placeholder?height=40&width=40`,
+        avatar: post.author?.image || `/placeholder.svg?height=40&width=40`,
       },
-      date: post.createdAt.toISOString(),
-      likes: post._count?.likes || 0,
-      comments: post._count?.comments || 0,
-      isLiked,
+      status: post.status,
+      date: new Date(post.createdAt).toISOString(),
       tags:
         post.tags?.map((postTag) => ({
           id: postTag.tag?.id || "",
           name: postTag.tag?.name || "Unknown",
         })) || [],
+      likes: post._count?.likes || 0,
+      replies: post._count?.comments || 0,
+      isLiked,
     }
 
     return NextResponse.json({
@@ -125,8 +130,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // Get the existing post
     const existingPostResult = await db.$queryRawUnsafe(
       `
-    SELECT * FROM Post WHERE id = ?
-  `,
+   SELECT * FROM Post WHERE id = ?
+ `,
       postId,
     )
 
@@ -137,7 +142,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const existingPost = existingPostResult[0]
 
     // Check if user is authorized to update this post
-    const isAdmin = (session.user as any).role === Role.ADMIN
+    const isAdmin = session?.user && (session.user as any).role === "ADMIN"
     const isAuthor = existingPost.authorId === (session.user as any).id
 
     if (!isAdmin && !isAuthor) {
@@ -151,14 +156,14 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // Update the post
     await db.$executeRawUnsafe(
       `
-    UPDATE Post
-    SET 
-      title = ?,
-      content = ?,
-      status = ?,
-      updatedAt = ?
-    WHERE id = ?
-  `,
+   UPDATE Post
+   SET 
+     title = ?,
+     content = ?,
+     status = ?,
+     updatedAt = ?
+   WHERE id = ?
+ `,
       title || existingPost.title,
       content || existingPost.content,
       updatedStatus,
@@ -171,8 +176,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       // Remove existing tags
       await db.$executeRawUnsafe(
         `
-      DELETE FROM PostTag WHERE postId = ?
-    `,
+     DELETE FROM PostTag WHERE postId = ?
+   `,
         postId,
       )
 
@@ -181,8 +186,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         // Find or create the tag
         const tagResult = await db.$queryRawUnsafe(
           `
-        SELECT * FROM Tag WHERE name = ?
-      `,
+       SELECT * FROM Tag WHERE name = ?
+     `,
           tagName,
         )
 
@@ -192,9 +197,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
           tagId = uuidv4()
           await db.$executeRawUnsafe(
             `
-          INSERT INTO Tag (id, name)
-          VALUES (?, ?)
-        `,
+           INSERT INTO Tag (id, name)
+           VALUES (?, ?)
+         `,
             tagId,
             tagName,
           )
@@ -206,9 +211,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         const postTagId = uuidv4()
         await db.$executeRawUnsafe(
           `
-        INSERT INTO PostTag (id, postId, tagId)
-        VALUES (?, ?, ?)
-      `,
+       INSERT INTO PostTag (id, postId, tagId)
+       VALUES (?, ?, ?)
+     `,
           postTagId,
           postId,
           tagId,
@@ -229,6 +234,38 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     })
   } catch (error) {
     console.error("Error updating post:", error)
+    return NextResponse.json({ success: false, error: String(error) }, { status: 500 })
+  }
+}
+
+// Add the DELETE function to delete a post
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  try {
+    // Check if user is admin
+    const session = await getServerSession(authOptions)
+    const isAdmin = session?.user && (session.user as any).role === "ADMIN"
+
+    if (!isAdmin) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+
+    const postId = params.id
+
+    // Delete the post
+    await db.$executeRawUnsafe(
+      `
+     DELETE FROM \`Post\`
+     WHERE id = ?
+   `,
+      postId,
+    )
+
+    return NextResponse.json({
+      success: true,
+      message: "Post deleted successfully",
+    })
+  } catch (error) {
+    console.error("Error deleting post:", error)
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 })
   }
 }
