@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Bell, Moon, Sun, MessageSquare, HelpCircle, Trash2 } from "lucide-react"
+import { Bell, Moon, Sun, MessageSquare, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useTheme } from "@/context/theme-context"
@@ -307,13 +307,55 @@ export default function AdminHeader() {
         <div className="flex-1">{/* Logo or title could go here */}</div>
 
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="icon" title="Help">
-            <HelpCircle className="h-5 w-5" />
-          </Button>
-
-          <Button variant="ghost" size="icon" title="Messages">
-            <MessageSquare className="h-5 w-5" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" title="Messages" className="relative">
+                <MessageSquare className="h-5 w-5" />
+                {newMessageTicketsCount > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
+                    {newMessageTicketsCount}
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80">
+              <div className="p-2 border-b">
+                <h3 className="font-medium">Ticket Messages</h3>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {newMessageTicketsCount > 0 ? (
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-left p-3"
+                    onClick={() => (window.location.href = "/admin/tickets")}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    <div>
+                      <p className="font-medium text-sm">New Ticket Messages</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">
+                        You have {newMessageTicketsCount} ticket{newMessageTicketsCount > 1 ? "s" : ""} with new
+                        messages
+                      </p>
+                    </div>
+                  </Button>
+                ) : (
+                  <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                    <p>No new messages</p>
+                  </div>
+                )}
+              </div>
+              <div className="p-2 border-t">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => (window.location.href = "/admin/tickets")}
+                >
+                  View all tickets
+                </Button>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
