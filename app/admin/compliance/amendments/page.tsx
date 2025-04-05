@@ -1,34 +1,23 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { toast } from "@/lib/toast-utils"
-import {
-  Loader2,
-  FileText,
-  DollarSign,
-  ChevronLeft,
-  ChevronRight,
-  RefreshCw,
-  Search,
-  SortDesc,
-  SortAsc,
-} from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { toast } from "@/components/ui/use-toast"
 
 // Define Amendment type with expanded status options
 interface Amendment {
@@ -64,7 +53,7 @@ export enum AmendmentStatus {
 // Sort options
 type SortOption = "newest" | "oldest" | "name-asc" | "name-desc"
 
-export default function AmendmentsPage() {
+export default function AdminAmendmentsPage() {
   const [amendments, setAmendments] = useState<Amendment[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -94,6 +83,10 @@ export default function AmendmentsPage() {
   // Add a new state for delete confirmation dialog
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [amendmentToDelete, setAmendmentToDelete] = useState<string | null>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null)
 
   // Add a new function to handle opening the delete dialog
   const handleOpenDeleteDialog = (amendmentId: string) => {
@@ -102,7 +95,7 @@ export default function AmendmentsPage() {
   }
 
   // Add a new function to handle the deletion process
-  const handleDeleteAmendment = async () => {
+  const handleDeleteAmendmentOld = async () => {
     if (!amendmentToDelete) {
       console.error("No amendment selected for deletion.")
       return
@@ -354,7 +347,7 @@ export default function AmendmentsPage() {
     }
   }
 
-  const fetchAmendments = async () => {
+  const fetchAmendmentsOld = async () => {
     try {
       console.log("Fetching amendments...")
       setLoading(true)
@@ -389,6 +382,27 @@ export default function AmendmentsPage() {
     } catch (err) {
       console.error("Error fetching amendments:", err)
       setError(err instanceof Error ? err.message : "An unknown error occurred")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchAmendments = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch("/api/admin/amendments")
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`)
+      }
+      const data = await response.json()
+      setAmendments(data)
+    } catch (error) {
+      console.error("Failed to fetch amendments:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load amendments. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -675,17 +689,123 @@ export default function AmendmentsPage() {
     setCurrentPage((prev) => Math.max(prev - 1, 1))
   }
 
+  const handleViewDetails = async (id: string) => {
+    try {
+      const response = await fetch(`/api/admin/amendments/${id}`)
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`)
+      }
+      const data = await response.json()
+      setSelectedAmendment(data)
+      setIsDetailsOpen(true)
+    } catch (error) {
+      console.error("Failed to fetch amendment details:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load amendment details. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteAmendment = async (id: string) => {
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/admin/amendments/${id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(`Server error: ${response.status} - ${errorData.error || "Unknown error"}`)
+      }
+
+      // Remove the deleted amendment from the state
+      setAmendments(amendments.filter((amendment) => amendment.id !== id))
+
+      toast({
+        title: "Success",
+        description: "Amendment has been deleted successfully.",
+      })
+    } catch (error) {
+      console.error("Error deleting amendment:", error)
+      toast({
+        title: "Error",
+        description: `Failed to delete amendment: ${error instanceof Error ? error.message : "Unknown error"}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+      setIsDeleteDialogOpen(false)
+      setDeletingId(null)
+    }
+  }
+
+  const confirmDelete = (id: string) => {
+    setDeletingId(id)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "pending":
+        return "outline"
+      case "approved":
+        return "success"
+      case "rejected":
+        return "destructive"
+      case "in_progress":
+        return "secondary"
+      default:
+        return "default"
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-6">Amendments</h1>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-4 w-3/4 mb-2" />
+                <Skeleton className="h-3 w-1/2" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-3 w-full mb-2" />
+                <Skeleton className="h-3 w-full mb-2" />
+                <Skeleton className="h-3 w-3/4" />
+              </CardContent>
+              <CardFooter>
+                <Skeleton className="h-8 w-full" />
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto py-4 sm:py-6 px-3 sm:px-[5%] mb-20 sm:mb-40">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold">Compliance Amendments</h1>
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={testDatabaseConnection} size="sm">
+          {/*<Button variant="outline" onClick={testDatabaseConnection} size="sm">
             Test DB Connection
           </Button>
           <Button variant="outline" onClick={inspectDatabase} size="sm">
             Inspect DB
-          </Button>
+          </Button>*/}
         </div>
       </div>
 
@@ -698,20 +818,20 @@ export default function AmendmentsPage() {
         </div>
       )}
 
-      {loading ? (
+      {/*{loading ? (
         <div className="text-center py-10">
           <div className="flex flex-col items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
             <p className="text-lg">Loading amendments...</p>
           </div>
         </div>
-      ) : (
-        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <div className="space-y-4 mb-4">
-            {/* Filters row */}
-            <div className="flex flex-col sm:flex-row justify-end items-start sm:items-center gap-4">
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <div className="relative flex-1 sm:w-64">
+      ) : (*/}
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <div className="space-y-4 mb-4">
+          {/* Filters row */}
+          <div className="flex flex-col sm:flex-row justify-end items-start sm:items-center gap-4">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              {/*<div className="relative flex-1 sm:w-64">
                   <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
                   <Input
                     placeholder="Filter by client name/email"
@@ -760,15 +880,19 @@ export default function AmendmentsPage() {
                     <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
                     {refreshing && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500"></span>}
                   </Button>
-                </div>
-              </div>
+                </div>*/}
             </div>
+          </div>
 
-            {/* Tabs row */}
-            <div className="w-full overflow-x-auto pb-2">
-              <TabsList className="flex flex-nowrap min-w-max">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value={AmendmentStatus.PENDING}>Pending</TabsTrigger>
+          {/* Tabs row */}
+          <div className="w-full overflow-x-auto pb-2">
+            <TabsList className="flex flex-nowrap min-w-max">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="pending">Pending</TabsTrigger>
+              <TabsTrigger value="in_progress">In Progress</TabsTrigger>
+              <TabsTrigger value="approved">Approved</TabsTrigger>
+              <TabsTrigger value="rejected">Rejected</TabsTrigger>
+              {/*<TabsTrigger value={AmendmentStatus.PENDING}>Pending</TabsTrigger>
                 <TabsTrigger value={AmendmentStatus.IN_REVIEW}>In Review</TabsTrigger>
                 <TabsTrigger value={AmendmentStatus.WAITING_FOR_PAYMENT}>Payment Required</TabsTrigger>
                 <TabsTrigger value={AmendmentStatus.PAYMENT_CONFIRMATION_PENDING}>Payment Confirmation</TabsTrigger>
@@ -776,246 +900,57 @@ export default function AmendmentsPage() {
                 <TabsTrigger value={AmendmentStatus.AMENDMENT_IN_PROGRESS}>In Progress</TabsTrigger>
                 <TabsTrigger value={AmendmentStatus.AMENDMENT_RESOLVED}>Resolved</TabsTrigger>
                 <TabsTrigger value={AmendmentStatus.APPROVED}>Approved</TabsTrigger>
-                <TabsTrigger value={AmendmentStatus.REJECTED}>Rejected</TabsTrigger>
-              </TabsList>
-            </div>
+                <TabsTrigger value={AmendmentStatus.REJECTED}>Rejected</TabsTrigger>*/}
+            </TabsList>
           </div>
+        </div>
 
-          <TabsContent value={activeTab}>
-            {filteredAmendments.length === 0 ? (
-              <div className="text-center py-10 bg-gray-50 rounded-lg">
-                <p className="text-lg text-gray-500">No amendments found</p>
+        <TabsContent value={activeTab}>
+          {filteredAmendments.length === 0 ? (
+            <div className="text-center py-10 bg-gray-50 rounded-lg">
+              <p className="text-lg text-gray-500">No amendments found</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
+                {filteredAmendments.map((amendment) => (
+                  <Card key={amendment.id}>
+                    <CardHeader>
+                      <CardTitle>{amendment.type}</CardTitle>
+                      <CardDescription>
+                        <div className="flex justify-between items-center">
+                          <span>Submitted by {amendment.userName}</span>
+                          <Badge variant={getStatusBadgeVariant(amendment.status)}>
+                            {amendment.status.replace("_", " ")}
+                          </Badge>
+                        </div>
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm mb-2">
+                        <strong>Date:</strong> {formatDate(amendment.createdAt)}
+                      </p>
+                      <p className="text-sm mb-2">
+                        <strong>Email:</strong> {amendment.userEmail}
+                      </p>
+                      <p className="text-sm truncate">
+                        <strong>Details:</strong> {amendment.details || "No details provided"}
+                      </p>
+                    </CardContent>
+                    <CardFooter className="flex justify-between">
+                      <Button variant="outline" onClick={() => handleViewDetails(amendment.id)}>
+                        View Details
+                      </Button>
+                      <Button variant="destructive" onClick={() => confirmDelete(amendment.id)}>
+                        Delete
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
               </div>
-            ) : (
-              <>
-                <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
-                  {currentItems.map((amendment) => (
-                    <Card
-                      key={amendment.id}
-                      className="overflow-hidden border-l-2 border-l-primary shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      <CardHeader className="pb-2 bg-gray-50">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                          <CardTitle className="text-lg break-words">{amendment.type}</CardTitle>
-                          <StatusBadge status={amendment.status} />
-                        </div>
-                        <CardDescription className="break-words">
-                          Submitted by {amendment.userName} ({amendment.userEmail})
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pb-2 pt-4">
-                        <div className="mb-3">
-                          <h4 className="text-sm font-medium text-gray-700">Details:</h4>
-                          <p className="text-sm text-gray-600 mt-1 break-words">{amendment.details}</p>
-                        </div>
 
-                        {amendment.documentUrl && (
-                          <div className="mb-3 p-2 bg-blue-50 rounded-md">
-                            <h4 className="text-sm font-medium text-gray-700 flex items-center">
-                              <FileText className="h-4 w-4 mr-1 text-blue-500" /> Document:
-                            </h4>
-                            <a
-                              href={amendment.documentUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-blue-500 hover:underline mt-1 inline-block"
-                            >
-                              View Document
-                            </a>
-                          </div>
-                        )}
-
-                        {amendment.paymentAmount !== null && (
-                          <div className="mb-3 p-2 bg-yellow-50 rounded-md">
-                            <h4 className="text-sm font-medium text-gray-700 flex items-center">
-                              <DollarSign className="h-4 w-4 mr-1 text-yellow-500" /> Payment Amount:
-                            </h4>
-                            <p className="text-sm font-semibold text-gray-800 mt-1">
-                              {formatCurrency(amendment.paymentAmount)}
-                            </p>
-                          </div>
-                        )}
-
-                        {amendment.notes && (
-                          <div className="mb-3 p-2 bg-gray-50 rounded-md">
-                            <h4 className="text-sm font-medium text-gray-700">Notes:</h4>
-                            <p className="text-sm text-gray-600 mt-1 break-words">{amendment.notes}</p>
-                          </div>
-                        )}
-
-                        {/* Receipt verification section */}
-                        {amendment.status === AmendmentStatus.PAYMENT_CONFIRMATION_PENDING && amendment.receiptUrl && (
-                          <div className="mb-3 p-3 bg-blue-50 rounded-md">
-                            <h4 className="text-sm font-medium text-gray-700 flex items-center">
-                              <FileText className="h-4 w-4 mr-1 text-blue-500" /> Receipt Verification:
-                            </h4>
-                            <a
-                              href={amendment.receiptUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-blue-500 hover:underline block mb-2 mt-1"
-                            >
-                              View Receipt
-                            </a>
-                            <div className="flex gap-2 mt-2">
-                              <Button
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700"
-                                onClick={() => verifyPaymentReceipt(amendment.id)}
-                                disabled={loadingAmendmentId === amendment.id}
-                              >
-                                {loadingAmendmentId === amendment.id && selectedAction === "verify_payment" ? (
-                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                ) : null}
-                                Verify
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-red-600 text-red-600 hover:bg-red-50"
-                                onClick={() => rejectPaymentReceipt(amendment.id)}
-                                disabled={loadingAmendmentId === amendment.id}
-                              >
-                                {loadingAmendmentId === amendment.id && selectedAction === "reject_payment" ? (
-                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                ) : null}
-                                Reject
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Amendment process section */}
-                        {amendment.status === AmendmentStatus.PAYMENT_RECEIVED && (
-                          <div className="mb-3 mt-3">
-                            <Button
-                              size="sm"
-                              className="w-full"
-                              onClick={() => startAmendmentProcess(amendment.id)}
-                              disabled={loadingAmendmentId === amendment.id}
-                            >
-                              {loadingAmendmentId === amendment.id && selectedAction === "start_amendment" ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              ) : null}
-                              Start Amendment Process
-                            </Button>
-                          </div>
-                        )}
-
-                        {amendment.status === AmendmentStatus.AMENDMENT_IN_PROGRESS && (
-                          <div className="mb-3 mt-3">
-                            <Button
-                              size="sm"
-                              className="w-full bg-green-600 hover:bg-green-700"
-                              onClick={() => resolveAmendment(amendment.id)}
-                              disabled={loadingAmendmentId === amendment.id}
-                            >
-                              {loadingAmendmentId === amendment.id && selectedAction === "resolve_amendment" ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              ) : null}
-                              Mark as Resolved
-                            </Button>
-                          </div>
-                        )}
-
-                        <div className="text-xs text-gray-400 mt-2">
-                          Submitted: {new Date(amendment.createdAt).toLocaleDateString()}
-                        </div>
-                      </CardContent>
-                      <CardFooter className="flex flex-wrap gap-2 pt-2 pb-4 bg-gray-50">
-                        {/* Status change button for all amendments */}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenStatusChangeDialog(amendment.id, amendment.status)}
-                          className="w-full sm:w-auto sm:ml-auto mb-2 sm:mb-0"
-                        >
-                          Change Status
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenDeleteDialog(amendment.id)}
-                          className="w-full sm:w-auto text-red-600 border-red-600 hover:bg-red-50 mb-2 sm:mb-0"
-                        >
-                          Delete
-                        </Button>
-
-                        {/* Original action buttons for pending amendments */}
-                        {amendment.status === AmendmentStatus.PENDING && (
-                          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                            <Button
-                              size="sm"
-                              onClick={() => approveAmendment(amendment.id)}
-                              disabled={loadingAmendmentId === amendment.id}
-                              className="flex-1 sm:flex-none"
-                            >
-                              {loadingAmendmentId === amendment.id &&
-                              amendment.id === selectedAmendmentId &&
-                              selectedAction === "approve" ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              ) : null}
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => rejectAmendment(amendment.id)}
-                              disabled={loadingAmendmentId === amendment.id}
-                              className="flex-1 sm:flex-none"
-                            >
-                              {loadingAmendmentId === amendment.id &&
-                              amendment.id === selectedAmendmentId &&
-                              selectedAction === "reject" ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              ) : null}
-                              Reject
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleRequestPayment(amendment.id)}
-                              disabled={loadingAmendmentId === amendment.id}
-                              className="flex-1 sm:flex-none"
-                            >
-                              {loadingAmendmentId === amendment.id &&
-                              amendment.id === selectedAmendmentId &&
-                              selectedAction === "payment" ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              ) : null}
-                              Request Payment
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => debugAmendment(amendment.id)}
-                              className="flex-1 sm:flex-none"
-                            >
-                              Debug
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleOpenDeleteDialog(amendment.id)}
-                              disabled={loadingAmendmentId === amendment.id}
-                              className="flex-1 sm:flex-none"
-                            >
-                              {loadingAmendmentId === amendment.id &&
-                              amendment.id === amendmentToDelete &&
-                              selectedAction === "delete" ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              ) : null}
-                              Delete
-                            </Button>
-                          </div>
-                        )}
-                      </CardFooter>
-                    </Card>
-                  ))}
-                </div>
-
-                {/* Pagination controls */}
-                {totalPages > 1 && (
+              {/* Pagination controls */}
+              {/*totalPages > 1 && (
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 bg-white p-3 sm:p-4 rounded-lg shadow-sm">
                     <div className="text-sm text-gray-500 text-center sm:text-left">
                       Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredAmendments.length)} of{" "}
@@ -1045,15 +980,15 @@ export default function AmendmentsPage() {
                       </Button>
                     </div>
                   </div>
-                )}
-              </>
-            )}
-          </TabsContent>
-        </Tabs>
-      )}
+                )*/}
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
+      {/*)}*/}
 
       {/* Payment Request Dialog */}
-      <Dialog
+      {/*<Dialog
         open={isDialogOpen}
         onOpenChange={(open) => {
           if (!loadingAmendmentId) setIsDialogOpen(open)
@@ -1113,10 +1048,10 @@ export default function AmendmentsPage() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>*/}
 
       {/* Status Change Dialog */}
-      <Dialog
+      {/*<Dialog
         open={isStatusChangeDialogOpen}
         onOpenChange={(open) => {
           if (!loadingAmendmentId) setIsStatusChangeDialogOpen(open)
@@ -1185,10 +1120,10 @@ export default function AmendmentsPage() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>*/}
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      {/*<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Delete Amendment</DialogTitle>
@@ -1220,7 +1155,127 @@ export default function AmendmentsPage() {
             </Button>
           </DialogFooter>
         </DialogContent>
+      </Dialog>*/}
+
+      {/* Amendment Details Dialog */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Amendment Details</DialogTitle>
+          </DialogHeader>
+          {selectedAmendment && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-semibold">Type</h3>
+                  <p>{selectedAmendment.type}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Status</h3>
+                  <Badge variant={getStatusBadgeVariant(selectedAmendment.status)}>
+                    {selectedAmendment.status.replace("_", " ")}
+                  </Badge>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Submitted By</h3>
+                  <p>{selectedAmendment.userName}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Email</h3>
+                  <p>{selectedAmendment.userEmail}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Submitted On</h3>
+                  <p>{formatDate(selectedAmendment.createdAt)}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Last Updated</h3>
+                  <p>{formatDate(selectedAmendment.updatedAt)}</p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-semibold">Details</h3>
+                <p className="whitespace-pre-wrap">{selectedAmendment.details || "No details provided"}</p>
+              </div>
+
+              {selectedAmendment.notes && (
+                <div>
+                  <h3 className="font-semibold">Notes</h3>
+                  <p className="whitespace-pre-wrap">{selectedAmendment.notes}</p>
+                </div>
+              )}
+
+              {selectedAmendment.documentUrl && (
+                <div>
+                  <h3 className="font-semibold">Document</h3>
+                  <a
+                    href={selectedAmendment.documentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    View Document
+                  </a>
+                </div>
+              )}
+
+              {selectedAmendment.receiptUrl && (
+                <div>
+                  <h3 className="font-semibold">Receipt</h3>
+                  <a
+                    href={selectedAmendment.receiptUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    View Receipt
+                  </a>
+                </div>
+              )}
+
+              {selectedAmendment.paymentAmount && (
+                <div>
+                  <h3 className="font-semibold">Payment Amount</h3>
+                  <p>${selectedAmendment.paymentAmount.toFixed(2)}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the amendment and all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.preventDefault()
+                if (deletingId) {
+                  handleDeleteAmendment(deletingId)
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -1265,6 +1320,9 @@ function StatusBadge({ status }: { status: string }) {
       break
     case AmendmentStatus.CLOSED:
       variant = "secondary" // gray
+      break
+    default:
+      variant = getStatusBadgeVariant(status)
       break
   }
 

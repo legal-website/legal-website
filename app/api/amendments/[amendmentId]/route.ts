@@ -3,7 +3,8 @@ import { db } from "@/lib/db"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
-export async function GET(request: Request, { params }: { params: { amendmentId: string } }) {
+// Make sure we export all methods we want to support
+export const GET = async (request: Request, { params }: { params: { amendmentId: string } }) => {
   console.log(`GET /api/admin/amendments/${params.amendmentId} - Start`)
 
   try {
@@ -103,8 +104,8 @@ export async function GET(request: Request, { params }: { params: { amendmentId:
   }
 }
 
-// Add DELETE method to handle amendment deletion
-export async function DELETE(request: Request, { params }: { params: { amendmentId: string } }) {
+// Export DELETE method as a named export
+export const DELETE = async (request: Request, { params }: { params: { amendmentId: string } }) => {
   console.log(`DELETE /api/admin/amendments/${params.amendmentId} - Start`)
 
   try {
