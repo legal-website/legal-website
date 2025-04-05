@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Bell, Moon, Sun, MessageSquare, Trash2 } from "lucide-react"
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useTheme } from "@/context/theme-context"
 import { useToast } from "@/components/ui/use-toast"
-import { formatTicketId, getTicketsWithNewMessages, getStoredMessageCounts } from "@/lib/ticket-notifications"
+import { formatTicketId, getStoredMessageCounts } from "@/lib/ticket-notifications"
 
 // Update the Notification interface to include "tickets" as a source type
 export interface Notification {
@@ -121,22 +122,6 @@ export default function AdminHeader() {
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
   const router = useRouter()
-
-  useEffect(() => {
-    const checkNewMessageTickets = () => {
-      const ticketsWithNewMessages = getTicketsWithNewMessages()
-      setNewMessageTicketsCount(ticketsWithNewMessages.length)
-      setNewTicketsWithMessages(ticketsWithNewMessages)
-    }
-
-    // Check on mount
-    checkNewMessageTickets()
-
-    // Set up interval to check regularly
-    const intervalId = setInterval(checkNewMessageTickets, 10000) // Check every 10 seconds
-
-    return () => clearInterval(intervalId)
-  }, [])
 
   const unreadCount = notifications.filter((notification) => !notification.read).length + newMessageTicketsCount
 
