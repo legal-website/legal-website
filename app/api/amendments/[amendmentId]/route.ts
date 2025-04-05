@@ -1,144 +1,176 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { uploadToCloudinary } from "@/lib/cloudinary-no-types"
-import type { PrismaClient } from "@prisma/client"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
-// Use type assertion to help TypeScript recognize our models
-const prisma = db as PrismaClient & {
-  amendment: any
-  amendmentStatusHistory: any
-  user: any
-  invoice: any
-}
+export async function GET(request: Request, { params }: { params: { amendmentId: string } }) {
+  console.log(`GET /api/admin/amendments/${params.amendmentId} - Start`)
 
-export async function GET(req: Request, { params }: { params: { amendmentId: string } }) {
   try {
+    // Check authentication and authorization
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return new NextResponse("Unauthorized", { status: 401 })
+
+    if (!session) {
+      console.log(`GET /api/admin/amendments/${params.amendmentId} - Unauthorized`)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const amendment = await prisma.amendment.findUnique({
-      where: { id: params.amendmentId },
-      include: {
-        statusHistory: {
-          orderBy: { createdAt: "desc" },
+    if (session.user.role !== "ADMIN" && session.user.role !== "SUPPORT") {
+      console.log(`GET /api/admin/amendments/${params.amendmentId} - Forbidden`)
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    // Get the amendment ID from the URL
+    const { amendmentId } = params
+
+    if (!amendmentId) {
+      console.log(`GET /api/admin/amendments/${params.amendmentId} - Missing amendment ID`)
+      return NextResponse.json({ error: "Amendment ID is required" }, { status: 400 })
+    }
+
+    // Check if amendment exists
+    console.log(`Checking if amendment ${amendmentId} exists`)
+    try {
+      const amendment = await db.amendment.findUnique({
+        where: { id: amendmentId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          statusHistory: {
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
         },
-      },
-    })
+      })
 
-    if (!amendment) {
-      return new NextResponse("Amendment not found", { status: 404 })
+      if (!amendment) {
+        console.log(`Amendment ${amendmentId} not found`)
+        return NextResponse.json({ error: "Amendment not found" }, { status: 404 })
+      }
+
+      console.log(`Amendment ${amendmentId} found:`, amendment)
+
+      // Format the response
+      const formattedAmendment = {
+        id: amendment.id,
+        userId: amendment.userId,
+        userName: amendment.user?.name || "Unknown",
+        userEmail: amendment.user?.email || "unknown@example.com",
+        type: amendment.type,
+        details: amendment.details,
+        status: amendment.status,
+        createdAt: amendment.createdAt.toISOString(),
+        updatedAt: amendment.updatedAt.toISOString(),
+        documentUrl: amendment.documentUrl,
+        receiptUrl: amendment.receiptUrl,
+        paymentAmount: amendment.paymentAmount ? Number.parseFloat(amendment.paymentAmount.toString()) : null,
+        notes: amendment.notes,
+        statusHistory: amendment.statusHistory.map((history) => ({
+          id: history.id,
+          status: history.status,
+          createdAt: history.createdAt.toISOString(),
+          notes: history.notes,
+          updatedBy: history.updatedBy,
+        })),
+      }
+
+      return NextResponse.json(formattedAmendment)
+    } catch (dbError) {
+      console.error(`Database error when finding amendment:`, dbError)
+      return NextResponse.json(
+        {
+          error: `Database error: ${dbError instanceof Error ? dbError.message : "Unknown database error"}`,
+          stack: dbError instanceof Error ? dbError.stack : undefined,
+        },
+        { status: 500 },
+      )
     }
-
-    // Check if user is authorized to view this amendment
-    if (amendment.userId !== session.user.id && session.user.role !== "ADMIN") {
-      return new NextResponse("Unauthorized", { status: 401 })
-    }
-
-    return NextResponse.json({ amendment })
   } catch (error) {
-    console.error("[AMENDMENT_GET]", error)
-    return new NextResponse("Internal error", { status: 500 })
+    console.error("Error getting amendment:", error)
+    return NextResponse.json(
+      {
+        error: "Failed to get amendment: " + (error instanceof Error ? error.message : "Unknown error"),
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+      { status: 500 },
+    )
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: { amendmentId: string } }) {
+// Add DELETE method to handle amendment deletion
+export async function DELETE(request: Request, { params }: { params: { amendmentId: string } }) {
+  console.log(`DELETE /api/admin/amendments/${params.amendmentId} - Start`)
+
   try {
+    // Check authentication and authorization
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return new NextResponse("Unauthorized", { status: 401 })
+
+    if (!session) {
+      console.log(`DELETE /api/admin/amendments/${params.amendmentId} - Unauthorized`)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const formData = await req.formData()
-    const status = formData.get("status") as string
-    const notes = formData.get("notes") as string
-    const paymentAmount = formData.get("paymentAmount") as string
-    const receipt = formData.get("receipt") as File | null
+    if (session.user.role !== "ADMIN") {
+      console.log(`DELETE /api/admin/amendments/${params.amendmentId} - Forbidden`)
+      return NextResponse.json({ error: "Forbidden - Only administrators can delete amendments" }, { status: 403 })
+    }
 
-    const amendment = await prisma.amendment.findUnique({
-      where: { id: params.amendmentId },
+    // Get the amendment ID from the URL
+    const { amendmentId } = params
+
+    if (!amendmentId) {
+      console.log(`DELETE /api/admin/amendments/${params.amendmentId} - Missing amendment ID`)
+      return NextResponse.json({ error: "Amendment ID is required" }, { status: 400 })
+    }
+
+    // Check if amendment exists
+    console.log(`Checking if amendment ${amendmentId} exists before deletion`)
+    const existingAmendment = await db.amendment.findUnique({
+      where: { id: amendmentId },
     })
 
-    if (!amendment) {
-      return new NextResponse("Amendment not found", { status: 404 })
+    if (!existingAmendment) {
+      console.log(`Amendment ${amendmentId} not found for deletion`)
+      return NextResponse.json({ error: "Amendment not found" }, { status: 404 })
     }
 
-    // Check if user is authorized to update this amendment
-    if (amendment.userId !== session.user.id && session.user.role !== "ADMIN") {
-      return new NextResponse("Unauthorized", { status: 401 })
+    // Since $transaction might not be available, perform operations sequentially
+    try {
+      // Delete related status history first using raw SQL query
+      console.log(`Deleting status history for amendment ${amendmentId}`)
+      await db.$executeRaw`DELETE FROM "AmendmentStatusHistory" WHERE "amendmentId" = ${amendmentId}`
+
+      // Delete the amendment using raw SQL query
+      console.log(`Deleting amendment ${amendmentId}`)
+      await db.$executeRaw`DELETE FROM "Amendment" WHERE "id" = ${amendmentId}`
+
+      console.log(`Amendment ${amendmentId} successfully deleted`)
+      return NextResponse.json({ success: true, message: "Amendment successfully deleted" })
+    } catch (dbError) {
+      console.error(`Database error when deleting amendment:`, dbError)
+      return NextResponse.json(
+        {
+          error: `Database error: ${dbError instanceof Error ? dbError.message : "Unknown database error"}`,
+          stack: dbError instanceof Error ? dbError.stack : undefined,
+        },
+        { status: 500 },
+      )
     }
-
-    let receiptUrl = amendment.receiptUrl
-    if (receipt) {
-      receiptUrl = await uploadToCloudinary(receipt)
-    }
-
-    // Update amendment
-    const updatedAmendment = await prisma.amendment.update({
-      where: { id: params.amendmentId },
-      data: {
-        status,
-        notes,
-        paymentAmount: paymentAmount ? Number.parseFloat(paymentAmount) : undefined,
-        receiptUrl,
-      },
-    })
-
-    // Create status history entry
-    await prisma.amendmentStatusHistory.create({
-      data: {
-        amendmentId: params.amendmentId,
-        status,
-        notes,
-      },
-    })
-
-    // If status is waiting_for_payment, create an invoice
-    if (status === "waiting_for_payment" && paymentAmount) {
-      const user = await prisma.user.findUnique({
-        where: { id: amendment.userId },
-        include: { business: true },
-      })
-
-      if (user) {
-        const invoice = await prisma.invoice.create({
-          data: {
-            invoiceNumber: `AMD-${Date.now()}`,
-            customerName: user.name || "Unknown",
-            customerEmail: user.email,
-            customerPhone: user.business?.phone || null,
-            customerCompany: user.business?.name || null,
-            customerAddress: user.business?.address || null,
-            amount: Number.parseFloat(paymentAmount),
-            status: "pending",
-            items: JSON.stringify([
-              {
-                type: "amendment",
-                description: `Amendment: ${amendment.type}`,
-                amount: Number.parseFloat(paymentAmount),
-              },
-            ]),
-            userId: user.id,
-          },
-        })
-
-        // Update amendment with invoice reference
-        await prisma.amendment.update({
-          where: { id: params.amendmentId },
-          data: {
-            notes: `${notes || ""}\nInvoice created: ${invoice.invoiceNumber}`,
-          },
-        })
-      }
-    }
-
-    return NextResponse.json({ amendment: updatedAmendment })
   } catch (error) {
-    console.error("[AMENDMENT_PATCH]", error)
-    return new NextResponse("Internal error", { status: 500 })
+    console.error("Error deleting amendment:", error)
+    return NextResponse.json(
+      {
+        error: "Failed to delete amendment: " + (error instanceof Error ? error.message : "Unknown error"),
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+      { status: 500 },
+    )
   }
 }
 

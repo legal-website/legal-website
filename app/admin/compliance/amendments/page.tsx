@@ -91,6 +91,59 @@ export default function AmendmentsPage() {
   // Auto refresh timer
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Add a new state for delete confirmation dialog
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [amendmentToDelete, setAmendmentToDelete] = useState<string | null>(null)
+
+  // Add a new function to handle opening the delete dialog
+  const handleOpenDeleteDialog = (amendmentId: string) => {
+    setAmendmentToDelete(amendmentId)
+    setIsDeleteDialogOpen(true)
+  }
+
+  // Add a new function to handle the deletion process
+  const handleDeleteAmendment = async () => {
+    if (!amendmentToDelete) {
+      console.error("No amendment selected for deletion.")
+      return
+    }
+
+    try {
+      setLoadingAmendmentId(amendmentToDelete)
+      setSelectedAction("delete")
+
+      const response = await fetch(`/api/admin/amendments/${amendmentToDelete}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(errorText || `Server error: ${response.status}`)
+      }
+
+      // Remove the deleted amendment from the state
+      setAmendments((prev) => prev.filter((amendment) => amendment.id !== amendmentToDelete))
+
+      toast({
+        title: "Amendment deleted",
+        description: "The amendment has been successfully deleted",
+      })
+
+      setIsDeleteDialogOpen(false)
+      setAmendmentToDelete(null)
+    } catch (err) {
+      console.error("Error deleting amendment:", err)
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "An unknown error occurred while deleting the amendment",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingAmendmentId(null)
+      setSelectedAction(null)
+    }
+  }
+
   useEffect(() => {
     fetchAmendments()
 
@@ -879,6 +932,14 @@ export default function AmendmentsPage() {
                         >
                           Change Status
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenDeleteDialog(amendment.id)}
+                          className="w-full sm:w-auto text-red-600 border-red-600 hover:bg-red-50 mb-2 sm:mb-0"
+                        >
+                          Delete
+                        </Button>
 
                         {/* Original action buttons for pending amendments */}
                         {amendment.status === AmendmentStatus.PENDING && (
@@ -931,6 +992,20 @@ export default function AmendmentsPage() {
                               className="flex-1 sm:flex-none"
                             >
                               Debug
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleOpenDeleteDialog(amendment.id)}
+                              disabled={loadingAmendmentId === amendment.id}
+                              className="flex-1 sm:flex-none"
+                            >
+                              {loadingAmendmentId === amendment.id &&
+                              amendment.id === amendmentToDelete &&
+                              selectedAction === "delete" ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : null}
+                              Delete
                             </Button>
                           </div>
                         )}
@@ -1106,6 +1181,41 @@ export default function AmendmentsPage() {
                 </>
               ) : (
                 "Update Status"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Amendment</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this amendment? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={loadingAmendmentId === amendmentToDelete}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAmendment}
+              disabled={loadingAmendmentId === amendmentToDelete}
+            >
+              {loadingAmendmentId === amendmentToDelete ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
               )}
             </Button>
           </DialogFooter>
