@@ -169,9 +169,9 @@ export default function CustomerSuccess() {
               <Image
                 src="/orgur.png"
                 alt="Orizen Inc Guarantee"
-                width={120}
+                width={134}
                 height={120}
-                className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24"
+                className="w-20 h-16 sm:w-24 sm:h-20 md:w-28 md:h-24"
               />
             </div>
             <div className="bg-[#22c984] p-4 sm:p-6 md:p-8 rounded-lg sm:rounded-xl md:rounded-2xl text-white">
