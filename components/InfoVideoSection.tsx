@@ -104,7 +104,7 @@ export default function InfoVideoSection() {
             <div className="relative aspect-video">
               <iframe
                 className="w-full h-full rounded-2xl"
-                src="https://www.youtube.com/watch?v=tVaZ_BpV1vc"
+                src="https://www.youtube.com/embed/tVaZ_BpV1vc"
                 title="YouTube video"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
