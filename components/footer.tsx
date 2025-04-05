@@ -110,7 +110,7 @@ export default function Footer() {
                 href="tel:+923299438557"
                 className="flex items-center gap-2 text-gray-300 hover:text-[#22c984] transition-colors"
               >
-                <Phone className="h-4 w-4 flex-shrink-0" /> <span className="break-all">+92329 9438557</span>
+                <Phone className="h-4 w-4 flex-shrink-0" /> <span className="break-all">+92 329 9438557</span>
               </Link>
               <Link
                 href="mailto:Info@orizeninc.com"
