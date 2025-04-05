@@ -1,6 +1,7 @@
 "use server"
 
 import nodemailer from "nodemailer"
+import { contactFormTemplate } from "@/lib/email-templates"
 
 export async function sendEmail(formData: FormData) {
   const name = formData.get("name") as string
@@ -29,6 +30,14 @@ export async function sendEmail(formData: FormData) {
     },
   })
 
+  // Generate the HTML content using our template
+  const htmlContent = contactFormTemplate({
+    name,
+    email,
+    subject,
+    message,
+  })
+
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: "orizeninc@gmail.com",
@@ -39,13 +48,7 @@ export async function sendEmail(formData: FormData) {
       Subject: ${subject}
       Message: ${message}
     `,
-    html: `
-      <h3>New Contact Form Submission from contact us Page</h3>
-      <p><strong>Name:</strong> ${name}</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Subject:</strong> ${subject}</p>
-      <p><strong>Message:</strong> ${message}</p>
-    `,
+    html: htmlContent,
   }
 
   try {
