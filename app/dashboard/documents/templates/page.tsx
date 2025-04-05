@@ -222,82 +222,44 @@ export default function DocumentTemplatesPage() {
       const data = await response.json()
       console.log("Templates data:", data) // Debug log
 
-      // If templates is empty, create some mock data for testing
-      if (!data.templates || data.templates.length === 0) {
-        const mockTemplates: Template[] = [
-          {
-            id: "1",
-            name: "LLC Formation",
-            description: "Complete LLC formation document package",
-            category: "Business Formation",
-            price: 49.99,
-            pricingTier: "Standard",
-            isPurchased: false,
-            isPending: false,
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "2",
-            name: "Employment Agreement",
-            description: "Standard employment agreement template",
-            category: "Contracts",
-            price: 29.99,
-            pricingTier: "Basic",
-            isPurchased: false,
-            isPending: false,
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "3",
-            name: "Privacy Policy",
-            description: "Website privacy policy template",
-            category: "Compliance",
-            price: 0,
-            pricingTier: "Free",
-            isPurchased: true,
-            isPending: false,
-            isFree: true,
-            updatedAt: new Date().toISOString(),
-          },
-        ]
-        setTemplates(mockTemplates)
-      } else {
-        // Map the templates from the API to match our interface
-        interface ApiTemplate {
-          id: string
-          name: string
-          description?: string
-          category?: string
-          price?: number
-          pricingTier?: string
-          purchased?: boolean
-          isPending?: boolean
-          isFree?: boolean
-          invoiceId?: string
-          fileUrl?: string
-          updatedAt?: string
-          status?: string
-          usageCount?: number
-        }
-
-        const mappedTemplates = data.templates.map((template: ApiTemplate) => ({
-          id: template.id,
-          name: template.name,
-          description: template.description || `${template.name} template`,
-          category: template.category || "Uncategorized",
-          price: template.price || 0,
-          pricingTier: template.pricingTier || "Free",
-          isPurchased: template.purchased || false,
-          isPending: template.isPending || false,
-          isFree: template.isFree || template.price === 0 || template.pricingTier === "Free",
-          invoiceId: template.invoiceId || undefined,
-          fileUrl: template.fileUrl || undefined,
-          updatedAt: template.updatedAt || new Date().toISOString(),
-          status: template.status || "active",
-          usageCount: template.usageCount || 0,
-        })) as Template[]
-        setTemplates(mappedTemplates)
+      // Map the templates from the API to match our interface
+      interface ApiTemplate {
+        id: string
+        name: string
+        description?: string
+        category?: string
+        price?: number
+        pricingTier?: string
+        purchased?: boolean
+        isPending?: boolean
+        isFree?: boolean
+        invoiceId?: string
+        fileUrl?: string
+        updatedAt?: string
+        status?: string
+        usageCount?: number
       }
+
+      const mappedTemplates = data.templates
+        ? data.templates.map((template: ApiTemplate) => ({
+            id: template.id,
+            name: template.name,
+            description: template.description || `${template.name} template`,
+            category: template.category || "Uncategorized",
+            price: template.price || 0,
+            pricingTier: template.pricingTier || "Free",
+            isPurchased: template.purchased || false,
+            isPending: template.isPending || false,
+            isFree: template.isFree || template.price === 0 || template.pricingTier === "Free",
+            invoiceId: template.invoiceId || undefined,
+            fileUrl: template.fileUrl || undefined,
+            updatedAt: template.updatedAt || new Date().toISOString(),
+            status: template.status || "active",
+            usageCount: template.usageCount || 0,
+          }))
+        : []
+
+      setTemplates(mappedTemplates)
     } catch (error) {
       console.error("Error fetching templates:", error)
       toast({
@@ -306,44 +268,7 @@ export default function DocumentTemplatesPage() {
         variant: "destructive",
       })
 
-      // Set mock data for testing if API fails
-      const mockTemplates = [
-        {
-          id: "1",
-          name: "LLC Formation",
-          description: "Complete LLC formation document package",
-          category: "Business Formation",
-          price: 49.99,
-          pricingTier: "Standard",
-          isPurchased: false,
-          isPending: false,
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "2",
-          name: "Employment Agreement",
-          description: "Standard employment agreement template",
-          category: "Contracts",
-          price: 29.99,
-          pricingTier: "Basic",
-          isPurchased: false,
-          isPending: false,
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "3",
-          name: "Privacy Policy",
-          description: "Website privacy policy template",
-          category: "Compliance",
-          price: 0,
-          pricingTier: "Free",
-          isPurchased: true,
-          isPending: false,
-          isFree: true,
-          updatedAt: new Date().toISOString(),
-        },
-      ]
-      setTemplates(mockTemplates)
+      setTemplates([])
     } finally {
       setLoading(false)
     }
