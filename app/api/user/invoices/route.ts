@@ -11,11 +11,14 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Fetch invoices for the current user
+    // Fetch ALL invoices for the current user without any filtering
     const invoices = await db.invoice.findMany({
       where: { userId: session.user.id as string },
       orderBy: { createdAt: "desc" },
     })
+
+    // Debug log to see what invoices are being returned
+    console.log(`Found ${invoices.length} invoices for user ${session.user.id}`)
 
     return NextResponse.json({ invoices })
   } catch (error) {
