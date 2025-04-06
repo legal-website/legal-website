@@ -2,35 +2,12 @@
 
 import type React from "react"
 
-import { useState, useCallback } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Search,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-  Phone,
-  RefreshCw,
-  AlertCircle,
-  EyeOff,
-  Lock,
-  Building,
-  Calendar,
-  FileText,
-  MessageSquare,
-  ThumbsUp,
-  Clock,
-  Users,
-  CheckCircle2,
-  XCircle,
-  Edit,
-  ToggleLeft,
-  Trash,
-} from "lucide-react"
+import { Search, Filter, Eye, Copy, ChevronLeft, ChevronRight, Phone, User } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -40,13 +17,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
-import Image from "next/image"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Role } from "@prisma/client"
-import { isAfter, parseISO } from "date-fns"
 
 // Define interfaces for type safety
 interface PendingUser {
@@ -68,20 +43,6 @@ interface PendingUser {
   }
   phoneRequest?: PhoneNumberRequest
   accountManagerRequest?: AccountManagerRequest
-  address?: UserAddress
-  role?: Role
-  subscriptionPlan?: string
-  subscriptionStatus?: string
-  nextBillingDate?: string
-  subscriptionAmount?: number
-  invoices?: any[]
-  profileImage?: string
-  isOnline?: boolean
-  lastPasswordChange?: string
-  passwordResetCount?: number
-  activity?: any[]
-  phone?: string
-  joinDate?: string
 }
 
 // Add this CSS class for extra small screens
@@ -115,59 +76,7 @@ interface AccountManagerRequest {
   updatedAt?: string
 }
 
-// Add this interface for user address
-interface UserAddress {
-  id?: string
-  userId: string
-  addressLine1: string
-  addressLine2?: string
-  city: string
-  state: string
-  zipCode: string
-  country: string
-  createdAt?: string
-  updatedAt?: string
-}
-
-interface ComplianceItem {
-  id: string
-  name: string
-  description: string
-  category: string
-  status: "pending" | "verified" | "rejected"
-  dueDate: string
-  priority: "high" | "medium" | "low"
-  userId: string
-  createdAt: string
-  updatedAt: string
-}
-
-interface ComplianceTrendPoint {
-  date: string
-  total: number
-  pending: number
-  verified: number
-  rejected: number
-}
-
-interface ComplianceCategoryData {
-  category: string
-  total: number
-  pending: number
-  verified: number
-  rejected: number
-}
-
-interface Invoice {
-  id: string
-  invoiceNumber: string
-  amount: number
-  status: "paid" | "pending" | "overdue"
-  createdAt: string
-  updatedAt: string
-}
-
-export default function AdminBeneficialOwnershipPage() {
+export default function PendingUsersPage() {
   const { data: session, status: sessionStatus } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -177,547 +86,85 @@ export default function AdminBeneficialOwnershipPage() {
   const [showUserDialog, setShowUserDialog] = useState(false)
   const [showPhoneDialog, setShowPhoneDialog] = useState(false)
   const [showAccountManagerDialog, setShowAccountManagerDialog] = useState(false)
-  const [showAddressDialog, setShowAddressDialog] = useState(false) // New state for address dialog
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [backgroundRefreshing, setBackgroundRefreshing] = useState(false)
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
-  const [loadingUsers, setLoadingUsers] = useState(true)
-  const [totalRevenue, setTotalRevenue] = useState(0)
-  const [revenueChange, setRevenueChange] = useState(0)
-  const [loadingRevenue, setLoadingRevenue] = useState(true)
-  const [activeTab, setActiveTab] = useState("all")
-  const [selectedRole, setSelectedRole] = useState<Role | "All Roles">("All Roles")
-  const [showAddUserDialog, setShowAddUserDialog] = useState(false)
-  const [showEditUserDialog, setShowEditUserDialog] = useState(false)
-  const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false)
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [passwordError, setPasswordError] = useState<string | null>(null)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [userAddress, setUserAddress] = useState({
-    address: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    country: "",
-  })
-  const [userDocuments, setUserDocuments] = useState<any[]>([])
-  const [loadingDocuments, setLoadingDocuments] = useState(true)
-  const [roles, setRoles] = useState<Role[]>(["ADMIN", "SUPPORT", "CLIENT"])
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    company: "",
-    address: "",
-    city: "",
-    state: "",
-    zip: "",
-    country: "",
-  })
-  const [newUserData, setNewUserData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
-    phone: "",
-    company: "",
-    role: "CLIENT",
-    notes: "",
-    sendInvite: true,
-  })
+  // Get the tab from URL or default to "all"
+  const initialTab = searchParams?.get("tab") || "all"
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [businessFormData, setBusinessFormData] = useState({
     name: "",
     businessId: "",
     ein: "",
-    formationDate: new Date().toISOString().split("T")[0],
+    formationDate: "",
     serviceStatus: "Pending",
     llcStatusMessage: "LLC formation initiated",
     llcProgress: 10,
     annualReportFee: 100,
     annualReportFrequency: 1,
-    completedAt: null as string | null,
+    completedAt: null as string | null, // Add this field to track when the LLC was completed
+  })
+  const [phoneFormData, setPhoneFormData] = useState({
+    phoneNumber: "",
+    status: "pending" as "requested" | "pending" | "approved" | "rejected",
+  })
+  const [accountManagerFormData, setAccountManagerFormData] = useState({
+    managerName: "",
+    contactLink: "",
+    status: "pending" as "requested" | "pending" | "approved" | "rejected",
+  })
+  const [processingAction, setProcessingAction] = useState(false)
+  const [processingPhoneAction, setProcessingPhoneAction] = useState(false)
+  const [processingManagerAction, setProcessingManagerAction] = useState(false)
+
+  // Add these new state variables after the existing state declarations
+  const [sortOrder, setSortOrder] = useState("newest")
+  const [dateFilter, setDateFilter] = useState({
+    startDate: "",
+    endDate: "",
   })
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
+  const itemsPerPage = 12
 
-  // Sorting and filtering states
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "pending" | "reported" | "none">("newest")
-  const [dateFilter, setDateFilter] = useState<{
-    startDate: string
-    endDate: string
-  }>({
-    startDate: "",
-    endDate: "",
-  })
-  // Add loading state for address
-  const [addressLoading, setAddressLoading] = useState(false)
+  // Update URL when tab changes
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    url.searchParams.set("tab", activeTab)
+    window.history.pushState({}, "", url.toString())
+    // Reset to first page when tab changes
+    setCurrentPage(1)
+  }, [activeTab])
 
-  // Form states
-  const [uploadForm, setUploadForm] = useState({
-    name: "",
-    description: "",
-    category: "Formation",
-    file: null as File | null,
-    userId: "",
-    isPermanent: false,
-  })
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, sortOrder, dateFilter])
 
-  const [newRole, setNewRole] = useState<Role | "">("")
-  const [processingAction, setProcessingAction] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  // Add these new state variables after the existing state declarations
-  const [complianceItems, setComplianceItems] = useState<ComplianceItem[]>([])
-  const [totalCompliance, setTotalCompliance] = useState(0)
-  const [pendingVerifications, setPendingVerifications] = useState(0)
-  const [complianceSolved, setComplianceSolved] = useState(0)
-  const [complianceTrendData, setComplianceTrendData] = useState<ComplianceTrendPoint[]>([])
-  const [complianceCategoryData, setComplianceCategoryData] = useState<ComplianceCategoryData[]>([])
-  const [loadingCompliance, setLoadingCompliance] = useState(true)
-  const [complianceAlert, setComplianceAlert] = useState(false)
-
-  // Add these new state variables after the existing state declarations
-  const [revenueOverviewData, setRevenueOverviewData] = useState<
-    { month: string; revenue: number; monthlyRevenue: number; growth: number }[]
-  >([])
-  const [userGrowthOverviewData, setUserGrowthOverviewData] = useState<
-    { month: string; totalUsers: number; newUsers: number; growth: number }[]
-  >([])
-  const [loadingRevenueOverview, setLoadingRevenueOverview] = useState(true)
-  const [loadingUserGrowthOverview, setLoadingUserGrowthOverview] = useState(true)
-
-  // Function to format dates
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const options: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" }
-    return date.toLocaleDateString(undefined, options)
-  }
-
-  // Function to get status badge class
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-      case "inactive":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-    }
-  }
-
-  // Function to get formatted role
-  const getFormattedRole = () => {
-    if (selectedUser) {
-      switch (selectedUser.role) {
-        case Role.ADMIN:
-          return "Admin"
-        case Role.SUPPORT:
-          return "Support"
-        case Role.CLIENT:
-          return "Client"
-        default:
-          return "Unknown"
-      }
-    }
-    return "Unknown"
-  }
-
-  // Function to handle input change
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
-  }
-
-  // Function to handle new user input change
-  const handleNewUserInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setNewUserData({ ...newUserData, [e.target.name]: e.target.value })
-  }
-
-  // Function to handle new user select change
-  const handleNewUserSelectChange = (name: string, value: string) => {
-    setNewUserData({ ...newUserData, [name]: value })
-  }
-
-  // Function to handle new user checkbox change
-  const handleNewUserCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewUserData({ ...newUserData, [e.target.name]: e.target.checked })
-  }
-
-  // Function to handle save user
-  const handleSaveUser = async () => {
-    setProcessingAction(true)
-    try {
-      const response = await fetch(`/api/admin/users/${selectedUser?.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "User updated successfully",
-        })
-        setShowEditUserDialog(false)
-        fetchUsers()
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to update user",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error updating user:", error)
+  // Fetch users
+  useEffect(() => {
+    if (sessionStatus === "authenticated" && (session?.user as any)?.role === Role.ADMIN) {
+      fetchUsers()
+    } else if (sessionStatus === "authenticated" && (session?.user as any)?.role !== Role.ADMIN) {
+      router.push("/dashboard")
       toast({
-        title: "Error",
-        description: "Failed to update user",
+        title: "Access Denied",
+        description: "You don't have permission to access this page.",
         variant: "destructive",
       })
-    } finally {
-      setProcessingAction(false)
     }
-  }
+  }, [sessionStatus, session, router, toast])
 
-  // Function to handle create user
-  const createUser = async () => {
-    setProcessingAction(true)
-    try {
-      const response = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newUserData),
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "User created successfully",
-        })
-        setShowAddUserDialog(false)
-        fetchUsers()
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to create user",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error creating user:", error)
-      toast({
-        title: "Error",
-        description: "Failed to create user",
-        variant: "destructive",
-      })
-    } finally {
-      setProcessingAction(false)
-    }
-  }
-
-  // Function to handle edit user
-  const handleEditUser = (user: PendingUser) => {
-    setSelectedUser(user)
-    setFormData({
-      name: user.name || "",
-      email: user.email || "",
-      phone: user.phone || "",
-      company: user.business?.name || "",
-      address: userAddress.address || "",
-      city: userAddress.city || "",
-      state: userAddress.state || "",
-      zip: userAddress.zipCode || "",
-      country: userAddress.country || "",
-    })
-    setShowEditUserDialog(true)
-  }
-
-  // Function to handle reset password
-  const handleResetPassword = (user: PendingUser) => {
-    setSelectedUser(user)
-    setShowResetPasswordDialog(true)
-  }
-
-  // Function to handle password reset
-  const handlePasswordReset = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (password !== confirmPassword) {
-      setPasswordError("Passwords do not match")
-      return
-    }
-    setPasswordError(null)
-    setIsLoading(true)
-    try {
-      const response = await fetch(`/api/admin/users/${selectedUser?.id}/reset-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ password }),
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Password reset successfully",
-        })
-        setShowResetPasswordDialog(false)
-        setPassword("")
-        setConfirmPassword("")
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to reset password",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error resetting password:", error)
-      toast({
-        title: "Error",
-        description: "Failed to reset password",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Function to handle change role
-  const handleChangeRole = async (user: PendingUser, role: Role) => {
-    setSelectedUser(user)
-    setNewRole(role)
-    setProcessingAction(true)
-    try {
-      const response = await fetch(`/api/admin/users/${user.id}/change-role`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ role }),
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Role updated successfully",
-        })
-        fetchUsers()
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to update role",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error updating role:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update role",
-        variant: "destructive",
-      })
-    } finally {
-      setProcessingAction(false)
-    }
-  }
-
-  // Function to handle toggle user status
-  const toggleUserStatus = async (user: PendingUser) => {
-    setSelectedUser(user)
-    setProcessingAction(true)
-    try {
-      const response = await fetch(`/api/admin/users/${user.id}/toggle-status`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "User status updated successfully",
-        })
-        fetchUsers()
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to update user status",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error updating user status:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update user status",
-        variant: "destructive",
-      })
-    } finally {
-      setProcessingAction(false)
-    }
-  }
-
-  // Function to handle delete user
-  const handleDeleteUser = async (user: PendingUser) => {
-    setSelectedUser(user)
-    setProcessingAction(true)
-    try {
-      const response = await fetch(`/api/admin/users/${user.id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "User deleted successfully",
-        })
-        fetchUsers()
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to delete user",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error deleting user:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete user",
-        variant: "destructive",
-      })
-    } finally {
-      setProcessingAction(false)
-    }
-  }
-
-  // Function to get date range
-  const getDateRange = useCallback(() => {
-    const today = new Date()
-    const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-    const startDate = new Date(today.getFullYear(), today.getMonth(), 1)
-
-    const previousEndDate = new Date(today.getFullYear(), today.getMonth() - 1, 0)
-    const previousStartDate = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-
-    return {
-      startDate,
-      previousStartDate,
-      endDate,
-      previousEndDate,
-    }
-  }, [])
-
-  // Function to filter users based on search query and selected role
-  const filteredUsers = pendingUsers.filter((user) => {
-    const searchRegex = new RegExp(searchQuery, "i")
-    const nameMatch = searchRegex.test(user.name)
-    const emailMatch = searchRegex.test(user.email)
-    const roleMatch = selectedRole === "All Roles" || user.role === selectedRole
-
-    return (nameMatch || emailMatch) && roleMatch
-  })
-
-  // Function to paginate users
-  const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-
-  // Function to calculate total pages
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
-
-  // Function to go to next page
-  const goToNextPage = () => {
-    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-  }
-
-  // Function to go to previous page
-  const goToPreviousPage = () => {
-    setCurrentPage((prev) => Math.max(prev - 1, 1))
-  }
-
-  // Function to go to a specific page
-  const goToPage = (page: number) => {
-    setCurrentPage(page)
-  }
-
-  // Fetch invoices data
-  const fetchInvoices = useCallback(async () => {
-    try {
-      setLoading(true)
-      const response = await fetch("/api/admin/invoices")
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch invoices")
-      }
-
-      const data = await response.json()
-      const invoices: Invoice[] = data.invoices || []
-
-      // Calculate metrics based on date range
-      const { startDate, previousStartDate, endDate, previousEndDate } = getDateRange()
-
-      // Current period revenue (only count paid invoices)
-      const currentRevenue = invoices
-        .filter(
-          (invoice) =>
-            invoice.status === "paid" &&
-            isAfter(parseISO(invoice.createdAt), startDate) &&
-            !isAfter(parseISO(invoice.createdAt), endDate),
-        )
-        .reduce((sum, invoice) => sum + invoice.amount, 0)
-
-      // Previous period revenue
-      const previousRevenue = invoices
-        .filter(
-          (invoice) =>
-            invoice.status === "paid" &&
-            isAfter(parseISO(invoice.createdAt), previousStartDate) &&
-            !isAfter(parseISO(invoice.createdAt), previousEndDate),
-        )
-        .reduce((sum, invoice) => sum + invoice.amount, 0)
-
-      // Calculate percentage change
-      const change =
-        previousRevenue === 0
-          ? currentRevenue > 0
-            ? 100
-            : 0
-          : ((currentRevenue - previousRevenue) / previousRevenue) * 100
-
-      setTotalRevenue(currentRevenue)
-      setRevenueChange(change)
-    } catch (error) {
-      console.error("Error fetching invoices:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load revenue data",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [getDateRange, toast])
-
-  // Fetch users data
   const fetchUsers = async () => {
     try {
-      setLoadingUsers(true)
-      const response = await fetch("/api/admin/users")
+      setLoading(true)
+      // Fetch all users regardless of status to populate all tabs
+      const response = await fetch("/api/admin/users", {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      })
 
       if (!response.ok) {
         throw new Error("Failed to fetch users")
@@ -734,8 +181,6 @@ export default function AdminBeneficialOwnershipPage() {
           const phoneRequestData = await fetchUserPhoneRequest(user.id)
           // Fetch account manager request data for each user
           const accountManagerRequestData = await fetchUserAccountManagerRequest(user.id)
-          // Fetch address data for each user
-          const addressData = await fetchUserAddress(user.id)
 
           return {
             id: user.id,
@@ -744,20 +189,6 @@ export default function AdminBeneficialOwnershipPage() {
             business: businessData || undefined,
             phoneRequest: phoneRequestData || undefined,
             accountManagerRequest: accountManagerRequestData || undefined,
-            address: addressData || undefined,
-            role: user.role || "CLIENT",
-            subscriptionPlan: user.subscriptionPlan || "None",
-            subscriptionStatus: user.subscriptionStatus || "Inactive",
-            nextBillingDate: user.nextBillingDate || "N/A",
-            subscriptionAmount: user.subscriptionAmount || 0,
-            invoices: user.invoices || [],
-            profileImage: user.profileImage || "/placeholder.svg",
-            isOnline: user.isOnline || false,
-            lastPasswordChange: user.lastPasswordChange || "Never",
-            passwordResetCount: user.passwordResetCount || 0,
-            activity: user.activity || [],
-            phone: user.phone || "Not provided",
-            joinDate: user.createdAt || "N/A",
           }
         }),
       )
@@ -771,7 +202,7 @@ export default function AdminBeneficialOwnershipPage() {
         variant: "destructive",
       })
     } finally {
-      setLoadingUsers(false)
+      setLoading(false)
     }
   }
 
@@ -800,7 +231,7 @@ export default function AdminBeneficialOwnershipPage() {
             llcProgress: data.business.llcProgress || 10,
             annualReportFee: data.business.annualReportFee || 100,
             annualReportFrequency: data.business.annualReportFrequency || 1,
-            completedAt: data.business.completedAt,
+            completedAt: data.business.completedAt || null,
           }
         }
       }
@@ -846,7 +277,7 @@ export default function AdminBeneficialOwnershipPage() {
     }
   }
 
-  // Add this function to fetch account manager request
+  // Add this function to fetch account manager request data
   const fetchUserAccountManagerRequest = async (userId: string) => {
     try {
       const response = await fetch(`/api/admin/users/${userId}/account-manager`, {
@@ -865,29 +296,6 @@ export default function AdminBeneficialOwnershipPage() {
       return null
     } catch (error) {
       console.error("Error fetching account manager request data:", error)
-      return null
-    }
-  }
-
-  // Add this function to fetch user address data
-  const fetchUserAddress = async (userId: string) => {
-    try {
-      const response = await fetch(`/api/admin/users/${userId}/address`, {
-        cache: "no-store",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.address) {
-          return data.address
-        }
-      }
-      return null
-    } catch (error) {
-      console.error("Error fetching user address data:", error)
       return null
     }
   }
@@ -944,154 +352,484 @@ export default function AdminBeneficialOwnershipPage() {
     }
   }
 
-  // Add this function to handle opening the address dialog
-  const handleOpenAddressDialog = (user: PendingUser) => {
+  const viewPhoneRequest = async (user: PendingUser) => {
     setSelectedUser(user)
-    setShowAddressDialog(true)
+
+    // Initialize form data with existing phone request if available
+    if (user.phoneRequest) {
+      setPhoneFormData({
+        phoneNumber: user.phoneRequest.phoneNumber || "",
+        status: user.phoneRequest.status,
+      })
+    } else {
+      // Reset form if no existing request
+      setPhoneFormData({
+        phoneNumber: "",
+        status: "pending",
+      })
+    }
+
+    setShowPhoneDialog(true)
   }
 
-  const UserTable = ({
-    users,
-    onViewUser,
-    onEditUser,
-    onResetPassword,
-    onChangeRole,
-    onToggleStatus,
-    onDeleteUser,
-    loading,
-    formatDate,
-    getStatusColor,
-  }: {
-    users: PendingUser[]
-    onViewUser: (user: PendingUser) => void
-    onEditUser: (user: PendingUser) => void
-    onResetPassword: (user: PendingUser) => void
-    onChangeRole: (user: PendingUser, role: Role) => void
-    onToggleStatus: (user: PendingUser) => void
-    onDeleteUser: (user: PendingUser) => void
-    loading: boolean
-    formatDate: (dateString: string) => string
-    getStatusColor: (status: string) => string
-  }) => {
+  // Add this function to view account manager request
+  const viewAccountManagerRequest = async (user: PendingUser) => {
+    setSelectedUser(user)
+
+    // Initialize form data with existing account manager request if available
+    if (user.accountManagerRequest) {
+      setAccountManagerFormData({
+        managerName: user.accountManagerRequest.managerName || "",
+        contactLink: user.accountManagerRequest.contactLink || "",
+        status: user.accountManagerRequest.status,
+      })
+    } else {
+      // Reset form if no existing request
+      setAccountManagerFormData({
+        managerName: "",
+        contactLink: "",
+        status: "pending",
+      })
+    }
+
+    setShowAccountManagerDialog(true)
+  }
+
+  // Update the handleInputChange function to handle numeric values
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    // Don't allow businessId to be changed
+    // if (name === "businessId") return
+
+    if (name === "annualReportFee") {
+      // Ensure it's a valid number
+      const numValue = Number.parseInt(value)
+      if (!isNaN(numValue) && numValue >= 0) {
+        setBusinessFormData((prev) => ({ ...prev, [name]: numValue }))
+      }
+    } else {
+      setBusinessFormData((prev) => ({ ...prev, [name]: value }))
+    }
+  }
+
+  // Handle phone form input changes
+  const handlePhoneInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setPhoneFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  // Handle account manager form input changes
+  const handleAccountManagerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setAccountManagerFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  // Update the handleSelectChange function to handle numeric values
+  const handleSelectChange = (name: string, value: string) => {
+    if (name === "annualReportFrequency") {
+      const numValue = Number.parseInt(value)
+      if (!isNaN(numValue)) {
+        setBusinessFormData((prev) => ({ ...prev, [name]: numValue }))
+      }
+    } else {
+      setBusinessFormData((prev) => ({ ...prev, [name]: value }))
+    }
+  }
+
+  // Handle phone status select change
+  const handlePhoneStatusChange = (value: string) => {
+    setPhoneFormData((prev) => ({
+      ...prev,
+      status: value as "requested" | "pending" | "approved" | "rejected",
+    }))
+  }
+
+  // Handle account manager status select change
+  const handleAccountManagerStatusChange = (value: string) => {
+    setAccountManagerFormData((prev) => ({
+      ...prev,
+      status: value as "requested" | "pending" | "approved" | "rejected",
+    }))
+  }
+
+  const handleProgressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number.parseInt(e.target.value)
+
+    // If progress is set to 100%, automatically update the status message and set completedAt timestamp
+    if (value === 100 && businessFormData.llcProgress !== 100) {
+      setBusinessFormData((prev) => ({
+        ...prev,
+        llcProgress: value,
+        llcStatusMessage: "Congratulations your LLC is formed",
+        completedAt: new Date().toISOString(), // Set the completion timestamp
+      }))
+    } else {
+      setBusinessFormData((prev) => ({ ...prev, llcProgress: value }))
+    }
+  }
+
+  const saveBusinessData = async () => {
+    if (!selectedUser) return
+
+    setProcessingAction(true)
+
+    try {
+      // If progress is 100% but completedAt is not set, set it now
+      const dataToSend = {
+        ...businessFormData,
+        // Ensure completedAt is set if progress is 100%
+        completedAt:
+          businessFormData.llcProgress === 100 && !businessFormData.completedAt
+            ? new Date().toISOString()
+            : businessFormData.completedAt,
+      }
+
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/business`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+        body: JSON.stringify(dataToSend),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update business information")
+      }
+
+      toast({
+        title: "Success",
+        description: "Business information updated successfully.",
+      })
+
+      // Update the local state
+      setPendingUsers((prev) =>
+        prev.map((user) => {
+          if (user.id === selectedUser.id) {
+            return {
+              ...user,
+              business: {
+                ...(user.business || {}),
+                name: businessFormData.name,
+                businessId: businessFormData.businessId,
+                ein: businessFormData.ein,
+                formationDate: businessFormData.formationDate,
+                serviceStatus: businessFormData.serviceStatus,
+                llcStatusMessage: businessFormData.llcStatusMessage,
+                llcProgress: businessFormData.llcProgress,
+                annualReportFee: businessFormData.annualReportFee,
+                annualReportFrequency: businessFormData.annualReportFrequency,
+                completedAt: dataToSend.completedAt,
+              },
+            }
+          }
+          return user
+        }),
+      )
+
+      setShowUserDialog(false)
+
+      // Refresh the data to ensure we have the latest
+      fetchUsers()
+    } catch (error) {
+      console.error("Error updating business information:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update business information. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
+  const savePhoneRequestData = async () => {
+    if (!selectedUser) return
+
+    setProcessingPhoneAction(true)
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/phone-request`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+        body: JSON.stringify(phoneFormData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update phone request information")
+      }
+
+      toast({
+        title: "Success",
+        description: "Phone request information updated successfully.",
+      })
+
+      // Update the local state
+      setPendingUsers((prev) =>
+        prev.map((user) => {
+          if (user.id === selectedUser.id) {
+            return {
+              ...user,
+              phoneRequest: {
+                ...(user.phoneRequest || { userId: user.id }),
+                phoneNumber: phoneFormData.phoneNumber,
+                status: phoneFormData.status,
+              },
+            }
+          }
+          return user
+        }),
+      )
+
+      setShowPhoneDialog(false)
+    } catch (error) {
+      console.error("Error updating phone request information:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update phone request information. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingPhoneAction(false)
+    }
+  }
+
+  // Add this function to save account manager request data
+  const saveAccountManagerData = async () => {
+    if (!selectedUser) return
+
+    setProcessingManagerAction(true)
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/account-manager`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+        body: JSON.stringify(accountManagerFormData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update account manager information")
+      }
+
+      toast({
+        title: "Success",
+        description: "Account manager information updated successfully.",
+      })
+
+      // Update the local state
+      setPendingUsers((prev) =>
+        prev.map((user) => {
+          if (user.id === selectedUser.id) {
+            return {
+              ...user,
+              accountManagerRequest: {
+                ...(user.accountManagerRequest || { userId: user.id }),
+                managerName: accountManagerFormData.managerName,
+                contactLink: accountManagerFormData.contactLink,
+                status: accountManagerFormData.status,
+              },
+            }
+          }
+          return user
+        }),
+      )
+
+      setShowAccountManagerDialog(false)
+    } catch (error) {
+      console.error("Error updating account manager information:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update account manager information. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingManagerAction(false)
+    }
+  }
+
+  // Add this function before the filteredUsers declaration
+  const sortUsers = (users: PendingUser[]) => {
+    return [...users].sort((a, b) => {
+      // Sort by formation date
+      const dateA = a.business?.formationDate ? new Date(a.business.formationDate).getTime() : 0
+      const dateB = b.business?.formationDate ? new Date(b.business.formationDate).getTime() : 0
+
+      if (sortOrder === "newest") {
+        return dateB - dateA
+      } else if (sortOrder === "oldest") {
+        return dateA - dateB
+      } else if (sortOrder === "pendingFirst") {
+        return (a.business?.serviceStatus === "Pending" ? -1 : 1) - (b.business?.serviceStatus === "Pending" ? -1 : 1)
+      } else if (sortOrder === "approvedFirst") {
+        return (a.business?.serviceStatus === "Approved" ? -1 : 1) - (b.business?.serviceStatus === "Approved" ? -1 : 1)
+      }
+
+      return 0
+    })
+  }
+
+  // Modify the filteredUsers declaration to include sorting and date filtering
+  const filteredUsers = sortUsers(
+    pendingUsers.filter((user) => {
+      // First filter by search query
+      const matchesSearch =
+        user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.business?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+
+      // Then filter by tab (service status)
+      const matchesTab =
+        activeTab === "all" ||
+        (activeTab === "pending" && user.business?.serviceStatus === "Pending") ||
+        (activeTab === "approved" && user.business?.serviceStatus === "Approved") ||
+        (activeTab === "rejected" && user.business?.serviceStatus === "Rejected")
+
+      // Filter by date range if set
+      let matchesDateRange = true
+      if (dateFilter.startDate && dateFilter.endDate && user.business?.formationDate) {
+        const formationDate = new Date(user.business.formationDate)
+        const startDate = new Date(dateFilter.startDate)
+        const endDate = new Date(dateFilter.endDate)
+
+        // Ensure end date is set to end of day for inclusive comparison
+        endDate.setHours(23, 59, 59, 999)
+
+        // Only apply filter if date range is valid (start <= end)
+        if (startDate <= endDate) {
+          matchesDateRange = formationDate >= startDate && formationDate <= endDate
+        }
+      } else if (dateFilter.startDate && user.business?.formationDate) {
+        // Only start date is set
+        const formationDate = new Date(user.business.formationDate)
+        const startDate = new Date(dateFilter.startDate)
+        matchesDateRange = formationDate >= startDate
+      } else if (dateFilter.endDate && user.business?.formationDate) {
+        // Only end date is set
+        const formationDate = new Date(user.business.formationDate)
+        const endDate = new Date(dateFilter.endDate)
+        endDate.setHours(23, 59, 59, 999)
+        matchesDateRange = formationDate <= endDate
+      }
+
+      return matchesSearch && matchesTab && matchesDateRange
+    }),
+  )
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex)
+
+  // Copy to clipboard function
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(
+      () => {
+        toast({
+          title: "Copied!",
+          description: `${label} copied to clipboard`,
+        })
+      },
+      (err) => {
+        console.error("Could not copy text: ", err)
+        toast({
+          title: "Error",
+          description: "Failed to copy to clipboard",
+          variant: "destructive",
+        })
+      },
+    )
+  }
+
+  // Get phone request button text
+  const getPhoneRequestButtonText = (user: PendingUser) => {
+    if (!user.phoneRequest) {
+      return null // Don't show button if no request
+    }
+
+    if (user.phoneRequest.phoneNumber) {
+      return "View Client US Number"
+    }
+
+    return "US Phone Number Request"
+  }
+
+  // Get account manager request button text
+  const getAccountManagerButtonText = (user: PendingUser) => {
+    if (!user.accountManagerRequest) {
+      return null // Don't show button if no request
+    }
+
+    if (user.accountManagerRequest.managerName) {
+      return "View Account Manager"
+    }
+
+    return "Account Manager Request"
+  }
+
+  if (sessionStatus === "loading" || !session) {
     return (
-      <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
-        <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-          <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-            <tr>
-              <th scope="col" className="px-6 py-3">
-                Name
-              </th>
-              <th scope="col" className="px-6 py-3">
-                Email
-              </th>
-              <th scope="col" className="px-6 py-3">
-                Role
-              </th>
-              <th scope="col" className="px-6 py-3">
-                Status
-              </th>
-              <th scope="col" className="px-6 py-3">
-                Last Seen
-              </th>
-              <th scope="col" className="px-6 py-3">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={6} className="px-6 py-4 text-center">
-                  Loading users...
-                </td>
-              </tr>
-            ) : users.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-6 py-4 text-center">
-                  No users found.
-                </td>
-              </tr>
-            ) : (
-              users.map((user) => (
-                <tr
-                  key={user.id}
-                  className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-                >
-                  <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                    {user.name}
-                  </th>
-                  <td className="px-6 py-4">{user.email}</td>
-                  <td className="px-6 py-4">
-                    <Select value={user.role || "CLIENT"} onValueChange={(value) => onChangeRole(user, value as Role)}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roles
-                          .filter((r) => r !== "All Roles")
-                          .map((role) => (
-                            <SelectItem key={role} value={role}>
-                              {role}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`px-2 py-1 font-semibold rounded-full ${getStatusColor(user.subscriptionStatus || "inactive")}`}
-                    >
-                      {user.subscriptionStatus || "Inactive"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">{user.isOnline ? "Online" : "Offline"}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="icon" onClick={() => onViewUser(user)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" onClick={() => onEditUser(user)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" onClick={() => onResetPassword(user)}>
-                        <Lock className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" onClick={() => onToggleStatus(user)}>
-                        <ToggleLeft className="h-4 w-4" />
-                      </Button>
-                      <Button variant="destructive" size="icon" onClick={() => onDeleteUser(user)}>
-                        <Trash className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="p-6 text-center">
+        <div className="flex flex-col items-center justify-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-500">Loading...</p>
+        </div>
       </div>
     )
   }
 
-  return (
-    <div className="p-3 sm:p-4 md:p-6 max-w-[1600px] mx-auto mb-20 md:mb-40">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 md:mb-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">User Management</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm md:text-base">Manage all users in the system</p>
+  if (loading) {
+    return (
+      <Card className="p-8 text-center">
+        <div className="flex flex-col items-center justify-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-500">Loading users...</p>
         </div>
-        <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <Button variant="outline" size="sm" className="flex items-center" onClick={fetchUsers} disabled={refreshing}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
+      </Card>
+    )
+  }
+
+  // Count users by service status
+  const pendingCount = pendingUsers.filter((user) => user.business?.serviceStatus === "Pending").length
+  const approvedCount = pendingUsers.filter((user) => user.business?.serviceStatus === "Approved").length
+  const rejectedCount = pendingUsers.filter((user) => user.business?.serviceStatus === "Rejected").length
+
+  return (
+    <div className="px-3 sm:px-4 md:px-6 max-w-[1600px] mx-auto mb-20 md:mb-40 overflow-x-hidden">
+      <style jsx global>
+        {globalStyles}
+      </style>
+      {/* Rest of the component */}
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold">LLC Management</h1>
+          <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-1">
+            Manage business information and LLC status
+          </p>
+        </div>
+        <div className="flex items-center mt-3 md:mt-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center w-full md:w-auto justify-center"
+            onClick={fetchUsers}
+          >
+            <Filter className="mr-2 h-4 w-4" />
+            Refresh Data
           </Button>
         </div>
       </div>
 
-      {/* Filters and Search */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div className="relative flex-1">
+      {/* Replace the search div with this updated version that includes filters */}
+      <div className="flex flex-col gap-3 mb-4 md:mb-6">
+        <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="Search users..."
@@ -1101,911 +839,801 @@ export default function AdminBeneficialOwnershipPage() {
           />
         </div>
 
-        <div className="flex gap-2">
-          <Select value={selectedRole} onValueChange={setSelectedRole}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All Roles">All Roles</SelectItem>
-              <SelectItem value={Role.ADMIN}>Admin</SelectItem>
-              <SelectItem value={Role.SUPPORT}>Support</SelectItem>
-              <SelectItem value={Role.CLIENT}>Client</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="w-full">
+            <Select value={sortOrder} onValueChange={setSortOrder}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
+                <SelectItem value="pendingFirst">Pending First</SelectItem>
+                <SelectItem value="approvedFirst">Approved First</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full">
+            <Input
+              type="date"
+              placeholder="Start Date"
+              value={dateFilter.startDate}
+              onChange={(e) => {
+                const newStartDate = e.target.value
+                // Validate that start date is before end date if both exist
+                if (newStartDate && dateFilter.endDate && new Date(newStartDate) > new Date(dateFilter.endDate)) {
+                  toast({
+                    title: "Invalid Date Range",
+                    description: "The start date must be before or equal to the end date.",
+                    variant: "destructive",
+                  })
+                  return // Don't update with invalid range
+                }
+                setDateFilter((prev) => ({ ...prev, startDate: newStartDate }))
+              }}
+              className="w-full"
+            />
+          </div>
+          <div className="w-full">
+            <Input
+              type="date"
+              placeholder="End Date"
+              value={dateFilter.endDate}
+              onChange={(e) => {
+                const newEndDate = e.target.value
+                // Validate that end date is after start date if both exist
+                if (dateFilter.startDate && newEndDate && new Date(dateFilter.startDate) > new Date(newEndDate)) {
+                  toast({
+                    title: "Invalid Date Range",
+                    description: "The end date must be after or equal to the start date.",
+                    variant: "destructive",
+                  })
+                  return // Don't update with invalid range
+                }
+                setDateFilter((prev) => ({ ...prev, endDate: newEndDate }))
+              }}
+              className="w-full"
+            />
+          </div>
+          {(dateFilter.startDate || dateFilter.endDate) && (
+            <div className="flex items-center justify-start sm:justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDateFilter({ startDate: "", endDate: "" })}
+                className="h-10"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4 mr-2"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+                Clear Dates
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
-          <TabsTrigger value="all">All Users</TabsTrigger>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="inactive">Inactive</TabsTrigger>
-          <TabsTrigger value="validationEmailSent">Validation Email Sent</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4 md:mb-6">
+        <TabsList className="w-full grid grid-cols-2 md:grid-cols-4 h-auto">
+          <TabsTrigger value="all" className="py-2 text-xs md:text-sm">
+            All Users ({pendingUsers.length})
+          </TabsTrigger>
+          <TabsTrigger value="pending" className="py-2 text-xs md:text-sm">
+            Pending ({pendingCount})
+          </TabsTrigger>
+          <TabsTrigger value="approved" className="py-2 text-xs md:text-sm">
+            Approved ({approvedCount})
+          </TabsTrigger>
+          <TabsTrigger value="rejected" className="py-2 text-xs md:text-sm">
+            Rejected ({rejectedCount})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="all">
-          <UserTable
+          <UserList
             users={paginatedUsers}
-            onViewUser={viewUserDetails}
-            onEditUser={handleEditUser}
-            onResetPassword={handleResetPassword}
-            onChangeRole={handleChangeRole}
-            onToggleStatus={toggleUserStatus}
-            onDeleteUser={handleDeleteUser}
-            loading={loading}
-            formatDate={formatDate}
-            getStatusColor={getStatusBadgeClass}
+            onViewDetails={viewUserDetails}
+            onViewPhoneRequest={viewPhoneRequest}
+            onViewAccountManagerRequest={viewAccountManagerRequest}
+            copyToClipboard={copyToClipboard}
           />
-          {/* Add Pagination */}
-          {filteredUsers.length > 0 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
-                Showing{" "}
-                <span className="font-medium">
-                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
-                </span>{" "}
-                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
-                <span className="font-medium">{filteredUsers.length}</span> users
-              </div>
-              <div className="flex items-center gap-1 order-1 sm:order-2 mb-2 sm:mb-0">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="sr-only">Previous page</span>
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="icon"
-                    onClick={() => goToPage(page)}
-                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
-                  >
-                    {page}
-                    <span className="sr-only">Page {page}</span>
-                  </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="sr-only">Next page</span>
-                </Button>
-              </div>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="active">
-          <UserTable
-            users={paginatedUsers}
-            onViewUser={viewUserDetails}
-            onEditUser={handleEditUser}
-            onResetPassword={handleResetPassword}
-            onChangeRole={handleChangeRole}
-            onToggleStatus={toggleUserStatus}
-            onDeleteUser={handleDeleteUser}
-            loading={loading}
-            formatDate={formatDate}
-            getStatusColor={getStatusBadgeClass}
-          />
-          {/* Add Pagination */}
-          {filteredUsers.length > 0 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
-                Showing{" "}
-                <span className="font-medium">
-                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
-                </span>{" "}
-                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
-                <span className="font-medium">{filteredUsers.length}</span> users
-              </div>
-              <div className="flex items-center gap-1 overflow-x-auto pb-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="sr-only">Previous page</span>
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="icon"
-                    onClick={() => goToPage(page)}
-                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
-                  >
-                    {page}
-                    <span className="sr-only">Page {page}</span>
-                  </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="sr-only">Next page</span>
-                </Button>
-              </div>
-            </div>
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredUsers.length}
+              itemsPerPage={itemsPerPage}
+            />
           )}
         </TabsContent>
 
         <TabsContent value="pending">
-          <UserTable
+          <UserList
             users={paginatedUsers}
-            onViewUser={viewUserDetails}
-            onEditUser={handleEditUser}
-            onResetPassword={handleResetPassword}
-            onChangeRole={handleChangeRole}
-            onToggleStatus={toggleUserStatus}
-            onDeleteUser={handleDeleteUser}
-            loading={loading}
-            formatDate={formatDate}
-            getStatusColor={getStatusBadgeClass}
+            onViewDetails={viewUserDetails}
+            onViewPhoneRequest={viewPhoneRequest}
+            onViewAccountManagerRequest={viewAccountManagerRequest}
+            copyToClipboard={copyToClipboard}
           />
-          {/* Add Pagination */}
-          {filteredUsers.length > 0 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
-                Showing{" "}
-                <span className="font-medium">
-                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
-                </span>{" "}
-                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
-                <span className="font-medium">{filteredUsers.length}</span> users
-              </div>
-              <div className="flex items-center gap-1 overflow-x-auto pb-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="sr-only">Previous page</span>
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="icon"
-                    onClick={() => goToPage(page)}
-                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
-                  >
-                    {page}
-                    <span className="sr-only">Page {page}</span>
-                  </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="sr-only">Next page</span>
-                </Button>
-              </div>
-            </div>
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredUsers.length}
+              itemsPerPage={itemsPerPage}
+            />
           )}
         </TabsContent>
 
-        <TabsContent value="inactive">
-          <UserTable
+        <TabsContent value="approved">
+          <UserList
             users={paginatedUsers}
-            onViewUser={viewUserDetails}
-            onEditUser={handleEditUser}
-            onResetPassword={handleResetPassword}
-            onChangeRole={handleChangeRole}
-            onToggleStatus={toggleUserStatus}
-            onDeleteUser={handleDeleteUser}
-            loading={loading}
-            formatDate={formatDate}
-            getStatusColor={getStatusBadgeClass}
+            onViewDetails={viewUserDetails}
+            onViewPhoneRequest={viewPhoneRequest}
+            onViewAccountManagerRequest={viewAccountManagerRequest}
+            copyToClipboard={copyToClipboard}
           />
-          {/* Add Pagination */}
-          {filteredUsers.length > 0 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
-                Showing{" "}
-                <span className="font-medium">
-                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
-                </span>{" "}
-                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
-                <span className="font-medium">{filteredUsers.length}</span> users
-              </div>
-              <div className="flex items-center gap-1 overflow-x-auto pb-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="sr-only">Previous page</span>
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="icon"
-                    onClick={() => goToPage(page)}
-                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
-                  >
-                    {page}
-                    <span className="sr-only">Page {page}</span>
-                  </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="sr-only">Next page</span>
-                </Button>
-              </div>
-            </div>
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredUsers.length}
+              itemsPerPage={itemsPerPage}
+            />
           )}
         </TabsContent>
 
-        <TabsContent value="validationEmailSent">
-          <UserTable
+        <TabsContent value="rejected">
+          <UserList
             users={paginatedUsers}
-            onViewUser={viewUserDetails}
-            onEditUser={handleEditUser}
-            onResetPassword={handleResetPassword}
-            onChangeRole={handleChangeRole}
-            onToggleStatus={toggleUserStatus}
-            onDeleteUser={handleDeleteUser}
-            loading={loading}
-            formatDate={formatDate}
-            getStatusColor={getStatusBadgeClass}
+            onViewDetails={viewUserDetails}
+            onViewPhoneRequest={viewPhoneRequest}
+            onViewAccountManagerRequest={viewAccountManagerRequest}
+            copyToClipboard={copyToClipboard}
           />
-          {/* Add Pagination */}
-          {filteredUsers.length > 0 && (
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
-                Showing{" "}
-                <span className="font-medium">
-                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}
-                </span>{" "}
-                to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{" "}
-                <span className="font-medium">{filteredUsers.length}</span> users
-              </div>
-              <div className="flex items-center gap-1 overflow-x-auto pb-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="sr-only">Previous page</span>
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="icon"
-                    onClick={() => goToPage(page)}
-                    className={`h-8 w-8 ${currentPage === page ? "bg-[#22c984] hover:bg-[#1ba36d]" : ""}`}
-                  >
-                    {page}
-                    <span className="sr-only">Page {page}</span>
-                  </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="sr-only">Next page</span>
-                </Button>
-              </div>
-            </div>
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredUsers.length}
+              itemsPerPage={itemsPerPage}
+            />
           )}
         </TabsContent>
       </Tabs>
 
-      {/* User Details Dialog */}
+      {/* LLC Details Dialog */}
       {selectedUser && (
         <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
-          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto p-4 md:p-6">
+          <DialogContent className="w-[95vw] max-w-[700px] max-h-[90vh] overflow-y-auto p-4 md:p-6">
             <DialogHeader>
-              <DialogTitle>User Details</DialogTitle>
-              <DialogDescription>Detailed information about {selectedUser.name}</DialogDescription>
+              <DialogTitle>LLC Management</DialogTitle>
+              <DialogDescription>Update business information and LLC status</DialogDescription>
             </DialogHeader>
 
             <div className="grid gap-6 py-4">
-              {/* User Profile */}
-              <div className="flex flex-col md:flex-row gap-6">
-                <div className="md:w-1/3">
-                  <Card className="p-6">
-                    <div className="flex flex-col items-center text-center">
-                      <div className="w-24 h-24 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mb-4">
-                        {selectedUser.profileImage ? (
-                          <Image
-                            src={selectedUser.profileImage || "/placeholder.svg"}
-                            alt={selectedUser.name}
-                            width={96}
-                            height={96}
-                            className="rounded-full"
-                          />
-                        ) : (
-                          <span className="text-3xl text-gray-600 dark:text-gray-300 font-medium">
-                            {selectedUser.name
-                              ? selectedUser.name.charAt(0).toUpperCase()
-                              : selectedUser.email.charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-lg font-medium">{selectedUser.name}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{selectedUser.email}</p>
-                      {/* Update the role badge colors (around line 850) */}
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          selectedUser.role === Role.ADMIN
-                            ? "bg-[#22c984]/20 text-[#22c984] dark:bg-[#22c984]/30 dark:text-[#22c984]"
-                            : selectedUser.role === Role.SUPPORT
-                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                              : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-                        }`}
-                      >
-                        {getFormattedRole()}
-                      </span>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">User Information</h3>
+                <Card className="p-4">
+                  <div className="space-y-2">
+                    <p className="font-medium">{selectedUser.name}</p>
+                    <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                  </div>
+                </Card>
+              </div>
 
-                      <div className="mt-6 w-full">
-                        <div className="flex items-center text-sm mb-2">
-                          <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                          {selectedUser.phone || "Not provided"}
-                        </div>
-                        <div className="flex items-start text-sm mb-2">
-                          <Building className="h-5 w-5 mr-2 text-gray-400 mt-1 flex-shrink-0" />
-                          <span className="text-left">{userAddress.address || "Not provided"}</span>
-                        </div>
-                        <div className="flex items-center text-sm mb-2">
-                          <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                          Joined {selectedUser.joinDate}
-                        </div>
-                      </div>
+              {/* Business Information */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Business Information</h3>
+                <Card className="p-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                    <div>
+                      <Label htmlFor="name">Business Name</Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        value={businessFormData.name}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                      />
                     </div>
-                  </Card>
-                </div>
 
-                <div className="md:w-2/3 space-y-6">
-                  <Card className="p-6">
-                    <h3 className="text-lg font-medium mb-4">Subscription</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Items/Packages</p>
-                        <p className="font-medium">{selectedUser.subscriptionPlan || "None"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full inline-flex items-center ${
-                            selectedUser.subscriptionStatus === "paid" || selectedUser.subscriptionStatus === "Active"
-                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                              : selectedUser.subscriptionStatus === "pending" ||
-                                  selectedUser.subscriptionStatus === "Trial"
-                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                                : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                          }`}
+                    <div>
+                      <Label htmlFor="businessId">Business ID</Label>
+                      <div className="flex items-center mt-1">
+                        <Input
+                          id="businessId"
+                          name="businessId"
+                          value={businessFormData.businessId}
+                          onChange={handleInputChange}
+                          className="mt-1"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="ml-2"
+                          onClick={() => copyToClipboard(businessFormData.businessId, "Business ID")}
                         >
-                          {selectedUser.subscriptionStatus === "paid" ||
-                          selectedUser.subscriptionStatus === "Active" ? (
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
-                          ) : selectedUser.subscriptionStatus === "pending" ||
-                            selectedUser.subscriptionStatus === "Trial" ? (
-                            <Clock className="h-3 w-3 mr-1" />
-                          ) : (
-                            <XCircle className="h-3 w-3 mr-1" />
-                          )}
-                          {selectedUser.subscriptionStatus === "paid"
-                            ? "Paid"
-                            : selectedUser.subscriptionStatus === "pending"
-                              ? "Pending"
-                              : selectedUser.subscriptionStatus || "Inactive"}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Payment Date</p>
-                        <p className="font-medium">{selectedUser.nextBillingDate || "N/A"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Amount</p>
-                        <p className="font-medium">
-                          {selectedUser.subscriptionAmount ? `$${selectedUser.subscriptionAmount.toFixed(2)}` : "N/A"}
-                        </p>
+                          <Copy className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
 
-                    {/* Add invoice history section */}
-                    {selectedUser.invoices && selectedUser.invoices.length > 0 && (
-                      <div className="mt-4">
-                        <h4 className="text-sm font-medium mb-2">Invoice History</h4>
-                        <div className="max-h-40 overflow-y-auto">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b">
-                                  <th className="text-left py-2">Invoice #</th>
-                                  <th className="text-left py-2">Date</th>
-                                  <th className="text-left py-2">Amount</th>
-                                  <th className="text-left py-2">Status</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {selectedUser.invoices.map((invoice: any) => (
-                                  <tr key={invoice.id} className="border-b">
-                                    <td className="py-2">{invoice.invoiceNumber}</td>
-                                    <td className="py-2">{new Date(invoice.createdAt).toLocaleDateString()}</td>
-                                    <td className="py-2">${invoice.amount.toFixed(2)}</td>
-                                    <td className="py-2">
-                                      <span
-                                        className={`px-1.5 py-0.5 text-xs rounded-full ${
-                                          invoice.status === "paid"
-                                            ? "bg-green-100 text-green-800"
-                                            : invoice.status === "pending"
-                                              ? "bg-yellow-100 text-yellow-800"
-                                              : "bg-red-100 text-red-800"
-                                        }`}
-                                      >
-                                        {invoice.status}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </Card>
+                    <div>
+                      <Label htmlFor="ein">EIN Number</Label>
+                      <Input
+                        id="ein"
+                        name="ein"
+                        value={businessFormData.ein}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                      />
+                    </div>
 
-                  {/* Security Info */}
-                  <Card className="p-6">
-                    <h3 className="text-lg font-medium mb-4">Security</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <FileText className="h-5 w-5 mr-2 text-gray-400" />
-                          <span>Login Sessions</span>
-                        </div>
-                        <span>{selectedUser.isOnline ? "Online" : "Offline"}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <Clock className="h-5 w-5 mr-2 text-gray-400" />
-                          <span>Last Password Change</span>
-                        </div>
-                        <span>{selectedUser.lastPasswordChange || "Never"}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <Users className="h-5 w-5 mr-2 text-gray-400" />
-                          <span>Password Reset Count</span>
-                        </div>
-                        <span>{selectedUser.passwordResetCount || 0}</span>
+                    <div>
+                      <Label htmlFor="formationDate">Formation Date</Label>
+                      <Input
+                        id="formationDate"
+                        name="formationDate"
+                        type="date"
+                        value={businessFormData.formationDate}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="serviceStatus">Service Status</Label>
+                      <Select
+                        value={businessFormData.serviceStatus}
+                        onValueChange={(value) => handleSelectChange("serviceStatus", value)}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Pending">Pending</SelectItem>
+                          <SelectItem value="Approved">Approved</SelectItem>
+                          <SelectItem value="Rejected">Rejected</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <Label htmlFor="llcStatusMessage">LLC Status Message</Label>
+                      <Input
+                        id="llcStatusMessage"
+                        name="llcStatusMessage"
+                        value={businessFormData.llcStatusMessage}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <Label htmlFor="llcProgress">LLC Progress ({businessFormData.llcProgress}%)</Label>
+                      <Input
+                        id="llcProgress"
+                        name="llcProgress"
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="5"
+                        value={businessFormData.llcProgress}
+                        onChange={handleProgressChange}
+                        className="mt-1"
+                      />
+                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mt-2">
+                        <div
+                          className={`h-full ${
+                            businessFormData.llcProgress >= 100
+                              ? "bg-green-500"
+                              : businessFormData.llcProgress >= 70
+                                ? "bg-green-400"
+                                : "bg-blue-500"
+                          } rounded-full`}
+                          style={{ width: `${businessFormData.llcProgress}%` }}
+                        ></div>
                       </div>
                     </div>
-                  </Card>
-                </div>
-              </div>
-            </div>
-
-            {/* Documents and Activity */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Documents */}
-              <Card>
-                <div className="p-4 border-b">
-                  <h3 className="font-medium">Recent Documents</h3>
-                </div>
-                <div className="p-4">
-                  {loadingDocuments ? (
-                    <div className="flex justify-center py-4">
-                      <div className="animate-spin h-6 w-6 border-2 border-[#22c984] border-t-transparent rounded-full"></div>
-                    </div>
-                  ) : userDocuments && userDocuments.length > 0 ? (
-                    <div className="space-y-3">
-                      {userDocuments.map((doc: any) => (
-                        <div key={doc.id} className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <FileText className="h-4 w-4 mr-2 text-gray-400" />
-                            <div>
-                              <p className="text-sm font-medium">{doc.name}</p>
-                              <p className="text-xs text-gray-500">{new Date(doc.createdAt).toLocaleDateString()}</p>
-                            </div>
-                          </div>
-                          <span
-                            className={`px-2 py-1 text-xs rounded-full ${
-                              doc.status === "Verified"
-                                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                                : doc.status === "Pending"
-                                  ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                                  : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                            }`}
+                    <div className="md:col-span-2">
+                      <h4 className="font-medium text-sm mb-3 mt-2">Annual Report Settings</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="annualReportFee">Annual Report Fee ($)</Label>
+                          <Input
+                            id="annualReportFee"
+                            name="annualReportFee"
+                            type="number"
+                            min="0"
+                            value={businessFormData.annualReportFee}
+                            onChange={handleInputChange}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="annualReportFrequency">Report Frequency (Years)</Label>
+                          <Select
+                            value={businessFormData.annualReportFrequency.toString()}
+                            onValueChange={(value) => handleSelectChange("annualReportFrequency", value)}
                           >
-                            {doc.status || "Pending"}
-                          </span>
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="Select frequency" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">Every 1 Year</SelectItem>
+                              <SelectItem value="2">Every 2 Years</SelectItem>
+                              <SelectItem value="3">Every 3 Years</SelectItem>
+                              <SelectItem value="5">Every 5 Years</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                      ))}
+                      </div>
+                      <div className="mt-2 text-xs text-gray-500">
+                        Annual report will be due every {businessFormData.annualReportFrequency}{" "}
+                        {businessFormData.annualReportFrequency === 1 ? "year" : "years"} from the formation date.
+                      </div>
                     </div>
-                  ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No documents found for this user</p>
-                  )}
-                </div>
-              </Card>
-
-              {/* Activity */}
-              <Card>
-                <div className="p-4 border-b">
-                  <h3 className="font-medium">Recent Activity</h3>
-                </div>
-                <div className="p-4">
-                  {selectedUser.activity && selectedUser.activity.length > 0 ? (
-                    <div className="space-y-4">
-                      {selectedUser.activity.slice(0, 4).map((activity, index) => (
-                        <div key={index} className="flex items-start gap-3">
-                          <div className="p-2 bg-gray-100 rounded-full">
-                            {activity.iconType === "post" ? (
-                              <FileText className="h-4 w-4 text-blue-500" />
-                            ) : activity.iconType === "comment" ? (
-                              <MessageSquare className="h-4 w-4 text-green-500" />
-                            ) : activity.iconType === "like" ? (
-                              <ThumbsUp className="h-4 w-4 text-red-500" />
-                            ) : (
-                              <Clock className="h-4 w-4 text-gray-500" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-sm">{activity.content}</p>
-                            <p className="text-xs text-gray-500 mt-1">{formatDate(activity.date)}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No activity found</p>
-                  )}
-                </div>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Add User Dialog */}
-      <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle>Add New User</DialogTitle>
-            <DialogDescription>Create a new user account in the system</DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  name="firstName"
-                  value={newUserData.firstName}
-                  onChange={handleNewUserInputChange}
-                  placeholder="First name"
-                />
+                  </div>
+                </Card>
               </div>
-              <div>
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  name="lastName"
-                  value={newUserData.lastName}
-                  onChange={handleNewUserInputChange}
-                  placeholder="Last name"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={newUserData.email}
-                onChange={handleNewUserInputChange}
-                placeholder="Email address"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={newUserData.password}
-                onChange={handleNewUserInputChange}
-                placeholder="Password"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                name="phone"
-                value={newUserData.phone}
-                onChange={handleNewUserInputChange}
-                placeholder="Phone number"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="company">Company</Label>
-              <Input
-                id="company"
-                name="company"
-                value={newUserData.company}
-                onChange={handleNewUserInputChange}
-                placeholder="Company name"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="role">Role</Label>
-              <Select value={newUserData.role} onValueChange={(value) => handleNewUserSelectChange("role", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles
-                    .filter((r) => r !== "All Roles")
-                    .map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="notes">Notes (Optional)</Label>
-              <Textarea
-                id="notes"
-                name="notes"
-                value={newUserData.notes}
-                onChange={handleNewUserInputChange}
-                placeholder="Additional notes about this user"
-              />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="sendInvite"
-                name="sendInvite"
-                checked={newUserData.sendInvite}
-                onChange={handleNewUserCheckboxChange}
-                className="rounded border-gray-300"
-              />
-              <Label htmlFor="sendInvite">Send welcome email with login instructions</Label>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddUserDialog(false)}>
-              Cancel
-            </Button>
-            {/* Change the Create User button color (around line 1000) */}
-            <Button className="bg-[#22c984] hover:bg-[#1ba36d]" onClick={createUser} disabled={processingAction}>
-              {processingAction ? "Creating..." : "Create User"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit User Dialog */}
-      {selectedUser && (
-        <Dialog open={showEditUserDialog} onOpenChange={setShowEditUserDialog}>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit User</DialogTitle>
-              <DialogDescription>Update information for {selectedUser.name}</DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-4 py-4">
-              <div>
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" name="name" value={formData.name} onChange={handleInputChange} />
-              </div>
-
-              <div>
-                <Label htmlFor="email">Email Address</Label>
-                <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} />
-              </div>
-
-              <div>
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" name="phone" value={formData.phone} onChange={handleInputChange} />
-              </div>
-
-              <div>
-                <Label htmlFor="company">Company</Label>
-                <Input id="company" name="company" value={formData.company} onChange={handleInputChange} />
-              </div>
-
-              <div>
-                <Label htmlFor="address">Address</Label>
-                <Input id="address" name="address" value={formData.address} onChange={handleInputChange} />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="city">City</Label>
-                  <Input id="city" name="city" value={formData.city} onChange={handleInputChange} />
-                </div>
-
-                <div>
-                  <Label htmlFor="state">State</Label>
-                  <Input id="state" name="state" value={formData.state} onChange={handleInputChange} />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="zip">Zip Code</Label>
-                  <Input id="zip" name="zip" value={formData.zip} onChange={handleInputChange} />
-                </div>
-
-                <div>
-                  <Label htmlFor="country">Country</Label>
-                  <Input id="country" name="country" value={formData.country} onChange={handleInputChange} />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter new password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder="Confirm new password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {passwordError && (
-                <div className="text-red-500 text-xs sm:text-sm flex items-center gap-2">
-                  <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                  <span className="break-words">{passwordError}</span>
-                </div>
-              )}
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowEditUserDialog(false)}>
+              <Button variant="outline" onClick={() => setShowUserDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveUser} disabled={processingAction}>
-                {processingAction ? "Saving..." : "Save Changes"}
+              <Button onClick={saveBusinessData} disabled={processingAction}>
+                {processingAction ? "Saving..." : "Save Business Info"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
 
-      {/* Reset Password Dialog */}
-      <Dialog open={showResetPasswordDialog} onOpenChange={setShowResetPasswordDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Reset Password</DialogTitle>
-            <DialogDescription>Enter your new password below.</DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <form onSubmit={handlePasswordReset} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="password">New Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+      {/* Phone Number Request Dialog */}
+      {selectedUser && (
+        <Dialog open={showPhoneDialog} onOpenChange={setShowPhoneDialog}>
+          <DialogContent className="w-[95vw] max-w-[500px] p-4 md:p-6">
+            <DialogHeader>
+              <DialogTitle>US Phone Number Request</DialogTitle>
+              <DialogDescription>
+                {selectedUser.phoneRequest
+                  ? "Update the client's US phone number request status"
+                  : "This client has not requested a US phone number yet"}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Client Information</h3>
+                <Card className="p-4">
+                  <div className="space-y-2">
+                    <p className="font-medium">{selectedUser.name}</p>
+                    <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                    {selectedUser.phoneRequest && (
+                      <div className="mt-2 pt-2 border-t">
+                        <p className="text-sm text-gray-500">
+                          Request Status:{" "}
+                          <span className="font-medium capitalize">{selectedUser.phoneRequest.status}</span>
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Requested:{" "}
+                          {selectedUser.phoneRequest.createdAt
+                            ? new Date(selectedUser.phoneRequest.createdAt).toLocaleDateString()
+                            : "Unknown date"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="phoneNumber">US Phone Number</Label>
                   <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10"
-                    required
+                    id="phoneNumber"
+                    name="phoneNumber"
+                    placeholder="e.g. +1 (555) 123-4567"
+                    value={phoneFormData.phoneNumber}
+                    onChange={handlePhoneInputChange}
+                    className="mt-1"
                   />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+                </div>
+
+                <div>
+                  <Label htmlFor="status">Request Status</Label>
+                  <Select value={phoneFormData.status} onValueChange={handlePhoneStatusChange}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="requested">Requested</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm new password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="pl-10 pr-10"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              {passwordError && <p className="text-sm text-red-600 mt-1">Passwords do not match</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Resetting..." : "Reset Password"}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowPhoneDialog(false)}>
+                Cancel
               </Button>
-            </form>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowResetPasswordDialog(false)}>
-              Cancel
+              <Button onClick={savePhoneRequestData} disabled={processingPhoneAction}>
+                {processingPhoneAction ? "Saving..." : "Save Phone Request"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Account Manager Request Dialog */}
+      {selectedUser && (
+        <Dialog open={showAccountManagerDialog} onOpenChange={setShowAccountManagerDialog}>
+          <DialogContent className="w-[95vw] max-w-[500px] p-4 md:p-6">
+            <DialogHeader>
+              <DialogTitle>Account Manager Request</DialogTitle>
+              <DialogDescription>
+                {selectedUser.accountManagerRequest
+                  ? "Update the client's account manager request status"
+                  : "This client has not requested a dedicated account manager yet"}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Client Information</h3>
+                <Card className="p-4">
+                  <div className="space-y-2">
+                    <p className="font-medium">{selectedUser.name}</p>
+                    <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                    {selectedUser.accountManagerRequest && (
+                      <div className="mt-2 pt-2 border-t">
+                        <p className="text-sm text-gray-500">
+                          Request Status:{" "}
+                          <span className="font-medium capitalize">{selectedUser.accountManagerRequest.status}</span>
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Requested:{" "}
+                          {selectedUser.accountManagerRequest.createdAt
+                            ? new Date(selectedUser.accountManagerRequest.createdAt).toLocaleDateString()
+                            : "Unknown date"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="managerName">Account Manager Name</Label>
+                  <Input
+                    id="managerName"
+                    name="managerName"
+                    placeholder="e.g. John Smith"
+                    value={accountManagerFormData.managerName}
+                    onChange={handleAccountManagerInputChange}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="contactLink">Contact Link</Label>
+                  <Input
+                    id="contactLink"
+                    name="contactLink"
+                    placeholder="e.g. https://calendly.com/john-smith"
+                    value={accountManagerFormData.contactLink}
+                    onChange={handleAccountManagerInputChange}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="status">Request Status</Label>
+                  <Select value={accountManagerFormData.status} onValueChange={handleAccountManagerStatusChange}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="requested">Requested</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAccountManagerDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={saveAccountManagerData} disabled={processingManagerAction}>
+                {processingManagerAction ? "Saving..." : "Save Account Manager"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Pagination component */}
+      {/* ... (pagination component remains the same) */}
+    </div>
+  )
+}
+
+// Pagination component
+function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+  totalItems,
+  itemsPerPage,
+}: {
+  currentPage: number
+  totalPages: number
+  onPageChange: (page: number) => void
+  totalItems: number
+  itemsPerPage: number
+}) {
+  const startItem = (currentPage - 1) * itemsPerPage + 1
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems)
+
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages = []
+    const maxPagesToShow = 3 // Show fewer pages on mobile
+
+    if (totalPages <= maxPagesToShow) {
+      // If we have 3 or fewer pages, show all of them
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      // Always include first page
+      pages.push(1)
+
+      // Calculate start and end of page range around current page
+      let startPage = Math.max(2, currentPage - 0)
+      let endPage = Math.min(totalPages - 1, currentPage + 0)
+
+      // Adjust if we're near the beginning
+      if (currentPage <= 2) {
+        endPage = 2
+      }
+
+      // Adjust if we're near the end
+      if (currentPage >= totalPages - 1) {
+        startPage = totalPages - 1
+      }
+
+      // Add ellipsis after first page if needed
+      if (startPage > 2) {
+        pages.push(-1) // -1 represents ellipsis
+      }
+
+      // Add pages in the middle
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i)
+      }
+
+      // Add ellipsis before last page if needed
+      if (endPage < totalPages - 1) {
+        pages.push(-2) // -2 represents ellipsis
+      }
+
+      // Always include last page
+      pages.push(totalPages)
+    }
+
+    return pages
+  }
+
+  const pageNumbers = getPageNumbers()
+
+  return (
+    <div className="mt-4 md:mt-6 flex flex-col sm:flex-row items-center justify-between">
+      <div className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-0 text-center sm:text-left">
+        Showing <span className="font-medium">{startItem}</span> to <span className="font-medium">{endItem}</span> of{" "}
+        <span className="font-medium">{totalItems}</span> results
+      </div>
+
+      <div className="flex items-center space-x-1 sm:space-x-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          <span className="sr-only">Previous page</span>
+        </Button>
+
+        {pageNumbers.map((pageNumber, index) => {
+          // Render ellipsis
+          if (pageNumber < 0) {
+            return (
+              <span key={`ellipsis-${index}`} className="px-1 sm:px-2">
+                ...
+              </span>
+            )
+          }
+
+          // Render page number
+          return (
+            <Button
+              key={pageNumber}
+              variant={currentPage === pageNumber ? "default" : "outline"}
+              size="sm"
+              onClick={() => onPageChange(pageNumber)}
+              className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-xs"
+            >
+              {pageNumber}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          )
+        })}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+        >
+          <ChevronRight className="h-4 w-4" />
+          <span className="sr-only">Next page</span>
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// Separate component for the user list
+function UserList({
+  users,
+  onViewDetails,
+  onViewPhoneRequest,
+  onViewAccountManagerRequest,
+  copyToClipboard,
+}: {
+  users: PendingUser[]
+  onViewDetails: (user: PendingUser) => void
+  onViewPhoneRequest: (user: PendingUser) => void
+  onViewAccountManagerRequest: (user: PendingUser) => void
+  copyToClipboard: (text: string, label: string) => void
+}) {
+  if (users.length === 0) {
+    return (
+      <Card className="p-4 md:p-8 text-center">
+        <p>No users found</p>
+      </Card>
+    )
+  }
+
+  // Get phone request button text
+  const getPhoneRequestButtonText = (user: PendingUser) => {
+    if (!user.phoneRequest) {
+      return null // Don't show button if no request
+    }
+
+    if (user.phoneRequest.phoneNumber) {
+      return "View Client US Number"
+    }
+
+    return "US Phone Number Request"
+  }
+
+  // Get account manager request button text
+  const getAccountManagerButtonText = (user: PendingUser) => {
+    if (!user.accountManagerRequest) {
+      return null // Don't show button if no request
+    }
+
+    if (user.accountManagerRequest.managerName) {
+      return "View Account Manager"
+    }
+
+    return "Account Manager Request"
+  }
+
+  return (
+    <div className="space-y-3">
+      {users.map((user) => (
+        <Card key={user.id} className="p-3 md:p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
+          <div className="flex flex-col space-y-3">
+            <div>
+              <div className="flex items-center mb-1">
+                <p className="font-medium">{user.name}</p>
+              </div>
+              <p className="text-sm text-gray-500">{user.email}</p>
+              <div className="flex flex-wrap items-center mt-1 gap-y-1 text-xs">
+                <span className="text-gray-500">Business: {user.business?.name || "Not set"}</span>
+                <span className="mx-2 text-gray-300 hidden xs:inline">•</span>
+                <span className="text-gray-500">Status: {user.business?.serviceStatus || "Pending"}</span>
+                {user.business?.businessId && (
+                  <>
+                    <span className="mx-2 text-gray-300 hidden sm:inline">•</span>
+                    <span className="text-gray-500 flex items-center mt-1 sm:mt-0">
+                      <span className="mr-1">ID: {user.business.businessId}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0"
+                        onClick={() => copyToClipboard(user.business?.businessId || "", "Business ID")}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </span>
+                  </>
+                )}
+                {user.business?.formationDate && (
+                  <>
+                    <span className="mx-2 text-gray-300 hidden md:inline">•</span>
+                    <span className="text-gray-500 block md:inline mt-1 md:mt-0">
+                      Formation: {new Date(user.business.formationDate).toLocaleDateString()}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => onViewDetails(user)}>
+                <Eye className="h-3 w-3 mr-1" />
+                Manage LLC
+              </Button>
+              {getPhoneRequestButtonText(user) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`text-xs h-8 ${user.phoneRequest?.status === "requested" ? "border-blue-300 text-blue-600" : ""}`}
+                  onClick={() => onViewPhoneRequest(user)}
+                >
+                  <Phone className="h-3 w-3 mr-1" />
+                  <span className="hidden xs:inline">US Phone</span>
+                </Button>
+              )}
+              {getAccountManagerButtonText(user) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`text-xs h-8 ${user.accountManagerRequest?.status === "requested" ? "border-blue-300 text-blue-600" : ""}`}
+                  onClick={() => onViewAccountManagerRequest(user)}
+                >
+                  <User className="h-3 w-3 mr-1" />
+                  <span className="hidden xs:inline">Manager</span>
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+      ))}
     </div>
   )
 }
