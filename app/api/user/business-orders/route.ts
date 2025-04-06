@@ -1,27 +1,31 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
+import prisma from "@/lib/db"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 export async function GET() {
   try {
+    // Get the current user session
     const session = await getServerSession(authOptions)
 
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Fetch ALL invoices for the current user without any filtering
-    const invoices = await db.invoice.findMany({
+    // Get the user ID from the session
+    const userId = session.user.id
+
+    // Fetch all invoices for the user without any filtering
+    const invoices = await prisma.invoice.findMany({
       where: {
-        userId: session.user.id as string,
+        userId: userId,
       },
       orderBy: {
         createdAt: "desc",
       },
     })
 
-    console.log(`[business-orders] Found ${invoices.length} invoices for user ${session.user.id}`)
+    console.log(`Found ${invoices.length} invoices for user ${userId}`)
 
     return NextResponse.json({ invoices })
   } catch (error) {
