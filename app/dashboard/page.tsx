@@ -207,6 +207,7 @@ export default function DashboardPage() {
     annualReportFee: 100,
     annualReportFrequency: 1, // in years
     annualReportDueDate: "", // will be calculated based on formation date
+    annualReportDate: "", // Add this field to store the custom date
   })
   const [userAddress, setUserAddress] = useState({
     address: "Your Business address will appear here when approved ", // Default address
@@ -766,6 +767,7 @@ export default function DashboardPage() {
             annualReportFee: data.business.annualReportFee || 100,
             annualReportFrequency: data.business.annualReportFrequency || 1,
             annualReportDueDate: data.business.annualReportDueDate || "",
+            annualReportDate: data.business.annualReportDate || "", // Add this line
           })
         }
       }
@@ -918,6 +920,11 @@ export default function DashboardPage() {
 
   // Function to calculate the annual report due date
   const calculateAnnualReportDueDate = () => {
+    // If a custom annual report date is set, use that
+    if (businessData.annualReportDate) {
+      return new Date(businessData.annualReportDate).toLocaleDateString()
+    }
+
     if (businessData.formationDate === "Pending") return "Pending"
 
     const formationDate = new Date(businessData.formationDate)
@@ -940,6 +947,19 @@ export default function DashboardPage() {
 
   // Function to calculate days remaining until annual report
   const calculateDaysRemaining = () => {
+    // If a custom annual report date is set, use that
+    if (businessData.annualReportDate) {
+      const today = new Date()
+      const dueDate = new Date(businessData.annualReportDate)
+
+      // Calculate the difference in milliseconds
+      const diffTime = dueDate.getTime() - today.getTime()
+
+      // Convert to days and ensure it's not negative
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      return diffDays > 0 ? diffDays : 0
+    }
+
     if (businessData.formationDate === "Pending") return 365
 
     const today = new Date()
@@ -955,6 +975,24 @@ export default function DashboardPage() {
 
   // Function to calculate progress percentage for the progress bar
   const calculateProgressPercentage = () => {
+    // If a custom annual report date is set, calculate based on that
+    if (businessData.annualReportDate) {
+      const today = new Date()
+      const dueDate = new Date(businessData.annualReportDate)
+
+      // Calculate total period as 1 year (365 days) in milliseconds
+      const totalPeriod = 365 * 24 * 60 * 60 * 1000
+
+      // Calculate time remaining until due date
+      const timeRemaining = dueDate.getTime() - today.getTime()
+
+      // Calculate percentage (100% means all time remaining, 0% means due date has passed)
+      const percentage = (timeRemaining / totalPeriod) * 100
+
+      // Ensure percentage is between 0 and 100
+      return Math.min(100, Math.max(0, percentage))
+    }
+
     if (businessData.formationDate === "Pending") return 50
 
     const formationDate = new Date(businessData.formationDate)
