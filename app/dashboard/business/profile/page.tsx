@@ -41,6 +41,18 @@ interface UserData {
   address?: string | null
 }
 
+interface UserAddress {
+  id: string
+  userId: string
+  street: string
+  city: string
+  state: string
+  zipCode: string
+  country: string
+  createdAt: Date
+  updatedAt: Date
+}
+
 interface BusinessProfileResponse {
   business: BusinessData | null
   user: UserData
@@ -82,6 +94,18 @@ export default function BusinessProfilePage() {
 
       const data: BusinessProfileResponse = await response.json()
 
+      // Fetch user address separately
+      const addressResponse = await fetch("/api/user/address")
+      let formattedAddress = ""
+
+      if (addressResponse.ok) {
+        const addressData = await addressResponse.json()
+        if (addressData.address) {
+          const addr = addressData.address
+          formattedAddress = `${addr.street}, ${addr.city}, ${addr.state} ${addr.zipCode}, ${addr.country}`
+        }
+      }
+
       if (data.business || data.user) {
         // Get industry display value
         let industryDisplay = "Technology"
@@ -99,7 +123,7 @@ export default function BusinessProfilePage() {
           businessId: data.business?.businessId || "",
           formationDate: data.business?.formationDate ? new Date(data.business.formationDate).toLocaleDateString() : "",
           ein: data.business?.ein || "",
-          address: data.user?.address || data.business?.address || "",
+          address: formattedAddress || data.user?.address || data.business?.address || "",
           phone: data.user?.phone || data.business?.phone || "",
           email: data.user?.email || data.business?.email || "",
           website: data.business?.website || "",
@@ -259,7 +283,6 @@ export default function BusinessProfilePage() {
     try {
       const success = await updateUserInfo({
         phone: businessInfo.phone,
-        address: businessInfo.address,
         website: businessInfo.website,
         industry: businessInfo.industry,
       })
@@ -372,12 +395,13 @@ export default function BusinessProfilePage() {
 
                 <div>
                   <Label htmlFor="business-address">Business Address</Label>
-                  <Input
-                    id="business-address"
-                    value={businessInfo.address}
-                    onChange={(e) => setBusinessInfo({ ...businessInfo, address: e.target.value })}
-                    placeholder="Enter business address"
-                  />
+                  <div className="relative">
+                    <Input id="business-address" value={businessInfo.address} disabled className="bg-gray-50" />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-gray-500">
+                      <Lock className="h-3 w-3" />
+                      <span className="hidden sm:inline">Not editable</span>
+                    </div>
+                  </div>
                 </div>
 
                 <Button type="submit" disabled={updating}>
