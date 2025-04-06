@@ -37,6 +37,7 @@ interface PendingUser {
     llcProgress?: number
     annualReportFee?: number
     annualReportFrequency?: number
+    annualReportDate?: string
     completedAt?: string | null
   }
   phoneRequest?: PhoneNumberRequest
@@ -362,6 +363,7 @@ export default function PendingUsersPage() {
     llcProgress: 10,
     annualReportFee: 100,
     annualReportFrequency: 1,
+    annualReportDate: "",
     completedAt: null as string | null, // Add this field to track when the LLC was completed
   })
   const [phoneFormData, setPhoneFormData] = useState({
@@ -505,6 +507,7 @@ export default function PendingUsersPage() {
             llcProgress: data.business.llcProgress || 10,
             annualReportFee: data.business.annualReportFee || 100,
             annualReportFrequency: data.business.annualReportFrequency || 1,
+            annualReportDate: data.business.annualReportDate || "",
             completedAt: data.business.completedAt || null,
           }
         }
@@ -521,6 +524,7 @@ export default function PendingUsersPage() {
         llcProgress: 10,
         annualReportFee: 100,
         annualReportFrequency: 1,
+        annualReportDate: "",
         completedAt: null,
       }
     } catch (error) {
@@ -615,6 +619,7 @@ export default function PendingUsersPage() {
           llcProgress: user.business.llcProgress || 10,
           annualReportFee: user.business.annualReportFee || 100,
           annualReportFrequency: user.business.annualReportFrequency || 1,
+          annualReportDate: user.business.annualReportDate || "",
           completedAt: user.business.completedAt || null,
         })
         setSelectedUser(user)
@@ -633,6 +638,7 @@ export default function PendingUsersPage() {
             llcProgress: businessData.llcProgress || 10,
             annualReportFee: businessData.annualReportFee || 100,
             annualReportFrequency: businessData.annualReportFrequency || 1,
+            annualReportDate: businessData.annualReportDate || "",
             completedAt: businessData.completedAt || null,
           })
           setSelectedUser(user)
@@ -851,6 +857,7 @@ export default function PendingUsersPage() {
                 llcProgress: businessFormData.llcProgress,
                 annualReportFee: businessFormData.annualReportFee,
                 annualReportFrequency: businessFormData.annualReportFrequency,
+                annualReportDate: businessFormData.annualReportDate,
                 completedAt: dataToSend.completedAt,
               },
             }
@@ -1164,61 +1171,61 @@ export default function PendingUsersPage() {
 
   // Add the US states array for the dropdown
   const US_STATES = [
-{ value: "Alaska", label: "Alaska" },
-{ value: "Arizona", label: "Arizona" },
-{ value: "Arkansas", label: "Arkansas" },
-{ value: "California", label: "California" },
-{ value: "Colorado", label: "Colorado" },
-{ value: "Connecticut", label: "Connecticut" },
-{ value: "Delaware", label: "Delaware" },
-{ value: "Florida", label: "Florida" },
-{ value: "Georgia", label: "Georgia" },
-{ value: "Hawaii", label: "Hawaii" },
-{ value: "Idaho", label: "Idaho" },
-{ value: "Illinois", label: "Illinois" },
-{ value: "Indiana", label: "Indiana" },
-{ value: "Iowa", label: "Iowa" },
-{ value: "Kansas", label: "Kansas" },
-{ value: "Kentucky", label: "Kentucky" },
-{ value: "Louisiana", label: "Louisiana" },
-{ value: "Maine", label: "Maine" },
-{ value: "Maryland", label: "Maryland" },
-{ value: "Massachusetts", label: "Massachusetts" },
-{ value: "Michigan", label: "Michigan" },
-{ value: "Minnesota", label: "Minnesota" },
-{ value: "Mississippi", label: "Mississippi" },
-{ value: "Missouri", label: "Missouri" },
-{ value: "Montana", label: "Montana" },
-{ value: "Nebraska", label: "Nebraska" },
-{ value: "Nevada", label: "Nevada" },
-{ value: "New Hampshire", label: "New Hampshire" },
-{ value: "New Jersey", label: "New Jersey" },
-{ value: "New Mexico", label: "New Mexico" },
-{ value: "New York", label: "New York" },
-{ value: "North Carolina", label: "North Carolina" },
-{ value: "North Dakota", label: "North Dakota" },
-{ value: "Ohio", label: "Ohio" },
-{ value: "Oklahoma", label: "Oklahoma" },
-{ value: "Oregon", label: "Oregon" },
-{ value: "Pennsylvania", label: "Pennsylvania" },
-{ value: "Rhode Island", label: "Rhode Island" },
-{ value: "South Carolina", label: "South Carolina" },
-{ value: "South Dakota", label: "South Dakota" },
-{ value: "Tennessee", label: "Tennessee" },
-{ value: "Texas", label: "Texas" },
-{ value: "Utah", label: "Utah" },
-{ value: "Vermont", label: "Vermont" },
-{ value: "Virginia", label: "Virginia" },
-{ value: "Washington", label: "Washington" },
-{ value: "West Virginia", label: "West Virginia" },
-{ value: "Wisconsin", label: "Wisconsin" },
-{ value: "Wyoming", label: "Wyoming" },
-{ value: "District of Columbia", label: "District of Columbia" },
-{ value: "American Samoa", label: "American Samoa" },
-{ value: "Guam", label: "Guam" },
-{ value: "Northern Mariana Islands", label: "Northern Mariana Islands" },
-{ value: "Puerto Rico", label: "Puerto Rico" },
-{ value: "U.S. Virgin Islands", label: "U.S. Virgin Islands" },
+    { value: "Alaska", label: "Alaska" },
+    { value: "Arizona", label: "Arizona" },
+    { value: "Arkansas", label: "Arkansas" },
+    { value: "California", label: "California" },
+    { value: "Colorado", label: "Colorado" },
+    { value: "Connecticut", label: "Connecticut" },
+    { value: "Delaware", label: "Delaware" },
+    { value: "Florida", label: "Florida" },
+    { value: "Georgia", label: "Georgia" },
+    { value: "Hawaii", label: "Hawaii" },
+    { value: "Idaho", label: "Idaho" },
+    { value: "Illinois", label: "Illinois" },
+    { value: "Indiana", label: "Indiana" },
+    { value: "Iowa", label: "Iowa" },
+    { value: "Kansas", label: "Kansas" },
+    { value: "Kentucky", label: "Kentucky" },
+    { value: "Louisiana", label: "Louisiana" },
+    { value: "Maine", label: "Maine" },
+    { value: "Maryland", label: "Maryland" },
+    { value: "Massachusetts", label: "Massachusetts" },
+    { value: "Michigan", label: "Michigan" },
+    { value: "Minnesota", label: "Minnesota" },
+    { value: "Mississippi", label: "Mississippi" },
+    { value: "Missouri", label: "Missouri" },
+    { value: "Montana", label: "Montana" },
+    { value: "Nebraska", label: "Nebraska" },
+    { value: "Nevada", label: "Nevada" },
+    { value: "New Hampshire", label: "New Hampshire" },
+    { value: "New Jersey", label: "New Jersey" },
+    { value: "New Mexico", label: "New Mexico" },
+    { value: "New York", label: "New York" },
+    { value: "North Carolina", label: "North Carolina" },
+    { value: "North Dakota", label: "North Dakota" },
+    { value: "Ohio", label: "Ohio" },
+    { value: "Oklahoma", label: "Oklahoma" },
+    { value: "Oregon", label: "Oregon" },
+    { value: "Pennsylvania", label: "Pennsylvania" },
+    { value: "Rhode Island", label: "Rhode Island" },
+    { value: "South Carolina", label: "South Carolina" },
+    { value: "South Dakota", label: "South Dakota" },
+    { value: "Tennessee", label: "Tennessee" },
+    { value: "Texas", label: "Texas" },
+    { value: "Utah", label: "Utah" },
+    { value: "Vermont", label: "Vermont" },
+    { value: "Virginia", label: "Virginia" },
+    { value: "Washington", label: "Washington" },
+    { value: "West Virginia", label: "West Virginia" },
+    { value: "Wisconsin", label: "Wisconsin" },
+    { value: "Wyoming", label: "Wyoming" },
+    { value: "District of Columbia", label: "District of Columbia" },
+    { value: "American Samoa", label: "American Samoa" },
+    { value: "Guam", label: "Guam" },
+    { value: "Northern Mariana Islands", label: "Northern Mariana Islands" },
+    { value: "Puerto Rico", label: "Puerto Rico" },
+    { value: "U.S. Virgin Islands", label: "U.S. Virgin Islands" },
   ]
 
   return (
@@ -1595,26 +1602,21 @@ export default function PendingUsersPage() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="annualReportFrequency">Report Frequency (Years)</Label>
-                          <Select
-                            value={businessFormData.annualReportFrequency.toString()}
-                            onValueChange={(value) => handleSelectChange("annualReportFrequency", value)}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select frequency" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1">Every 1 Year</SelectItem>
-                              <SelectItem value="2">Every 2 Years</SelectItem>
-                              <SelectItem value="3">Every 3 Years</SelectItem>
-                              <SelectItem value="5">Every 5 Years</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <Label htmlFor="annualReportDate">Next Annual Report Date</Label>
+                          <Input
+                            id="annualReportDate"
+                            name="annualReportDate"
+                            type="date"
+                            value={businessFormData.annualReportDate || ""}
+                            onChange={handleInputChange}
+                            className="mt-1"
+                          />
                         </div>
                       </div>
                       <div className="mt-2 text-xs text-gray-500">
-                        Annual report will be due every {businessFormData.annualReportFrequency}{" "}
-                        {businessFormData.annualReportFrequency === 1 ? "year" : "years"} from the formation date.
+                        {businessFormData.annualReportDate
+                          ? `Next annual report is due on ${new Date(businessFormData.annualReportDate).toLocaleDateString()}.`
+                          : `Annual report will be due every ${businessFormData.annualReportFrequency} ${businessFormData.annualReportFrequency === 1 ? "year" : "years"} from the formation date.`}
                       </div>
                     </div>
                   </div>

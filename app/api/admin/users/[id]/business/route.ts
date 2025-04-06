@@ -24,6 +24,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       llcProgress,
       annualReportFee,
       annualReportFrequency,
+      annualReportDate,
     } = await request.json()
 
     // Find the user
@@ -45,6 +46,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       llcProgress,
       annualReportFee,
       annualReportFrequency,
+      annualReportDate,
     })
 
     // If user already has a business, update it
@@ -93,6 +95,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         llcProgress,
         annualReportFee,
         annualReportFrequency,
+        annualReportDate,
       },
     })
   } catch (error) {
@@ -131,6 +134,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       llcProgress: 10,
       annualReportFee: 100,
       annualReportFrequency: 1,
+      annualReportDate: null,
     }
 
     if (user.business?.industry) {
@@ -152,6 +156,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
             llcProgress: customData.llcProgress,
             annualReportFee: customData.annualReportFee,
             annualReportFrequency: customData.annualReportFrequency,
+            annualReportDate: customData.annualReportDate,
           }
         : null,
     })
