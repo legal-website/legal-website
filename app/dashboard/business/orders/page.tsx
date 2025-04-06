@@ -3,14 +3,16 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Users, Eye } from "lucide-react"
+import { AlertCircle, CheckCircle, FileText, ShoppingBag, ArrowLeft } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
+import { DialogFooter } from "@/components/ui/dialog"
 
 // Invoice types
 interface InvoiceItem {
@@ -36,6 +38,8 @@ interface Invoice {
   paymentDate?: string
   createdAt: string
   updatedAt: string
+  userId?: string
+  isTemplateInvoice?: boolean
 }
 
 export default function OrderHistoryPage() {
@@ -56,38 +60,20 @@ export default function OrderHistoryPage() {
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
 
   const { toast } = useToast()
+  const { status } = useSession()
+  const router = useRouter()
 
   // Add state variables to track whether to show all items
   const [packagesDisplayCount, setPackagesDisplayCount] = useState(4)
   const [templatesDisplayCount, setTemplatesDisplayCount] = useState(4)
 
   useEffect(() => {
-    fetchInvoices()
-  }, [])
-
-  // Separate invoices into packages and templates after fetching
-  useEffect(() => {
-    if (invoices.length > 0) {
-      const packages: Invoice[] = []
-      const templates: Invoice[] = []
-
-      invoices.forEach((invoice) => {
-        // Check if it's a template invoice based on invoice number
-        if (
-          invoice.invoiceNumber &&
-          (invoice.invoiceNumber.toUpperCase().includes("TEMP") ||
-            invoice.invoiceNumber.toUpperCase().includes("TEMPLATE"))
-        ) {
-          templates.push(invoice)
-        } else {
-          packages.push(invoice)
-        }
-      })
-
-      setPackageInvoices(packages)
-      setTemplateInvoices(templates)
+    // Redirect if not authenticated
+    if (status === "unauthenticated") {
+      router.push("/login?callbackUrl=/admin/billing/invoices")
+      return
     }
-  }, [invoices])
+  }, [status, router])
 
   // Fetch invoices from the API
   const fetchInvoices = async () => {
@@ -95,7 +81,8 @@ export default function OrderHistoryPage() {
       setLoadingInvoices(true)
       setInvoiceError(null)
 
-      const response = await fetch("/api/user/business-orders", {
+      // Use the /api/user/spending endpoint
+      const response = await fetch("/api/user/spending", {
         headers: {
           "Content-Type": "application/json",
         },
@@ -108,12 +95,12 @@ export default function OrderHistoryPage() {
 
       const data = await response.json()
 
-      if (data.error) {
-        throw new Error(data.error)
+      if (!data.spending || !data.spending.recentInvoices) {
+        throw new Error("Invalid response format")
       }
 
       // Process the invoices to ensure items are properly parsed
-      const processedInvoices = data.invoices.map((invoice: any) => {
+      const processedInvoices = data.spending.recentInvoices.map((invoice: any) => {
         // Parse items if they're stored as a JSON string
         let parsedItems = invoice.items
         try {
@@ -128,6 +115,18 @@ export default function OrderHistoryPage() {
         return {
           ...invoice,
           items: parsedItems,
+          // Add a flag to identify template invoices
+          isTemplateInvoice:
+            typeof parsedItems === "object" &&
+            (parsedItems.isTemplateInvoice ||
+              (Array.isArray(parsedItems) &&
+                parsedItems.some(
+                  (item: any) =>
+                    item.type === "template" ||
+                    (item.tier && typeof item.tier === "string" && item.tier.toLowerCase().includes("template")),
+                )) ||
+              invoice.items.toLowerCase().includes("template") ||
+              invoice.items.toLowerCase().includes("istemplateinvoice")),
         }
       })
 
@@ -145,6 +144,38 @@ export default function OrderHistoryPage() {
       setLoadingInvoices(false)
     }
   }
+
+  // Separate invoices into packages and templates after fetching
+  useEffect(() => {
+    if (invoices.length > 0) {
+      const packages: Invoice[] = []
+      const templates: Invoice[] = []
+
+      invoices.forEach((invoice) => {
+        // Check if it's explicitly a template
+        let isTemplate = false
+
+        if (invoice.invoiceNumber) {
+          const invNumber = invoice.invoiceNumber.trim().toUpperCase()
+
+          // Only mark as template if it explicitly contains TEMP or TEMPLATE
+          if (invNumber.includes("TEMP") || invNumber.includes("TEMPLATE")) {
+            isTemplate = true
+          }
+        }
+
+        // Add to templates array if it's a template
+        if (isTemplate) {
+          templates.push(invoice)
+        } else {
+          packages.push(invoice)
+        }
+      })
+
+      setPackageInvoices(packages)
+      setTemplateInvoices(templates)
+    }
+  }, [invoices])
 
   // Filter invoices based on search term
   const getFilteredInvoices = (type: "package" | "template") => {
@@ -175,22 +206,11 @@ export default function OrderHistoryPage() {
   const getStatusBadgeColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "paid":
-      case "completed":
-      case "approved":
-      case "amendment_resolved":
-      case "filed":
         return "bg-green-100 text-green-800"
       case "pending":
-      case "in_review":
-      case "amendment_in_progress":
-        return "bg-blue-100 text-blue-800"
-      case "cancelled":
-      case "rejected":
-        return "bg-red-100 text-red-800"
-      case "payment_received":
-        return "bg-purple-100 text-purple-800"
-      case "waiting_for_payment":
         return "bg-yellow-100 text-yellow-800"
+      case "cancelled":
+        return "bg-red-100 text-red-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
@@ -273,448 +293,334 @@ export default function OrderHistoryPage() {
 
   return (
     <div className="p-4 sm:p-6 md:p-8 mb-20 md:mb-40 overflow-x-hidden">
-      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Order History</h1>
+      <Button variant="ghost" className="mb-8" onClick={() => router.back()}>
+        <ArrowLeft className="mr-2 h-4 w-4" /> Back
+      </Button>
 
-      <Card className="mb-6 sm:mb-8 overflow-hidden">
-        <div className="p-4 sm:p-6 border-b">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-            <h2 className="text-lg sm:text-xl font-semibold">Your Orders</h2>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={fetchInvoices} size="sm" className="sm:size-default w-full sm:w-auto">
-                <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                Refresh
-              </Button>
+      {/* Currency indicator at the top of the page - Removed as it's not needed */}
+
+      <div className="grid md:grid-cols-2 gap-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-6">Payment</h1>
+
+          <div className="bg-blue-50 p-4 rounded-md flex items-start mb-6">
+            <AlertCircle className="text-blue-500 mr-2 mt-0.5" size={18} />
+            <div>
+              <p className="text-blue-800 font-medium">Manual Payment Process</p>
+              <p className="text-blue-700 text-sm">
+                Please make your payment using your preferred method and upload the receipt below. Our team will verify
+                your payment within 1-2 business days.
+              </p>
             </div>
           </div>
+
+          {/* Removed the form as it's not needed */}
         </div>
 
-        <div className="p-4 sm:p-6 border-b">
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search orders..."
-                  className="pl-9"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+        <div>
+          <h1 className="text-3xl font-bold mb-6">Order History</h1>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Packages Tab */}
+            <Tabs defaultValue="packages" value={activeTab} onValueChange={setActiveTab}>
+              <div className="px-4 sm:px-6 pt-2">
+                <TabsList className="grid grid-cols-2 w-full max-w-md">
+                  <TabsTrigger value="packages">Packages</TabsTrigger>
+                  <TabsTrigger value="templates">Templates</TabsTrigger>
+                </TabsList>
               </div>
-            </div>
-            <div className="w-full sm:w-auto">
-              <select
-                className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                onChange={(e) => {
-                  // Sort logic
-                  const sortValue = e.target.value
-                  if (sortValue === "newest") {
-                    setInvoices(
-                      [...invoices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-                    )
-                  } else if (sortValue === "oldest") {
-                    setInvoices(
-                      [...invoices].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
-                    )
-                  } else if (sortValue === "highest") {
-                    setInvoices([...invoices].sort((a, b) => b.amount - a.amount))
-                  } else if (sortValue === "lowest") {
-                    setInvoices([...invoices].sort((a, b) => a.amount - b.amount))
-                  }
-                }}
-              >
-                <option value="">Sort by</option>
-                <option value="newest">Newest first</option>
-                <option value="oldest">Oldest first</option>
-                <option value="highest">Highest amount</option>
-                <option value="lowest">Lowest amount</option>
-              </select>
-            </div>
-          </div>
-        </div>
 
-        <Tabs defaultValue="packages" value={activeTab} onValueChange={setActiveTab}>
-          <div className="px-4 sm:px-6 pt-2">
-            <TabsList className="grid grid-cols-2 w-full max-w-md">
-              <TabsTrigger value="packages">Packages</TabsTrigger>
-              <TabsTrigger value="templates">Templates</TabsTrigger>
-            </TabsList>
-          </div>
-
-          {/* Packages Tab */}
-          <TabsContent value="packages" className="p-4 sm:p-6 pt-3 sm:pt-4">
-            {loadingInvoices ? (
-              <LoadingState message="Loading package orders..." />
-            ) : invoiceError ? (
-              <ErrorState message={invoiceError} retry={fetchInvoices} />
-            ) : (
-              <>
-                {getFilteredInvoices("package").length > 0 ? (
-                  <div className="space-y-3 sm:space-y-4">
-                    {getFilteredInvoices("package")
-                      .slice(0, packagesDisplayCount)
-                      .map((invoice) => (
-                        <Dialog key={invoice.id}>
-                          <DialogTrigger asChild>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg cursor-pointer hover:bg-gray-50 gap-2 sm:gap-0">
-                              <div className="flex items-center gap-2 sm:gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg shrink-0">
-                                  <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="font-medium text-sm sm:text-base truncate">{invoice.invoiceNumber}</p>
-                                  <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 flex-wrap">
-                                    <span className="truncate">{formatDate(invoice.createdAt)}</span>
-                                    <span className="hidden xs:inline">•</span>
-                                    <span>${invoice.amount.toFixed(2)}</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-                                <span
-                                  className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${getStatusBadgeColor(invoice.status)}`}
-                                >
-                                  {formatStatus(invoice.status)}
-                                </span>
-                                <svg
-                                  className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 shrink-0"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                              </div>
-                            </div>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-md md:max-w-lg w-[calc(100%-2rem)] p-4 sm:p-6 overflow-hidden">
-                            <DialogHeader className="mb-2 sm:mb-4">
-                              <DialogTitle>Order Details</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-3 sm:space-y-4 overflow-y-auto max-h-[calc(80vh-8rem)]">
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
-                                <div>
-                                  <p className="text-xs sm:text-sm text-gray-500">Order Number</p>
-                                  <p className="font-medium text-sm sm:text-base truncate">{invoice.invoiceNumber}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs sm:text-sm text-gray-500">Date</p>
-                                  <p className="font-medium text-sm sm:text-base">{formatDate(invoice.createdAt)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs sm:text-sm text-gray-500">Status</p>
-                                  <span
-                                    className={`text-xs px-2 py-1 rounded-full inline-block mt-1 ${getStatusBadgeColor(invoice.status)}`}
-                                  >
-                                    {formatStatus(invoice.status)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="border-t pt-3 sm:pt-4">
-                                <h4 className="font-medium text-sm sm:text-base mb-2">Order Items</h4>
-                                <ul className="space-y-2">
-                                  {Array.isArray(invoice.items) ? (
-                                    invoice.items.map((item, index) => (
-                                      <li key={index} className="flex items-center gap-2 text-sm">
-                                        <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
-                                        <span className="flex-1 truncate">{item.tier}</span>
-                                        <span className="font-medium">${Number(item.price).toFixed(2)}</span>
-                                      </li>
-                                    ))
-                                  ) : (
-                                    <li className="flex items-center gap-2 text-sm">
-                                      <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
-                                      <span className="truncate">{getInvoiceItems(invoice)}</span>
-                                    </li>
-                                  )}
-                                </ul>
-                              </div>
-
-                              <div className="border-t pt-3 sm:pt-4">
-                                <h4 className="font-medium text-sm sm:text-base mb-2">Payment Information</h4>
-                                <div className="flex justify-between text-sm">
-                                  <span>Total</span>
-                                  <span className="font-bold">${invoice.amount.toFixed(2)}</span>
-                                </div>
-                                {invoice.paymentDate && (
-                                  <div className="flex justify-between text-xs sm:text-sm text-gray-500 mt-1">
-                                    <span>Payment Date</span>
-                                    <span>{formatDate(invoice.paymentDate)}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="sm:size-default"
-                                  onClick={() => viewFullInvoice(invoice.id)}
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View Full Invoice
-                                </Button>
-                                {invoice.paymentReceipt && (
-                                  <Button variant="outline" asChild size="sm" className="sm:size-default">
-                                    <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
-                                      <Download className="h-4 w-4 mr-2" />
-                                      View Receipt
-                                    </a>
-                                  </Button>
-                                )}
-                                <Button size="sm" className="sm:size-default">
-                                  Contact Support
-                                </Button>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      ))}
-                    {getFilteredInvoices("package").length > packagesDisplayCount && (
-                      <Button
-                        variant="outline"
-                        className="w-full mt-3 sm:mt-4"
-                        size="sm"
-                        onClick={() => setPackagesDisplayCount((prev) => prev + 4)}
-                      >
-                        Show More
-                      </Button>
-                    )}
-                    {packagesDisplayCount > 4 && (
-                      <Button
-                        variant="outline"
-                        className="w-full mt-2"
-                        size="sm"
-                        onClick={() => setPackagesDisplayCount(4)}
-                      >
-                        Show Less
-                      </Button>
-                    )}
-                  </div>
+              <TabsContent value="packages" className="p-4 sm:p-6 pt-3 sm:pt-4">
+                {loadingInvoices ? (
+                  <LoadingState message="Loading package orders..." />
+                ) : invoiceError ? (
+                  <ErrorState message={invoiceError} retry={fetchInvoices} />
                 ) : (
-                  <EmptyState
-                    message="No package orders found"
-                    icon={<ShoppingBag className="h-10 w-10 sm:h-12 sm:w-12" />}
-                  />
-                )}
-              </>
-            )}
-          </TabsContent>
-
-          {/* Templates Tab */}
-          <TabsContent value="templates" className="p-4 sm:p-6 pt-3 sm:pt-4">
-            {loadingInvoices ? (
-              <LoadingState message="Loading template orders..." />
-            ) : invoiceError ? (
-              <ErrorState message={invoiceError} retry={fetchInvoices} />
-            ) : (
-              <>
-                {getFilteredInvoices("template").length > 0 ? (
-                  <div className="space-y-3 sm:space-y-4">
-                    {getFilteredInvoices("template")
-                      .slice(0, templatesDisplayCount)
-                      .map((invoice) => (
-                        <Dialog key={invoice.id}>
-                          <DialogTrigger asChild>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg cursor-pointer hover:bg-gray-50 gap-2 sm:gap-0">
-                              <div className="flex items-center gap-2 sm:gap-3">
-                                <div className="p-2 bg-purple-100 rounded-lg shrink-0">
-                                  <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="font-medium text-sm sm:text-base truncate">{invoice.invoiceNumber}</p>
-                                  <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 flex-wrap">
-                                    <span className="truncate">{formatDate(invoice.createdAt)}</span>
-                                    <span className="hidden xs:inline">•</span>
-                                    <span>${invoice.amount.toFixed(2)}</span>
+                  <>
+                    {getFilteredInvoices("package").length > 0 ? (
+                      <div className="space-y-3 sm:space-y-4">
+                        {getFilteredInvoices("package")
+                          .slice(0, packagesDisplayCount)
+                          .map((invoice) => (
+                            <Dialog key={invoice.id}>
+                              <DialogTrigger asChild>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg cursor-pointer hover:bg-gray-50 gap-2 sm:gap-0">
+                                  <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="p-2 bg-blue-100 rounded-lg shrink-0">
+                                      <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="font-medium text-sm sm:text-base truncate">
+                                        {invoice.invoiceNumber}
+                                      </p>
+                                      <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 flex-wrap">
+                                        <span className="truncate">{formatDate(invoice.createdAt)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+                                    <span
+                                      className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${getStatusBadgeColor(
+                                        invoice.status,
+                                      )}`}
+                                    >
+                                      {formatStatus(invoice.status)}
+                                    </span>
+                                    <svg
+                                      className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 shrink-0"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 5l7 7-7 7"
+                                      />
+                                    </svg>
                                   </div>
                                 </div>
-                              </div>
-                              <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-                                <span
-                                  className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${getStatusBadgeColor(invoice.status)}`}
-                                >
-                                  {formatStatus(invoice.status)}
-                                </span>
-                                <svg
-                                  className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 shrink-0"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                              </div>
-                            </div>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-md md:max-w-lg w-[calc(100%-2rem)] p-4 sm:p-6 overflow-hidden">
-                            <DialogHeader className="mb-2 sm:mb-4">
-                              <DialogTitle>Template Order Details</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-3 sm:space-y-4 overflow-y-auto max-h-[calc(80vh-8rem)]">
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
-                                <div>
-                                  <p className="text-xs sm:text-sm text-gray-500">Invoice Number</p>
-                                  <p className="font-medium text-sm sm:text-base truncate">{invoice.invoiceNumber}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs sm:text-sm text-gray-500">Date</p>
-                                  <p className="font-medium text-sm sm:text-base">{formatDate(invoice.createdAt)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs sm:text-sm text-gray-500">Status</p>
-                                  <span
-                                    className={`text-xs px-2 py-1 rounded-full inline-block mt-1 ${getStatusBadgeColor(invoice.status)}`}
-                                  >
-                                    {formatStatus(invoice.status)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="border-t pt-3 sm:pt-4">
-                                <h4 className="font-medium text-sm sm:text-base mb-2">Template Details</h4>
-                                <ul className="space-y-2">
-                                  {Array.isArray(invoice.items) ? (
-                                    invoice.items.map((item, index) => (
-                                      <li key={index} className="flex items-center gap-2 text-sm">
-                                        <FileText className="h-4 w-4 text-purple-500 shrink-0" />
-                                        <span className="flex-1 truncate">{item.tier}</span>
-                                        <span className="font-medium">${Number(item.price).toFixed(2)}</span>
-                                      </li>
-                                    ))
-                                  ) : (
-                                    <li className="flex items-center gap-2 text-sm">
-                                      <FileText className="h-4 w-4 text-purple-500 shrink-0" />
-                                      <span className="truncate">{getInvoiceItems(invoice)}</span>
-                                    </li>
-                                  )}
-                                </ul>
-                              </div>
-
-                              <div className="border-t pt-3 sm:pt-4">
-                                <h4 className="font-medium text-sm sm:text-base mb-2">Payment Information</h4>
-                                <div className="flex justify-between text-sm">
-                                  <span>Total</span>
-                                  <span className="font-bold">${invoice.amount.toFixed(2)}</span>
-                                </div>
-                                {invoice.paymentDate && (
-                                  <div className="flex justify-between text-xs sm:text-sm text-gray-500 mt-1">
-                                    <span>Payment Date</span>
-                                    <span>{formatDate(invoice.paymentDate)}</span>
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-md md:max-w-lg w-[calc(100%-2rem)] p-4 sm:p-6 overflow-hidden">
+                                <DialogHeader className="mb-2 sm:mb-4">
+                                  <DialogTitle>Order Details</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-3 sm:space-y-4 overflow-y-auto max-h-[calc(80vh-8rem)]">
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+                                    <div>
+                                      <p className="text-xs sm:text-sm text-gray-500">Order Number</p>
+                                      <p className="font-medium text-sm sm:text-base truncate">
+                                        {invoice.invoiceNumber}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs sm:text-sm text-gray-500">Date</p>
+                                      <p className="font-medium text-sm sm:text-base">
+                                        {formatDate(invoice.createdAt)}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs sm:text-sm text-gray-500">Status</p>
+                                      <span
+                                        className={`text-xs px-2 py-1 rounded-full inline-block mt-1 ${getStatusBadgeColor(
+                                          invoice.status,
+                                        )}`}
+                                      >
+                                        {formatStatus(invoice.status)}
+                                      </span>
+                                    </div>
                                   </div>
-                                )}
-                              </div>
 
-                              <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="sm:size-default"
-                                  onClick={() => viewFullInvoice(invoice.id)}
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View Full Invoice
-                                </Button>
-                                {invoice.paymentReceipt && (
-                                  <Button variant="outline" asChild size="sm" className="sm:size-default">
-                                    <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
-                                      <Download className="h-4 w-4 mr-2" />
-                                      View Receipt
-                                    </a>
+                                  <div className="border-t pt-3 sm:pt-4">
+                                    <h4 className="font-medium text-sm sm:text-base mb-2">Order Items</h4>
+                                    <ul className="space-y-2">
+                                      {Array.isArray(invoice.items) ? (
+                                        invoice.items.map((item, index) => (
+                                          <li key={index} className="flex items-center gap-2 text-sm">
+                                            <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                                            <span className="flex-1 truncate">{item.tier}</span>
+                                            <span className="font-medium">${item.price.toFixed(2)}</span>
+                                          </li>
+                                        ))
+                                      ) : (
+                                        <li className="flex items-center gap-2 text-sm">
+                                          <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                                          <span className="truncate">{getInvoiceItems(invoice)}</span>
+                                        </li>
+                                      )}
+                                    </ul>
+                                  </div>
+
+                                  <div className="border-t pt-3 sm:pt-4">
+                                    <h4 className="font-medium text-sm sm:text-base mb-2">Payment Information</h4>
+                                    <div className="flex justify-between text-sm">
+                                      <span>Total</span>
+                                      <span className="font-bold">${invoice.amount.toFixed(2)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <DialogFooter>
+                                  <Button variant="outline" onClick={() => setShowInvoiceDialog(false)}>
+                                    Close
                                   </Button>
-                                )}
-                                <Button size="sm" className="sm:size-default">
-                                  Contact Support
-                                </Button>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      ))}
-                    {getFilteredInvoices("template").length > templatesDisplayCount && (
-                      <Button
-                        variant="outline"
-                        className="w-full mt-3 sm:mt-4"
-                        size="sm"
-                        onClick={() => setTemplatesDisplayCount((prev) => prev + 4)}
-                      >
-                        Show More
-                      </Button>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                          ))}
+                        {getFilteredInvoices("package").length > packagesDisplayCount && (
+                          <Button
+                            variant="outline"
+                            className="w-full mt-3 sm:mt-4"
+                            size="sm"
+                            onClick={() => setPackagesDisplayCount((prev) => prev + 4)}
+                          >
+                            Show More
+                          </Button>
+                        )}
+                        {packagesDisplayCount > 4 && (
+                          <Button
+                            variant="outline"
+                            className="w-full mt-2"
+                            size="sm"
+                            onClick={() => setPackagesDisplayCount(4)}
+                          >
+                            Show Less
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <EmptyState
+                        message="No package orders found"
+                        icon={<ShoppingBag className="h-10 w-10 sm:h-12 sm:w-12" />}
+                      />
                     )}
-                    {templatesDisplayCount > 4 && (
-                      <Button
-                        variant="outline"
-                        className="w-full mt-2"
-                        size="sm"
-                        onClick={() => setTemplatesDisplayCount(4)}
-                      >
-                        Show Less
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <EmptyState
-                    message="No template orders found"
-                    icon={<FileText className="h-10 w-10 sm:h-12 sm:w-12" />}
-                  />
+                  </>
                 )}
-              </>
-            )}
-          </TabsContent>
-        </Tabs>
-      </Card>
+              </TabsContent>
 
-      <Card className="overflow-hidden">
-        <div className="p-4 sm:p-6 border-b">
-          <h2 className="text-lg sm:text-xl font-semibold">Need Additional Services?</h2>
-        </div>
-        <div className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-            <div className="p-3 sm:p-4 border rounded-lg">
-              <div className="p-2 bg-green-100 rounded-lg inline-block mb-2 sm:mb-3">
-                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
-              </div>
-              <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">Annual Report Filing</h3>
-              <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
-                Let us handle your annual report filing requirements
-              </p>
-              <Button size="sm" variant="outline" className="w-full text-xs sm:text-sm" asChild>
-                <a href="/dashboard/compliance/annual-reports">Learn More</a>
-              </Button>
-            </div>
+              {/* Templates Tab */}
+              <TabsContent value="templates" className="p-4 sm:p-6 pt-3 sm:pt-4">
+                {loadingInvoices ? (
+                  <LoadingState message="Loading template orders..." />
+                ) : invoiceError ? (
+                  <ErrorState message={invoiceError} retry={fetchInvoices} />
+                ) : (
+                  <>
+                    {getFilteredInvoices("template").length > 0 ? (
+                      <div className="space-y-3 sm:space-y-4">
+                        {getFilteredInvoices("template")
+                          .slice(0, templatesDisplayCount)
+                          .map((invoice) => (
+                            <Dialog key={invoice.id}>
+                              <DialogTrigger asChild>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg cursor-pointer hover:bg-gray-50 gap-2 sm:gap-0">
+                                  <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="p-2 bg-purple-100 rounded-lg shrink-0">
+                                      <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="font-medium text-sm sm:text-base truncate">
+                                        {invoice.invoiceNumber}
+                                      </p>
+                                      <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 flex-wrap">
+                                        <span className="truncate">{formatDate(invoice.createdAt)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+                                    <span
+                                      className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${getStatusBadgeColor(
+                                        invoice.status,
+                                      )}`}
+                                    >
+                                      {formatStatus(invoice.status)}
+                                    </span>
+                                    <svg
+                                      className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 shrink-0"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 5l7 7-7 7"
+                                      />
+                                    </svg>
+                                  </div>
+                                </div>
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-md md:max-w-lg w-[calc(100%-2rem)] p-4 sm:p-6 overflow-hidden">
+                                <DialogHeader className="mb-2 sm:mb-4">
+                                  <DialogTitle>Order Details</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-3 sm:space-y-4 overflow-y-auto max-h-[calc(80vh-8rem)]">
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+                                    <div>
+                                      <p className="text-xs sm:text-sm text-gray-500">Order Number</p>
+                                      <p className="font-medium text-sm sm:text-base truncate">
+                                        {invoice.invoiceNumber}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs sm:text-sm text-gray-500">Date</p>
+                                      <p className="font-medium text-sm sm:text-base">
+                                        {formatDate(invoice.createdAt)}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs sm:text-sm text-gray-500">Status</p>
+                                      <span
+                                        className={`text-xs px-2 py-1 rounded-full inline-block mt-1 ${getStatusBadgeColor(
+                                          invoice.status,
+                                        )}`}
+                                      >
+                                        {formatStatus(invoice.status)}
+                                      </span>
+                                    </div>
+                                  </div>
 
-            <div className="p-3 sm:p-4 border rounded-lg">
-              <div className="p-2 bg-blue-100 rounded-lg inline-block mb-2 sm:mb-3">
-                <PenTool className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-              </div>
-              <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">Submit an Amendment</h3>
-              <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
-                Update your business information or structure
-              </p>
-              <Button size="sm" variant="outline" className="w-full text-xs sm:text-sm" asChild>
-                <a href="/dashboard/compliance/amendments">Learn More</a>
-              </Button>
-            </div>
-
-            <div className="p-3 sm:p-4 border rounded-lg sm:col-span-2 md:col-span-1">
-              <div className="p-2 bg-purple-100 rounded-lg inline-block mb-2 sm:mb-3">
-                <Users className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
-              </div>
-              <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">Add Beneficial Ownership</h3>
-              <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
-                Comply with beneficial ownership reporting requirements
-              </p>
-              <Button size="sm" variant="outline" className="w-full text-xs sm:text-sm" asChild>
-                <a href="/dashboard/compliance/beneficial-ownership">Learn More</a>
-              </Button>
-            </div>
+                                  <div className="border-t pt-3 sm:pt-4">
+                                    <h4 className="font-medium text-sm sm:text-base mb-2">Order Items</h4>
+                                    <ul className="space-y-2">
+                                      {Array.isArray(invoice.items) ? (
+                                        invoice.items.map((item, index) => (
+                                          <li key={index} className="flex items-center gap-2 text-sm">
+                                            <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                                            <span className="flex-1 truncate">{item.tier}</span>
+                                            <span className="font-medium">${item.price.toFixed(2)}</span>
+                                          </li>
+                                        ))
+                                      ) : (
+                                        <li className="flex items-center gap-2 text-sm">
+                                          <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                                          <span className="truncate">{getInvoiceItems(invoice)}</span>
+                                        </li>
+                                      )}
+                                    </ul>
+                                  </div>
+                                </div>
+                                <DialogFooter>
+                                  <Button variant="outline" onClick={() => setShowInvoiceDialog(false)}>
+                                    Close
+                                  </Button>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                          ))}
+                        {getFilteredInvoices("template").length > templatesDisplayCount && (
+                          <Button
+                            variant="outline"
+                            className="w-full mt-3 sm:mt-4"
+                            size="sm"
+                            onClick={() => setTemplatesDisplayCount((prev) => prev + 4)}
+                          >
+                            Show More
+                          </Button>
+                        )}
+                        {templatesDisplayCount > 4 && (
+                          <Button
+                            variant="outline"
+                            className="w-full mt-2"
+                            size="sm"
+                            onClick={() => setTemplatesDisplayCount(4)}
+                          >
+                            Show Less
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <EmptyState
+                        message="No template orders found"
+                        icon={<FileText className="h-10 w-10 sm:h-12 sm:w-12" />}
+                      />
+                    )}
+                  </>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </Card>

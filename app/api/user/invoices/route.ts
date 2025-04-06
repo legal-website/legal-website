@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import prisma from "@/lib/db"
+import { db } from "@/lib/db"
 
 export async function GET() {
   try {
@@ -11,14 +11,11 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Fetch ALL invoices for the current user without any filtering
-    const invoices = await prisma.invoice.findMany({
+    // Fetch invoices for the current user
+    const invoices = await db.invoice.findMany({
       where: { userId: session.user.id as string },
       orderBy: { createdAt: "desc" },
     })
-
-    // Debug log to see what invoices are being returned
-    console.log(`Found ${invoices.length} invoices for user ${session.user.id}`)
 
     return NextResponse.json({ invoices })
   } catch (error) {
