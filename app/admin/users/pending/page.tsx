@@ -1164,62 +1164,61 @@ export default function PendingUsersPage() {
 
   // Add the US states array for the dropdown
   const US_STATES = [
-    { value: "AL", label: "Alabama" },
-    { value: "Alaska", label: "Alaska" },
-    { value: "AZ", label: "Arizona" },
-    { value: "AR", label: "Arkansas" },
-    { value: "CA", label: "California" },
-    { value: "CO", label: "Colorado" },
-    { value: "CT", label: "Connecticut" },
-    { value: "DE", label: "Delaware" },
-    { value: "FL", label: "Florida" },
-    { value: "GA", label: "Georgia" },
-    { value: "HI", label: "Hawaii" },
-    { value: "ID", label: "Idaho" },
-    { value: "IL", label: "Illinois" },
-    { value: "IN", label: "Indiana" },
-    { value: "IA", label: "Iowa" },
-    { value: "KS", label: "Kansas" },
-    { value: "KY", label: "Kentucky" },
-    { value: "LA", label: "Louisiana" },
-    { value: "ME", label: "Maine" },
-    { value: "MD", label: "Maryland" },
-    { value: "MA", label: "Massachusetts" },
-    { value: "MI", label: "Michigan" },
-    { value: "MN", label: "Minnesota" },
-    { value: "MS", label: "Mississippi" },
-    { value: "MO", label: "Missouri" },
-    { value: "MT", label: "Montana" },
-    { value: "NE", label: "Nebraska" },
-    { value: "NV", label: "Nevada" },
-    { value: "NH", label: "New Hampshire" },
-    { value: "NJ", label: "New Jersey" },
-    { value: "NM", label: "New Mexico" },
-    { value: "NY", label: "New York" },
-    { value: "NC", label: "North Carolina" },
-    { value: "ND", label: "North Dakota" },
-    { value: "OH", label: "Ohio" },
-    { value: "OK", label: "Oklahoma" },
-    { value: "OR", label: "Oregon" },
-    { value: "PA", label: "Pennsylvania" },
-    { value: "RI", label: "Rhode Island" },
-    { value: "SC", label: "South Carolina" },
-    { value: "SD", label: "South Dakota" },
-    { value: "TN", label: "Tennessee" },
-    { value: "TX", label: "Texas" },
-    { value: "UT", label: "Utah" },
-    { value: "VT", label: "Vermont" },
-    { value: "VA", label: "Virginia" },
-    { value: "WA", label: "Washington" },
-    { value: "WV", label: "West Virginia" },
-    { value: "WI", label: "Wisconsin" },
-    { value: "WY", label: "Wyoming" },
-    { value: "DC", label: "District of Columbia" },
-    { value: "AS", label: "American Samoa" },
-    { value: "GU", label: "Guam" },
-    { value: "MP", label: "Northern Mariana Islands" },
-    { value: "PR", label: "Puerto Rico" },
-    { value: "VI", label: "U.S. Virgin Islands" },
+{ value: "Alaska", label: "Alaska" },
+{ value: "Arizona", label: "Arizona" },
+{ value: "Arkansas", label: "Arkansas" },
+{ value: "California", label: "California" },
+{ value: "Colorado", label: "Colorado" },
+{ value: "Connecticut", label: "Connecticut" },
+{ value: "Delaware", label: "Delaware" },
+{ value: "Florida", label: "Florida" },
+{ value: "Georgia", label: "Georgia" },
+{ value: "Hawaii", label: "Hawaii" },
+{ value: "Idaho", label: "Idaho" },
+{ value: "Illinois", label: "Illinois" },
+{ value: "Indiana", label: "Indiana" },
+{ value: "Iowa", label: "Iowa" },
+{ value: "Kansas", label: "Kansas" },
+{ value: "Kentucky", label: "Kentucky" },
+{ value: "Louisiana", label: "Louisiana" },
+{ value: "Maine", label: "Maine" },
+{ value: "Maryland", label: "Maryland" },
+{ value: "Massachusetts", label: "Massachusetts" },
+{ value: "Michigan", label: "Michigan" },
+{ value: "Minnesota", label: "Minnesota" },
+{ value: "Mississippi", label: "Mississippi" },
+{ value: "Missouri", label: "Missouri" },
+{ value: "Montana", label: "Montana" },
+{ value: "Nebraska", label: "Nebraska" },
+{ value: "Nevada", label: "Nevada" },
+{ value: "New Hampshire", label: "New Hampshire" },
+{ value: "New Jersey", label: "New Jersey" },
+{ value: "New Mexico", label: "New Mexico" },
+{ value: "New York", label: "New York" },
+{ value: "North Carolina", label: "North Carolina" },
+{ value: "North Dakota", label: "North Dakota" },
+{ value: "Ohio", label: "Ohio" },
+{ value: "Oklahoma", label: "Oklahoma" },
+{ value: "Oregon", label: "Oregon" },
+{ value: "Pennsylvania", label: "Pennsylvania" },
+{ value: "Rhode Island", label: "Rhode Island" },
+{ value: "South Carolina", label: "South Carolina" },
+{ value: "South Dakota", label: "South Dakota" },
+{ value: "Tennessee", label: "Tennessee" },
+{ value: "Texas", label: "Texas" },
+{ value: "Utah", label: "Utah" },
+{ value: "Vermont", label: "Vermont" },
+{ value: "Virginia", label: "Virginia" },
+{ value: "Washington", label: "Washington" },
+{ value: "West Virginia", label: "West Virginia" },
+{ value: "Wisconsin", label: "Wisconsin" },
+{ value: "Wyoming", label: "Wyoming" },
+{ value: "District of Columbia", label: "District of Columbia" },
+{ value: "American Samoa", label: "American Samoa" },
+{ value: "Guam", label: "Guam" },
+{ value: "Northern Mariana Islands", label: "Northern Mariana Islands" },
+{ value: "Puerto Rico", label: "Puerto Rico" },
+{ value: "U.S. Virgin Islands", label: "U.S. Virgin Islands" },
   ]
 
   return (
@@ -1810,10 +1809,10 @@ export default function PendingUsersPage() {
       {/* USA Address Dialog */}
       {selectedUser && (
         <Dialog open={showAddressDialog} onOpenChange={setShowAddressDialog}>
-          <DialogContent className="w-[95vw] max-w-[500px] p-4 md:p-6">
+          <DialogContent className="w-[95vw] max-w-[500px] p-4 md:p-6 max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Manage USA Address</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-lg md:text-xl">Manage USA Address</DialogTitle>
+              <DialogDescription className="text-sm md:text-base">
                 {selectedUser.address ? "Update the client's USA address" : "Add a USA address for this client"}
               </DialogDescription>
             </DialogHeader>
@@ -1821,13 +1820,13 @@ export default function PendingUsersPage() {
             <div className="grid gap-4 py-4">
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Client Information</h3>
-                <Card className="p-4">
+                <Card className="p-3 md:p-4">
                   <div className="space-y-2">
-                    <p className="font-medium">{selectedUser.name}</p>
-                    <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                    <p className="font-medium text-sm md:text-base">{selectedUser.name}</p>
+                    <p className="text-xs md:text-sm text-gray-500">{selectedUser.email}</p>
                     {selectedUser.address && (
                       <div className="mt-2 pt-2 border-t">
-                        <p className="text-sm text-gray-500">
+                        <p className="text-xs md:text-sm text-gray-500">
                           Current Address: {selectedUser.address.addressLine1}
                           {selectedUser.address.addressLine2 ? `, ${selectedUser.address.addressLine2}` : ""},{" "}
                           {selectedUser.address.city}, {selectedUser.address.state} {selectedUser.address.zipCode}
@@ -1838,57 +1837,65 @@ export default function PendingUsersPage() {
                 </Card>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 <div>
-                  <Label htmlFor="addressLine1">Address Line 1</Label>
+                  <Label htmlFor="addressLine1" className="text-xs md:text-sm">
+                    Address Line 1
+                  </Label>
                   <Input
                     id="addressLine1"
                     name="addressLine1"
                     placeholder="e.g. 123 Main St"
                     value={addressFormData.addressLine1}
                     onChange={handleAddressInputChange}
-                    className="mt-1"
+                    className="mt-1 text-sm md:text-base h-9 md:h-10"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="addressLine2">Address Line 2 (Optional)</Label>
+                  <Label htmlFor="addressLine2" className="text-xs md:text-sm">
+                    Address Line 2 (Optional)
+                  </Label>
                   <Input
                     id="addressLine2"
                     name="addressLine2"
                     placeholder="e.g. Apt 4B, Suite 200"
                     value={addressFormData.addressLine2 || ""}
                     onChange={handleAddressInputChange}
-                    className="mt-1"
+                    className="mt-1 text-sm md:text-base h-9 md:h-10"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="city">City</Label>
+                  <Label htmlFor="city" className="text-xs md:text-sm">
+                    City
+                  </Label>
                   <Input
                     id="city"
                     name="city"
                     placeholder="e.g. New York"
                     value={addressFormData.city}
                     onChange={handleAddressInputChange}
-                    className="mt-1"
+                    className="mt-1 text-sm md:text-base h-9 md:h-10"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   <div>
-                    <Label htmlFor="state">State</Label>
+                    <Label htmlFor="state" className="text-xs md:text-sm">
+                      State
+                    </Label>
                     <Select
                       name="state"
                       value={addressFormData.state}
                       onValueChange={(value) => setAddressFormData((prev) => ({ ...prev, state: value }))}
                     >
-                      <SelectTrigger className="mt-1">
+                      <SelectTrigger className="mt-1 text-sm md:text-base h-9 md:h-10">
                         <SelectValue placeholder="Select state" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-[40vh] overflow-y-auto">
                         {US_STATES.map((state) => (
-                          <SelectItem key={state.value} value={state.value}>
+                          <SelectItem key={state.value} value={state.value} className="text-sm">
                             {state.label}
                           </SelectItem>
                         ))}
@@ -1897,26 +1904,30 @@ export default function PendingUsersPage() {
                   </div>
 
                   <div>
-                    <Label htmlFor="zipCode">ZIP Code</Label>
+                    <Label htmlFor="zipCode" className="text-xs md:text-sm">
+                      ZIP Code
+                    </Label>
                     <Input
                       id="zipCode"
                       name="zipCode"
                       placeholder="e.g. 10001"
                       value={addressFormData.zipCode}
                       onChange={handleAddressInputChange}
-                      className="mt-1"
+                      className="mt-1 text-sm md:text-base h-9 md:h-10"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="country">Country</Label>
+                  <Label htmlFor="country" className="text-xs md:text-sm">
+                    Country
+                  </Label>
                   <Input
                     id="country"
                     name="country"
                     value={addressFormData.country}
                     onChange={handleAddressInputChange}
-                    className="mt-1"
+                    className="mt-1 text-sm md:text-base h-9 md:h-10"
                     disabled
                   />
                   <p className="text-xs text-gray-500 mt-1">Default: United States</p>
@@ -1924,11 +1935,15 @@ export default function PendingUsersPage() {
               </div>
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAddressDialog(false)}>
+            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 mt-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowAddressDialog(false)}
+                className="w-full sm:w-auto text-sm"
+              >
                 Cancel
               </Button>
-              <Button onClick={saveAddressData} disabled={processingAddressAction}>
+              <Button onClick={saveAddressData} disabled={processingAddressAction} className="w-full sm:w-auto text-sm">
                 {processingAddressAction ? "Saving..." : "Save Address"}
               </Button>
             </DialogFooter>

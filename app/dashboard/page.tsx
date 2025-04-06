@@ -209,7 +209,7 @@ export default function DashboardPage() {
     annualReportDueDate: "", // will be calculated based on formation date
   })
   const [userAddress, setUserAddress] = useState({
-    address: "100 Ambition Parkway, New York, NY 10001, USA", // Default address
+    address: "Your Business address will appear here when approved ", // Default address
     customerAddress: "",
     customerCity: "",
     customerState: "",
