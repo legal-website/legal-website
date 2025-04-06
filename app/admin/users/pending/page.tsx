@@ -1165,7 +1165,7 @@ export default function PendingUsersPage() {
   // Add the US states array for the dropdown
   const US_STATES = [
     { value: "AL", label: "Alabama" },
-    { value: "AK", label: "Alaska" },
+    { value: "Alaska", label: "Alaska" },
     { value: "AZ", label: "Arizona" },
     { value: "AR", label: "Arkansas" },
     { value: "CA", label: "California" },
