@@ -159,7 +159,10 @@ export default function SpendingAnalytics() {
                 tickFormatter={(value: number) => `$${value}`}
               />
               <Tooltip
-                formatter={(value: number) => [`$${Number(value).toFixed(2)}`, ""]}
+                formatter={(value: number, name: string) => {
+                  const label = name === "packages" ? "Packages" : "Templates"
+                  return [`$${Number(value).toFixed(2)}`, label]
+                }}
                 contentStyle={{ backgroundColor: "rgba(0,0,0,0.8)", border: "none", borderRadius: "4px" }}
                 labelStyle={{ color: "white" }}
               />
@@ -178,13 +181,13 @@ export default function SpendingAnalytics() {
               {spendingData.recentInvoices.map((invoice) => (
                 <div key={invoice.id} className="flex justify-between items-center">
                   <div className="flex items-center">
-                    {invoice.isTemplateInvoice ? (
+                    {invoice.isTemplateInvoice === true ? (
                       <FileText className="h-4 w-4 mr-2 text-white/80" />
                     ) : (
                       <Package className="h-4 w-4 mr-2 text-white/80" />
                     )}
                     <span className="text-sm">
-                      {invoice.isTemplateInvoice ? "Template" : "Package"} - {invoice.invoiceNumber}
+                      {invoice.isTemplateInvoice === true ? "Template" : "Package"} - {invoice.invoiceNumber}
                     </span>
                   </div>
                   <div className="flex items-center">
