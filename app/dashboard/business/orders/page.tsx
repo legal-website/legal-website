@@ -141,6 +141,8 @@ export default function OrderHistoryPage() {
 
   // Data states
   const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [packageInvoices, setPackageInvoices] = useState<Invoice[]>([])
+  const [templateInvoices, setTemplateInvoices] = useState<Invoice[]>([])
   const [filings, setFilings] = useState<Filing[]>(mockFilings)
   const [amendments, setAmendments] = useState<Amendment[]>(mockAmendments)
 
@@ -164,6 +166,32 @@ export default function OrderHistoryPage() {
     fetchInvoices()
     // No need to fetch filings and amendments since we're using mock data
   }, [])
+
+  // Separate invoices into packages and templates after fetching
+  useEffect(() => {
+    if (invoices.length > 0) {
+      // Separate invoices into packages and templates
+      const packages: Invoice[] = []
+      const templates: Invoice[] = []
+
+      invoices.forEach((invoice) => {
+        // Check if invoice number starts with "INV" (case insensitive)
+        if (invoice.invoiceNumber.toLowerCase().startsWith("inv")) {
+          packages.push(invoice)
+        }
+        // Check if invoice number starts with "TEMP" (case insensitive)
+        else if (invoice.invoiceNumber.toLowerCase().startsWith("temp")) {
+          templates.push(invoice)
+        }
+      })
+
+      console.log("Package invoices:", packages)
+      console.log("Template invoices:", templates)
+
+      setPackageInvoices(packages)
+      setTemplateInvoices(templates)
+    }
+  }, [invoices])
 
   // Fetch invoices using the existing API route
   const fetchInvoices = async () => {
@@ -201,27 +229,13 @@ export default function OrderHistoryPage() {
           parsedItems = []
         }
 
-        // Check if this is a template invoice
-        const isTemplateInvoice =
-          invoice.invoiceNumber?.toLowerCase().includes("temp") ||
-          (typeof parsedItems === "object" &&
-            (parsedItems.isTemplateInvoice ||
-              (Array.isArray(parsedItems) &&
-                parsedItems.some(
-                  (item: any) =>
-                    item.type === "template" || (item.tier && item.tier.toLowerCase().includes("template")),
-                )) ||
-              (typeof invoice.items === "string" &&
-                (invoice.items.toLowerCase().includes("template") ||
-                  invoice.items.toLowerCase().includes("istemplateinvoice")))))
-
         return {
           ...invoice,
           items: parsedItems,
-          isTemplateInvoice: isTemplateInvoice,
         }
       })
 
+      console.log("All processed invoices:", processedInvoices)
       setInvoices(processedInvoices)
     } catch (error: any) {
       console.error("Error fetching invoices:", error)
@@ -233,7 +247,7 @@ export default function OrderHistoryPage() {
       })
 
       // Set fallback data for development/demo purposes
-      setInvoices([
+      const fallbackInvoices = [
         {
           id: "1",
           invoiceNumber: "INV-2023-001",
@@ -273,43 +287,32 @@ export default function OrderHistoryPage() {
           createdAt: "2023-05-10T14:00:00Z",
           updatedAt: "2023-05-10T14:20:00Z",
           paymentDate: "2023-05-10T14:20:00Z",
-          isTemplateInvoice: true,
         },
-      ])
+      ]
+
+      setInvoices(fallbackInvoices)
     } finally {
       setLoadingInvoices(false)
     }
   }
 
-  // Filter invoices based on search term and type
+  // Filter invoices based on search term
   const getFilteredInvoices = (type: "package" | "template") => {
-    // For debugging - log the invoices to see what we're working with
-    console.log("All invoices:", invoices)
+    const invoicesToFilter = type === "package" ? packageInvoices : templateInvoices
 
-    const filtered = invoices.filter((invoice) => {
-      const matchesSearch =
+    return invoicesToFilter.filter((invoice) => {
+      // If no search term, return all invoices of this type
+      if (!searchTerm) return true
+
+      // Check if invoice number, customer name, or items match search term
+      return (
         invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (typeof invoice.items === "string" && invoice.items.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (Array.isArray(invoice.items) &&
           invoice.items.some((item) => item.tier && item.tier.toLowerCase().includes(searchTerm.toLowerCase())))
-
-      if (type === "package") {
-        // For packages, simply check if invoice number contains "INV" (case insensitive)
-        return matchesSearch && invoice.invoiceNumber.toLowerCase().includes("inv")
-      }
-
-      if (type === "template") {
-        // For templates, simply check if invoice number contains "TEMP" (case insensitive)
-        return matchesSearch && invoice.invoiceNumber.toLowerCase().includes("temp")
-      }
-
-      return false
+      )
     })
-
-    // For debugging - log the filtered results
-    console.log(`Filtered ${type} invoices:`, filtered)
-
-    return filtered
   }
 
   // Filter filings based on search term
@@ -678,7 +681,7 @@ export default function OrderHistoryPage() {
                         <Dialog key={invoice.id}>
                           <DialogTrigger asChild>
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg cursor-pointer hover:bg-gray-50 gap-2 sm:gap-0">
-                              <div className="flex items-center gap-2m:gap-3">
+                              <div className="flex items-center gap-2 sm:gap-3">
                                 <div className="p-2 bg-purple-100 rounded-lg shrink-0">
                                   <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
                                 </div>
