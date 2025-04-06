@@ -406,10 +406,9 @@ export default function DashboardPage() {
   // Modify the useEffect to include fetchTickets:
   useEffect(() => {
     if (session) {
-      // Fetch user address first
+      // Fetch user address first and don't use invoice data for address
       fetchUserAddress().then(() => {
         fetchBusinessData()
-        fetchUserInvoices()
         fetchPhoneNumberRequest()
         fetchAccountManagerRequest()
         fetchTemplates()
@@ -418,6 +417,7 @@ export default function DashboardPage() {
         fetchAmendments()
         fetchDeadlines()
         fetchCoupons()
+        fetchUserInvoices() // Keep this for other invoice data, but not for address
       })
     } else {
       setLoading(false)
@@ -760,39 +760,14 @@ export default function DashboardPage() {
   // Fetch user invoices to get address information
   const fetchUserInvoices = async () => {
     try {
-      // We'll need to create a new API endpoint to fetch user's invoices
       const response = await fetch("/api/user/invoices")
       if (response.ok) {
         const data = await response.json()
-        if (data.invoices && data.invoices.length > 0) {
-          // Get the most recent invoice with address information
-          const invoicesWithAddress = data.invoices.filter(
-            (invoice: Invoice) => invoice.customerAddress && invoice.customerCity,
-          )
-
-          if (invoicesWithAddress.length > 0 && !userAddressData) {
-            // Sort by date (newest first) and get the first one
-            const latestInvoice = invoicesWithAddress.sort(
-              (a: Invoice, b: Invoice) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-            )[0]
-
-            // Format the address
-            const formattedAddress = formatAddress(latestInvoice)
-
-            setUserAddress({
-              address: formattedAddress,
-              customerAddress: latestInvoice.customerAddress || "",
-              customerCity: latestInvoice.customerCity || "",
-              customerState: latestInvoice.customerState || "",
-              customerZip: latestInvoice.customerZip || "",
-              customerCountry: latestInvoice.customerCountry || "",
-            })
-          }
-        }
+        // We're not setting address from invoices anymore
+        // Just keeping this function for other invoice data that might be needed
       }
     } catch (error) {
       console.error("Error fetching user invoices:", error)
-      // Keep the default address if there's an error
     }
   }
 
@@ -1376,13 +1351,17 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      {/* Address Section - Now using the address from invoices */}
+      {/* Address Section - Now with proper heading */}
       <Card className="mb-4 sm:mb-8 p-3 sm:p-4 md:p-6">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center mb-4">
+          <Building2 className="w-5 h-5 text-[#22c984] mr-2" />
+          <span className="text-sm font-medium text-gray-600">USA Business Address</span>
+        </div>
+        <div className="flex justify-between items-center">
           <p className="text-lg font-medium">
             {userAddressData
               ? `${userAddressData.addressLine1}${userAddressData.addressLine2 ? `, ${userAddressData.addressLine2}` : ""}, ${userAddressData.city}, ${userAddressData.state} ${userAddressData.zipCode}, ${userAddressData.country}`
-              : userAddress.address}
+              : "100 Ambition Parkway, New York, NY 10001, USA"}
           </p>
           <Button
             variant="ghost"
@@ -1391,7 +1370,7 @@ export default function DashboardPage() {
               copyToClipboard(
                 userAddressData
                   ? `${userAddressData.addressLine1}${userAddressData.addressLine2 ? `, ${userAddressData.addressLine2}` : ""}, ${userAddressData.city}, ${userAddressData.state} ${userAddressData.zipCode}, ${userAddressData.country}`
-                  : userAddress.address,
+                  : "100 Ambition Parkway, New York, NY 10001, USA",
                 "Address",
               )
             }
