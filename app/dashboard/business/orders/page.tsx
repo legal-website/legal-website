@@ -176,11 +176,11 @@ export default function OrderHistoryPage() {
 
       invoices.forEach((invoice) => {
         // Check if invoice number starts with "INV" (case insensitive)
-        if (invoice.invoiceNumber.toLowerCase().startsWith("inv")) {
+        if (invoice.invoiceNumber && invoice.invoiceNumber.toUpperCase().startsWith("INV")) {
           packages.push(invoice)
         }
         // Check if invoice number starts with "TEMP" (case insensitive)
-        else if (invoice.invoiceNumber.toLowerCase().startsWith("temp")) {
+        else if (invoice.invoiceNumber && invoice.invoiceNumber.toUpperCase().startsWith("TEMP")) {
           templates.push(invoice)
         }
       })
