@@ -576,7 +576,26 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json()
         if (data.templates && data.templates.length > 0) {
-          setTemplates(data.templates)
+          // Map the templates to ensure they have the correct structure
+          const mappedTemplates = data.templates.map((template: any) => ({
+            id: template.id,
+            name: template.name,
+            description: template.description || `${template.name} template`,
+            category: template.category || "Document",
+            price: template.price || 0,
+            pricingTier: template.pricingTier || "Free",
+            isPurchased: template.purchased || template.isPurchased || false,
+            isPending: template.isPending || false,
+            isFree: template.isFree || template.price === 0 || template.pricingTier === "Free",
+            invoiceId: template.invoiceId || undefined,
+            fileUrl: template.fileUrl || undefined,
+            updatedAt: template.updatedAt || new Date().toISOString(),
+            status: template.status || "active",
+            usageCount: template.usageCount || 0,
+          }))
+
+          setTemplates(mappedTemplates)
+          console.log("Templates loaded:", mappedTemplates.length)
         } else {
           // If no templates found, try to fetch from admin templates
           await fetchTemplateStats()
@@ -1125,10 +1144,8 @@ export default function DashboardPage() {
   // Filter templates based on purchase status
   const hasPurchasedTemplates = templates.some((t) => t.isPurchased && !t.isFree)
 
-  // Get templates to display in the dashboard
-  const templatesForDashboard = hasPurchasedTemplates
-    ? templates.filter((t) => t.isPurchased && !t.isFree) // Show purchased non-free templates
-    : templates.filter((t) => t.isFree) // Show only free templates if no purchases
+  // Get templates to display in the dashboard - show all available templates up to 5
+  const templatesForDashboard = templates.slice(0, 5)
 
   // Add a helper function to format currency
   const formatCurrency = (amount: number | string | undefined): string => {
@@ -1196,6 +1213,11 @@ export default function DashboardPage() {
         return <CheckCircle className="h-5 w-5 text-gray-500" />
     }
   }
+
+  useEffect(() => {
+    console.log("Current templates:", templates.length)
+    console.log("Templates for dashboard:", templatesForDashboard.length)
+  }, [templates, templatesForDashboard])
 
   if (loading) {
     return <DashboardLoader />
