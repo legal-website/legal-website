@@ -98,6 +98,13 @@ export default function SpendingAnalytics() {
     )
   }
 
+  // Custom tooltip formatter for the chart
+  const customTooltipFormatter = (value: number, name: string) => {
+    // Ensure the correct label is shown based on the data key
+    const label = name === "packages" ? "Packages" : "Templates"
+    return [`$${Number(value).toFixed(2)}`, label]
+  }
+
   return (
     <Card className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
       <CardContent className="p-6">
@@ -159,9 +166,7 @@ export default function SpendingAnalytics() {
                 tickFormatter={(value: number) => `$${value}`}
               />
               <Tooltip
-                formatter={(value: number, name: string) => {
-                  return [`$${Number(value).toFixed(2)}`, name === "packages" ? "Packages" : "Templates"]
-                }}
+                formatter={customTooltipFormatter}
                 contentStyle={{ backgroundColor: "rgba(0,0,0,0.8)", border: "none", borderRadius: "4px" }}
                 labelStyle={{ color: "white" }}
               />
@@ -182,18 +187,11 @@ export default function SpendingAnalytics() {
                   <div className="flex items-center">
                     {invoice.invoiceNumber.startsWith("TEMP") ? (
                       <FileText className="h-4 w-4 mr-2 text-white/80" />
-                    ) : invoice.invoiceNumber.startsWith("INV") ? (
-                      <Package className="h-4 w-4 mr-2 text-white/80" />
                     ) : (
                       <Package className="h-4 w-4 mr-2 text-white/80" />
                     )}
                     <span className="text-sm">
-                      {invoice.invoiceNumber.startsWith("TEMP")
-                        ? "Template"
-                        : invoice.invoiceNumber.startsWith("INV")
-                          ? "Package"
-                          : "Package"}{" "}
-                      - {invoice.invoiceNumber}
+                      {invoice.invoiceNumber.startsWith("TEMP") ? "Template" : "Package"} - {invoice.invoiceNumber}
                     </span>
                   </div>
                   <div className="flex items-center">
