@@ -3,7 +3,7 @@
 // Note: You need to install recharts with: npm install recharts
 // or: yarn add recharts
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { DollarSign, Package, FileText, Clock } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
@@ -73,6 +73,48 @@ export default function SpendingAnalytics() {
     fetchSpendingData()
   }, [toast])
 
+  // Recalculate counts and spending based on invoice number prefixes
+  const recalculatedData = useMemo(() => {
+    if (!spendingData) return null
+
+    // Initialize counters
+    let packageCount = 0
+    let templateCount = 0
+    let packageSpending = 0
+    let templateSpending = 0
+
+    // Count and sum based on invoice number prefixes
+    spendingData.recentInvoices.forEach((invoice) => {
+      if (invoice.invoiceNumber.startsWith("TEMP")) {
+        templateCount++
+        templateSpending += invoice.amount
+      } else if (invoice.invoiceNumber.startsWith("INV")) {
+        packageCount++
+        packageSpending += invoice.amount
+      }
+    })
+
+    // Recalculate monthly data
+    const monthlyData = spendingData.monthlyData.map((month) => {
+      // For simplicity, we'll assume the monthly data should be adjusted proportionally
+      // In a real app, you might need more complex logic here
+      return {
+        ...month,
+        packages: month.packages || 0, // Keep existing data if available
+        templates: month.templates || 0, // Keep existing data if available
+      }
+    })
+
+    return {
+      ...spendingData,
+      packageCount,
+      templateCount,
+      packageSpending,
+      templateSpending,
+      monthlyData,
+    }
+  }, [spendingData])
+
   if (loading) {
     return (
       <Card className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
@@ -85,7 +127,7 @@ export default function SpendingAnalytics() {
     )
   }
 
-  if (!spendingData) {
+  if (!recalculatedData) {
     return (
       <Card className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
         <CardContent className="p-6">
@@ -96,13 +138,6 @@ export default function SpendingAnalytics() {
         </CardContent>
       </Card>
     )
-  }
-
-  // Custom tooltip formatter for the chart
-  const customTooltipFormatter = (value: number, name: string) => {
-    // Ensure the correct label is shown based on the data key
-    const label = name === "packages" ? "Packages" : "Templates"
-    return [`$${Number(value).toFixed(2)}`, label]
   }
 
   return (
@@ -116,7 +151,7 @@ export default function SpendingAnalytics() {
               <DollarSign className="h-8 w-8 mr-3 text-white/80" />
               <div>
                 <p className="text-sm text-white/80">Total Spent</p>
-                <p className="text-2xl font-bold">${spendingData.totalSpent.toFixed(2)}</p>
+                <p className="text-2xl font-bold">${recalculatedData.totalSpent.toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -127,8 +162,8 @@ export default function SpendingAnalytics() {
               <div>
                 <p className="text-sm text-white/80">Packages</p>
                 <p className="text-2xl font-bold">
-                  {spendingData.packageCount}{" "}
-                  <span className="text-sm font-normal">(${spendingData.packageSpending.toFixed(2)})</span>
+                  {recalculatedData.packageCount}{" "}
+                  <span className="text-sm font-normal">(${recalculatedData.packageSpending.toFixed(2)})</span>
                 </p>
               </div>
             </div>
@@ -140,8 +175,8 @@ export default function SpendingAnalytics() {
               <div>
                 <p className="text-sm text-white/80">Templates</p>
                 <p className="text-2xl font-bold">
-                  {spendingData.templateCount}{" "}
-                  <span className="text-sm font-normal">(${spendingData.templateSpending.toFixed(2)})</span>
+                  {recalculatedData.templateCount}{" "}
+                  <span className="text-sm font-normal">(${recalculatedData.templateSpending.toFixed(2)})</span>
                 </p>
               </div>
             </div>
@@ -151,7 +186,7 @@ export default function SpendingAnalytics() {
         {/* Spending Chart */}
         <div className="bg-white/10 rounded-lg p-4 mb-4 h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={spendingData.monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <BarChart data={recalculatedData.monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
               <XAxis
                 dataKey="month"
@@ -166,7 +201,9 @@ export default function SpendingAnalytics() {
                 tickFormatter={(value: number) => `$${value}`}
               />
               <Tooltip
-                formatter={customTooltipFormatter}
+                formatter={(value: number, name: string) => {
+                  return [`$${Number(value).toFixed(2)}`, name === "packages" ? "Packages" : "Templates"]
+                }}
                 contentStyle={{ backgroundColor: "rgba(0,0,0,0.8)", border: "none", borderRadius: "4px" }}
                 labelStyle={{ color: "white" }}
               />
@@ -178,20 +215,27 @@ export default function SpendingAnalytics() {
         </div>
 
         {/* Recent Purchases */}
-        {spendingData.recentInvoices.length > 0 && (
+        {recalculatedData.recentInvoices.length > 0 && (
           <div className="bg-white/10 rounded-lg p-4">
             <h4 className="text-lg font-semibold mb-3">Recent Purchases</h4>
             <div className="space-y-2">
-              {spendingData.recentInvoices.map((invoice) => (
+              {recalculatedData.recentInvoices.map((invoice) => (
                 <div key={invoice.id} className="flex justify-between items-center">
                   <div className="flex items-center">
                     {invoice.invoiceNumber.startsWith("TEMP") ? (
                       <FileText className="h-4 w-4 mr-2 text-white/80" />
+                    ) : invoice.invoiceNumber.startsWith("INV") ? (
+                      <Package className="h-4 w-4 mr-2 text-white/80" />
                     ) : (
                       <Package className="h-4 w-4 mr-2 text-white/80" />
                     )}
                     <span className="text-sm">
-                      {invoice.invoiceNumber.startsWith("TEMP") ? "Template" : "Package"} - {invoice.invoiceNumber}
+                      {invoice.invoiceNumber.startsWith("TEMP")
+                        ? "Template"
+                        : invoice.invoiceNumber.startsWith("INV")
+                          ? "Package"
+                          : "Package"}{" "}
+                      - {invoice.invoiceNumber}
                     </span>
                   </div>
                   <div className="flex items-center">
