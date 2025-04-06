@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { DollarSign, Package, FileText, Clock } from "lucide-react"
+import { DollarSign, Package, FileText } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 
 // Import these after installing recharts
@@ -98,6 +98,8 @@ export default function SpendingAnalytics() {
     )
   }
 
+  const recentPurchases = spendingData.recentInvoices
+
   return (
     <Card className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
       <CardContent className="p-6">
@@ -178,27 +180,24 @@ export default function SpendingAnalytics() {
           <div className="bg-white/10 rounded-lg p-4">
             <h4 className="text-lg font-semibold mb-3">Recent Purchases</h4>
             <div className="space-y-2">
-              {spendingData.recentInvoices.map((invoice) => (
-                <div key={invoice.id} className="flex justify-between items-center">
-                  <div className="flex items-center">
-                    {invoice.isTemplateInvoice === true ? (
-                      <FileText className="h-4 w-4 mr-2 text-white/80" />
-                    ) : (
-                      <Package className="h-4 w-4 mr-2 text-white/80" />
-                    )}
-                    <span className="text-sm">
-                      {invoice.isTemplateInvoice === true ? "Template" : "Package"} - {invoice.invoiceNumber}
-                    </span>
+              {recentPurchases.map((purchase) => {
+                // Determine if this is a template or invoice based on the ID prefix
+                const isTemplate = purchase.id.startsWith("TEMP-")
+                const isInvoice = purchase.id.startsWith("INV-")
+                const itemType = isTemplate ? "Template" : isInvoice ? "Invoice" : "Purchase"
+
+                return (
+                  <div key={purchase.id} className="flex justify-between items-center py-2">
+                    <div className="flex items-center">
+                      <FileText className="w-4 h-4 mr-2 text-white" />
+                      <span className="text-sm text-white">
+                        {itemType} - {purchase.id}
+                      </span>
+                    </div>
+                    <div className="text-sm text-white">${purchase.amount.toFixed(2)}</div>
                   </div>
-                  <div className="flex items-center">
-                    <span className="text-sm font-medium mr-3">${invoice.amount.toFixed(2)}</span>
-                    <Clock className="h-3 w-3 text-white/60" />
-                    <span className="text-xs text-white/60 ml-1">
-                      {new Date(invoice.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
