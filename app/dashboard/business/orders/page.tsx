@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Users } from "lucide-react"
+import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Users, Eye } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 
@@ -205,12 +205,24 @@ export default function OrderHistoryPage() {
       setLoadingInvoices(true)
       setInvoiceError(null)
 
-      const response = await fetch("/api/user/invoices", {
+      // First try to fetch from the business-orders endpoint
+      let response = await fetch("/api/user/business-orders", {
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
       })
+
+      // If that fails, try the user/invoices endpoint as fallback
+      if (!response.ok) {
+        console.log("Falling back to user/invoices endpoint")
+        response = await fetch("/api/user/invoices", {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        })
+      }
 
       if (!response.ok) {
         throw new Error(`Failed to fetch invoices: ${response.status}`)
@@ -380,6 +392,15 @@ export default function OrderHistoryPage() {
 
   // View invoice details
   const viewInvoiceDetails = (invoice: Invoice) => {
+    // Ensure all necessary data is available
+    if (typeof invoice.items === "string") {
+      try {
+        invoice.items = JSON.parse(invoice.items)
+      } catch (e) {
+        console.error(`Error parsing items for invoice ${invoice.id}:`, e)
+      }
+    }
+
     setSelectedInvoice(invoice)
     setShowInvoiceDialog(true)
   }
@@ -442,6 +463,11 @@ export default function OrderHistoryPage() {
       <p className="text-gray-500 text-sm sm:text-base">{message}</p>
     </div>
   )
+
+  // View full invoice page
+  const viewFullInvoice = (invoiceId: string) => {
+    window.open(`/invoice/${invoiceId}`, "_blank")
+  }
 
   return (
     <div className="p-4 sm:p-6 md:p-8 mb-20 md:mb-40 overflow-x-hidden">
@@ -624,6 +650,15 @@ export default function OrderHistoryPage() {
                               </div>
 
                               <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="sm:size-default"
+                                  onClick={() => viewFullInvoice(invoice.id)}
+                                >
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Full Invoice
+                                </Button>
                                 {invoice.paymentReceipt && (
                                   <Button variant="outline" asChild size="sm" className="sm:size-default">
                                     <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
@@ -776,6 +811,15 @@ export default function OrderHistoryPage() {
                               </div>
 
                               <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="sm:size-default"
+                                  onClick={() => viewFullInvoice(invoice.id)}
+                                >
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Full Invoice
+                                </Button>
                                 {invoice.paymentReceipt && (
                                   <Button variant="outline" asChild size="sm" className="sm:size-default">
                                     <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
