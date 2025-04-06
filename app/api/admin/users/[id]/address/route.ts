@@ -16,7 +16,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const userId = params.id
     const { addressLine1, addressLine2, city, state, zipCode, country } = await request.json()
 
-    // Find the user
+    // Find the user with address relation
     const user = await db.user.findUnique({
       where: { id: userId },
       include: { address: true },

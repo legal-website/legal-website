@@ -1,12 +1,11 @@
 "use client"
-import { Pagination } from "@/components/ui/pagination"
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Phone, User, ChevronLeft, ChevronRight, Copy, Eye, Filter } from "lucide-react"
+import { Search, Filter, Eye, Copy, ChevronLeft, ChevronRight, Phone, User } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -101,8 +100,6 @@ export default function PendingUsersPage() {
   const [showPhoneDialog, setShowPhoneDialog] = useState(false)
   const [showAccountManagerDialog, setShowAccountManagerDialog] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [backgroundRefreshing, setBackgroundRefreshing] = useState(false)
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
   // Get the tab from URL or default to "all"
   const initialTab = searchParams?.get("tab") || "all"
@@ -1155,7 +1152,7 @@ export default function PendingUsersPage() {
             copyToClipboard={copyToClipboard}
           />
           {totalPages > 1 && (
-            <Pagination
+            <CustomPagination
               currentPage={currentPage}
               totalPages={totalPages}
               onPageChange={setCurrentPage}
@@ -1175,7 +1172,7 @@ export default function PendingUsersPage() {
             copyToClipboard={copyToClipboard}
           />
           {totalPages > 1 && (
-            <Pagination
+            <CustomPagination
               currentPage={currentPage}
               totalPages={totalPages}
               onPageChange={setCurrentPage}
@@ -1195,7 +1192,7 @@ export default function PendingUsersPage() {
             copyToClipboard={copyToClipboard}
           />
           {totalPages > 1 && (
-            <Pagination
+            <CustomPagination
               currentPage={currentPage}
               totalPages={totalPages}
               onPageChange={setCurrentPage}
@@ -1215,7 +1212,7 @@ export default function PendingUsersPage() {
             copyToClipboard={copyToClipboard}
           />
           {totalPages > 1 && (
-            <Pagination
+            <CustomPagination
               currentPage={currentPage}
               totalPages={totalPages}
               onPageChange={setCurrentPage}
@@ -1717,13 +1714,12 @@ export default function PendingUsersPage() {
           </DialogContent>
         </Dialog>
       )}
-
     </div>
   )
 }
 
 // Pagination component
-function Pagination({
+function CustomPagination({
   currentPage,
   totalPages,
   onPageChange,
@@ -1957,7 +1953,7 @@ function UserList({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => copyToClipboard(user.phoneRequest?.phoneNumber, "Phone Number")}
+                  onClick={() => copyToClipboard(user.phoneRequest?.phoneNumber || "", "Phone Number")}
                 >
                   <Phone className="h-4 w-4" />
                 </Button>
