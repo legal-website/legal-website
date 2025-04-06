@@ -181,13 +181,13 @@ export default function SpendingAnalytics() {
               {spendingData.recentInvoices.map((invoice) => (
                 <div key={invoice.id} className="flex justify-between items-center">
                   <div className="flex items-center">
-                    {invoice.isTemplateInvoice === true ? (
+                    {invoice.invoiceNumber.startsWith("TEMP") ? (
                       <FileText className="h-4 w-4 mr-2 text-white/80" />
                     ) : (
                       <Package className="h-4 w-4 mr-2 text-white/80" />
                     )}
                     <span className="text-sm">
-                      {invoice.isTemplateInvoice === true ? "Template" : "Package"} - {invoice.invoiceNumber}
+                      {invoice.invoiceNumber.startsWith("TEMP") ? "Template" : "Package"} - {invoice.invoiceNumber}
                     </span>
                   </div>
                   <div className="flex items-center">
