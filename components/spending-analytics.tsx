@@ -160,8 +160,7 @@ export default function SpendingAnalytics() {
               />
               <Tooltip
                 formatter={(value: number, name: string) => {
-                  const label = name === "packages" ? "Packages" : "Templates"
-                  return [`$${Number(value).toFixed(2)}`, label]
+                  return [`$${Number(value).toFixed(2)}`, name === "packages" ? "Packages" : "Templates"]
                 }}
                 contentStyle={{ backgroundColor: "rgba(0,0,0,0.8)", border: "none", borderRadius: "4px" }}
                 labelStyle={{ color: "white" }}
