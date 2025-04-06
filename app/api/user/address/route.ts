@@ -13,11 +13,14 @@ export async function GET(request: Request) {
     }
 
     const userId = (session.user as any).id
+    console.log("Fetching address for user ID:", userId)
 
     // Find the user's address
     const address = await db.userAddress.findUnique({
       where: { userId },
     })
+
+    console.log("Address found:", address)
 
     return NextResponse.json({ address })
   } catch (error) {

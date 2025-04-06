@@ -388,10 +388,16 @@ export default function DashboardPage() {
         const data = await response.json()
         if (data.address) {
           setUserAddressData(data.address)
+          console.log("User address fetched successfully:", data.address)
+          return data.address
         }
+      } else {
+        console.error("Error fetching user address: API returned status", response.status)
       }
+      return null
     } catch (error) {
       console.error("Error fetching user address:", error)
+      return null
     }
   }
 
@@ -400,17 +406,19 @@ export default function DashboardPage() {
   // Modify the useEffect to include fetchTickets:
   useEffect(() => {
     if (session) {
-      fetchBusinessData()
-      fetchUserInvoices()
-      fetchPhoneNumberRequest()
-      fetchAccountManagerRequest()
-      fetchTemplates()
-      fetchUserDownloadCounts()
-      fetchTickets() // Add this line
-      fetchAmendments() // Add this line
-      fetchDeadlines() // Add this line
-      fetchCoupons() // Add this line
-      fetchUserAddress() // Add this line
+      // Fetch user address first
+      fetchUserAddress().then(() => {
+        fetchBusinessData()
+        fetchUserInvoices()
+        fetchPhoneNumberRequest()
+        fetchAccountManagerRequest()
+        fetchTemplates()
+        fetchUserDownloadCounts()
+        fetchTickets()
+        fetchAmendments()
+        fetchDeadlines()
+        fetchCoupons()
+      })
     } else {
       setLoading(false)
     }
@@ -1371,8 +1379,23 @@ export default function DashboardPage() {
       {/* Address Section - Now using the address from invoices */}
       <Card className="mb-4 sm:mb-8 p-3 sm:p-4 md:p-6">
         <div className="flex justify-between items-center mb-4">
-          <p className="text-lg font-medium">{userAddress.address}</p>
-          <Button variant="ghost" size="icon" onClick={() => copyToClipboard(userAddress.address, "Address")}>
+          <p className="text-lg font-medium">
+            {userAddressData
+              ? `${userAddressData.addressLine1}${userAddressData.addressLine2 ? `, ${userAddressData.addressLine2}` : ""}, ${userAddressData.city}, ${userAddressData.state} ${userAddressData.zipCode}, ${userAddressData.country}`
+              : userAddress.address}
+          </p>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() =>
+              copyToClipboard(
+                userAddressData
+                  ? `${userAddressData.addressLine1}${userAddressData.addressLine2 ? `, ${userAddressData.addressLine2}` : ""}, ${userAddressData.city}, ${userAddressData.state} ${userAddressData.zipCode}, ${userAddressData.country}`
+                  : userAddress.address,
+                "Address",
+              )
+            }
+          >
             <Copy className="w-4 h-4" />
           </Button>
         </div>
