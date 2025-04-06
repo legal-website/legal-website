@@ -205,7 +205,7 @@ export default function OrderHistoryPage() {
       setLoadingInvoices(true)
       setInvoiceError(null)
 
-      const response = await fetch("/api/user/invoices", {
+      const response = await fetch("/api/user/business-orders", {
         headers: {
           "Content-Type": "application/json",
         },
