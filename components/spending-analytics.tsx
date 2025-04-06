@@ -112,14 +112,30 @@ export default function SpendingAnalytics() {
       }
     })
 
+    // Find the current month (assuming the most recent month in the data)
+    const currentMonth =
+      spendingData.monthlyData.length > 0 ? spendingData.monthlyData[spendingData.monthlyData.length - 1].month : "Apr"
+
+    // Update the monthly data to reflect the correct package and template spending
+    const updatedMonthlyData = spendingData.monthlyData.map((month) => {
+      // Only update the current month (April in this case)
+      if (month.month === currentMonth) {
+        return {
+          ...month,
+          packages: packageSpending,
+          templates: templateSpending,
+        }
+      }
+      return month
+    })
+
     return {
       ...spendingData,
       packageCount,
       templateCount,
       packageSpending,
       templateSpending,
-      // Keep the original monthly data
-      monthlyData: spendingData.monthlyData,
+      monthlyData: updatedMonthlyData,
     }
   }, [spendingData])
 
