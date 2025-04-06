@@ -197,6 +197,8 @@ export interface CommentModel {
   authorId: string
   createdAt: Date
   updatedAt: Date
+  isBestAnswer?: boolean // Add this field
+  moderationNotes?: string | null // Add this field
   post?: PostModel
   author?: UserModel
   likes?: LikeModel[]
@@ -369,7 +371,145 @@ export interface UserDelegate {
   count: (args?: any) => Promise<number>
 }
 
-// Add this interface to your existing interfaces
+// Add this delegate after the UserDelegate
+export interface PersonalDetailsDelegate {
+  findUnique: (args: {
+    where: { id: string } | { userId: string }
+    include?: any
+  }) => Promise<PersonalDetailsModel | null>
+  findFirst: (args: { where: any; include?: any }) => Promise<PersonalDetailsModel | null>
+  findMany: (args?: any) => Promise<PersonalDetailsModel[]>
+  create: (args: { data: any; include?: any }) => Promise<PersonalDetailsModel>
+  update: (args: { where: { id: string } | { userId: string }; data: any }) => Promise<PersonalDetailsModel>
+  upsert: (args: { where: any; create: any; update: any }) => Promise<PersonalDetailsModel>
+  delete: (args: { where: { id: string } }) => Promise<PersonalDetailsModel>
+  count: (args?: any) => Promise<number>
+}
+
+// Add these interfaces to your existing prisma-types.ts file
+
+// Add this model to your schema.prisma file
+export interface UserAddressModel {
+  id: string
+  userId: string
+  addressLine1: string
+  addressLine2?: string | null
+  city: string
+  state: string
+  zipCode: string
+  country: string
+  createdAt: Date
+  updatedAt: Date
+  user?: UserModel
+}
+
+// Add these interfaces to your existing interfaces in prisma-types.ts
+
+// Add these models to your schema.prisma file
+export interface UserSettings {
+  id: string
+  userId: string
+  theme: string
+  accentColor: string
+  layoutDensity: string
+  loginNotificationsEnabled: boolean
+  createdAt: Date
+  updatedAt: Date
+  user: UserModel
+}
+
+export interface LoginSession {
+  id: string
+  userId: string
+  ipAddress?: string | null
+  userAgent: string
+  browser?: string | null
+  os?: string | null
+  device?: string | null
+  location?: string | null
+  isActive: boolean
+  lastActiveAt: Date
+  createdAt: Date
+  user: UserModel
+}
+
+// Notification model
+export interface Notification {
+  id: string
+  title: string
+  message: string
+  type: string
+  read: boolean
+  link?: string | null
+  userId: string
+  createdAt: Date
+  updatedAt: Date
+  user: UserModel
+}
+
+// Add this model to your schema.prisma file
+export interface PersonalDetailsModel {
+  id: string
+  userId: string
+  clientName: string
+  companyName: string
+  currentAddress: string
+  businessPurpose: string
+  idCardFrontUrl: string
+  idCardBackUrl: string
+  passportUrl: string
+  status: string
+  adminNotes?: string | null
+  isRedirectDisabled: boolean
+  createdAt: Date
+  updatedAt: Date
+  user: UserModel
+  members: PersonalDetailsMember[]
+}
+
+export interface PersonalDetailsMember {
+  id: string
+  personalDetails: PersonalDetailsModel
+  personalDetailsId: string
+  memberName: string
+  idCardFrontUrl: string
+  idCardBackUrl: string
+  passportUrl?: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface BankAccountModel {
+  id: string
+  accountName: string
+  accountNumber: string
+  routingNumber: string
+  bankName: string
+  accountType: string
+  swiftCode?: string | null
+  branchName?: string | null
+  branchCode?: string | null
+  isDefault: boolean
+  createdBy: string
+  createdAt: Date
+  updatedAt: Date
+  creator: UserModel
+}
+
+export interface PaymentMethodModel {
+  id: string
+  name: string
+  description?: string | null
+  isActive: boolean
+  createdBy: string
+  createdAt: Date
+  updatedAt: Date
+  creator: UserModel
+}
+
+// Add these interfaces to your existing prisma-types.ts file
+
+// SystemSettings model
 export interface SystemSettingsModel {
   id: number
   key: string
@@ -567,110 +707,57 @@ export interface CouponUsageDelegate {
   count: (args?: any) => Promise<number>
 }
 
-// Add these interfaces to your existing interfaces in prisma-types.ts
-
-// Notification model
+// Notification model and delegate
 export interface NotificationModel {
   id: string
-  title: string
-  message: string
-  type: string // "info", "success", "warning", "error"
-  read: boolean
-  link?: string | null
   userId: string
+  type: string
+  title: string
+  body: string
+  data: string | null
+  read: boolean
   createdAt: Date
   updatedAt: Date
-  user?: UserModel
 }
 
-// Notification delegate
 export interface NotificationDelegate {
   findMany: (args?: any) => Promise<NotificationModel[]>
   findUnique: (args: { where: { id: string } }) => Promise<NotificationModel | null>
   create: (args: { data: any }) => Promise<NotificationModel>
   update: (args: { where: { id: string }; data: any }) => Promise<NotificationModel>
   delete: (args: { where: { id: string } }) => Promise<NotificationModel>
-  deleteMany: (args: { where: any }) => Promise<{ count: number }>
-  updateMany: (args: { where: any; data: any }) => Promise<{ count: number }>
   count: (args?: any) => Promise<number>
 }
 
-// Add these interfaces to your existing interfaces
+// Add these interfaces to your existing interfaces in prisma-types.ts
 
-// BankAccount model
-export interface BankAccountModel {
+// UserAddress model
+export interface UserAddressModel {
   id: string
   userId: string
-  accountName: string
-  accountNumber: string
-  routingNumber: string
-  bankName: string
-  accountType: string
+  addressLine1: string
+  addressLine2?: string | null
+  city: string
+  state: string
+  zipCode: string
+  country: string
   createdAt: Date
   updatedAt: Date
   user?: UserModel
 }
 
-// PaymentMethod model
-export interface PaymentMethodModel {
-  id: string
-  name: string
-  description: string | null
-  isActive: boolean
-  createdBy: string
-  createdAt: Date
-  updatedAt: Date
-  creator?: UserModel
-}
-
-// Add these delegates to your ExtendedPrismaClient interface
-export interface BankAccountDelegate {
-  deleteMany(arg0: { where: { id: { in: any[] } } }): unknown
-  findUnique: (args: { where: { id: string } | { userId: string } }) => Promise<BankAccountModel | null>
-  findFirst: (args: { where: any }) => Promise<BankAccountModel | null>
-  findMany: (args?: any) => Promise<BankAccountModel[]>
-  create: (args: { data: any }) => Promise<BankAccountModel>
-  update: (args: { where: { id: string } | { userId: string }; data: any }) => Promise<BankAccountModel>
-  delete: (args: { where: { id: string } | { userId: string } }) => Promise<BankAccountModel>
-  upsert: (args: { where: any; create: any; update: any }) => Promise<BankAccountModel>
-}
-
-export interface PaymentMethodDelegate {
-  findUnique: (args: { where: { id: string } }) => Promise<PaymentMethodModel | null>
-  findFirst: (args: { where: any }) => Promise<PaymentMethodModel | null>
-  findMany: (args?: any) => Promise<PaymentMethodModel[]>
-  create: (args: { data: any }) => Promise<PaymentMethodModel>
-  update: (args: { where: { id: string }; data: any }) => Promise<PaymentMethodModel>
-  delete: (args: { where: { id: string } }) => Promise<PaymentMethodModel>
-  count: (args?: any) => Promise<number>
+// Add this delegate to your ExtendedPrismaClient interface
+export interface UserAddressDelegate {
+  findUnique: (args: { where: { id: string } | { userId: string } }) => Promise<UserAddressModel | null>
+  findFirst: (args: { where: any }) => Promise<UserAddressModel | null>
+  findMany: (args?: any) => Promise<UserAddressModel[]>
+  create: (args: { data: any }) => Promise<UserAddressModel>
+  update: (args: { where: { id: string } | { userId: string }; data: any }) => Promise<UserAddressModel>
+  delete: (args: { where: { id: string } | { userId: string } }) => Promise<UserAddressModel>
+  upsert: (args: { where: any; create: any; update: any }) => Promise<UserAddressModel>
 }
 
 // Then update your ExtendedPrismaClient type to include the user property
-export interface PersonalDetailsModel {
-  id: string
-  userId: string
-  firstName?: string | null
-  lastName?: string | null
-  dob?: Date | null
-  phone?: string | null
-  address1?: string | null
-  address2?: string | null
-  city?: string | null
-  state?: string | null
-  zip?: string | null
-  createdAt: Date
-  updatedAt: Date
-}
-
-export interface PersonalDetailsDelegate {
-  findUnique: (args: { where: { id: string } }) => Promise<PersonalDetailsModel | null>
-  findFirst: (args: { where: any }) => Promise<PersonalDetailsModel | null>
-  findMany: (args?: any) => Promise<PersonalDetailsModel[]>
-  create: (args: { data: any }) => Promise<PersonalDetailsModel>
-  update: (args: { where: { id: string }; data: any }) => Promise<PersonalDetailsModel>
-  delete: (args: { where: { id: string } }) => Promise<PersonalDetailsModel>
-}
-
 export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   amendment: AmendmentDelegate
   amendmentStatusHistory: AmendmentStatusHistoryDelegate
@@ -694,6 +781,8 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   systemSettings: SystemSettingsDelegate
   // Add pricing settings model
   pricingSettings: PricingSettingsDelegate
+  // Add personal details model
+  personalDetails: PersonalDetailsDelegate
 
   // Add affiliate delegates
   affiliateLink: AffiliateLinkDelegate
@@ -705,10 +794,8 @@ export type ExtendedPrismaClient = Omit<PrismaClient, "amendment"> & {
   // Add notification delegate
   notification: NotificationDelegate
 
-  // Add bank account and payment method delegates
-  bankAccount: BankAccountDelegate
-  paymentMethod: PaymentMethodDelegate
-
+  // existing delegates
+  userAddress: UserAddressDelegate
   // ... existing delegates
   coupon: CouponDelegate
   couponUsage: CouponUsageDelegate

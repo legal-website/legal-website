@@ -49,10 +49,10 @@ interface Invoice {
   customerPhone?: string
   customerCompany?: string
   customerAddress?: string
-  customerCity?: string
-  customerState?: string
-  customerZip?: string
-  customerCountry?: string
+  customerCity: string
+  customerState: string
+  customerZip: string
+  customerCountry: string
   amount: number
   status: string
   createdAt: string
@@ -205,6 +205,7 @@ export default function DashboardPage() {
   const [phoneNumberRequest, setPhoneNumberRequest] = useState<PhoneNumberRequest | null>(null)
   const [accountManagerRequest, setAccountManagerRequest] = useState<AccountManagerRequestType | null>(null)
   // Update the DashboardPage component to include ticket state
+  // Add this to the state declarations at the top of the component
   // Add this to the state declarations at the top of the component
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [ticketsLoading, setTicketsLoading] = useState(true)
@@ -362,23 +363,80 @@ export default function DashboardPage() {
     }
   }
 
+  // Add this function to fetch user address
+  const fetchUserAddress = async () => {
+    try {
+      const response = await fetch("/api/user/address")
+      if (response.ok) {
+        const data = await response.json()
+        if (data.address) {
+          // Format the address
+          const address = data.address
+          const formattedAddress = formatAddressFromObject(address)
+
+          setUserAddress({
+            address: formattedAddress,
+            customerAddress: address.addressLine1,
+            customerCity: address.city,
+            customerState: address.state,
+            customerZip: address.zipCode,
+            customerCountry: address.country,
+          })
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user address:", error)
+      // Keep the existing address if there's an error
+    }
+  }
+
+  // Add this helper function to format address from the address object
+  const formatAddressFromObject = (address: any): string => {
+    if (!address) return "100 Ambition Parkway, New York, NY 10001, USA" // Return default address if no new address
+
+    const parts = []
+    if (address.addressLine1) parts.push(address.addressLine1)
+    if (address.addressLine2) parts.push(address.addressLine2)
+
+    let cityStateZip = ""
+    if (address.city) cityStateZip += address.city
+    if (address.state) cityStateZip += cityStateZip ? `, ${address.state}` : address.state
+    if (address.zipCode) cityStateZip += cityStateZip ? ` ${address.zipCode}` : address.zipCode
+
+    if (cityStateZip) parts.push(cityStateZip)
+    if (address.country) parts.push(address.country)
+
+    return parts.join(", ") || "100 Ambition Parkway, New York, NY 10001, USA" // Return default address if formatted address is empty
+  }
+
   // Add fetchTickets to the useEffect that runs when session is available
   // Find the useEffect that includes fetchBusinessData and add fetchTickets
   // Modify the useEffect to include fetchTickets:
   useEffect(() => {
+    let isMounted = true
+
     if (session) {
-      fetchBusinessData()
-      fetchUserInvoices()
-      fetchPhoneNumberRequest()
-      fetchAccountManagerRequest()
-      fetchTemplates()
-      fetchUserDownloadCounts()
-      fetchTickets() // Add this line
-      fetchAmendments() // Add this line
-      fetchDeadlines() // Add this line
-      fetchCoupons() // Add this line
+      const fetchData = async () => {
+        await fetchBusinessData()
+        await fetchUserInvoices()
+        await fetchPhoneNumberRequest()
+        await fetchAccountManagerRequest()
+        await fetchTemplates()
+        await fetchUserDownloadCounts()
+        await fetchTickets()
+        await fetchAmendments()
+        await fetchDeadlines()
+        await fetchCoupons()
+        await fetchUserAddress()
+      }
+
+      fetchData()
     } else {
       setLoading(false)
+    }
+
+    return () => {
+      isMounted = false
     }
   }, [session])
 
