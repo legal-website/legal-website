@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Users } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
-import { useSession } from "next-auth/react"
 
 // Invoice types
 interface InvoiceItem {
@@ -38,7 +37,6 @@ interface Invoice {
   createdAt: string
   updatedAt: string
   isTemplateInvoice?: boolean
-  userId?: string
 }
 
 // Annual Report types
@@ -159,7 +157,6 @@ export default function OrderHistoryPage() {
   const [amendmentError, setAmendmentError] = useState<string | null>(null)
 
   const { toast } = useToast()
-  const { data: session } = useSession()
 
   // Add new state variables to track whether to show all items
   const [packagesDisplayCount, setPackagesDisplayCount] = useState(4)
@@ -173,14 +170,13 @@ export default function OrderHistoryPage() {
   // Separate invoices into packages and templates after fetching
   useEffect(() => {
     if (invoices.length > 0) {
-      // Separate invoices into packages and templates
-      const packages: Invoice[] = []
+      // For packages tab, show ALL invoices
+      setPackageInvoices(invoices)
+
+      // For templates tab, keep the original logic to only show template invoices
       const templates: Invoice[] = []
 
       invoices.forEach((invoice) => {
-        // Debug log to see what invoices we're processing
-        console.log(`Processing invoice: ${invoice.id}, Number: ${invoice.invoiceNumber}`)
-
         // Check if it's explicitly a template
         let isTemplate = false
 
@@ -193,49 +189,28 @@ export default function OrderHistoryPage() {
           }
         }
 
-        // Add to appropriate array - all invoices go to packages by default
-        // unless they are explicitly templates
+        // Add to templates array if it's a template
         if (isTemplate) {
-          console.log(`Adding to templates: ${invoice.invoiceNumber}`)
           templates.push(invoice)
-        } else {
-          console.log(`Adding to packages: ${invoice.invoiceNumber}`)
-          packages.push(invoice)
         }
       })
 
-      console.log("Package invoices:", packages)
-      console.log("Template invoices:", templates)
-
-      setPackageInvoices(packages)
       setTemplateInvoices(templates)
     }
   }, [invoices])
 
-  // Fetch invoices using the admin API route first, then fall back to user route if needed
+  // Fetch invoices using the existing API route
   const fetchInvoices = async () => {
     try {
       setLoadingInvoices(true)
       setInvoiceError(null)
 
-      // First try to fetch from admin invoices endpoint
-      let response = await fetch("/api/admin/invoices", {
+      const response = await fetch("/api/user/invoices", {
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
       })
-
-      // If admin endpoint fails (likely due to permissions), try the user endpoint
-      if (!response.ok) {
-        console.log("Admin invoices endpoint failed, trying user endpoint...")
-        response = await fetch("/api/user/invoices", {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        })
-      }
 
       if (!response.ok) {
         throw new Error(`Failed to fetch invoices: ${response.status}`)
@@ -247,17 +222,8 @@ export default function OrderHistoryPage() {
         throw new Error(data.error)
       }
 
-      // Get the invoices array from the response
-      const invoicesArray = data.invoices || []
-
-      // If we got data from admin endpoint, filter to only show current user's invoices
-      const currentUserId = session?.user?.id
-      const filteredInvoices = currentUserId
-        ? invoicesArray.filter((inv: any) => !inv.userId || inv.userId === currentUserId)
-        : invoicesArray
-
       // Process the invoices to ensure items are properly parsed
-      const processedInvoices = filteredInvoices.map((invoice: any) => {
+      const processedInvoices = data.invoices.map((invoice: any) => {
         // Parse items if they're stored as a JSON string
         let parsedItems = invoice.items
         try {
