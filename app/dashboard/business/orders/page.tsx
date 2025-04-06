@@ -290,20 +290,22 @@ export default function OrderHistoryPage() {
         (Array.isArray(invoice.items) &&
           invoice.items.some((item) => item.tier && item.tier.toLowerCase().includes(searchTerm.toLowerCase())))
 
-      // Check if it's a template invoice
+      // Check if it's a template invoice - starts with TEMP or has template in items
       const isTemplate =
-        invoice.isTemplateInvoice ||
-        invoice.invoiceNumber.toLowerCase().includes("temp") ||
+        invoice.invoiceNumber.toLowerCase().startsWith("temp") ||
         (typeof invoice.items === "string" && invoice.items.toLowerCase().includes("template")) ||
         (Array.isArray(invoice.items) &&
           invoice.items.some((item) => item.tier && item.tier.toLowerCase().includes("template")))
 
-      // For packages, we want invoices that are not templates
+      // Check if it's a package invoice - starts with INV
+      const isPackage = invoice.invoiceNumber.toLowerCase().startsWith("inv")
+
+      // For packages, we want invoices that are not templates and start with INV
       if (type === "package") {
-        return matchesSearch && !isTemplate
+        return matchesSearch && isPackage && !isTemplate
       }
 
-      // For templates, we want invoices that are templates
+      // For templates, we want invoices that are templates or start with TEMP
       if (type === "template") {
         return matchesSearch && isTemplate
       }
