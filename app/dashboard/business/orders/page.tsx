@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Users, Eye } from "lucide-react"
+import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Users } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 
@@ -170,10 +170,8 @@ export default function OrderHistoryPage() {
   // Separate invoices into packages and templates after fetching
   useEffect(() => {
     if (invoices.length > 0) {
-      // For packages tab, show ALL invoices
-      setPackageInvoices(invoices)
-
-      // For templates tab, keep the original logic to only show template invoices
+      // For packages tab, show all invoices that are NOT templates
+      const packages: Invoice[] = []
       const templates: Invoice[] = []
 
       invoices.forEach((invoice) => {
@@ -186,16 +184,22 @@ export default function OrderHistoryPage() {
           // Only mark as template if it explicitly contains TEMP or TEMPLATE
           if (invNumber.includes("TEMP") || invNumber.includes("TEMPLATE")) {
             isTemplate = true
+            templates.push(invoice)
+          } else {
+            // If not a template, it's a regular package
+            packages.push(invoice)
           }
-        }
-
-        // Add to templates array if it's a template
-        if (isTemplate) {
-          templates.push(invoice)
+        } else {
+          // If no invoice number, default to package
+          packages.push(invoice)
         }
       })
 
+      setPackageInvoices(packages)
       setTemplateInvoices(templates)
+
+      console.log("Regular packages:", packages.length)
+      console.log("Templates:", templates.length)
     }
   }, [invoices])
 
@@ -205,56 +209,62 @@ export default function OrderHistoryPage() {
       setLoadingInvoices(true)
       setInvoiceError(null)
 
-      // First try to fetch from the business-orders endpoint
-      let response = await fetch("/api/user/business-orders", {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      })
+      // Try both endpoints to get all invoices
+      const endpoints = ["/api/user/business-orders", "/api/user/invoices"]
+      let allInvoices: Invoice[] = []
+      let fetchError = null
 
-      // If that fails, try the user/invoices endpoint as fallback
-      if (!response.ok) {
-        console.log("Falling back to user/invoices endpoint")
-        response = await fetch("/api/user/invoices", {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        })
-      }
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch invoices: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (data.error) {
-        throw new Error(data.error)
-      }
-
-      // Process the invoices to ensure items are properly parsed
-      const processedInvoices = data.invoices.map((invoice: any) => {
-        // Parse items if they're stored as a JSON string
-        let parsedItems = invoice.items
+      for (const endpoint of endpoints) {
         try {
-          if (typeof invoice.items === "string") {
-            parsedItems = JSON.parse(invoice.items)
+          const response = await fetch(endpoint, {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+          })
+
+          if (response.ok) {
+            const data = await response.json()
+            if (!data.error && data.invoices) {
+              // Process the invoices to ensure items are properly parsed
+              const processedInvoices = data.invoices.map((invoice: any) => {
+                // Parse items if they're stored as a JSON string
+                let parsedItems = invoice.items
+                try {
+                  if (typeof invoice.items === "string") {
+                    parsedItems = JSON.parse(invoice.items)
+                  }
+                } catch (e) {
+                  console.error(`Error parsing items for invoice ${invoice.id}:`, e)
+                  parsedItems = []
+                }
+
+                return {
+                  ...invoice,
+                  items: parsedItems,
+                }
+              })
+
+              allInvoices = [...allInvoices, ...processedInvoices]
+              console.log(`Fetched ${processedInvoices.length} invoices from ${endpoint}`)
+            }
           }
-        } catch (e) {
-          console.error(`Error parsing items for invoice ${invoice.id}:`, e)
-          parsedItems = []
+        } catch (error) {
+          console.error(`Error fetching from ${endpoint}:`, error)
+          fetchError = error
         }
+      }
 
-        return {
-          ...invoice,
-          items: parsedItems,
-        }
-      })
-
-      console.log("All processed invoices:", processedInvoices)
-      setInvoices(processedInvoices)
+      if (allInvoices.length > 0) {
+        // Remove duplicates by ID
+        const uniqueInvoices = Array.from(new Map(allInvoices.map((invoice) => [invoice.id, invoice])).values())
+        console.log("Total unique invoices:", uniqueInvoices.length)
+        setInvoices(uniqueInvoices)
+      } else if (fetchError) {
+        throw fetchError
+      } else {
+        throw new Error("No invoices found")
+      }
     } catch (error: any) {
       console.error("Error fetching invoices:", error)
       setInvoiceError(error.message || "Failed to load invoices")
@@ -464,11 +474,6 @@ export default function OrderHistoryPage() {
     </div>
   )
 
-  // View full invoice page
-  const viewFullInvoice = (invoiceId: string) => {
-    window.open(`/invoice/${invoiceId}`, "_blank")
-  }
-
   return (
     <div className="p-4 sm:p-6 md:p-8 mb-20 md:mb-40 overflow-x-hidden">
       <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Order History</h1>
@@ -650,15 +655,6 @@ export default function OrderHistoryPage() {
                               </div>
 
                               <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="sm:size-default"
-                                  onClick={() => viewFullInvoice(invoice.id)}
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View Full Invoice
-                                </Button>
                                 {invoice.paymentReceipt && (
                                   <Button variant="outline" asChild size="sm" className="sm:size-default">
                                     <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
@@ -811,15 +807,6 @@ export default function OrderHistoryPage() {
                               </div>
 
                               <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="sm:size-default"
-                                  onClick={() => viewFullInvoice(invoice.id)}
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View Full Invoice
-                                </Button>
                                 {invoice.paymentReceipt && (
                                   <Button variant="outline" asChild size="sm" className="sm:size-default">
                                     <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
