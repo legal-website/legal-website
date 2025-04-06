@@ -283,7 +283,10 @@ export default function OrderHistoryPage() {
 
   // Filter invoices based on search term and type
   const getFilteredInvoices = (type: "package" | "template") => {
-    return invoices.filter((invoice) => {
+    // For debugging - log the invoices to see what we're working with
+    console.log("All invoices:", invoices)
+
+    const filtered = invoices.filter((invoice) => {
       const matchesSearch =
         invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (typeof invoice.items === "string" && invoice.items.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -291,17 +294,22 @@ export default function OrderHistoryPage() {
           invoice.items.some((item) => item.tier && item.tier.toLowerCase().includes(searchTerm.toLowerCase())))
 
       if (type === "package") {
-        // For packages, check if invoice number starts with INV
-        return matchesSearch && invoice.invoiceNumber.toLowerCase().startsWith("inv")
+        // For packages, simply check if invoice number contains "INV" (case insensitive)
+        return matchesSearch && invoice.invoiceNumber.toLowerCase().includes("inv")
       }
 
       if (type === "template") {
-        // For templates, check if invoice number starts with TEMP
-        return matchesSearch && invoice.invoiceNumber.toLowerCase().startsWith("temp")
+        // For templates, simply check if invoice number contains "TEMP" (case insensitive)
+        return matchesSearch && invoice.invoiceNumber.toLowerCase().includes("temp")
       }
 
       return false
     })
+
+    // For debugging - log the filtered results
+    console.log(`Filtered ${type} invoices:`, filtered)
+
+    return filtered
   }
 
   // Filter filings based on search term
@@ -670,7 +678,7 @@ export default function OrderHistoryPage() {
                         <Dialog key={invoice.id}>
                           <DialogTrigger asChild>
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg cursor-pointer hover:bg-gray-50 gap-2 sm:gap-0">
-                              <div className="flex items-center gap-2 sm:gap-3">
+                              <div className="flex items-center gap-2m:gap-3">
                                 <div className="p-2 bg-purple-100 rounded-lg shrink-0">
                                   <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
                                 </div>
