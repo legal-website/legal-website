@@ -44,7 +44,8 @@ interface UserData {
 interface UserAddress {
   id: string
   userId: string
-  street: string
+  addressLine1: string
+  addressLine2?: string | null
   city: string
   state: string
   zipCode: string
@@ -102,8 +103,22 @@ export default function BusinessProfilePage() {
         const addressData = await addressResponse.json()
         if (addressData.address) {
           const addr = addressData.address
-          formattedAddress = `${addr.street}, ${addr.city}, ${addr.state} ${addr.zipCode}, ${addr.country}`
+          formattedAddress = `${addr.addressLine1}${addr.addressLine2 ? `, ${addr.addressLine2}` : ""}, ${addr.city}, ${addr.state} ${addr.zipCode}, ${addr.country}`
         }
+      }
+
+      // Fetch business data from dashboard to ensure consistent business ID
+      let dashboardBusinessId = ""
+      try {
+        const businessResponse = await fetch("/api/user/business")
+        if (businessResponse.ok) {
+          const businessData = await businessResponse.json()
+          if (businessData.business && businessData.business.businessId) {
+            dashboardBusinessId = businessData.business.businessId
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard business ID:", error)
       }
 
       if (data.business || data.user) {
@@ -120,7 +135,7 @@ export default function BusinessProfilePage() {
 
         return {
           name: data.business?.name || data.user?.name || "",
-          businessId: data.business?.businessId || "",
+          businessId: dashboardBusinessId || data.business?.businessId || "",
           formationDate: data.business?.formationDate ? new Date(data.business.formationDate).toLocaleDateString() : "",
           ein: data.business?.ein || "",
           address: formattedAddress || data.user?.address || data.business?.address || "",
