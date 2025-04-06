@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
+import prisma from "@/lib/db"
 
 export async function GET() {
   try {
@@ -12,7 +12,7 @@ export async function GET() {
     }
 
     // Fetch ALL invoices for the current user without any filtering
-    const invoices = await db.invoice.findMany({
+    const invoices = await prisma.invoice.findMany({
       where: { userId: session.user.id as string },
       orderBy: { createdAt: "desc" },
     })

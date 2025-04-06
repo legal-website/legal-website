@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Users } from "lucide-react"
+import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Users, Eye } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 
@@ -36,235 +36,103 @@ interface Invoice {
   paymentDate?: string
   createdAt: string
   updatedAt: string
-  isTemplateInvoice?: boolean
 }
-
-// Annual Report types
-interface Filing {
-  id: string
-  deadlineId: string
-  deadlineTitle?: string
-  receiptUrl: string | null
-  reportUrl: string | null
-  status: string
-  userNotes: string | null
-  adminNotes: string | null
-  filedDate: string | null
-  dueDate?: string
-  createdAt?: string
-  deadline?: {
-    title: string
-    dueDate: string
-  } | null
-}
-
-// Amendment types
-interface Amendment {
-  id: string
-  type: string
-  details: string
-  status: string
-  createdAt: string
-  updatedAt: string
-  documentUrl?: string
-  receiptUrl?: string
-  paymentAmount?: number | string
-  notes?: string
-}
-
-// Mock data for annual reports
-const mockFilings: Filing[] = [
-  {
-    id: "1",
-    deadlineId: "d1",
-    deadlineTitle: "Annual Report 2023",
-    receiptUrl: null,
-    reportUrl: "/sample-report.pdf",
-    status: "completed",
-    userNotes: "Filed on time",
-    adminNotes: "Processed and approved",
-    filedDate: "2023-04-15T10:00:00Z",
-    dueDate: "2023-05-01T00:00:00Z",
-    createdAt: "2023-03-01T09:00:00Z",
-  },
-  {
-    id: "2",
-    deadlineId: "d2",
-    deadlineTitle: "Biennial Report 2022",
-    receiptUrl: "/sample-receipt.pdf",
-    reportUrl: "/sample-report.pdf",
-    status: "completed",
-    userNotes: null,
-    adminNotes: "Processed and approved",
-    filedDate: "2022-04-10T11:30:00Z",
-    dueDate: "2022-05-01T00:00:00Z",
-    createdAt: "2022-03-15T14:00:00Z",
-  },
-]
-
-// Mock data for amendments
-const mockAmendments: Amendment[] = [
-  {
-    id: "1",
-    type: "Change of Registered Agent",
-    details: "Updated registered agent to ABC Services",
-    status: "approved",
-    createdAt: "2023-06-10T09:00:00Z",
-    updatedAt: "2023-06-15T14:30:00Z",
-    documentUrl: "/sample-document.pdf",
-    receiptUrl: "/sample-receipt.pdf",
-    paymentAmount: 49.0,
-  },
-  {
-    id: "2",
-    type: "Name Change",
-    details: "Changed business name from 'ABC LLC' to 'XYZ Enterprises LLC'",
-    status: "amendment_resolved",
-    createdAt: "2023-08-05T11:00:00Z",
-    updatedAt: "2023-08-12T16:45:00Z",
-    documentUrl: "/sample-document.pdf",
-    receiptUrl: "/sample-receipt.pdf",
-    paymentAmount: 79.0,
-    notes: "Name change approved by state",
-  },
-]
 
 export default function OrderHistoryPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("packages")
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
-  const [selectedFiling, setSelectedFiling] = useState<Filing | null>(null)
-  const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null)
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
-  const [showFilingDialog, setShowFilingDialog] = useState(false)
-  const [showAmendmentDialog, setShowAmendmentDialog] = useState(false)
 
   // Data states
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [packageInvoices, setPackageInvoices] = useState<Invoice[]>([])
   const [templateInvoices, setTemplateInvoices] = useState<Invoice[]>([])
-  const [filings, setFilings] = useState<Filing[]>(mockFilings)
-  const [amendments, setAmendments] = useState<Amendment[]>(mockAmendments)
 
   // Loading states
   const [loadingInvoices, setLoadingInvoices] = useState(true)
-  const [loadingFilings, setLoadingFilings] = useState(false) // Set to false since we're using mock data
-  const [loadingAmendments, setLoadingAmendments] = useState(false) // Set to false since we're using mock data
 
   // Error states
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
-  const [filingError, setFilingError] = useState<string | null>(null)
-  const [amendmentError, setAmendmentError] = useState<string | null>(null)
 
   const { toast } = useToast()
 
-  // Add new state variables to track whether to show all items
+  // Add state variables to track whether to show all items
   const [packagesDisplayCount, setPackagesDisplayCount] = useState(4)
   const [templatesDisplayCount, setTemplatesDisplayCount] = useState(4)
 
   useEffect(() => {
     fetchInvoices()
-    // No need to fetch filings and amendments since we're using mock data
   }, [])
 
   // Separate invoices into packages and templates after fetching
   useEffect(() => {
     if (invoices.length > 0) {
-      // For packages tab, show all invoices that are NOT templates
       const packages: Invoice[] = []
       const templates: Invoice[] = []
 
       invoices.forEach((invoice) => {
-        // Check if it's explicitly a template
-        let isTemplate = false
-
-        if (invoice.invoiceNumber) {
-          const invNumber = invoice.invoiceNumber.trim().toUpperCase()
-
-          // Only mark as template if it explicitly contains TEMP or TEMPLATE
-          if (invNumber.includes("TEMP") || invNumber.includes("TEMPLATE")) {
-            isTemplate = true
-            templates.push(invoice)
-          } else {
-            // If not a template, it's a regular package
-            packages.push(invoice)
-          }
+        // Check if it's a template invoice based on invoice number
+        if (
+          invoice.invoiceNumber &&
+          (invoice.invoiceNumber.toUpperCase().includes("TEMP") ||
+            invoice.invoiceNumber.toUpperCase().includes("TEMPLATE"))
+        ) {
+          templates.push(invoice)
         } else {
-          // If no invoice number, default to package
           packages.push(invoice)
         }
       })
 
       setPackageInvoices(packages)
       setTemplateInvoices(templates)
-
-      console.log("Regular packages:", packages.length)
-      console.log("Templates:", templates.length)
     }
   }, [invoices])
 
-  // Fetch invoices using the existing API route
+  // Fetch invoices from the API
   const fetchInvoices = async () => {
     try {
       setLoadingInvoices(true)
       setInvoiceError(null)
 
-      // Try both endpoints to get all invoices
-      const endpoints = ["/api/user/business-orders", "/api/user/invoices"]
-      let allInvoices: Invoice[] = []
-      let fetchError = null
+      const response = await fetch("/api/user/business-orders", {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      })
 
-      for (const endpoint of endpoints) {
+      if (!response.ok) {
+        throw new Error(`Failed to fetch invoices: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      // Process the invoices to ensure items are properly parsed
+      const processedInvoices = data.invoices.map((invoice: any) => {
+        // Parse items if they're stored as a JSON string
+        let parsedItems = invoice.items
         try {
-          const response = await fetch(endpoint, {
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-          })
-
-          if (response.ok) {
-            const data = await response.json()
-            if (!data.error && data.invoices) {
-              // Process the invoices to ensure items are properly parsed
-              const processedInvoices = data.invoices.map((invoice: any) => {
-                // Parse items if they're stored as a JSON string
-                let parsedItems = invoice.items
-                try {
-                  if (typeof invoice.items === "string") {
-                    parsedItems = JSON.parse(invoice.items)
-                  }
-                } catch (e) {
-                  console.error(`Error parsing items for invoice ${invoice.id}:`, e)
-                  parsedItems = []
-                }
-
-                return {
-                  ...invoice,
-                  items: parsedItems,
-                }
-              })
-
-              allInvoices = [...allInvoices, ...processedInvoices]
-              console.log(`Fetched ${processedInvoices.length} invoices from ${endpoint}`)
-            }
+          if (typeof invoice.items === "string") {
+            parsedItems = JSON.parse(invoice.items)
           }
-        } catch (error) {
-          console.error(`Error fetching from ${endpoint}:`, error)
-          fetchError = error
+        } catch (e) {
+          console.error(`Error parsing items for invoice ${invoice.id}:`, e)
+          parsedItems = []
         }
-      }
 
-      if (allInvoices.length > 0) {
-        // Remove duplicates by ID
-        const uniqueInvoices = Array.from(new Map(allInvoices.map((invoice) => [invoice.id, invoice])).values())
-        console.log("Total unique invoices:", uniqueInvoices.length)
-        setInvoices(uniqueInvoices)
-      } else if (fetchError) {
-        throw fetchError
-      } else {
-        throw new Error("No invoices found")
-      }
+        return {
+          ...invoice,
+          items: parsedItems,
+        }
+      })
+
+      console.log("All processed invoices:", processedInvoices)
+      setInvoices(processedInvoices)
     } catch (error: any) {
       console.error("Error fetching invoices:", error)
       setInvoiceError(error.message || "Failed to load invoices")
@@ -273,52 +141,6 @@ export default function OrderHistoryPage() {
         description: `Failed to load invoices: ${error.message || "Unknown error"}`,
         variant: "destructive",
       })
-
-      // Set fallback data for development/demo purposes
-      const fallbackInvoices = [
-        {
-          id: "1",
-          invoiceNumber: "INV-2023-001",
-          customerName: "John Doe",
-          customerEmail: "john@example.com",
-          amount: 349.0,
-          status: "paid",
-          items: [
-            { id: "1", tier: "LLC Formation Package", price: 199.0 },
-            { id: "2", tier: "EIN Filing", price: 99.0 },
-            { id: "3", tier: "Operating Agreement", price: 51.0 },
-          ],
-          createdAt: "2023-01-15T12:00:00Z",
-          updatedAt: "2023-01-15T12:30:00Z",
-          paymentDate: "2023-01-15T12:30:00Z",
-        },
-        {
-          id: "2",
-          invoiceNumber: "INV-2023-045",
-          customerName: "John Doe",
-          customerEmail: "john@example.com",
-          amount: 99.0,
-          status: "paid",
-          items: [{ id: "4", tier: "Annual Report Filing", price: 99.0 }],
-          createdAt: "2023-03-22T10:00:00Z",
-          updatedAt: "2023-03-22T10:15:00Z",
-          paymentDate: "2023-03-22T10:15:00Z",
-        },
-        {
-          id: "3",
-          invoiceNumber: "TEMP-2023-012",
-          customerName: "John Doe",
-          customerEmail: "john@example.com",
-          amount: 49.0,
-          status: "paid",
-          items: [{ id: "5", tier: "Operating Agreement Template", price: 49.0, type: "template" }],
-          createdAt: "2023-05-10T14:00:00Z",
-          updatedAt: "2023-05-10T14:20:00Z",
-          paymentDate: "2023-05-10T14:20:00Z",
-        },
-      ]
-
-      setInvoices(fallbackInvoices)
     } finally {
       setLoadingInvoices(false)
     }
@@ -339,24 +161,6 @@ export default function OrderHistoryPage() {
         (typeof invoice.items === "string" && invoice.items.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (Array.isArray(invoice.items) &&
           invoice.items.some((item) => item.tier && item.tier.toLowerCase().includes(searchTerm.toLowerCase())))
-      )
-    })
-  }
-
-  // Filter filings based on search term
-  const getFilteredFilings = () => {
-    return filings.filter((filing) => {
-      const deadlineTitle = filing.deadlineTitle || (filing.deadline ? filing.deadline.title : "")
-      return deadlineTitle.toLowerCase().includes(searchTerm.toLowerCase())
-    })
-  }
-
-  // Filter amendments based on search term
-  const getFilteredAmendments = () => {
-    return amendments.filter((amendment) => {
-      return (
-        amendment.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        amendment.details.toLowerCase().includes(searchTerm.toLowerCase())
       )
     })
   }
@@ -415,18 +219,6 @@ export default function OrderHistoryPage() {
     setShowInvoiceDialog(true)
   }
 
-  // View filing details
-  const viewFilingDetails = (filing: Filing) => {
-    setSelectedFiling(filing)
-    setShowFilingDialog(true)
-  }
-
-  // View amendment details
-  const viewAmendmentDetails = (amendment: Amendment) => {
-    setSelectedAmendment(amendment)
-    setShowAmendmentDialog(true)
-  }
-
   // Get items from invoice
   const getInvoiceItems = (invoice: Invoice) => {
     if (Array.isArray(invoice.items)) {
@@ -474,6 +266,11 @@ export default function OrderHistoryPage() {
     </div>
   )
 
+  // View full invoice page
+  const viewFullInvoice = (invoiceId: string) => {
+    window.open(`/invoice/${invoiceId}`, "_blank")
+  }
+
   return (
     <div className="p-4 sm:p-6 md:p-8 mb-20 md:mb-40 overflow-x-hidden">
       <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Order History</h1>
@@ -515,7 +312,7 @@ export default function OrderHistoryPage() {
               <select
                 className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 onChange={(e) => {
-                  // Sort logic would go here
+                  // Sort logic
                   const sortValue = e.target.value
                   if (sortValue === "newest") {
                     setInvoices(
@@ -655,6 +452,15 @@ export default function OrderHistoryPage() {
                               </div>
 
                               <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="sm:size-default"
+                                  onClick={() => viewFullInvoice(invoice.id)}
+                                >
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Full Invoice
+                                </Button>
                                 {invoice.paymentReceipt && (
                                   <Button variant="outline" asChild size="sm" className="sm:size-default">
                                     <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
@@ -807,6 +613,15 @@ export default function OrderHistoryPage() {
                               </div>
 
                               <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="sm:size-default"
+                                  onClick={() => viewFullInvoice(invoice.id)}
+                                >
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Full Invoice
+                                </Button>
                                 {invoice.paymentReceipt && (
                                   <Button variant="outline" asChild size="sm" className="sm:size-default">
                                     <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
