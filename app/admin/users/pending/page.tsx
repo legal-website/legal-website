@@ -89,6 +89,254 @@ interface AccountManagerRequest {
   updatedAt?: string
 }
 
+// Separate component for the user list
+function UserList({
+  users,
+  onViewDetails,
+  onViewPhoneRequest,
+  onViewAccountManagerRequest,
+  onViewAddress,
+  copyToClipboard,
+}: {
+  users: PendingUser[]
+  onViewDetails: (user: PendingUser) => void
+  onViewPhoneRequest: (user: PendingUser) => void
+  onViewAccountManagerRequest: (user: PendingUser) => void
+  onViewAddress: (user: PendingUser) => void
+  copyToClipboard: (text: string, label: string) => void
+}) {
+  const getPhoneRequestButtonText = (user: PendingUser) => {
+    if (!user.phoneRequest) {
+      return null // Don't show button if no request
+    }
+
+    if (user.phoneRequest.phoneNumber) {
+      return "View Client US Number"
+    }
+
+    return "US Phone Number Request"
+  }
+
+  const getAccountManagerButtonText = (user: PendingUser) => {
+    if (!user.accountManagerRequest) {
+      return null // Don't show button if no request
+    }
+
+    if (user.accountManagerRequest.managerName) {
+      return "View Account Manager"
+    }
+
+    return "Account Manager Request"
+  }
+
+  if (users.length === 0) {
+    return <div className="text-center py-4">No users found.</div>
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {users.map((user) => {
+        const phoneRequestButtonText = getPhoneRequestButtonText(user)
+        const accountManagerButtonText = getAccountManagerButtonText(user)
+
+        return (
+          <Card key={user.id} className="bg-white dark:bg-gray-800 shadow-md rounded-md overflow-hidden">
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{user.name}</h3>
+                <Eye
+                  className="h-5 w-5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 cursor-pointer"
+                  onClick={() => onViewDetails(user)}
+                />
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{user.email}</p>
+
+              {/* Business Information */}
+              {user.business && (
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                    Business: {user.business.name || "N/A"}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Status: {user.business.serviceStatus || "N/A"}
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-2 mt-4">
+                <Button size="sm" onClick={() => onViewDetails(user)}>
+                  View LLC Details
+                </Button>
+
+                {/* Phone Request Button */}
+                {phoneRequestButtonText && (
+                  <Button size="sm" variant="secondary" onClick={() => onViewPhoneRequest(user)}>
+                    {phoneRequestButtonText}
+                  </Button>
+                )}
+
+                {/* Account Manager Request Button */}
+                {accountManagerButtonText && (
+                  <Button size="sm" variant="secondary" onClick={() => onViewAccountManagerRequest(user)}>
+                    {accountManagerButtonText}
+                  </Button>
+                )}
+
+                {/* USA Address Button */}
+                <Button size="sm" variant="secondary" onClick={() => onViewAddress(user)}>
+                  Manage USA Address
+                </Button>
+              </div>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-700 p-2 flex justify-between items-center">
+              <Button variant="ghost" size="icon" onClick={() => copyToClipboard(user.email, "Email")}>
+                <User className="h-4 w-4" />
+              </Button>
+              {user.phoneRequest?.phoneNumber ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => copyToClipboard(user.phoneRequest?.phoneNumber || "", "Phone Number")}
+                >
+                  <Phone className="h-4 w-4" />
+                </Button>
+              ) : null}
+            </div>
+          </Card>
+        )
+      })}
+    </div>
+  )
+}
+
+// Pagination component
+function CustomPagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+  totalItems,
+  itemsPerPage,
+}: {
+  currentPage: number
+  totalPages: number
+  onPageChange: (page: number) => void
+  totalItems: number
+  itemsPerPage: number
+}) {
+  const startItem = (currentPage - 1) * itemsPerPage + 1
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems)
+
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages = []
+    const maxPagesToShow = 3 // Show fewer pages on mobile
+
+    if (totalPages <= maxPagesToShow) {
+      // If we have 3 or fewer pages, show all of them
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      // Always include first page
+      pages.push(1)
+
+      // Calculate start and end of page range around current page
+      let startPage = Math.max(2, currentPage - 0)
+      let endPage = Math.min(totalPages - 1, currentPage + 0)
+
+      // Adjust if we're near the beginning
+      if (currentPage <= 2) {
+        endPage = 2
+      }
+
+      // Adjust if we're near the end
+      if (currentPage >= totalPages - 1) {
+        startPage = totalPages - 1
+      }
+
+      // Add ellipsis after first page if needed
+      if (startPage > 2) {
+        pages.push(-1) // -1 represents ellipsis
+      }
+
+      // Add pages in the middle
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i)
+      }
+
+      // Add ellipsis before last page if needed
+      if (endPage < totalPages - 1) {
+        pages.push(-2) // -2 represents ellipsis
+      }
+
+      // Always include last page
+      pages.push(totalPages)
+    }
+
+    return pages
+  }
+
+  const pageNumbers = getPageNumbers()
+
+  return (
+    <div className="mt-4 md:mt-6 flex flex-col sm:flex-row items-center justify-between">
+      <div className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-0 text-center sm:text-left">
+        Showing <span className="font-medium">{startItem}</span> to <span className="font-medium">{endItem}</span> of{" "}
+        <span className="font-medium">{totalItems}</span> results
+      </div>
+
+      <div className="flex items-center space-x-1 sm:space-x-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          <span className="sr-only">Previous page</span>
+        </Button>
+
+        {pageNumbers.map((pageNumber, index) => {
+          // Render ellipsis
+          if (pageNumber < 0) {
+            return (
+              <span key={`ellipsis-${index}`} className="px-1 sm:px-2">
+                ...
+              </span>
+            )
+          }
+
+          // Render page number
+          return (
+            <Button
+              key={pageNumber}
+              variant={currentPage === pageNumber ? "default" : "outline"}
+              size="sm"
+              onClick={() => onPageChange(pageNumber)}
+              className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-xs"
+            >
+              {pageNumber}
+            </Button>
+          )
+        })}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+        >
+          <ChevronRight className="h-4 w-4" />
+          <span className="sr-only">Next page</span>
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export default function PendingUsersPage() {
   const { data: session, status: sessionStatus } = useSession()
   const router = useRouter()
@@ -887,32 +1135,6 @@ export default function PendingUsersPage() {
     )
   }
 
-  // Get phone request button text
-  const getPhoneRequestButtonText = (user: PendingUser) => {
-    if (!user.phoneRequest) {
-      return null // Don't show button if no request
-    }
-
-    if (user.phoneRequest.phoneNumber) {
-      return "View Client US Number"
-    }
-
-    return "US Phone Number Request"
-  }
-
-  // Get account manager request button text
-  const getAccountManagerButtonText = (user: PendingUser) => {
-    if (!user.accountManagerRequest) {
-      return null // Don't show button if no request
-    }
-
-    if (user.accountManagerRequest.managerName) {
-      return "View Account Manager"
-    }
-
-    return "Account Manager Request"
-  }
-
   if (sessionStatus === "loading" || !session) {
     return (
       <div className="p-6 text-center">
@@ -1140,7 +1362,8 @@ export default function PendingUsersPage() {
           </TabsTrigger>
           <TabsTrigger value="rejected" className="py-2 text-xs md:text-sm">
             Rejected ({rejectedCount})
-          </TabsList>
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="all">
           <UserList
@@ -1591,9 +1814,7 @@ export default function PendingUsersPage() {
             <DialogHeader>
               <DialogTitle>Manage USA Address</DialogTitle>
               <DialogDescription>
-                {selectedUser.address
-                  ? "Update the client's USA address"
-                  : "Add a USA address for this client"}
+                {selectedUser.address ? "Update the client's USA address" : "Add a USA address for this client"}
               </DialogDescription>
             </DialogHeader>
 
@@ -1608,8 +1829,8 @@ export default function PendingUsersPage() {
                       <div className="mt-2 pt-2 border-t">
                         <p className="text-sm text-gray-500">
                           Current Address: {selectedUser.address.addressLine1}
-                          {selectedUser.address.addressLine2 ? `, ${selectedUser.address.addressLine2}` : ''}
-                          , {selectedUser.address.city}, {selectedUser.address.state} {selectedUser.address.zipCode}
+                          {selectedUser.address.addressLine2 ? `, ${selectedUser.address.addressLine2}` : ""},{" "}
+                          {selectedUser.address.city}, {selectedUser.address.state} {selectedUser.address.zipCode}
                         </p>
                       </div>
                     )}
@@ -1636,7 +1857,7 @@ export default function PendingUsersPage() {
                     id="addressLine2"
                     name="addressLine2"
                     placeholder="e.g. Apt 4B, Suite 200"
-                    value={addressFormData.addressLine2 || ''}
+                    value={addressFormData.addressLine2 || ""}
                     onChange={handleAddressInputChange}
                     className="mt-1"
                   />
@@ -1660,7 +1881,7 @@ export default function PendingUsersPage() {
                     <Select
                       name="state"
                       value={addressFormData.state}
-                      onValueChange={(value) => setAddressFormData(prev => ({ ...prev, state: value }))}
+                      onValueChange={(value) => setAddressFormData((prev) => ({ ...prev, state: value }))}
                     >
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select state" />
@@ -1714,254 +1935,6 @@ export default function PendingUsersPage() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
-  )
-}
-
-// Pagination component
-function CustomPagination({
-  currentPage,
-  totalPages,
-  onPageChange,
-  totalItems,
-  itemsPerPage,
-}: {
-  currentPage: number
-  totalPages: number
-  onPageChange: (page: number) => void
-  totalItems: number
-  itemsPerPage: number
-}) {
-  const startItem = (currentPage - 1) * itemsPerPage + 1
-  const endItem = Math.min(currentPage * itemsPerPage, totalItems)
-
-  // Generate page numbers to display
-  const getPageNumbers = () => {
-    const pages = []
-    const maxPagesToShow = 3 // Show fewer pages on mobile
-
-    if (totalPages <= maxPagesToShow) {
-      // If we have 3 or fewer pages, show all of them
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i)
-      }
-    } else {
-      // Always include first page
-      pages.push(1)
-
-      // Calculate start and end of page range around current page
-      let startPage = Math.max(2, currentPage - 0)
-      let endPage = Math.min(totalPages - 1, currentPage + 0)
-
-      // Adjust if we're near the beginning
-      if (currentPage <= 2) {
-        endPage = 2
-      }
-
-      // Adjust if we're near the end
-      if (currentPage >= totalPages - 1) {
-        startPage = totalPages - 1
-      }
-
-      // Add ellipsis after first page if needed
-      if (startPage > 2) {
-        pages.push(-1) // -1 represents ellipsis
-      }
-
-      // Add pages in the middle
-      for (let i = startPage; i <= endPage; i++) {
-        pages.push(i)
-      }
-
-      // Add ellipsis before last page if needed
-      if (endPage < totalPages - 1) {
-        pages.push(-2) // -2 represents ellipsis
-      }
-
-      // Always include last page
-      pages.push(totalPages)
-    }
-
-    return pages
-  }
-
-  const pageNumbers = getPageNumbers()
-
-  return (
-    <div className="mt-4 md:mt-6 flex flex-col sm:flex-row items-center justify-between">
-      <div className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-0 text-center sm:text-left">
-        Showing <span className="font-medium">{startItem}</span> to <span className="font-medium">{endItem}</span> of{" "}
-        <span className="font-medium">{totalItems}</span> results
-      </div>
-
-      <div className="flex items-center space-x-1 sm:space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          <span className="sr-only">Previous page</span>
-        </Button>
-
-        {pageNumbers.map((pageNumber, index) => {
-          // Render ellipsis
-          if (pageNumber < 0) {
-            return (
-              <span key={`ellipsis-${index}`} className="px-1 sm:px-2">
-                ...
-              </span>
-            )
-          }
-
-          // Render page number
-          return (
-            <Button
-              key={pageNumber}
-              variant={currentPage === pageNumber ? "default" : "outline"}
-              size="sm"
-              onClick={() => onPageChange(pageNumber)}
-              className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-xs"
-            >
-              {pageNumber}
-            </Button>
-          )
-        })}
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
-        >
-          <ChevronRight className="h-4 w-4" />
-          <span className="sr-only">Next page</span>
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-// Separate component for the user list
-function UserList({
-  users,
-  onViewDetails,
-  onViewPhoneRequest,
-  onViewAccountManagerRequest,
-  onViewAddress,
-  copyToClipboard,
-}: {
-  users: PendingUser[]
-  onViewDetails: (user: PendingUser) => void
-  onViewPhoneRequest: (user: PendingUser) => void
-  onViewAccountManagerRequest: (user: PendingUser) => void
-  onViewAddress: (user: PendingUser) => void
-  copyToClipboard: (text: string, label: string) => void
-}) {
-  const getPhoneRequestButtonText = (user: PendingUser) => {
-    if (!user.phoneRequest) {
-      return null // Don't show button if no request
-    }
-
-    if (user.phoneRequest.phoneNumber) {
-      return "View Client US Number"
-    }
-
-    return "US Phone Number Request"
-  }
-
-  const getAccountManagerButtonText = (user: PendingUser) => {
-    if (!user.accountManagerRequest) {
-      return null // Don't show button if no request
-    }
-
-    if (user.accountManagerRequest.managerName) {
-      return "View Account Manager"
-    }
-
-    return "Account Manager Request"
-  }
-
-  if (users.length === 0) {
-    return <div className="text-center py-4">No users found.</div>
-  }
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {users.map((user) => {
-        const phoneRequestButtonText = getPhoneRequestButtonText(user)
-        const accountManagerButtonText = getAccountManagerButtonText(user)
-
-        return (
-          <Card key={user.id} className="bg-white dark:bg-gray-800 shadow-md rounded-md overflow-hidden">
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{user.name}</h3>
-                <Eye
-                  className="h-5 w-5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 cursor-pointer"
-                  onClick={() => onViewDetails(user)}
-                />
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{user.email}</p>
-
-              {/* Business Information */}
-              {user.business && (
-                <div className="mb-3">
-                  <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                    Business: {user.business.name || "N/A"}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Status: {user.business.serviceStatus || "N/A"}
-                  </p>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex flex-col gap-2 mt-4">
-                <Button size="sm" onClick={() => onViewDetails(user)}>
-                  View LLC Details
-                </Button>
-
-                {/* Phone Request Button */}
-                {phoneRequestButtonText && (
-                  <Button size="sm" variant="secondary" onClick={() => onViewPhoneRequest(user)}>
-                    {phoneRequestButtonText}
-                  </Button>
-                )}
-
-                {/* Account Manager Request Button */}
-                {accountManagerButtonText && (
-                  <Button size="sm" variant="secondary" onClick={() => onViewAccountManagerRequest(user)}>
-                    {accountManagerButtonText}
-                  </Button>
-                )}
-
-                {/* USA Address Button */}
-                <Button size="sm" variant="secondary" onClick={() => onViewAddress(user)}>
-                  Manage USA Address
-                </Button>
-              </div>
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-700 p-2 flex justify-between items-center">
-              <Button variant="ghost" size="icon" onClick={() => copyToClipboard(user.email, "Email")}>
-                <User className="h-4 w-4" />
-              </Button>
-              {user.phoneRequest?.phoneNumber ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => copyToClipboard(user.phoneRequest?.phoneNumber || "", "Phone Number")}
-                >
-                  <Phone className="h-4 w-4" />
-                </Button>
-              ) : null}
-            </div>
-          </Card>
-        )
-      })}
     </div>
   )
 }

@@ -16,20 +16,28 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const userId = params.id
     const { addressLine1, addressLine2, city, state, zipCode, country } = await request.json()
 
-    // Find the user with address relation
+    // Find the user - using select instead of include to avoid TypeScript errors
     const user = await db.user.findUnique({
       where: { id: userId },
-      include: { address: true },
+      select: {
+        id: true,
+        // Add other fields you need
+      },
     })
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
+    // Check if address exists for this user
+    const existingAddress = await db.userAddress.findUnique({
+      where: { userId: userId },
+    })
+
     let address
 
     // If user already has an address, update it
-    if (user.address) {
+    if (existingAddress) {
       address = await db.userAddress.update({
         where: { userId: userId },
         data: {
@@ -79,11 +87,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     const userId = params.id
 
-    // Find the user's address information
+    // Find the user - using select instead of include
     const user = await db.user.findUnique({
       where: { id: userId },
-      include: {
-        address: true,
+      select: {
+        id: true,
+        // Add other fields you need
       },
     })
 
@@ -91,8 +100,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
+    // Get address separately
+    const address = await db.userAddress.findUnique({
+      where: { userId: userId },
+    })
+
     return NextResponse.json({
-      address: user.address || null,
+      address: address || null,
     })
   } catch (error) {
     console.error("Error fetching user address:", error)
