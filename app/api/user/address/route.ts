@@ -1,20 +1,20 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { authOptions } from "@/lib/auth"
+import { db } from "@/lib/db"
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
     // Check if user is authenticated
-    if (!session?.user?.id) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = session.user.id
+    const userId = (session.user as any).id
 
-    // Get user address
+    // Find the user's address
     const address = await db.userAddress.findUnique({
       where: { userId },
     })

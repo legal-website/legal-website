@@ -1,5 +1,7 @@
 "use client"
 
+import { Pagination } from "@/components/ui/pagination"
+
 import type React from "react"
 
 import { useState, useEffect } from "react"
@@ -7,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, Eye, Copy, ChevronLeft, ChevronRight, Phone, User } from "lucide-react"
+import { Search, Phone, User, ChevronLeft, ChevronRight, Copy, Eye, Filter } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -43,6 +45,21 @@ interface PendingUser {
   }
   phoneRequest?: PhoneNumberRequest
   accountManagerRequest?: AccountManagerRequest
+  address?: UserAddress
+}
+
+// Add this interface to the existing interfaces at the top of the file
+interface UserAddress {
+  id?: string
+  userId: string
+  addressLine1: string
+  addressLine2?: string | null
+  city: string
+  state: string
+  zipCode: string
+  country: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 // Add this CSS class for extra small screens
@@ -87,6 +104,8 @@ export default function PendingUsersPage() {
   const [showPhoneDialog, setShowPhoneDialog] = useState(false)
   const [showAccountManagerDialog, setShowAccountManagerDialog] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [backgroundRefreshing, setBackgroundRefreshing] = useState(false)
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
   // Get the tab from URL or default to "all"
   const initialTab = searchParams?.get("tab") || "all"
@@ -117,6 +136,16 @@ export default function PendingUsersPage() {
   const [processingManagerAction, setProcessingManagerAction] = useState(false)
 
   // Add these new state variables after the existing state declarations
+  const [showAddressDialog, setShowAddressDialog] = useState(false)
+  const [addressFormData, setAddressFormData] = useState({
+    addressLine1: "",
+    addressLine2: "",
+    city: "",
+    state: "",
+    zipCode: "",
+    country: "United States",
+  })
+  const [processingAddressAction, setProcessingAddressAction] = useState(false)
   const [sortOrder, setSortOrder] = useState("newest")
   const [dateFilter, setDateFilter] = useState({
     startDate: "",
@@ -181,6 +210,8 @@ export default function PendingUsersPage() {
           const phoneRequestData = await fetchUserPhoneRequest(user.id)
           // Fetch account manager request data for each user
           const accountManagerRequestData = await fetchUserAccountManagerRequest(user.id)
+          // Fetch address data for each user
+          const addressData = await fetchUserAddress(user.id)
 
           return {
             id: user.id,
@@ -189,6 +220,7 @@ export default function PendingUsersPage() {
             business: businessData || undefined,
             phoneRequest: phoneRequestData || undefined,
             accountManagerRequest: accountManagerRequestData || undefined,
+            address: addressData || undefined,
           }
         }),
       )
@@ -300,6 +332,29 @@ export default function PendingUsersPage() {
     }
   }
 
+  // Add this function after fetchUserAccountManagerRequest
+  const fetchUserAddress = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/address`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.address) {
+          return data.address
+        }
+      }
+      return null
+    } catch (error) {
+      console.error("Error fetching user address data:", error)
+      return null
+    }
+  }
+
   const generateBusinessId = () => {
     return Math.floor(10000000 + Math.random() * 90000000).toString()
   }
@@ -395,6 +450,35 @@ export default function PendingUsersPage() {
     setShowAccountManagerDialog(true)
   }
 
+  // Add this function to view user address
+  const viewUserAddress = async (user: PendingUser) => {
+    setSelectedUser(user)
+
+    // Initialize form data with existing address if available
+    if (user.address) {
+      setAddressFormData({
+        addressLine1: user.address.addressLine1 || "",
+        addressLine2: user.address.addressLine2 || "",
+        city: user.address.city || "",
+        state: user.address.state || "",
+        zipCode: user.address.zipCode || "",
+        country: user.address.country || "United States",
+      })
+    } else {
+      // Reset form if no existing address
+      setAddressFormData({
+        addressLine1: "",
+        addressLine2: "",
+        city: "",
+        state: "",
+        zipCode: "",
+        country: "United States",
+      })
+    }
+
+    setShowAddressDialog(true)
+  }
+
   // Update the handleInputChange function to handle numeric values
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -422,6 +506,12 @@ export default function PendingUsersPage() {
   const handleAccountManagerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setAccountManagerFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  // Add this function to handle address form input changes
+  const handleAddressInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setAddressFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   // Update the handleSelectChange function to handle numeric values
@@ -653,6 +743,62 @@ export default function PendingUsersPage() {
     }
   }
 
+  // Add this function to save address data
+  const saveAddressData = async () => {
+    if (!selectedUser) return
+
+    setProcessingAddressAction(true)
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/address`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+        body: JSON.stringify(addressFormData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update address information")
+      }
+
+      const data = await response.json()
+
+      toast({
+        title: "Success",
+        description: "Address information updated successfully.",
+      })
+
+      // Update the local state
+      setPendingUsers((prev) =>
+        prev.map((user) => {
+          if (user.id === selectedUser.id) {
+            return {
+              ...user,
+              address: data.address,
+            }
+          }
+          return user
+        }),
+      )
+
+      setShowAddressDialog(false)
+
+      // Refresh the data to ensure we have the latest
+      fetchUsers()
+    } catch (error) {
+      console.error("Error updating address information:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update address information. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingAddressAction(false)
+    }
+  }
+
   // Add this function before the filteredUsers declaration
   const sortUsers = (users: PendingUser[]) => {
     return [...users].sort((a, b) => {
@@ -800,6 +946,66 @@ export default function PendingUsersPage() {
   const approvedCount = pendingUsers.filter((user) => user.business?.serviceStatus === "Approved").length
   const rejectedCount = pendingUsers.filter((user) => user.business?.serviceStatus === "Rejected").length
 
+  // Add the US states array for the dropdown
+  const US_STATES = [
+    { value: "AL", label: "Alabama" },
+    { value: "AK", label: "Alaska" },
+    { value: "AZ", label: "Arizona" },
+    { value: "AR", label: "Arkansas" },
+    { value: "CA", label: "California" },
+    { value: "CO", label: "Colorado" },
+    { value: "CT", label: "Connecticut" },
+    { value: "DE", label: "Delaware" },
+    { value: "FL", label: "Florida" },
+    { value: "GA", label: "Georgia" },
+    { value: "HI", label: "Hawaii" },
+    { value: "ID", label: "Idaho" },
+    { value: "IL", label: "Illinois" },
+    { value: "IN", label: "Indiana" },
+    { value: "IA", label: "Iowa" },
+    { value: "KS", label: "Kansas" },
+    { value: "KY", label: "Kentucky" },
+    { value: "LA", label: "Louisiana" },
+    { value: "ME", label: "Maine" },
+    { value: "MD", label: "Maryland" },
+    { value: "MA", label: "Massachusetts" },
+    { value: "MI", label: "Michigan" },
+    { value: "MN", label: "Minnesota" },
+    { value: "MS", label: "Mississippi" },
+    { value: "MO", label: "Missouri" },
+    { value: "MT", label: "Montana" },
+    { value: "NE", label: "Nebraska" },
+    { value: "NV", label: "Nevada" },
+    { value: "NH", label: "New Hampshire" },
+    { value: "NJ", label: "New Jersey" },
+    { value: "NM", label: "New Mexico" },
+    { value: "NY", label: "New York" },
+    { value: "NC", label: "North Carolina" },
+    { value: "ND", label: "North Dakota" },
+    { value: "OH", label: "Ohio" },
+    { value: "OK", label: "Oklahoma" },
+    { value: "OR", label: "Oregon" },
+    { value: "PA", label: "Pennsylvania" },
+    { value: "RI", label: "Rhode Island" },
+    { value: "SC", label: "South Carolina" },
+    { value: "SD", label: "South Dakota" },
+    { value: "TN", label: "Tennessee" },
+    { value: "TX", label: "Texas" },
+    { value: "UT", label: "Utah" },
+    { value: "VT", label: "Vermont" },
+    { value: "VA", label: "Virginia" },
+    { value: "WA", label: "Washington" },
+    { value: "WV", label: "West Virginia" },
+    { value: "WI", label: "Wisconsin" },
+    { value: "WY", label: "Wyoming" },
+    { value: "DC", label: "District of Columbia" },
+    { value: "AS", label: "American Samoa" },
+    { value: "GU", label: "Guam" },
+    { value: "MP", label: "Northern Mariana Islands" },
+    { value: "PR", label: "Puerto Rico" },
+    { value: "VI", label: "U.S. Virgin Islands" },
+  ]
+
   return (
     <div className="px-3 sm:px-4 md:px-6 max-w-[1600px] mx-auto mb-20 md:mb-40 overflow-x-hidden">
       <style jsx global>
@@ -940,8 +1146,7 @@ export default function PendingUsersPage() {
           </TabsTrigger>
           <TabsTrigger value="rejected" className="py-2 text-xs md:text-sm">
             Rejected ({rejectedCount})
-          </TabsTrigger>
-        </TabsList>
+          </TabsList>
 
         <TabsContent value="all">
           <UserList
@@ -949,6 +1154,7 @@ export default function PendingUsersPage() {
             onViewDetails={viewUserDetails}
             onViewPhoneRequest={viewPhoneRequest}
             onViewAccountManagerRequest={viewAccountManagerRequest}
+            onViewAddress={viewUserAddress}
             copyToClipboard={copyToClipboard}
           />
           {totalPages > 1 && (
@@ -968,6 +1174,7 @@ export default function PendingUsersPage() {
             onViewDetails={viewUserDetails}
             onViewPhoneRequest={viewPhoneRequest}
             onViewAccountManagerRequest={viewAccountManagerRequest}
+            onViewAddress={viewUserAddress}
             copyToClipboard={copyToClipboard}
           />
           {totalPages > 1 && (
@@ -987,6 +1194,7 @@ export default function PendingUsersPage() {
             onViewDetails={viewUserDetails}
             onViewPhoneRequest={viewPhoneRequest}
             onViewAccountManagerRequest={viewAccountManagerRequest}
+            onViewAddress={viewUserAddress}
             copyToClipboard={copyToClipboard}
           />
           {totalPages > 1 && (
@@ -1006,6 +1214,7 @@ export default function PendingUsersPage() {
             onViewDetails={viewUserDetails}
             onViewPhoneRequest={viewPhoneRequest}
             onViewAccountManagerRequest={viewAccountManagerRequest}
+            onViewAddress={viewUserAddress}
             copyToClipboard={copyToClipboard}
           />
           {totalPages > 1 && (
@@ -1381,8 +1590,137 @@ export default function PendingUsersPage() {
         </Dialog>
       )}
 
-      {/* Pagination component */}
-      {/* ... (pagination component remains the same) */}
+      {/* USA Address Dialog */}
+      {selectedUser && (
+        <Dialog open={showAddressDialog} onOpenChange={setShowAddressDialog}>
+          <DialogContent className="w-[95vw] max-w-[500px] p-4 md:p-6">
+            <DialogHeader>
+              <DialogTitle>Manage USA Address</DialogTitle>
+              <DialogDescription>
+                {selectedUser.address
+                  ? "Update the client's USA address"
+                  : "Add a USA address for this client"}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Client Information</h3>
+                <Card className="p-4">
+                  <div className="space-y-2">
+                    <p className="font-medium">{selectedUser.name}</p>
+                    <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                    {selectedUser.address && (
+                      <div className="mt-2 pt-2 border-t">
+                        <p className="text-sm text-gray-500">
+                          Current Address: {selectedUser.address.addressLine1}
+                          {selectedUser.address.addressLine2 ? `, ${selectedUser.address.addressLine2}` : ''}
+                          , {selectedUser.address.city}, {selectedUser.address.state} {selectedUser.address.zipCode}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="addressLine1">Address Line 1</Label>
+                  <Input
+                    id="addressLine1"
+                    name="addressLine1"
+                    placeholder="e.g. 123 Main St"
+                    value={addressFormData.addressLine1}
+                    onChange={handleAddressInputChange}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="addressLine2">Address Line 2 (Optional)</Label>
+                  <Input
+                    id="addressLine2"
+                    name="addressLine2"
+                    placeholder="e.g. Apt 4B, Suite 200"
+                    value={addressFormData.addressLine2 || ''}
+                    onChange={handleAddressInputChange}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    name="city"
+                    placeholder="e.g. New York"
+                    value={addressFormData.city}
+                    onChange={handleAddressInputChange}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="state">State</Label>
+                    <Select
+                      name="state"
+                      value={addressFormData.state}
+                      onValueChange={(value) => setAddressFormData(prev => ({ ...prev, state: value }))}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {US_STATES.map((state) => (
+                          <SelectItem key={state.value} value={state.value}>
+                            {state.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="zipCode">ZIP Code</Label>
+                    <Input
+                      id="zipCode"
+                      name="zipCode"
+                      placeholder="e.g. 10001"
+                      value={addressFormData.zipCode}
+                      onChange={handleAddressInputChange}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="country">Country</Label>
+                  <Input
+                    id="country"
+                    name="country"
+                    value={addressFormData.country}
+                    onChange={handleAddressInputChange}
+                    className="mt-1"
+                    disabled
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Default: United States</p>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAddressDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={saveAddressData} disabled={processingAddressAction}>
+                {processingAddressAction ? "Saving..." : "Save Address"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
     </div>
   )
 }
@@ -1520,23 +1858,16 @@ function UserList({
   onViewDetails,
   onViewPhoneRequest,
   onViewAccountManagerRequest,
+  onViewAddress,
   copyToClipboard,
 }: {
   users: PendingUser[]
   onViewDetails: (user: PendingUser) => void
   onViewPhoneRequest: (user: PendingUser) => void
   onViewAccountManagerRequest: (user: PendingUser) => void
+  onViewAddress: (user: PendingUser) => void
   copyToClipboard: (text: string, label: string) => void
 }) {
-  if (users.length === 0) {
-    return (
-      <Card className="p-4 md:p-8 text-center">
-        <p>No users found</p>
-      </Card>
-    )
-  }
-
-  // Get phone request button text
   const getPhoneRequestButtonText = (user: PendingUser) => {
     if (!user.phoneRequest) {
       return null // Don't show button if no request
@@ -1549,7 +1880,6 @@ function UserList({
     return "US Phone Number Request"
   }
 
-  // Get account manager request button text
   const getAccountManagerButtonText = (user: PendingUser) => {
     if (!user.accountManagerRequest) {
       return null // Don't show button if no request
@@ -1562,78 +1892,83 @@ function UserList({
     return "Account Manager Request"
   }
 
-  return (
-    <div className="space-y-3">
-      {users.map((user) => (
-        <Card key={user.id} className="p-3 md:p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
-          <div className="flex flex-col space-y-3">
-            <div>
-              <div className="flex items-center mb-1">
-                <p className="font-medium">{user.name}</p>
-              </div>
-              <p className="text-sm text-gray-500">{user.email}</p>
-              <div className="flex flex-wrap items-center mt-1 gap-y-1 text-xs">
-                <span className="text-gray-500">Business: {user.business?.name || "Not set"}</span>
-                <span className="mx-2 text-gray-300 hidden xs:inline">•</span>
-                <span className="text-gray-500">Status: {user.business?.serviceStatus || "Pending"}</span>
-                {user.business?.businessId && (
-                  <>
-                    <span className="mx-2 text-gray-300 hidden sm:inline">•</span>
-                    <span className="text-gray-500 flex items-center mt-1 sm:mt-0">
-                      <span className="mr-1">ID: {user.business.businessId}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-5 w-5 p-0"
-                        onClick={() => copyToClipboard(user.business?.businessId || "", "Business ID")}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </span>
-                  </>
-                )}
-                {user.business?.formationDate && (
-                  <>
-                    <span className="mx-2 text-gray-300 hidden md:inline">•</span>
-                    <span className="text-gray-500 block md:inline mt-1 md:mt-0">
-                      Formation: {new Date(user.business.formationDate).toLocaleDateString()}
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
+  if (users.length === 0) {
+    return <div className="text-center py-4">No users found.</div>
+  }
 
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => onViewDetails(user)}>
-                <Eye className="h-3 w-3 mr-1" />
-                Manage LLC
-              </Button>
-              {getPhoneRequestButtonText(user) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`text-xs h-8 ${user.phoneRequest?.status === "requested" ? "border-blue-300 text-blue-600" : ""}`}
-                  onClick={() => onViewPhoneRequest(user)}
-                >
-                  <Phone className="h-3 w-3 mr-1" />
-                  <span className="hidden xs:inline">US Phone</span>
-                </Button>
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {users.map((user) => {
+        const phoneRequestButtonText = getPhoneRequestButtonText(user)
+        const accountManagerButtonText = getAccountManagerButtonText(user)
+
+        return (
+          <Card key={user.id} className="bg-white dark:bg-gray-800 shadow-md rounded-md overflow-hidden">
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{user.name}</h3>
+                <Eye
+                  className="h-5 w-5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 cursor-pointer"
+                  onClick={() => onViewDetails(user)}
+                />
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{user.email}</p>
+
+              {/* Business Information */}
+              {user.business && (
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                    Business: {user.business.name || "N/A"}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Status: {user.business.serviceStatus || "N/A"}
+                  </p>
+                </div>
               )}
-              {getAccountManagerButtonText(user) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`text-xs h-8 ${user.accountManagerRequest?.status === "requested" ? "border-blue-300 text-blue-600" : ""}`}
-                  onClick={() => onViewAccountManagerRequest(user)}
-                >
-                  <User className="h-3 w-3 mr-1" />
-                  <span className="hidden xs:inline">Manager</span>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-2 mt-4">
+                <Button size="sm" onClick={() => onViewDetails(user)}>
+                  View LLC Details
                 </Button>
-              )}
+
+                {/* Phone Request Button */}
+                {phoneRequestButtonText && (
+                  <Button size="sm" variant="secondary" onClick={() => onViewPhoneRequest(user)}>
+                    {phoneRequestButtonText}
+                  </Button>
+                )}
+
+                {/* Account Manager Request Button */}
+                {accountManagerButtonText && (
+                  <Button size="sm" variant="secondary" onClick={() => onViewAccountManagerRequest(user)}>
+                    {accountManagerButtonText}
+                  </Button>
+                )}
+
+                {/* USA Address Button */}
+                <Button size="sm" variant="secondary" onClick={() => onViewAddress(user)}>
+                  Manage USA Address
+                </Button>
+              </div>
             </div>
-          </div>
-        </Card>
-      ))}
+            <div className="bg-gray-50 dark:bg-gray-700 p-2 flex justify-between items-center">
+              <Button variant="ghost" size="icon" onClick={() => copyToClipboard(user.email, "Email")}>
+                <User className="h-4 w-4" />
+              </Button>
+              {user.phoneRequest?.phoneNumber ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => copyToClipboard(user.phoneRequest?.phoneNumber, "Phone Number")}
+                >
+                  <Phone className="h-4 w-4" />
+                </Button>
+              ) : null}
+            </div>
+          </Card>
+        )
+      })}
     </div>
   )
 }

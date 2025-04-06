@@ -49,10 +49,10 @@ interface Invoice {
   customerPhone?: string
   customerCompany?: string
   customerAddress?: string
-  customerCity: string
-  customerState: string
-  customerZip: string
-  customerCountry: string
+  customerCity?: string
+  customerState?: string
+  customerZip?: string
+  customerCountry?: string
   amount: number
   status: string
   createdAt: string
@@ -153,6 +153,20 @@ interface Ticket {
   updatedAt: string
 }
 
+// Add this interface after the other interfaces
+interface UserAddress {
+  id: string
+  userId: string
+  addressLine1: string
+  addressLine2?: string | null
+  city: string
+  state: string
+  zipCode: string
+  country: string
+  createdAt: string
+  updatedAt: string
+}
+
 // Attractive loader component
 const DashboardLoader = () => {
   return (
@@ -218,6 +232,9 @@ export default function DashboardPage() {
   // Add this state variable with the other state variables in the DashboardPage component
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [couponsLoading, setCouponsLoading] = useState(true)
+
+  // Add this state variable with the other state variables
+  const [userAddressData, setUserAddressData] = useState<UserAddress | null>(null)
 
   const fetchAmendments = async () => {
     try {
@@ -363,80 +380,39 @@ export default function DashboardPage() {
     }
   }
 
-  // Add this function to fetch user address
+  // Add this function to fetch the user's address
   const fetchUserAddress = async () => {
     try {
       const response = await fetch("/api/user/address")
       if (response.ok) {
         const data = await response.json()
         if (data.address) {
-          // Format the address
-          const address = data.address
-          const formattedAddress = formatAddressFromObject(address)
-
-          setUserAddress({
-            address: formattedAddress,
-            customerAddress: address.addressLine1,
-            customerCity: address.city,
-            customerState: address.state,
-            customerZip: address.zipCode,
-            customerCountry: address.country,
-          })
+          setUserAddressData(data.address)
         }
       }
     } catch (error) {
       console.error("Error fetching user address:", error)
-      // Keep the existing address if there's an error
     }
-  }
-
-  // Add this helper function to format address from the address object
-  const formatAddressFromObject = (address: any): string => {
-    if (!address) return "100 Ambition Parkway, New York, NY 10001, USA" // Return default address if no new address
-
-    const parts = []
-    if (address.addressLine1) parts.push(address.addressLine1)
-    if (address.addressLine2) parts.push(address.addressLine2)
-
-    let cityStateZip = ""
-    if (address.city) cityStateZip += address.city
-    if (address.state) cityStateZip += cityStateZip ? `, ${address.state}` : address.state
-    if (address.zipCode) cityStateZip += cityStateZip ? ` ${address.zipCode}` : address.zipCode
-
-    if (cityStateZip) parts.push(cityStateZip)
-    if (address.country) parts.push(address.country)
-
-    return parts.join(", ") || "100 Ambition Parkway, New York, NY 10001, USA" // Return default address if formatted address is empty
   }
 
   // Add fetchTickets to the useEffect that runs when session is available
   // Find the useEffect that includes fetchBusinessData and add fetchTickets
   // Modify the useEffect to include fetchTickets:
   useEffect(() => {
-    let isMounted = true
-
     if (session) {
-      const fetchData = async () => {
-        await fetchBusinessData()
-        await fetchUserInvoices()
-        await fetchPhoneNumberRequest()
-        await fetchAccountManagerRequest()
-        await fetchTemplates()
-        await fetchUserDownloadCounts()
-        await fetchTickets()
-        await fetchAmendments()
-        await fetchDeadlines()
-        await fetchCoupons()
-        await fetchUserAddress()
-      }
-
-      fetchData()
+      fetchBusinessData()
+      fetchUserInvoices()
+      fetchPhoneNumberRequest()
+      fetchAccountManagerRequest()
+      fetchTemplates()
+      fetchUserDownloadCounts()
+      fetchTickets() // Add this line
+      fetchAmendments() // Add this line
+      fetchDeadlines() // Add this line
+      fetchCoupons() // Add this line
+      fetchUserAddress() // Add this line
     } else {
       setLoading(false)
-    }
-
-    return () => {
-      isMounted = false
     }
   }, [session])
 
@@ -786,7 +762,7 @@ export default function DashboardPage() {
             (invoice: Invoice) => invoice.customerAddress && invoice.customerCity,
           )
 
-          if (invoicesWithAddress.length > 0) {
+          if (invoicesWithAddress.length > 0 && !userAddressData) {
             // Sort by date (newest first) and get the first one
             const latestInvoice = invoicesWithAddress.sort(
               (a: Invoice, b: Invoice) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -827,8 +803,28 @@ export default function DashboardPage() {
     }
   }
 
-  // Format address from invoice data
+  // Update the formatAddress function to use the userAddressData if available
   const formatAddress = (invoice: Invoice): string => {
+    // If we have userAddressData, use that instead of invoice data
+    if (userAddressData) {
+      const parts = []
+
+      if (userAddressData.addressLine1) parts.push(userAddressData.addressLine1)
+      if (userAddressData.addressLine2) parts.push(userAddressData.addressLine2)
+
+      let cityStateZip = ""
+      if (userAddressData.city) cityStateZip += userAddressData.city
+      if (userAddressData.state) cityStateZip += cityStateZip ? `, ${userAddressData.state}` : userAddressData.state
+      if (userAddressData.zipCode)
+        cityStateZip += cityStateZip ? ` ${userAddressData.zipCode}` : userAddressData.zipCode
+
+      if (cityStateZip) parts.push(cityStateZip)
+      if (userAddressData.country) parts.push(userAddressData.country)
+
+      return parts.join(", ")
+    }
+
+    // Fall back to invoice data if no userAddressData
     const parts = []
 
     if (invoice.customerAddress) parts.push(invoice.customerAddress)
