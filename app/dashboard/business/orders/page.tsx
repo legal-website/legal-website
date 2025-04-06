@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Users } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
+import { useSession } from "next-auth/react"
 
 // Invoice types
 interface InvoiceItem {
@@ -37,6 +38,7 @@ interface Invoice {
   createdAt: string
   updatedAt: string
   isTemplateInvoice?: boolean
+  userId?: string
 }
 
 // Annual Report types
@@ -157,6 +159,7 @@ export default function OrderHistoryPage() {
   const [amendmentError, setAmendmentError] = useState<string | null>(null)
 
   const { toast } = useToast()
+  const { data: session } = useSession()
 
   // Add new state variables to track whether to show all items
   const [packagesDisplayCount, setPackagesDisplayCount] = useState(4)
@@ -209,18 +212,30 @@ export default function OrderHistoryPage() {
     }
   }, [invoices])
 
-  // Fetch invoices using the existing API route
+  // Fetch invoices using the admin API route first, then fall back to user route if needed
   const fetchInvoices = async () => {
     try {
       setLoadingInvoices(true)
       setInvoiceError(null)
 
-      const response = await fetch("/api/user/invoices", {
+      // First try to fetch from admin invoices endpoint
+      let response = await fetch("/api/admin/invoices", {
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
       })
+
+      // If admin endpoint fails (likely due to permissions), try the user endpoint
+      if (!response.ok) {
+        console.log("Admin invoices endpoint failed, trying user endpoint...")
+        response = await fetch("/api/user/invoices", {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        })
+      }
 
       if (!response.ok) {
         throw new Error(`Failed to fetch invoices: ${response.status}`)
@@ -232,8 +247,17 @@ export default function OrderHistoryPage() {
         throw new Error(data.error)
       }
 
+      // Get the invoices array from the response
+      const invoicesArray = data.invoices || []
+
+      // If we got data from admin endpoint, filter to only show current user's invoices
+      const currentUserId = session?.user?.id
+      const filteredInvoices = currentUserId
+        ? invoicesArray.filter((inv: any) => !inv.userId || inv.userId === currentUserId)
+        : invoicesArray
+
       // Process the invoices to ensure items are properly parsed
-      const processedInvoices = data.invoices.map((invoice: any) => {
+      const processedInvoices = filteredInvoices.map((invoice: any) => {
         // Parse items if they're stored as a JSON string
         let parsedItems = invoice.items
         try {
