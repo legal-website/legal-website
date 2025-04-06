@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Users } from "lucide-react"
+import { AlertCircle, Download, FileText, Search, PenTool, Users } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 
@@ -131,7 +131,7 @@ const mockAmendments: Amendment[] = [
 
 export default function OrderHistoryPage() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [activeTab, setActiveTab] = useState("packages")
+  const [activeTab, setActiveTab] = useState("templates")
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   const [selectedFiling, setSelectedFiling] = useState<Filing | null>(null)
   const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null)
@@ -528,165 +528,14 @@ export default function OrderHistoryPage() {
           </div>
         </div>
 
-        <Tabs defaultValue="packages" value={activeTab} onValueChange={setActiveTab}>
+        <Tabs defaultValue="templates" value={activeTab} onValueChange={setActiveTab}>
           <div className="px-4 sm:px-6 pt-2">
-            <TabsList className="grid grid-cols-2 w-full max-w-md">
-              <TabsTrigger value="packages">Packages</TabsTrigger>
-              <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsList className="w-full max-w-md">
+              <TabsTrigger value="templates" className="w-full">
+                All Invoices Record
+              </TabsTrigger>
             </TabsList>
           </div>
-
-          {/* Packages Tab */}
-          <TabsContent value="packages" className="p-4 sm:p-6 pt-3 sm:pt-4">
-            {loadingInvoices ? (
-              <LoadingState message="Loading package orders..." />
-            ) : invoiceError ? (
-              <ErrorState message={invoiceError} retry={fetchInvoices} />
-            ) : (
-              <>
-                {getFilteredInvoices("package").length > 0 ? (
-                  <div className="space-y-3 sm:space-y-4">
-                    {getFilteredInvoices("package")
-                      .slice(0, packagesDisplayCount)
-                      .map((invoice) => (
-                        <Dialog key={invoice.id}>
-                          <DialogTrigger asChild>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg cursor-pointer hover:bg-gray-50 gap-2 sm:gap-0">
-                              <div className="flex items-center gap-2 sm:gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg shrink-0">
-                                  <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="font-medium text-sm sm:text-base truncate">{invoice.invoiceNumber}</p>
-                                  <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 flex-wrap">
-                                    <span className="truncate">{formatDate(invoice.createdAt)}</span>
-                                    <span className="hidden xs:inline">•</span>
-                                    <span>${invoice.amount.toFixed(2)}</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-                                <span
-                                  className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${getStatusBadgeColor(invoice.status)}`}
-                                >
-                                  {formatStatus(invoice.status)}
-                                </span>
-                                <svg
-                                  className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 shrink-0"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                              </div>
-                            </div>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-md md:max-w-lg w-[calc(100%-2rem)] p-4 sm:p-6 overflow-hidden">
-                            <DialogHeader className="mb-2 sm:mb-4">
-                              <DialogTitle>Order Details</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-3 sm:space-y-4 overflow-y-auto max-h-[calc(80vh-8rem)]">
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
-                                <div>
-                                  <p className="text-xs sm:text-sm text-gray-500">Order Number</p>
-                                  <p className="font-medium text-sm sm:text-base truncate">{invoice.invoiceNumber}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs sm:text-sm text-gray-500">Date</p>
-                                  <p className="font-medium text-sm sm:text-base">{formatDate(invoice.createdAt)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs sm:text-sm text-gray-500">Status</p>
-                                  <span
-                                    className={`text-xs px-2 py-1 rounded-full inline-block mt-1 ${getStatusBadgeColor(invoice.status)}`}
-                                  >
-                                    {formatStatus(invoice.status)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="border-t pt-3 sm:pt-4">
-                                <h4 className="font-medium text-sm sm:text-base mb-2">Order Items</h4>
-                                <ul className="space-y-2">
-                                  {Array.isArray(invoice.items) ? (
-                                    invoice.items.map((item, index) => (
-                                      <li key={index} className="flex items-center gap-2 text-sm">
-                                        <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
-                                        <span className="flex-1 truncate">{item.tier}</span>
-                                        <span className="font-medium">${Number(item.price).toFixed(2)}</span>
-                                      </li>
-                                    ))
-                                  ) : (
-                                    <li className="flex items-center gap-2 text-sm">
-                                      <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
-                                      <span className="truncate">{getInvoiceItems(invoice)}</span>
-                                    </li>
-                                  )}
-                                </ul>
-                              </div>
-
-                              <div className="border-t pt-3 sm:pt-4">
-                                <h4 className="font-medium text-sm sm:text-base mb-2">Payment Information</h4>
-                                <div className="flex justify-between text-sm">
-                                  <span>Total</span>
-                                  <span className="font-bold">${invoice.amount.toFixed(2)}</span>
-                                </div>
-                                {invoice.paymentDate && (
-                                  <div className="flex justify-between text-xs sm:text-sm text-gray-500 mt-1">
-                                    <span>Payment Date</span>
-                                    <span>{formatDate(invoice.paymentDate)}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
-                                {invoice.paymentReceipt && (
-                                  <Button variant="outline" asChild size="sm" className="sm:size-default">
-                                    <a href={invoice.paymentReceipt} target="_blank" rel="noopener noreferrer">
-                                      <Download className="h-4 w-4 mr-2" />
-                                      View Receipt
-                                    </a>
-                                  </Button>
-                                )}
-                                <Button size="sm" className="sm:size-default">
-                                  Contact Support
-                                </Button>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      ))}
-                    {getFilteredInvoices("package").length > packagesDisplayCount && (
-                      <Button
-                        variant="outline"
-                        className="w-full mt-3 sm:mt-4"
-                        size="sm"
-                        onClick={() => setPackagesDisplayCount((prev) => prev + 4)}
-                      >
-                        Show More
-                      </Button>
-                    )}
-                    {packagesDisplayCount > 4 && (
-                      <Button
-                        variant="outline"
-                        className="w-full mt-2"
-                        size="sm"
-                        onClick={() => setPackagesDisplayCount(4)}
-                      >
-                        Show Less
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <EmptyState
-                    message="No package orders found"
-                    icon={<ShoppingBag className="h-10 w-10 sm:h-12 sm:w-12" />}
-                  />
-                )}
-              </>
-            )}
-          </TabsContent>
 
           {/* Templates Tab */}
           <TabsContent value="templates" className="p-4 sm:p-6 pt-3 sm:pt-4">
