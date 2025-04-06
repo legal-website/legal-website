@@ -39,6 +39,24 @@ interface MonthlyData {
   templates: number
 }
 
+// Custom tooltip component to ensure correct labels
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-black/80 p-2 rounded-md border-0">
+        <p className="text-white font-medium">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <p key={`item-${index}`} style={{ color: entry.color }}>
+            {entry.dataKey === "packages" ? "Packages" : "Templates"}: ${entry.value.toFixed(2)}
+          </p>
+        ))}
+      </div>
+    )
+  }
+
+  return null
+}
+
 export default function SpendingAnalytics() {
   const [spendingData, setSpendingData] = useState<SpendingData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -100,8 +118,8 @@ export default function SpendingAnalytics() {
       // In a real app, you might need more complex logic here
       return {
         ...month,
-        packages: month.packages || 0, // Keep existing data if available
-        templates: month.templates || 0, // Keep existing data if available
+        packages: packageSpending, // Set package spending
+        templates: templateSpending, // Set template spending
       }
     })
 
@@ -200,13 +218,7 @@ export default function SpendingAnalytics() {
                 axisLine={{ stroke: "white" }}
                 tickFormatter={(value: number) => `$${value}`}
               />
-              <Tooltip
-                formatter={(value: number, name: string) => {
-                  return [`$${Number(value).toFixed(2)}`, name === "packages" ? "Packages" : "Templates"]
-                }}
-                contentStyle={{ backgroundColor: "rgba(0,0,0,0.8)", border: "none", borderRadius: "4px" }}
-                labelStyle={{ color: "white" }}
-              />
+              <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ color: "white" }} />
               <Bar dataKey="packages" name="Packages" fill="#22c984" />
               <Bar dataKey="templates" name="Templates" fill="#f472b6" />
