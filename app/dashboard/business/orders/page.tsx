@@ -11,8 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AlertCircle, CheckCircle, Download, FileText, Search, ShoppingBag, PenTool, Users } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
-import { DollarSign, Package } from "lucide-react"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
 
 // Invoice types
 interface InvoiceItem {
@@ -164,49 +162,68 @@ export default function OrderHistoryPage() {
   const [packagesDisplayCount, setPackagesDisplayCount] = useState(4)
   const [templatesDisplayCount, setTemplatesDisplayCount] = useState(4)
 
-  // Modify the fetchInvoices function to also fetch data from /api/user/spending
-  // and use that data for the packages tab
+  useEffect(() => {
+    fetchInvoices()
+    // No need to fetch filings and amendments since we're using mock data
+  }, [])
 
-  // First, add a new state variable to store spending data
-  const [spendingData, setSpendingData] = useState<any>(null)
-  const [loadingSpendingData, setLoadingSpendingData] = useState(true)
+  // Separate invoices into packages and templates after fetching
+  useEffect(() => {
+    if (invoices.length > 0) {
+      // For packages tab, show ALL invoices
+      setPackageInvoices(invoices)
 
-  // Replace the existing fetchInvoices function with this updated version
+      // For templates tab, keep the original logic to only show template invoices
+      const templates: Invoice[] = []
+
+      invoices.forEach((invoice) => {
+        // Check if it's explicitly a template
+        let isTemplate = false
+
+        if (invoice.invoiceNumber) {
+          const invNumber = invoice.invoiceNumber.trim().toUpperCase()
+
+          // Only mark as template if it explicitly contains TEMP or TEMPLATE
+          if (invNumber.includes("TEMP") || invNumber.includes("TEMPLATE")) {
+            isTemplate = true
+          }
+        }
+
+        // Add to templates array if it's a template
+        if (isTemplate) {
+          templates.push(invoice)
+        }
+      })
+
+      setTemplateInvoices(templates)
+    }
+  }, [invoices])
+
+  // Fetch invoices using the existing API route
   const fetchInvoices = async () => {
     try {
       setLoadingInvoices(true)
-      setLoadingSpendingData(true)
       setInvoiceError(null)
 
-      // Fetch both regular invoices and spending data in parallel
-      const [invoiceResponse, spendingResponse] = await Promise.all([
-        fetch("/api/user/business-orders", {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        }),
-        fetch("/api/user/spending", {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        }),
-      ])
+      const response = await fetch("/api/user/invoices", {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      })
 
-      // Process invoice response
-      if (!invoiceResponse.ok) {
-        throw new Error(`Failed to fetch invoices: ${invoiceResponse.status}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch invoices: ${response.status}`)
       }
 
-      const invoiceData = await invoiceResponse.json()
+      const data = await response.json()
 
-      if (invoiceData.error) {
-        throw new Error(invoiceData.error)
+      if (data.error) {
+        throw new Error(data.error)
       }
 
       // Process the invoices to ensure items are properly parsed
-      const processedInvoices = invoiceData.invoices.map((invoice: any) => {
+      const processedInvoices = data.invoices.map((invoice: any) => {
         // Parse items if they're stored as a JSON string
         let parsedItems = invoice.items
         try {
@@ -226,45 +243,6 @@ export default function OrderHistoryPage() {
 
       console.log("All processed invoices:", processedInvoices)
       setInvoices(processedInvoices)
-
-      // Process spending response
-      if (spendingResponse.ok) {
-        const spendingData = await spendingResponse.json()
-        if (spendingData.success && spendingData.spending) {
-          console.log("Spending data:", spendingData.spending)
-          setSpendingData(spendingData.spending)
-
-          // If we have recent invoices from spending data, use them for packages
-          if (spendingData.spending.recentInvoices && spendingData.spending.recentInvoices.length > 0) {
-            // Process these invoices to match the format expected by the UI
-            const spendingInvoices = spendingData.spending.recentInvoices.map((invoice: any) => {
-              return {
-                ...invoice,
-                // Ensure these fields exist for UI rendering
-                invoiceNumber: invoice.invoiceNumber || invoice.id,
-                customerName: invoice.customerName || "Your Account",
-                customerEmail: invoice.customerEmail || "your.email@example.com",
-                status: invoice.status || "paid",
-                // Format dates if needed
-                createdAt: invoice.createdAt || new Date().toISOString(),
-                updatedAt: invoice.updatedAt || new Date().toISOString(),
-              }
-            })
-
-            // Merge with existing invoices, prioritizing spending data
-            const mergedInvoices = [...spendingInvoices]
-
-            // Add any invoices from the original fetch that aren't in the spending data
-            processedInvoices.forEach((invoice: any) => {
-              if (!mergedInvoices.some((i: any) => i.id === invoice.id)) {
-                mergedInvoices.push(invoice)
-              }
-            })
-
-            setPackageInvoices(mergedInvoices)
-          }
-        }
-      }
     } catch (error: any) {
       console.error("Error fetching invoices:", error)
       setInvoiceError(error.message || "Failed to load invoices")
@@ -321,46 +299,8 @@ export default function OrderHistoryPage() {
       setInvoices(fallbackInvoices)
     } finally {
       setLoadingInvoices(false)
-      setLoadingSpendingData(false)
     }
   }
-
-  useEffect(() => {
-    fetchInvoices()
-    // No need to fetch filings and amendments since we're using mock data
-  }, [])
-
-  // Separate invoices into packages and templates after fetching
-  useEffect(() => {
-    if (invoices.length > 0) {
-      // For packages tab, show ALL invoices
-      setPackageInvoices(invoices)
-
-      // For templates tab, keep the original logic to only show template invoices
-      const templates: Invoice[] = []
-
-      invoices.forEach((invoice) => {
-        // Check if it's explicitly a template
-        let isTemplate = false
-
-        if (invoice.invoiceNumber) {
-          const invNumber = invoice.invoiceNumber.trim().toUpperCase()
-
-          // Only mark as template if it explicitly contains TEMP or TEMPLATE
-          if (invNumber.includes("TEMP") || invNumber.includes("TEMPLATE")) {
-            isTemplate = true
-          }
-        }
-
-        // Add to templates array if it's a template
-        if (isTemplate) {
-          templates.push(invoice)
-        }
-      })
-
-      setTemplateInvoices(templates)
-    }
-  }, [invoices])
 
   // Filter invoices based on search term
   const getFilteredInvoices = (type: "package" | "template") => {
@@ -581,7 +521,7 @@ export default function OrderHistoryPage() {
 
           {/* Packages Tab */}
           <TabsContent value="packages" className="p-4 sm:p-6 pt-3 sm:pt-4">
-            {loadingInvoices || loadingSpendingData ? (
+            {loadingInvoices ? (
               <LoadingState message="Loading package orders..." />
             ) : invoiceError ? (
               <ErrorState message={invoiceError} retry={fetchInvoices} />
@@ -726,86 +666,6 @@ export default function OrderHistoryPage() {
                     message="No package orders found"
                     icon={<ShoppingBag className="h-10 w-10 sm:h-12 sm:w-12" />}
                   />
-                )}
-                {spendingData && !loadingSpendingData && (
-                  <div className="mt-6 border-t pt-6">
-                    <h3 className="text-lg font-semibold mb-4">Spending Overview</h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                      <div className="bg-blue-50 rounded-lg p-4">
-                        <div className="flex items-center">
-                          <DollarSign className="h-8 w-8 mr-3 text-blue-500" />
-                          <div>
-                            <p className="text-sm text-gray-600">Total Spent</p>
-                            <p className="text-2xl font-bold">${spendingData.totalSpent.toFixed(2)}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-blue-50 rounded-lg p-4">
-                        <div className="flex items-center">
-                          <Package className="h-8 w-8 mr-3 text-blue-500" />
-                          <div>
-                            <p className="text-sm text-gray-600">Packages</p>
-                            <p className="text-2xl font-bold">
-                              {spendingData.packageCount}{" "}
-                              <span className="text-sm font-normal">(${spendingData.packageSpending.toFixed(2)})</span>
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-blue-50 rounded-lg p-4">
-                        <div className="flex items-center">
-                          <FileText className="h-8 w-8 mr-3 text-blue-500" />
-                          <div>
-                            <p className="text-sm text-gray-600">Templates</p>
-                            <p className="text-2xl font-bold">
-                              {spendingData.templateCount}{" "}
-                              <span className="text-sm font-normal">(${spendingData.templateSpending.toFixed(2)})</span>
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Spending Chart */}
-                    {spendingData.monthlyData && spendingData.monthlyData.length > 0 && (
-                      <div className="bg-white border rounded-lg p-4 mb-6 h-[250px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={spendingData.monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
-                            <XAxis
-                              dataKey="month"
-                              tick={{ fill: "#6b7280" }}
-                              tickLine={{ stroke: "#6b7280" }}
-                              axisLine={{ stroke: "#6b7280" }}
-                            />
-                            <YAxis
-                              tick={{ fill: "#6b7280" }}
-                              tickLine={{ stroke: "#6b7280" }}
-                              axisLine={{ stroke: "#6b7280" }}
-                              tickFormatter={(value: number) => `$${value}`}
-                            />
-                            <Tooltip
-                              formatter={(value: number, name: string) => {
-                                const label = name === "packages" ? "Packages" : "Templates"
-                                return [`$${Number(value).toFixed(2)}`, label]
-                              }}
-                              contentStyle={{
-                                backgroundColor: "rgba(255,255,255,0.95)",
-                                border: "1px solid #e5e7eb",
-                                borderRadius: "4px",
-                              }}
-                            />
-                            <Legend />
-                            <Bar dataKey="packages" name="Packages" fill="#3b82f6" />
-                            <Bar dataKey="templates" name="Templates" fill="#8b5cf6" />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-                  </div>
                 )}
               </>
             )}
