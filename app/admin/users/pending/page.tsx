@@ -1,9 +1,6 @@
 "use client"
-
 import { Pagination } from "@/components/ui/pagination"
-
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
