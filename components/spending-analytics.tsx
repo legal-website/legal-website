@@ -112,24 +112,14 @@ export default function SpendingAnalytics() {
       }
     })
 
-    // Recalculate monthly data
-    const monthlyData = spendingData.monthlyData.map((month) => {
-      // For simplicity, we'll assume the monthly data should be adjusted proportionally
-      // In a real app, you might need more complex logic here
-      return {
-        ...month,
-        packages: packageSpending, // Set package spending
-        templates: templateSpending, // Set template spending
-      }
-    })
-
     return {
       ...spendingData,
       packageCount,
       templateCount,
       packageSpending,
       templateSpending,
-      monthlyData,
+      // Keep the original monthly data
+      monthlyData: spendingData.monthlyData,
     }
   }, [spendingData])
 
