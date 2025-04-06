@@ -623,7 +623,7 @@ export default function OrderHistoryPage() {
             </Tabs>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   )
 }
