@@ -175,13 +175,33 @@ export default function OrderHistoryPage() {
       const templates: Invoice[] = []
 
       invoices.forEach((invoice) => {
-        // Check if invoice number starts with "INV" (case insensitive)
-        if (invoice.invoiceNumber && invoice.invoiceNumber.toUpperCase().startsWith("INV")) {
-          packages.push(invoice)
+        // Debug log to see what invoices we're processing
+        console.log(`Processing invoice: ${invoice.id}, Number: ${invoice.invoiceNumber}`)
+
+        // Default to package if not clearly a template
+        let isTemplate = false
+
+        if (invoice.invoiceNumber) {
+          const invNumber = invoice.invoiceNumber.trim().toUpperCase()
+
+          // Check if it's explicitly a template
+          if (invNumber.includes("TEMP") || invNumber.includes("TEMPLATE")) {
+            isTemplate = true
+          }
+
+          // If it has "INV" in it, it's definitely a package
+          if (invNumber.includes("INV")) {
+            isTemplate = false
+          }
         }
-        // Check if invoice number starts with "TEMP" (case insensitive)
-        else if (invoice.invoiceNumber && invoice.invoiceNumber.toUpperCase().startsWith("TEMP")) {
+
+        // Add to appropriate array
+        if (isTemplate) {
+          console.log(`Adding to templates: ${invoice.invoiceNumber}`)
           templates.push(invoice)
+        } else {
+          console.log(`Adding to packages: ${invoice.invoiceNumber}`)
+          packages.push(invoice)
         }
       })
 

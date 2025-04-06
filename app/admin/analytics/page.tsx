@@ -2213,7 +2213,7 @@ export default function AnalyticsPage() {
                           labelStyle={{ fontWeight: "bold", marginBottom: "5px" }}
                         />
                         <Legend />
-                        <Bar dataKey="revenue" name="Monthly Revenue" fill="#8884d8" radius={[4, 4, 0, 0]} barSize={30}>
+                        <Bar dataKey="revenue" name="Monthly Revenue" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={30}>
                           {revenueTrendData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={`#${(index * 500 + 500).toString(16)}`} />
                           ))}
