@@ -178,24 +178,20 @@ export default function OrderHistoryPage() {
         // Debug log to see what invoices we're processing
         console.log(`Processing invoice: ${invoice.id}, Number: ${invoice.invoiceNumber}`)
 
-        // Default to package if not clearly a template
+        // Check if it's explicitly a template
         let isTemplate = false
 
         if (invoice.invoiceNumber) {
           const invNumber = invoice.invoiceNumber.trim().toUpperCase()
 
-          // Check if it's explicitly a template
+          // Only mark as template if it explicitly contains TEMP or TEMPLATE
           if (invNumber.includes("TEMP") || invNumber.includes("TEMPLATE")) {
             isTemplate = true
           }
-
-          // If it has "INV" in it, it's definitely a package
-          if (invNumber.includes("INV")) {
-            isTemplate = false
-          }
         }
 
-        // Add to appropriate array
+        // Add to appropriate array - all invoices go to packages by default
+        // unless they are explicitly templates
         if (isTemplate) {
           console.log(`Adding to templates: ${invoice.invoiceNumber}`)
           templates.push(invoice)
