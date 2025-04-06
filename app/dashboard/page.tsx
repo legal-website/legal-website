@@ -747,12 +747,24 @@ export default function DashboardPage() {
     }
   }
 
+  // Find the fetchBusinessData function and update it to properly handle the annualReportDate
+  // Replace the existing fetchBusinessData function with this updated version:
+
   const fetchBusinessData = async () => {
     try {
-      const response = await fetch("/api/user/business")
+      const response = await fetch("/api/user/business", {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      })
+
       if (response.ok) {
         const data = await response.json()
         if (data.business) {
+          console.log("Fetched business data:", data.business) // Add logging to debug
           setBusinessData({
             name: data.business.name || "Your Business LLC",
             businessId: data.business.businessId || "Pending",
@@ -767,7 +779,7 @@ export default function DashboardPage() {
             annualReportFee: data.business.annualReportFee || 100,
             annualReportFrequency: data.business.annualReportFrequency || 1,
             annualReportDueDate: data.business.annualReportDueDate || "",
-            annualReportDate: data.business.annualReportDate || "", // Add this line
+            annualReportDate: data.business.annualReportDate || "", // Ensure this is properly captured
           })
         }
       }
@@ -918,31 +930,49 @@ export default function DashboardPage() {
     )
   }
 
-  // Function to calculate the annual report due date
+  // Now update the calculateAnnualReportDueDate function to properly handle the custom date
+  // Replace the existing calculateAnnualReportDueDate function with this updated version:
+
   const calculateAnnualReportDueDate = () => {
     // If a custom annual report date is set, use that
     if (businessData.annualReportDate) {
-      return new Date(businessData.annualReportDate).toLocaleDateString()
+      console.log("Using custom annual report date:", businessData.annualReportDate)
+      try {
+        // Ensure we're parsing the date correctly
+        const reportDate = new Date(businessData.annualReportDate)
+        if (!isNaN(reportDate.getTime())) {
+          return reportDate.toLocaleDateString()
+        } else {
+          console.error("Invalid annual report date format:", businessData.annualReportDate)
+        }
+      } catch (error) {
+        console.error("Error parsing annual report date:", error)
+      }
     }
 
     if (businessData.formationDate === "Pending") return "Pending"
 
-    const formationDate = new Date(businessData.formationDate)
-    const currentYear = new Date().getFullYear()
+    try {
+      const formationDate = new Date(businessData.formationDate)
+      const currentYear = new Date().getFullYear()
 
-    // Calculate how many years have passed since formation
-    const yearsSinceFormation = currentYear - formationDate.getFullYear()
+      // Calculate how many years have passed since formation
+      const yearsSinceFormation = currentYear - formationDate.getFullYear()
 
-    // Calculate how many reporting cycles have passed
-    const cyclesPassed = Math.floor(yearsSinceFormation / businessData.annualReportFrequency)
+      // Calculate how many reporting cycles have passed
+      const cyclesPassed = Math.floor(yearsSinceFormation / businessData.annualReportFrequency)
 
-    // Calculate the next due year
-    const nextDueYear = formationDate.getFullYear() + (cyclesPassed + 1) * businessData.annualReportFrequency
+      // Calculate the next due year
+      const nextDueYear = formationDate.getFullYear() + (cyclesPassed + 1) * businessData.annualReportFrequency
 
-    // Create the next due date (same month and day as formation)
-    const nextDueDate = new Date(nextDueYear, formationDate.getMonth(), formationDate.getDate())
+      // Create the next due date (same month and day as formation)
+      const nextDueDate = new Date(nextDueYear, formationDate.getMonth(), formationDate.getDate())
 
-    return nextDueDate.toLocaleDateString()
+      return nextDueDate.toLocaleDateString()
+    } catch (error) {
+      console.error("Error calculating annual report due date:", error)
+      return "Pending"
+    }
   }
 
   // Function to calculate days remaining until annual report
