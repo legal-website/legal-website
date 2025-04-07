@@ -1370,6 +1370,7 @@ export default function PendingUsersPage() {
           </TabsTrigger>
           <TabsTrigger value="rejected" className="py-2 text-xs md:text-sm">
             Rejected ({rejectedCount})
+            </TabsTrigger>
           </TabsList>
 
         <TabsContent value="all">
