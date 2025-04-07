@@ -18,8 +18,15 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Orizen Inc - Start your LLC",
-  description: "Start your LLC with confidence",
+  title: {
+    default: "Orizen Inc - Business Formation & LLC Services",
+    template: "%s | Orizen Inc",
+  },
+  description:
+    "Orizen Inc provides fast, affordable LLC formation and business services. Start your business today with our expert guidance and comprehensive support.",
+  verification: {
+    google: "upbol3w1_uLSqHgRb23sK3psrkKjn2o5vPzGK3FkVYQ",
+  },
   icons: {
     icon: '/favicon.png',
   },

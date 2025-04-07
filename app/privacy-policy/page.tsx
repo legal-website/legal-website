@@ -1,12 +1,18 @@
-"use client"
 import Hero from "@/components/hero-sec"
 import PolicyContent from "@/components/PolicyContent"
 import FAQSection from "@/components/FAQSection"
 import ContactSection from "@/components/ContactSection"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Privacy Policy - How Orizen Inc Protects Your Information",
+  description:
+    "Read Orizen Inc's Privacy Policy to learn how we collect, use, and safeguard your personal information when using our business formation and LLC services.",
+}
 
 export default function PrivacyPolicy() {
   return (
-    <main className="min-h-screen bg-gray-50 mb-40">
+    <main className="min-h-screen bg-gray-50">
       <Hero
         title="Privacy Policy"
         subtitle="Learn how we protect and manage your information"

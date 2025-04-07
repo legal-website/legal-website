@@ -1,11 +1,18 @@
-"use client"
 import Hero from "@/components/hero-sec"
 import PolicyContent from "@/components/PolicyContent"
 import FAQSection from "@/components/FAQSection"
 import ContactSection from "@/components/ContactSection"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Terms and Conditions - Orizen Inc Service Agreement",
+  description:
+    "Review the Terms and Conditions for using Orizen Inc's website and services. Understand your rights, responsibilities, and our service limitations.",
+}
+
 export default function TermsAndConditions() {
   return (
-    <main className="min-h-screen bg-gray-50 mb-40">
+    <main className="min-h-screen bg-gray-50">
       <Hero
         title="Terms and Conditions"
         subtitle="Please read these terms carefully before using our services"
