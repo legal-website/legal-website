@@ -729,20 +729,22 @@ export default function PendingUsersPage() {
 
   // Update the handleInputChange function to handle numeric values
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    // Don't allow businessId to be changed
-    // if (name === "businessId") return
+    const { name, value } = e.target;
 
     if (name === "annualReportFee") {
       // Ensure it's a valid number
-      const numValue = Number.parseInt(value)
+      const numValue = Number.parseInt(value);
       if (!isNaN(numValue) && numValue >= 0) {
-        setBusinessFormData((prev) => ({ ...prev, [name]: numValue }))
+        setBusinessFormData((prev) => ({ ...prev, [name]: numValue }));
       }
+    } else if (name === "annualReportDate") {
+      // Handle date input specifically
+      setBusinessFormData((prev) => ({ ...prev, [name]: value }));
+      console.log("Setting annual report date:", value);
     } else {
-      setBusinessFormData((prev) => ({ ...prev, [name]: value }))
+      setBusinessFormData((prev) => ({ ...prev, [name]: value }));
     }
-  }
+  };
 
   // Handle phone form input changes
   const handlePhoneInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1368,8 +1370,7 @@ export default function PendingUsersPage() {
           </TabsTrigger>
           <TabsTrigger value="rejected" className="py-2 text-xs md:text-sm">
             Rejected ({rejectedCount})
-          </TabsTrigger>
-        </TabsList>
+          </TabsList>
 
         <TabsContent value="all">
           <UserList
@@ -1953,6 +1954,6 @@ export default function PendingUsersPage() {
         </Dialog>
       )}
     </div>
-  )
+  );
 }
 

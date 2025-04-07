@@ -25,6 +25,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       annualReportFee,
       annualReportFrequency,
       annualReportDate,
+      completedAt,
     } = await request.json()
 
     // Find the user
@@ -47,6 +48,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       annualReportFee,
       annualReportFrequency,
       annualReportDate,
+      completedAt,
     })
 
     // If user already has a business, update it
@@ -96,6 +98,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         annualReportFee,
         annualReportFrequency,
         annualReportDate,
+        completedAt,
       },
     })
   } catch (error) {
@@ -135,6 +138,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       annualReportFee: 100,
       annualReportFrequency: 1,
       annualReportDate: null,
+      completedAt: null,
     }
 
     if (user.business?.industry) {
@@ -157,6 +161,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
             annualReportFee: customData.annualReportFee,
             annualReportFrequency: customData.annualReportFrequency,
             annualReportDate: customData.annualReportDate,
+            completedAt: customData.completedAt,
           }
         : null,
     })

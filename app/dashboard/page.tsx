@@ -765,6 +765,8 @@ export default function DashboardPage() {
         const data = await response.json()
         if (data.business) {
           console.log("Fetched business data:", data.business) // Add logging to debug
+          console.log("Annual report date:", data.business.annualReportDate) // Specifically log the date
+
           setBusinessData({
             name: data.business.name || "Your Business LLC",
             businessId: data.business.businessId || "Pending",
@@ -779,7 +781,7 @@ export default function DashboardPage() {
             annualReportFee: data.business.annualReportFee || 100,
             annualReportFrequency: data.business.annualReportFrequency || 1,
             annualReportDueDate: data.business.annualReportDueDate || "",
-            annualReportDate: data.business.annualReportDate || "", // Make sure this is properly set
+            annualReportDate: data.business.annualReportDate || "", // Ensure this is properly captured
           })
         }
       }
@@ -930,24 +932,24 @@ export default function DashboardPage() {
     )
   }
 
-  // Now update the calculateAnnualReportDueDate function to properly handle the date format
+  // Now update the calculateAnnualReportDueDate function to properly handle the custom date
   // Replace the existing calculateAnnualReportDueDate function with this updated version:
 
   const calculateAnnualReportDueDate = () => {
     // If a custom annual report date is set, use that
     if (businessData.annualReportDate) {
-      console.log("Using custom annual report date:", businessData.annualReportDate)
       try {
-        // Try to parse the date and format it consistently
-        const dateObj = new Date(businessData.annualReportDate)
-        if (!isNaN(dateObj.getTime())) {
-          return dateObj.toLocaleDateString()
+        // Ensure we're parsing the date correctly
+        const reportDate = new Date(businessData.annualReportDate)
+        if (!isNaN(reportDate.getTime())) {
+          return reportDate.toLocaleDateString()
         }
-      } catch (e) {
-        console.error("Error parsing annual report date:", e)
+      } catch (error) {
+        console.error("Error parsing annual report date:", error)
       }
     }
 
+    // Fall back to calculation if no custom date or if parsing fails
     if (businessData.formationDate === "Pending") return "Pending"
 
     try {
@@ -967,45 +969,18 @@ export default function DashboardPage() {
       const nextDueDate = new Date(nextDueYear, formationDate.getMonth(), formationDate.getDate())
 
       return nextDueDate.toLocaleDateString()
-    } catch (e) {
-      console.error("Error calculating annual report due date:", e)
-      return "Error calculating date"
+    } catch (error) {
+      console.error("Error calculating annual report due date:", error)
+      return "Pending"
     }
   }
 
-  // Update the calculateDaysRemaining function to properly handle the date format
-  // Replace the existing calculateDaysRemaining function with this updated version:
-
+  // Function to calculate days remaining until annual report
   const calculateDaysRemaining = () => {
     // If a custom annual report date is set, use that
     if (businessData.annualReportDate) {
-      try {
-        const today = new Date()
-        const dueDate = new Date(businessData.annualReportDate)
-
-        // Check if the date is valid
-        if (isNaN(dueDate.getTime())) {
-          console.error("Invalid annual report date:", businessData.annualReportDate)
-          return 365 // Default to 365 days if date is invalid
-        }
-
-        // Calculate the difference in milliseconds
-        const diffTime = dueDate.getTime() - today.getTime()
-
-        // Convert to days and ensure it's not negative
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-        return diffDays > 0 ? diffDays : 0
-      } catch (e) {
-        console.error("Error calculating days remaining:", e)
-        return 365 // Default to 365 days if there's an error
-      }
-    }
-
-    if (businessData.formationDate === "Pending") return 365
-
-    try {
       const today = new Date()
-      const dueDate = new Date(calculateAnnualReportDueDate())
+      const dueDate = new Date(businessData.annualReportDate)
 
       // Calculate the difference in milliseconds
       const diffTime = dueDate.getTime() - today.getTime()
@@ -1013,27 +988,20 @@ export default function DashboardPage() {
       // Convert to days and ensure it's not negative
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
       return diffDays > 0 ? diffDays : 0
-    } catch (e) {
-      console.error("Error calculating days remaining:", e)
-      return 365 // Default to 365 days if there's an error
     }
+
+    if (businessData.formationDate === "Pending") return 365
+
+    const today = new Date()
+    const dueDate = new Date(calculateAnnualReportDueDate())
+
+    // Calculate the difference in milliseconds
+    const diffTime = dueDate.getTime() - today.getTime()
+
+    // Convert to days and ensure it's not negative
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays > 0 ? diffDays : 0
   }
-
-  // Update the useEffect to add a refresh mechanism
-  // Add this new useEffect after the existing one that fetches data:
-
-  // Add a refresh mechanism to ensure we always have the latest data
-  useEffect(() => {
-    if (session) {
-      // Set up a refresh interval to fetch business data every minute
-      const refreshInterval = setInterval(() => {
-        fetchBusinessData()
-      }, 60000) // 60000 ms = 1 minute
-
-      // Clean up the interval when component unmounts
-      return () => clearInterval(refreshInterval)
-    }
-  }, [session])
 
   // Function to calculate progress percentage for the progress bar
   const calculateProgressPercentage = () => {
