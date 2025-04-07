@@ -1299,7 +1299,7 @@ export default function AnalyticsPage() {
       const amendmentRevenues: Record<string, { currentRevenue: number; previousRevenue: number; customers: number }> =
         {}
 
-      // Only process approved amendments
+      // Only process approvedAmendments
       const approvedAmendments = amendments.filter((amendment) => amendment.status === "approved")
 
       approvedAmendments.forEach((amendment) => {
@@ -2213,9 +2213,9 @@ export default function AnalyticsPage() {
                           labelStyle={{ fontWeight: "bold", marginBottom: "5px" }}
                         />
                         <Legend />
-                        <Bar dataKey="revenue" name="Monthly Revenue" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={30}>
+                        <Bar dataKey="revenue" name="Monthly Revenue" fill="#22C683" radius={[4, 4, 0, 0]} barSize={30}>
                           {revenueTrendData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={`#${(index * 500 + 500).toString(16)}`} />
+                            <Cell key={`cell-${index}`} fill="#22C683" />
                           ))}
                         </Bar>
                       </RechartsBarChart>
