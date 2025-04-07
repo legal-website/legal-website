@@ -1,6 +1,5 @@
 "use client"
 import Image from "next/image"
-import type { Metadata } from "next"
 import Link from "next/link"
 import { ScrollAnimation } from "@/components/GlobalScrollAnimation"
 import { sendEmail } from "@/app/actions/send-email"
@@ -9,12 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Phone, Mail, MapPin } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-export const metadata: Metadata = {
-  title: "Contact Orizen Inc - Get in Touch with Our Team",
-  description:
-    "Have questions or need support? Contact Orizen Inc for assistance with business formation, LLC services, and general inquiries. Our team is here to help you.",
-  keywords: "contact Orizen Inc, business formation support, LLC help, customer service, get in touch Orizen, contact page",
-}
 
 export default function ContactPage() {
   const [formStatus, setFormStatus] = useState<{ message: string; isError: boolean } | null>(null)
