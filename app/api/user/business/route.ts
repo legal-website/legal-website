@@ -1,58 +1,163 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    // Get the user from the session
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        {
+          status: 401,
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        },
+      )
+    }
+
+    // Find the user's business
+    const user = await db.user.findUnique({
+      where: {
+        id: session.user.id,
+      },
+      include: {
+        business: true,
+      },
+    })
+
+    if (!user || !user.business) {
+      // Try to find business by user ID
+      const business = await db.business.findFirst({
+        where: {
+          userId: session.user.id,
+        },
+      })
+
+      if (!business) {
+        return NextResponse.json(
+          { business: null },
+          {
+            status: 200,
+            headers: {
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+              Expires: "0",
+            },
+          },
+        )
+      }
+
+      return NextResponse.json(
+        { business },
+        {
+          status: 200,
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        },
+      )
+    }
+
+    // Return the business data with cache control headers
+    return NextResponse.json(
+      { business: user.business },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    )
+  } catch (error) {
+    console.error("Error fetching business data:", error)
+    return NextResponse.json(
+      { error: "Failed to fetch business data" },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    )
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    // Get the current user session
     const session = await getServerSession(authOptions)
 
-    if (!session || !session.user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Parse the request body
+    const body = await req.json()
+
+    // Find the user's business
     const user = await db.user.findUnique({
-      where: { id: session.user.id as string },
-      include: { business: true },
+      where: {
+        id: session.user.id,
+      },
+      include: {
+        business: true,
+      },
     })
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Parse custom data from industry field
-    let customData = {
-      serviceStatus: "Pending",
-      llcStatusMessage: "LLC formation initiated",
-      llcProgress: 10,
-      annualReportFee: 100,
-      annualReportFrequency: 1,
+    let business = user.business
+
+    if (!business) {
+      // Try to find business by user ID
+      business = await db.business.findFirst({
+        where: {
+          userId: session.user.id,
+        },
+      })
     }
 
-    if (user.business?.industry) {
-      try {
-        const parsedData = JSON.parse(user.business.industry as string)
-        customData = { ...customData, ...parsedData }
-      } catch (e) {
-        console.error("Error parsing custom data:", e)
-      }
+    if (!business) {
+      // Create a new business if it doesn't exist
+      business = await db.business.create({
+        data: {
+          name: body.name || user.name || "My Business",
+          userId: session.user.id,
+          website: body.website || "",
+          industry: body.industry || "Technology",
+        },
+      })
+    } else {
+      // Update the existing business
+      business = await db.business.update({
+        where: {
+          id: business.id,
+        },
+        data: {
+          website: body.website !== undefined ? body.website : business.website,
+          industry: body.industry !== undefined ? body.industry : business.industry,
+        },
+      })
     }
 
-    return NextResponse.json({
-      business: user.business
-        ? {
-            ...user.business,
-            serviceStatus: customData.serviceStatus,
-            llcStatusMessage: customData.llcStatusMessage,
-            llcProgress: customData.llcProgress,
-            annualReportFee: customData.annualReportFee,
-            annualReportFrequency: customData.annualReportFrequency,
-          }
-        : null,
-    })
+    return NextResponse.json({ success: true, business }, { status: 200 })
   } catch (error) {
-    console.error("Error fetching business information:", error)
-    return NextResponse.json({ error: "Failed to fetch business information" }, { status: 500 })
+    console.error("Error updating business:", error)
+    return NextResponse.json({ error: "Failed to update business" }, { status: 500 })
   }
 }
 
