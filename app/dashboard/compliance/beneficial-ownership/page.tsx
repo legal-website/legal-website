@@ -379,57 +379,95 @@ export default function BeneficialOwnershipPage() {
 
     const newOwnerPercentage = Number.parseFloat(formData.ownershipPercentage)
 
-    // If editing the CEO (default owner)
-    if (currentOwner.isDefault) {
-      // Calculate total of other owners
-      const otherOwnersTotal = owners.reduce((sum, owner) => sum + (owner.isDefault ? 0 : owner.ownershipPercentage), 0)
+    try {
+      setSubmitting(true)
 
-      // Check if total would exceed 100%
-      if (newOwnerPercentage + otherOwnersTotal > 100) {
-        toast({
-          title: "Validation Error",
-          description: "Total ownership percentage cannot exceed 100%.",
-          variant: "destructive",
+      // If editing the CEO (default owner)
+      if (currentOwner.isDefault) {
+        // Calculate total of other owners
+        const otherOwnersTotal = owners.reduce(
+          (sum, owner) => sum + (owner.isDefault ? 0 : owner.ownershipPercentage),
+          0,
+        )
+
+        // Check if total would exceed 100%
+        if (newOwnerPercentage + otherOwnersTotal > 100) {
+          toast({
+            title: "Validation Error",
+            description: "Total ownership percentage cannot exceed 100%.",
+            variant: "destructive",
+          })
+          setSubmitting(false)
+          return
+        }
+
+        // Update the current owner (CEO)
+        const res = await fetch(`/api/beneficial-ownership/${currentOwner.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
         })
-        return
-      }
-    } else {
-      // If editing a non-CEO owner
-      // Get the CEO owner
-      const ceoOwner = owners.find((o) => o.isDefault)
-      if (!ceoOwner) {
-        toast({
-          title: "Error",
-          description: "Default owner not found. Please refresh the page.",
-          variant: "destructive",
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to update owner")
+        }
+      } else {
+        // If editing a non-CEO owner
+        // Get the CEO owner
+        const ceoOwner = owners.find((o) => o.isDefault)
+        if (!ceoOwner) {
+          toast({
+            title: "Error",
+            description: "Default owner not found. Please refresh the page.",
+            variant: "destructive",
+          })
+          setSubmitting(false)
+          return
+        }
+
+        // Calculate new total ownership excluding CEO and current owner
+        const otherOwnersTotal = owners.reduce(
+          (sum, owner) => (owner.isDefault || owner.id === currentOwner.id ? sum : sum + owner.ownershipPercentage),
+          0,
+        )
+
+        // Calculate new total with updated ownership
+        const newTotal = otherOwnersTotal + newOwnerPercentage
+
+        // Check if total would exceed 100%
+        if (newTotal > 100) {
+          toast({
+            title: "Validation Error",
+            description: "Total ownership percentage cannot exceed 100%.",
+            variant: "destructive",
+          })
+          setSubmitting(false)
+          return
+        }
+
+        // Calculate new CEO percentage
+        const newCeoPercentage = 100 - newTotal
+
+        // First update the current owner
+        const res = await fetch(`/api/beneficial-ownership/${currentOwner.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
         })
-        return
-      }
 
-      // Calculate new total ownership excluding CEO and current owner
-      const otherOwnersTotal = owners.reduce(
-        (sum, owner) => (owner.isDefault || owner.id === currentOwner.id ? sum : sum + owner.ownershipPercentage),
-        0,
-      )
+        const data = await res.json()
 
-      // Calculate new total with updated ownership
-      const newTotal = otherOwnersTotal + newOwnerPercentage
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to update owner")
+        }
 
-      // Check if total would exceed 100%
-      if (newTotal > 100) {
-        toast({
-          title: "Validation Error",
-          description: "Total ownership percentage cannot exceed 100%.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Calculate new CEO percentage
-      const newCeoPercentage = 100 - newTotal
-
-      // Update CEO's ownership first - ONLY update the ownership percentage
-      try {
+        // Then update CEO's ownership
         const ceoUpdateRes = await fetch(`/api/beneficial-ownership/${ceoOwner.id}`, {
           method: "PUT",
           headers: {
@@ -444,34 +482,6 @@ export default function BeneficialOwnershipPage() {
           const ceoData = await ceoUpdateRes.json()
           throw new Error(ceoData.error || "Failed to update CEO ownership")
         }
-      } catch (error) {
-        console.error("Error updating CEO ownership:", error)
-        toast({
-          title: "Error",
-          description: (error as Error).message,
-          variant: "destructive",
-        })
-        setSubmitting(false)
-        return
-      }
-    }
-
-    try {
-      setSubmitting(true)
-
-      // Update the current owner
-      const res = await fetch(`/api/beneficial-ownership/${currentOwner.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to update owner")
       }
 
       toast({
@@ -509,24 +519,35 @@ export default function BeneficialOwnershipPage() {
       return
     }
 
-    // Get the CEO owner
-    const ceoOwner = owners.find((o) => o.isDefault)
-    if (!ceoOwner) {
-      toast({
-        title: "Error",
-        description: "Default owner not found. Please refresh the page.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Calculate new CEO percentage after deletion
-    const newCeoPercentage = ceoOwner.ownershipPercentage + currentOwner.ownershipPercentage
-
     try {
       setSubmitting(true)
 
-      // First update the CEO's ownership percentage ONLY
+      // Get the CEO owner
+      const ceoOwner = owners.find((o) => o.isDefault)
+      if (!ceoOwner) {
+        toast({
+          title: "Error",
+          description: "Default owner not found. Please refresh the page.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Calculate new CEO percentage after deletion
+      const newCeoPercentage = ceoOwner.ownershipPercentage + currentOwner.ownershipPercentage
+
+      // First delete the owner
+      const res = await fetch(`/api/beneficial-ownership/${currentOwner.id}`, {
+        method: "DELETE",
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete owner")
+      }
+
+      // Then update the CEO's ownership percentage ONLY if deletion was successful
       const ceoUpdateRes = await fetch(`/api/beneficial-ownership/${ceoOwner.id}`, {
         method: "PUT",
         headers: {
@@ -540,17 +561,6 @@ export default function BeneficialOwnershipPage() {
       if (!ceoUpdateRes.ok) {
         const ceoData = await ceoUpdateRes.json()
         throw new Error(ceoData.error || "Failed to update CEO ownership")
-      }
-
-      // Then delete the owner
-      const res = await fetch(`/api/beneficial-ownership/${currentOwner.id}`, {
-        method: "DELETE",
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to delete owner")
       }
 
       toast({

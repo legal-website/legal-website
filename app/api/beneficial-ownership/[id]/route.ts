@@ -79,51 +79,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    // If client is updating and it's the default owner, they can only update ownershipPercentage
-    if (!isAdmin && owner.isDefault) {
-      // Only allow ownershipPercentage update for default owner
-      const { ownershipPercentage } = data
-
-      if (ownershipPercentage === undefined) {
-        return NextResponse.json({ error: "Missing required field: ownershipPercentage" }, { status: 400 })
-      }
-
-      // Get all other owners to validate ownership percentages
-      const otherOwners = await prisma.beneficialOwner.findMany({
-        where: {
-          userId: owner.userId,
-          id: {
-            not: ownerId,
-          },
-        },
-      })
-
-      // Calculate total ownership after update
-      const otherTotal = otherOwners.reduce((sum: number, o: any) => sum + Number(o.ownershipPercentage), 0)
-      const newTotal = otherTotal + Number(ownershipPercentage)
-
-      if (newTotal > 100) {
-        return NextResponse.json({ error: "Total ownership percentage cannot exceed 100%" }, { status: 400 })
-      }
-
-      // Update the owner with ONLY the ownership percentage
-      const updatedOwner = await prisma.beneficialOwner.update({
-        where: {
-          id: ownerId,
-        },
-        data: {
-          ownershipPercentage: Number(ownershipPercentage),
-          status: isAdmin ? data.status : "pending", // Only admin can directly set status
-          updatedAt: new Date(),
-        },
-      })
-
-      return NextResponse.json({
-        owner: updatedOwner,
-        message: "Beneficial owner updated successfully",
-      })
-    }
-
     // For non-default owners or admin updates
     const updateData: any = {
       updatedAt: new Date(),
@@ -136,35 +91,18 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       if (data.ownershipPercentage !== undefined) updateData.ownershipPercentage = Number(data.ownershipPercentage)
       if (data.status) updateData.status = data.status
     } else {
-      // Clients can update name, title, and ownershipPercentage of non-default owners
+      // Clients can update name, title, and ownershipPercentage
       if (data.name) updateData.name = data.name
       if (data.title) updateData.title = data.title
 
       if (data.ownershipPercentage !== undefined) {
-        // Get all other owners to validate ownership percentages
-        const otherOwners = await prisma.beneficialOwner.findMany({
-          where: {
-            userId: owner.userId,
-            id: {
-              not: ownerId,
-            },
-          },
-        })
-
-        // Calculate total ownership after update
-        const otherTotal = otherOwners.reduce((sum: number, o: any) => sum + Number(o.ownershipPercentage), 0)
-        const newTotal = otherTotal + Number(data.ownershipPercentage)
-
-        if (newTotal > 100) {
-          return NextResponse.json({ error: "Total ownership percentage cannot exceed 100%" }, { status: 400 })
-        }
-
         updateData.ownershipPercentage = Number(data.ownershipPercentage)
         updateData.status = "pending" // Set status to pending when client updates
       }
     }
 
-    // Update the owner
+    // Update the owner without additional validation
+    // The client will handle the validation of total ownership
     const updatedOwner = await prisma.beneficialOwner.update({
       where: {
         id: ownerId,
@@ -218,7 +156,8 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       return NextResponse.json({ error: "Cannot delete the primary owner" }, { status: 400 })
     }
 
-    // Delete the owner
+    // Delete the owner - no need to validate ownership percentages here
+    // as the client will handle updating the default owner's percentage
     await prisma.beneficialOwner.delete({
       where: {
         id: ownerId,
