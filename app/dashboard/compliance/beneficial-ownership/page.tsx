@@ -44,11 +44,24 @@ interface FilingHistoryItem {
   reportUrl?: string | null
 }
 
+// Define a type for beneficial owner
+interface BeneficialOwner {
+  id: string
+  name: string
+  title: string
+  ownershipPercentage: number
+  status: string
+  isDefault: boolean
+  userId: string
+  createdAt: string
+  updatedAt: string
+}
+
 export default function BeneficialOwnershipPage() {
   const { data: session } = useSession()
   const router = useRouter()
-  const [owners, setOwners] = useState<any[]>([])
-  const [filteredOwners, setFilteredOwners] = useState<any[]>([])
+  const [owners, setOwners] = useState<BeneficialOwner[]>([])
+  const [filteredOwners, setFilteredOwners] = useState<BeneficialOwner[]>([])
   const [filingHistory, setFilingHistory] = useState<FilingHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -56,7 +69,7 @@ export default function BeneficialOwnershipPage() {
   const [openAddDialog, setOpenAddDialog] = useState(false)
   const [openEditDialog, setOpenEditDialog] = useState(false)
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false)
-  const [currentOwner, setCurrentOwner] = useState<any>(null)
+  const [currentOwner, setCurrentOwner] = useState<BeneficialOwner | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     title: "",
@@ -141,7 +154,12 @@ export default function BeneficialOwnershipPage() {
       const data = await res.json()
 
       if (data.owners) {
-        setOwners(data.owners)
+        // Ensure ownership percentages are numbers, not strings
+        const formattedOwners = data.owners.map((owner: any) => ({
+          ...owner,
+          ownershipPercentage: Number(owner.ownershipPercentage),
+        }))
+        setOwners(formattedOwners)
       }
 
       if (showToast) {
@@ -194,14 +212,14 @@ export default function BeneficialOwnershipPage() {
       if (pastFilings.length === 0) {
         const mockFilings = [
           {
-            id: "boi-initial",
-            title: "Initial BOI Report",
+            id: "boi-demo",
+            title: "Initial Demo Report",
             filedDate: "2023-01-15T12:00:00Z",
             status: "filed",
           },
           {
-            id: "boi-update",
-            title: "BOI Update",
+            id: "boi-demo-update",
+            title: "BOI Demo Update",
             filedDate: "2024-03-10T12:00:00Z",
             status: "filed",
           },
@@ -492,7 +510,8 @@ export default function BeneficialOwnershipPage() {
       setOpenEditDialog(false)
       setCurrentOwner(null)
 
-      fetchOwners()
+      // Fetch the updated owners list
+      await fetchOwners()
     } catch (error) {
       console.error("Error updating owner:", error)
       toast({
@@ -534,16 +553,18 @@ export default function BeneficialOwnershipPage() {
       }
 
       // Calculate new CEO percentage after deletion
-      const newCeoPercentage = ceoOwner.ownershipPercentage + currentOwner.ownershipPercentage
+      // Ensure we're working with numbers, not strings
+      const currentOwnerPercentage = Number(currentOwner.ownershipPercentage)
+      const ceoPercentage = Number(ceoOwner.ownershipPercentage)
+      const newCeoPercentage = ceoPercentage + currentOwnerPercentage
 
       // First delete the owner
       const res = await fetch(`/api/beneficial-ownership/${currentOwner.id}`, {
         method: "DELETE",
       })
 
-      const data = await res.json()
-
       if (!res.ok) {
+        const data = await res.json()
         throw new Error(data.error || "Failed to delete owner")
       }
 
@@ -571,7 +592,19 @@ export default function BeneficialOwnershipPage() {
       setOpenDeleteDialog(false)
       setCurrentOwner(null)
 
-      fetchOwners()
+      // Update the local state to reflect the changes immediately
+      // This prevents the UI from showing incorrect values while waiting for the fetch
+      const updatedOwners = owners.filter((owner) => owner.id !== currentOwner.id)
+      const updatedCeoOwner = updatedOwners.find((owner) => owner.isDefault)
+
+      if (updatedCeoOwner) {
+        updatedCeoOwner.ownershipPercentage = newCeoPercentage
+      }
+
+      setOwners(updatedOwners)
+
+      // Then fetch the updated owners list from the server
+      await fetchOwners()
     } catch (error) {
       console.error("Error deleting owner:", error)
       toast({
@@ -584,7 +617,7 @@ export default function BeneficialOwnershipPage() {
     }
   }
 
-  const openEdit = (owner: any) => {
+  const openEdit = (owner: BeneficialOwner) => {
     setCurrentOwner(owner)
     setFormData({
       name: owner.name,
@@ -594,7 +627,7 @@ export default function BeneficialOwnershipPage() {
     setOpenEditDialog(true)
   }
 
-  const openDelete = (owner: any) => {
+  const openDelete = (owner: BeneficialOwner) => {
     setCurrentOwner(owner)
     setOpenDeleteDialog(true)
   }
@@ -638,6 +671,12 @@ export default function BeneficialOwnershipPage() {
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "N/A"
     return format(new Date(dateString), "MMMM d, yyyy")
+  }
+
+  // Format percentage to ensure it's displayed correctly
+  const formatPercentage = (percentage: number) => {
+    // Ensure it's a number and limit to 2 decimal places
+    return Number(percentage).toFixed(2)
   }
 
   if (loading) {
@@ -706,7 +745,8 @@ export default function BeneficialOwnershipPage() {
     )
   }
 
-  const totalOwnership = owners.reduce((sum, owner) => sum + owner.ownershipPercentage, 0)
+  // Calculate total ownership with proper number handling
+  const totalOwnership = owners.reduce((sum, owner) => sum + Number(owner.ownershipPercentage), 0)
   const ceoOwner = owners.find((o) => o.isDefault)
 
   return (
@@ -887,7 +927,7 @@ export default function BeneficialOwnershipPage() {
                           </div>
                         </TableCell>
                         <TableCell className="truncate max-w-[100px] sm:max-w-none">{owner.title}</TableCell>
-                        <TableCell>{owner.ownershipPercentage}%</TableCell>
+                        <TableCell>{formatPercentage(owner.ownershipPercentage)}%</TableCell>
                         <TableCell>{getStatusBadge(owner.status)}</TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
