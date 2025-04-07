@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     // Instead, we'll track password reset requests using the verificationToken
 
     // Get the app URL with a fallback to the Vercel deployment URL
-    const appUrl = getAppUrl() || "https://legal-website-five.vercel.app"
+    const appUrl = getAppUrl() || "https://orizeninc.com"
 
     // Create reset password URL
     const resetUrl = `${appUrl}/reset-password?token=${token}`

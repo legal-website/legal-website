@@ -12,6 +12,6 @@ export function getAppUrl(): string {
   }
 
   // Final fallback
-  return "https://legal-website-five.vercel.app"
+  return "https://orizeninc.com"
 }
 

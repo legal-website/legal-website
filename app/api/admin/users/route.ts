@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
       try {
         console.log("Sending welcome email to:", email)
         // Get the app URL with a fallback to the Vercel deployment URL
-        const appUrl = getAppUrl() || "https://legal-website-five.vercel.app"
+        const appUrl = getAppUrl() || "https://orizeninc.com"
         console.log("App URL:", appUrl)
 
         // Generate a verification token

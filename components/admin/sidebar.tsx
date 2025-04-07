@@ -382,7 +382,7 @@ export default function AdminSidebar() {
   const handleLogout = async () => {
     await signOut({
       redirect: true,
-      callbackUrl: "https://legal-website-five.vercel.app/login?callbackUrl=/admin",
+      callbackUrl: "https://orizeninc.com/login?callbackUrl=/admin",
     })
   }
 

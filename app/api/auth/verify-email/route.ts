@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     verificationTokens.set(token, { email, expires })
 
     // Ensure we have the app URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://orizeninc.com"
     if (!appUrl) {
       console.error("NEXT_PUBLIC_APP_URL environment variable is not set")
       return NextResponse.json(
@@ -107,7 +107,7 @@ export async function GET(req: Request) {
       return NextResponse.redirect(
         new URL(
           `${redirectUrl}?error=missing_token`,
-          process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
+          process.env.NEXT_PUBLIC_APP_URL || "https://orizeninc.com",
         ),
       )
     }
@@ -121,7 +121,7 @@ export async function GET(req: Request) {
       return NextResponse.redirect(
         new URL(
           `${redirectUrl}?verified=true`,
-          process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
+          process.env.NEXT_PUBLIC_APP_URL || "https://orizeninc.com",
         ),
       )
     } catch (error) {
@@ -129,14 +129,14 @@ export async function GET(req: Request) {
       return NextResponse.redirect(
         new URL(
           `${redirectUrl}?error=invalid_token`,
-          process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app",
+          process.env.NEXT_PUBLIC_APP_URL || "https://orizeninc.com",
         ),
       )
     }
   } catch (error: any) {
     console.error("Error in verify-email route:", error)
     return NextResponse.redirect(
-      new URL("/login?error=server", process.env.NEXT_PUBLIC_APP_URL || "https://legal-website-five.vercel.app"),
+      new URL("/login?error=server", process.env.NEXT_PUBLIC_APP_URL || "https://orizeninc.com"),
     )
   }
 }

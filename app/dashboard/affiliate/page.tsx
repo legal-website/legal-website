@@ -277,7 +277,7 @@ export default function AffiliateProgramPage() {
         url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralLink)}`
         break
       case "twitter":
-        url = `https://twitter.com/intent/tweet?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Join me on Legal Website! Use my referral link:")}`
+        url = `https://twitter.com/intent/tweet?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Join me on Orizen Inc! Use my referral link:")}`
         break
       case "linkedin":
         url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(referralLink)}`
