@@ -24,6 +24,7 @@ import {
   FileText,
   Tag,
 } from "lucide-react"
+// Add after the imports
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -40,6 +41,28 @@ import Link from "next/link"
 // Add these imports at the top of the file
 import { formatCouponValue } from "@/lib/coupon"
 import type { CouponType } from "@/lib/prisma-types"
+
+// Add custom animation styles
+const pulseSubtleKeyframes = `
+  @keyframes pulseSubtle {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+`
+
+// Add the style element to the component
+const AnimationStyles = () => (
+  <style jsx global>{`
+    ${pulseSubtleKeyframes}
+    .animate-pulse-subtle {
+      animation: pulseSubtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  `}</style>
+)
 
 interface Invoice {
   id: string
@@ -1285,6 +1308,7 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 sm:p-6 md:p-8 mb-20 sm:mb-40 overflow-x-hidden pt-6 sm:pt-22">
+      <AnimationStyles />
       {/* Header */}
       <div className="mb-4 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Hello, {userName}</h1>
@@ -1416,16 +1440,19 @@ export default function DashboardPage() {
             <div className="text-lg font-semibold">
               {businessData.formationDate !== "Pending" ? calculateAnnualReportDueDate() : "Pending"}
             </div>
-            <div className="text-sm font-medium text-gray-600 mt-1">
-              Fee: ${businessData.annualReportFee} (Every {businessData.annualReportFrequency}{" "}
-              {businessData.annualReportFrequency === 1 ? "year" : "years"})
-            </div>
+            <div className="text-sm font-medium text-gray-600 mt-1">Fee: ${businessData.annualReportFee}</div>
           </div>
           <div className="text-right">
-            <div className="text-sm font-medium text-gray-600 mb-1">{calculateDaysRemaining()} days left</div>
+            <div
+              className={`text-sm font-medium ${calculateDaysRemaining() <= 30 ? "text-red-600 animate-pulse" : "text-gray-600"} mb-1`}
+            >
+              {calculateDaysRemaining()} days left
+            </div>
             <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-[#22c984] rounded-full"
+                className={`h-full rounded-full transition-all duration-500 ${
+                  calculateDaysRemaining() <= 30 ? "bg-red-500 animate-pulse-subtle" : "bg-[#22c984]"
+                }`}
                 style={{ width: `${calculateProgressPercentage()}%` }}
               ></div>
             </div>
