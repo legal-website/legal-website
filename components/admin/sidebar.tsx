@@ -144,6 +144,11 @@ const menuItems: MenuItem[] = [
         href: "/admin/compliance/beneficial-ownership",
         badgeKey: "beneficialOwnership",
       },
+      {
+        label: "Ownership Migration",
+        href: "/admin/compliance/beneficial-ownership/migrate",
+        badgeKey: "ownershipMigration",
+      },
     ],
   },
 ]
