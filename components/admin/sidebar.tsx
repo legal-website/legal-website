@@ -28,7 +28,6 @@ import {
   Upload,
   CreditCardIcon as IdCardIcon,
   Menu,
-  X,
 } from "lucide-react"
 
 interface MenuItem {
@@ -415,16 +414,7 @@ export default function AdminSidebar() {
                     : "bg-white"
               }`}
             >
-              {/* Close button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-4 right-4"
-                onClick={() => setSidebarOpen(false)}
-              >
-                <X className="h-5 w-5" />
-                <span className="sr-only">Close menu</span>
-              </Button>
+              {/* The Sheet component already has its own close button, so we don't need to add another one */}
 
               {/* Logo */}
               <div
