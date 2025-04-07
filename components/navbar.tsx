@@ -184,9 +184,9 @@ useEffect(() => {
     visible: { opacity: 1 },
   }
 
-  // Update the handleSignIn function to redirect users to their dashboard after successful login
+  // Update the handleSignIn function to better handle admin detection
+  // Find the handleSignIn function and replace it with this improved version:
 
-  // Find the handleSignIn function and modify it to include redirection logic
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -218,25 +218,43 @@ useEffect(() => {
       } else {
         // Successful login
         setSignInOpen(false)
-        toast({
-          title: "Success",
-          description: "You have successfully logged in.",
-        })
 
-        // Fetch user data to determine where to redirect
-        const userResponse = await fetch("/api/auth/me")
-        if (userResponse.ok) {
-          const userData = await userResponse.json()
-          // Redirect based on user role
-          if (userData.role === "ADMIN" || userData.isAdmin === true) {
-            router.push("/admin")
-          } else {
+        // Wait a moment for the session to be fully established
+        setTimeout(async () => {
+          try {
+            // Get the updated session
+            const session = await fetch("/api/auth/session").then((res) => res.json())
+            console.log("Session data:", session)
+
+            // Check if user is admin
+            const isAdmin =
+              session?.user?.role === "ADMIN" || session?.user?.isAdmin === true || session?.user?.role === "admin"
+
+            console.log("Is admin:", isAdmin, "User role:", session?.user?.role)
+
+            if (isAdmin) {
+              toast({
+                title: "Admin login",
+                description: "Redirecting to admin dashboard.",
+              })
+              router.push("/admin")
+            } else {
+              toast({
+                title: "Success",
+                description: "You have successfully logged in.",
+              })
+              router.push("/dashboard")
+            }
+          } catch (error) {
+            console.error("Error checking user role:", error)
+            // Default to dashboard if we can't determine role
+            toast({
+              title: "Success",
+              description: "You have successfully logged in.",
+            })
             router.push("/dashboard")
           }
-        } else {
-          // If we can't determine the role, default to dashboard
-          router.push("/dashboard")
-        }
+        }, 500) // Short delay to ensure session is established
       }
     } catch (err) {
       console.error("Unexpected login error:", err)
