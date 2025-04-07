@@ -184,6 +184,9 @@ useEffect(() => {
     visible: { opacity: 1 },
   }
 
+  // Update the handleSignIn function to redirect users to their dashboard after successful login
+
+  // Find the handleSignIn function and modify it to include redirection logic
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -219,6 +222,21 @@ useEffect(() => {
           title: "Success",
           description: "You have successfully logged in.",
         })
+
+        // Fetch user data to determine where to redirect
+        const userResponse = await fetch("/api/auth/me")
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          // Redirect based on user role
+          if (userData.role === "ADMIN" || userData.isAdmin === true) {
+            router.push("/admin")
+          } else {
+            router.push("/dashboard")
+          }
+        } else {
+          // If we can't determine the role, default to dashboard
+          router.push("/dashboard")
+        }
       }
     } catch (err) {
       console.error("Unexpected login error:", err)
