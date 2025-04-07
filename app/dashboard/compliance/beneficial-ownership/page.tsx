@@ -88,6 +88,10 @@ export default function BeneficialOwnershipPage() {
       })
       .catch((error) => {
         console.error("Error checking default owner:", error)
+        // Even if there's an error with the default owner, still try to fetch owners
+        fetchOwners()
+        fetchFilingHistory()
+
         toast({
           title: "Error",
           description: "Failed to initialize beneficial ownership data.",

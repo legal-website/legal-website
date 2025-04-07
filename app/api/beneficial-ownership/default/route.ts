@@ -34,19 +34,23 @@ export async function GET(req: Request) {
   }
 }
 
-// POST to create default owner for the current user
+// Update the POST method to accept a userId parameter
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
+    const body = await req.json()
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Use provided userId or fall back to session user
+    const userId = body.userId || session?.user?.id
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized or missing userId" }, { status: 401 })
     }
 
     // Check if default owner already exists
     const existingDefault = await prisma.beneficialOwner.findFirst({
       where: {
-        userId: session.user.id,
+        userId: userId,
         isDefault: true,
       },
     })
@@ -55,11 +59,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Default owner already exists", owner: existingDefault }, { status: 400 })
     }
 
+    // Get user name if available
+    let userName = "Primary Owner"
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      })
+      if (user?.name) {
+        userName = user.name
+      }
+    } catch (error) {
+      console.error("Error fetching user name:", error)
+    }
+
     // Create default owner
     const defaultOwner = await prisma.beneficialOwner.create({
       data: {
-        userId: session.user.id,
-        name: session.user.name || "Primary Owner",
+        userId: userId,
+        name: userName,
         title: "CEO",
         ownershipPercentage: 100,
         status: "reported", // Default owner is automatically reported
@@ -71,6 +89,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       owner: defaultOwner,
       message: "Default beneficial owner created successfully",
+      isNew: true,
     })
   } catch (error) {
     console.error("Error creating default owner:", error)

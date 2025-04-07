@@ -26,6 +26,20 @@ export async function POST(req: Request) {
         })
       }
 
+      // Create default beneficial owner for the new user
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/beneficial-ownership/default`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ userId: user.id }),
+        })
+      } catch (ownerError) {
+        console.error("Error creating default beneficial owner:", ownerError)
+        // Don't fail registration if this fails
+      }
+
       // Return success response
       return NextResponse.json({
         success: true,

@@ -170,6 +170,26 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // Create default beneficial owner for the new user
+    try {
+      // Use the internal API directly since we're on the server
+      await db.beneficialOwner.create({
+        data: {
+          userId: user.id,
+          name: user.name || "Primary Owner",
+          title: "CEO",
+          ownershipPercentage: 100,
+          status: "reported", // Default owner is automatically reported
+          isDefault: true,
+          updatedAt: new Date(),
+        },
+      })
+      console.log("Default beneficial owner created for new user:", user.id)
+    } catch (ownerError) {
+      console.error("Error creating default beneficial owner:", ownerError)
+      // Don't fail user creation if this fails
+    }
+
     // Determine initial status (virtual field, not stored in DB)
     let status = sendInvite ? "Validation Email Sent" : "Active"
 
