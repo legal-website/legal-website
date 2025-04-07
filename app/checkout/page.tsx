@@ -35,6 +35,7 @@ export default function CheckoutPage() {
   } | null>(null)
   const [isUserLoggedIn, setIsUserLoggedIn] = useState(false)
   const [isLoadingUserData, setIsLoadingUserData] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Currency state
   const [selectedCurrency, setSelectedCurrency] = useState<string>("USD")
@@ -177,8 +178,8 @@ export default function CheckoutPage() {
   }
 
   useEffect(() => {
-    // Redirect if cart is empty
-    if (items.length === 0) {
+    // Only redirect if cart is empty AND we're not in the submission process
+    if (items.length === 0 && !isSubmitting) {
       router.push("/")
     }
 
@@ -215,7 +216,7 @@ export default function CheckoutPage() {
 
     // Fetch exchange rates when component mounts
     fetchExchangeRates()
-  }, [items, router])
+  }, [items, router, isSubmitting])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // If user is logged in, don't allow changes
@@ -317,6 +318,7 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setIsSubmitting(true) // Set the flag to prevent homepage redirect
 
     // Validate form
     if (!formData.name || !formData.email) {
@@ -326,6 +328,7 @@ export default function CheckoutPage() {
         variant: "destructive",
       })
       setLoading(false)
+      setIsSubmitting(false) // Reset the flag if validation fails
       return
     }
 
@@ -369,9 +372,12 @@ export default function CheckoutPage() {
       // Navigate to payment page
       router.push("/checkout/payment")
 
-      // Clear cart after a delay to ensure navigation has started
+      // Since router.push() doesn't return a Promise we can chain,
+      // we'll use a longer timeout to ensure navigation has time to complete
+      // before clearing the cart
       setTimeout(() => {
         clearCart()
+        // We don't need to reset isSubmitting since we're navigating away
       }, 1000)
     } catch (error: any) {
       console.error("Checkout error:", error)
@@ -380,8 +386,11 @@ export default function CheckoutPage() {
         description: error.message || "Something went wrong. Please try again.",
         variant: "destructive",
       })
+      setIsSubmitting(false) // Reset the flag if there's an error
     } finally {
       setLoading(false)
+      // Note: We don't reset isSubmitting here because we want it to stay true
+      // until navigation is complete or an error occurs
     }
   }
 
