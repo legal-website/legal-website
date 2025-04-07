@@ -9,25 +9,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, AlertCircle, X, Tag, Loader2, Globe, Check, LockIcon, UserIcon, AlertTriangle } from "lucide-react"
+import { ArrowLeft, AlertCircle, X, Tag, Loader2, Globe, Check, LockIcon, UserIcon } from "lucide-react"
 import { useCart } from "@/context/cart-context"
 import { useToast } from "@/components/ui/use-toast"
 import type { CouponType } from "@/lib/prisma-types"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandGroup, CommandItem } from "@/components/ui/command"
 import { Badge } from "@/components/ui/badge"
-
-// Define validation error type
-type ValidationErrors = {
-  name?: string
-  email?: string
-  phone?: string
-  address?: string
-  city?: string
-  state?: string
-  zip?: string
-  country?: string
-}
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -48,8 +36,6 @@ export default function CheckoutPage() {
   const [isUserLoggedIn, setIsUserLoggedIn] = useState(false)
   const [isLoadingUserData, setIsLoadingUserData] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
-  const [touched, setTouched] = useState<Record<string, boolean>>({})
 
   // Currency state
   const [selectedCurrency, setSelectedCurrency] = useState<string>("USD")
@@ -99,70 +85,6 @@ export default function CheckoutPage() {
       currency.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       currency.name.toLowerCase().includes(searchTerm.toLowerCase()),
   )
-
-  // Validation functions
-  const validatePhone = (phone: string): string | undefined => {
-    if (!phone) return undefined // Phone is optional
-
-    // Allow only numbers and an optional leading plus sign
-    const phoneRegex = /^\+?[0-9]+$/
-    if (!phoneRegex.test(phone)) {
-      return "Phone number can only contain numbers and an optional + at the beginning"
-    }
-
-    return undefined
-  }
-
-  const validateEmail = (email: string): string | undefined => {
-    if (!email) return "Email is required"
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return "Please enter a valid email address"
-    }
-
-    return undefined
-  }
-
-  const validateRequired = (value: string, fieldName: string): string | undefined => {
-    if (!value.trim()) {
-      return `${fieldName} is required`
-    }
-    return undefined
-  }
-
-  const validateZip = (zip: string): string | undefined => {
-    if (!zip) return undefined // Zip is optional
-
-    // Basic zip code validation - allow alphanumeric characters
-    const zipRegex = /^[a-zA-Z0-9- ]+$/
-    if (!zipRegex.test(zip)) {
-      return "Please enter a valid postal/zip code"
-    }
-
-    return undefined
-  }
-
-  // Validate all form fields
-  const validateForm = (): boolean => {
-    const errors: ValidationErrors = {}
-
-    // Required fields
-    if (!isUserLoggedIn) {
-      errors.name = validateRequired(formData.name, "Name")
-      errors.email = validateEmail(formData.email)
-    }
-
-    // Optional fields with format validation
-    errors.phone = validatePhone(formData.phone)
-    errors.zip = validateZip(formData.zip)
-
-    // Update validation errors state
-    setValidationErrors(errors)
-
-    // Form is valid if there are no errors
-    return !Object.values(errors).some((error) => error !== undefined)
-  }
 
   // Fetch user data
   const fetchUserData = async () => {
@@ -301,53 +223,9 @@ export default function CheckoutPage() {
     if (isUserLoggedIn) return
 
     const { name, value } = e.target
-
-    // Update form data
     setFormData({
       ...formData,
       [name]: value,
-    })
-
-    // Mark field as touched
-    setTouched({
-      ...touched,
-      [name]: true,
-    })
-
-    // Validate the field that changed
-    let error: string | undefined
-
-    switch (name) {
-      case "phone":
-        error = validatePhone(value)
-        break
-      case "email":
-        error = validateEmail(value)
-        break
-      case "name":
-        error = validateRequired(value, "Name")
-        break
-      case "zip":
-        error = validateZip(value)
-        break
-      default:
-        error = undefined
-    }
-
-    // Update validation errors for this field
-    setValidationErrors({
-      ...validationErrors,
-      [name]: error,
-    })
-  }
-
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const { name } = e.target
-
-    // Mark field as touched
-    setTouched({
-      ...touched,
-      [name]: true,
     })
   }
 
@@ -439,28 +317,20 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    // Mark all fields as touched
-    const allTouched: Record<string, boolean> = {}
-    Object.keys(formData).forEach((key) => {
-      allTouched[key] = true
-    })
-    setTouched(allTouched)
-
-    // Validate the form
-    const isValid = validateForm()
-
-    if (!isValid) {
-      toast({
-        title: "Validation Error",
-        description: "Please correct the errors in the form before proceeding.",
-        variant: "destructive",
-      })
-      return
-    }
-
     setLoading(true)
     setIsSubmitting(true) // Set the flag to prevent homepage redirect
+
+    // Validate form
+    if (!formData.name || !formData.email) {
+      toast({
+        title: "Missing information",
+        description: "Please provide your name and email address.",
+        variant: "destructive",
+      })
+      setLoading(false)
+      setIsSubmitting(false) // Reset the flag if validation fails
+      return
+    }
 
     try {
       // Calculate final total with discount
@@ -537,11 +407,6 @@ export default function CheckoutPage() {
   const discount = appliedCoupon ? appliedCoupon.discount : 0
   const finalTotal = Math.max(0, cartTotal - discount)
   const currentCurrency = getCurrentCurrency()
-
-  // Helper function to determine if a field has an error
-  const hasError = (fieldName: string): boolean => {
-    return touched[fieldName] === true && validationErrors[fieldName as keyof ValidationErrors] !== undefined
-  }
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-36 mb-44">
@@ -621,83 +486,43 @@ export default function CheckoutPage() {
 
                 <div className="grid gap-4">
                   <div>
-                    <Label htmlFor="name" className="flex justify-between">
-                      <span>Full Name {!isUserLoggedIn && <span className="text-red-500">*</span>}</span>
-                      {hasError("name") && (
-                        <span className="text-red-500 text-xs font-normal flex items-center">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          {validationErrors.name}
-                        </span>
-                      )}
-                    </Label>
+                    <Label htmlFor="name">Full Name</Label>
                     <Input
                       id="name"
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      onBlur={handleBlur}
-                      required={!isUserLoggedIn}
+                      required
                       readOnly={isUserLoggedIn}
-                      className={`
-                        ${isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
-                        ${hasError("name") ? "border-red-500 focus-visible:ring-red-500" : ""}
-                      `}
+                      className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="email" className="flex justify-between">
-                      <span>Email Address {!isUserLoggedIn && <span className="text-red-500">*</span>}</span>
-                      {hasError("email") && (
-                        <span className="text-red-500 text-xs font-normal flex items-center">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          {validationErrors.email}
-                        </span>
-                      )}
-                    </Label>
+                    <Label htmlFor="email">Email Address</Label>
                     <Input
                       id="email"
                       name="email"
                       type="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      onBlur={handleBlur}
-                      required={!isUserLoggedIn}
+                      required
                       readOnly={isUserLoggedIn}
-                      className={`
-                        ${isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
-                        ${hasError("email") ? "border-red-500 focus-visible:ring-red-500" : ""}
-                      `}
+                      className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="phone" className="flex justify-between">
-                      <span>Phone Number</span>
-                      {hasError("phone") && (
-                        <span className="text-red-500 text-xs font-normal flex items-center">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          {validationErrors.phone}
-                        </span>
-                      )}
-                    </Label>
+                    <Label htmlFor="phone">Phone Number</Label>
                     <Input
                       id="phone"
                       name="phone"
                       type="tel"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      onBlur={handleBlur}
-                      placeholder="+1234567890"
                       readOnly={isUserLoggedIn}
-                      className={`
-                        ${isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
-                        ${hasError("phone") ? "border-red-500 focus-visible:ring-red-500" : ""}
-                      `}
+                      className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
                     />
-                    {!hasError("phone") && (
-                      <p className="text-xs text-gray-500 mt-1">Numbers only, with optional + at the beginning</p>
-                    )}
                   </div>
 
                   <div>
@@ -727,125 +552,65 @@ export default function CheckoutPage() {
 
                 <div className="grid gap-4">
                   <div>
-                    <Label htmlFor="address" className="flex justify-between">
-                      <span>Street Address</span>
-                      {hasError("address") && (
-                        <span className="text-red-500 text-xs font-normal flex items-center">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          {validationErrors.address}
-                        </span>
-                      )}
-                    </Label>
+                    <Label htmlFor="address">Street Address</Label>
                     <Input
                       id="address"
                       name="address"
                       value={formData.address}
                       onChange={handleInputChange}
-                      onBlur={handleBlur}
                       readOnly={isUserLoggedIn}
-                      className={`
-                        ${isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
-                        ${hasError("address") ? "border-red-500 focus-visible:ring-red-500" : ""}
-                      `}
+                      className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="city" className="flex justify-between">
-                        <span>City</span>
-                        {hasError("city") && (
-                          <span className="text-red-500 text-xs font-normal flex items-center">
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            {validationErrors.city}
-                          </span>
-                        )}
-                      </Label>
+                      <Label htmlFor="city">City</Label>
                       <Input
                         id="city"
                         name="city"
                         value={formData.city}
                         onChange={handleInputChange}
-                        onBlur={handleBlur}
                         readOnly={isUserLoggedIn}
-                        className={`
-                          ${isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
-                          ${hasError("city") ? "border-red-500 focus-visible:ring-red-500" : ""}
-                        `}
+                        className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
                       />
                     </div>
 
                     <div>
-                      <Label htmlFor="state" className="flex justify-between">
-                        <span>State/Province</span>
-                        {hasError("state") && (
-                          <span className="text-red-500 text-xs font-normal flex items-center">
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            {validationErrors.state}
-                          </span>
-                        )}
-                      </Label>
+                      <Label htmlFor="state">State/Province</Label>
                       <Input
                         id="state"
                         name="state"
                         value={formData.state}
                         onChange={handleInputChange}
-                        onBlur={handleBlur}
                         readOnly={isUserLoggedIn}
-                        className={`
-                          ${isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
-                          ${hasError("state") ? "border-red-500 focus-visible:ring-red-500" : ""}
-                        `}
+                        className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="zip" className="flex justify-between">
-                        <span>ZIP/Postal Code</span>
-                        {hasError("zip") && (
-                          <span className="text-red-500 text-xs font-normal flex items-center">
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            {validationErrors.zip}
-                          </span>
-                        )}
-                      </Label>
+                      <Label htmlFor="zip">ZIP/Postal Code</Label>
                       <Input
                         id="zip"
                         name="zip"
                         value={formData.zip}
                         onChange={handleInputChange}
-                        onBlur={handleBlur}
                         readOnly={isUserLoggedIn}
-                        className={`
-                          ${isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
-                          ${hasError("zip") ? "border-red-500 focus-visible:ring-red-500" : ""}
-                        `}
+                        className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
                       />
                     </div>
 
                     <div>
-                      <Label htmlFor="country" className="flex justify-between">
-                        <span>Country</span>
-                        {hasError("country") && (
-                          <span className="text-red-500 text-xs font-normal flex items-center">
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            {validationErrors.country}
-                          </span>
-                        )}
-                      </Label>
+                      <Label htmlFor="country">Country</Label>
                       <Input
                         id="country"
                         name="country"
                         value={formData.country}
                         onChange={handleInputChange}
-                        onBlur={handleBlur}
                         readOnly={isUserLoggedIn}
-                        className={`
-                          ${isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
-                          ${hasError("country") ? "border-red-500 focus-visible:ring-red-500" : ""}
-                        `}
+                        className={isUserLoggedIn ? "bg-gray-50 cursor-not-allowed" : ""}
                       />
                     </div>
                   </div>
