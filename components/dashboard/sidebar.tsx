@@ -21,7 +21,6 @@ import {
   Tag,
   CreditCard,
   Menu,
-  X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/context/theme-context"
@@ -378,17 +377,6 @@ export default function DashboardSidebar({ userData }: DashboardSidebarProps) {
                     : "bg-white"
               }`}
             >
-              {/* Close button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-4 right-4"
-                onClick={() => setSidebarOpen(false)}
-              >
-                <X className="h-5 w-5" />
-                <span className="sr-only">Close menu</span>
-              </Button>
-
               {/* Profile Picture and Business Name */}
               <div
                 className={`p-6 border-b ${
