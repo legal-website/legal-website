@@ -10,6 +10,7 @@ export default function BeneficialOwnershipMigrationPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [detailedError, setDetailedError] = useState<string | null>(null)
 
   const runMigration = async () => {
     if (
@@ -22,6 +23,7 @@ export default function BeneficialOwnershipMigrationPage() {
 
     setIsLoading(true)
     setError(null)
+    setDetailedError(null)
     setResult(null)
 
     try {
@@ -35,12 +37,20 @@ export default function BeneficialOwnershipMigrationPage() {
       const data = await response.json()
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error(
+            "Unauthorized: You don't have permission to run this migration. Please ensure you have admin privileges.",
+          )
+        }
         throw new Error(data.error || "Failed to run migration")
       }
 
       setResult(data)
     } catch (err) {
       setError((err as Error).message)
+      // Log detailed error for debugging
+      console.error("Migration error:", err)
+      setDetailedError(JSON.stringify(err, null, 2))
     } finally {
       setIsLoading(false)
     }
@@ -71,7 +81,15 @@ export default function BeneficialOwnershipMigrationPage() {
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>
+                  {error}
+                  {detailedError && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-sm">Technical Details</summary>
+                      <pre className="mt-2 whitespace-pre-wrap text-xs bg-gray-100 p-2 rounded">{detailedError}</pre>
+                    </details>
+                  )}
+                </AlertDescription>
               </Alert>
             )}
 

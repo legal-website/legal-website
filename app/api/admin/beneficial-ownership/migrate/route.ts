@@ -7,7 +7,19 @@ export async function POST(req: Request) {
   try {
     // Ensure only admins can run this migration
     const session = await getServerSession(authOptions)
-    if (!session?.user || session.user.role !== "admin") {
+
+    // Check if user is authenticated and has admin privileges
+    // Updated to check for common admin role formats (case-insensitive)
+    if (
+      !session?.user ||
+      !(
+        session.user.role === "ADMIN" ||
+        session.user.role === "admin" ||
+        session.user.role === "SUPER_ADMIN" ||
+        session.user.role === "super_admin"
+      )
+    ) {
+      console.log("Unauthorized access attempt. User role:", session?.user?.role)
       return NextResponse.json({ error: "Unauthorized. Admin access required." }, { status: 401 })
     }
 
