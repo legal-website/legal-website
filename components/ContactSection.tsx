@@ -3,7 +3,7 @@ import { EnvelopeIcon, PhoneIcon } from "@heroicons/react/24/outline"
 export default function ContactSection() {
   return (
     <div className="bg-white">
-      <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8 mb-40">
         <div className="max-w-lg mx-auto md:max-w-none md:grid md:grid-cols-2 md:gap-[30px]">
           <div className="bg-gray-50 p-8 rounded-2xl shadow-[0_4px_10px_rgba(34,197,94,0.1)] hover:bg-green-50 items-start transition-transform transform hover:scale-105 hover:shadow-xl duration-300">
             <h2 className="text-2xl font-extrabold text-gray-900 sm:text-3xl">Contact Support</h2>
