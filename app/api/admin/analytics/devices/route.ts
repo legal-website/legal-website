@@ -6,6 +6,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url)
     const startDate = url.searchParams.get("startDate") || "7daysAgo"
     const endDate = url.searchParams.get("endDate") || "today"
+    const propertyId = url.searchParams.get("propertyId") || process.env.GOOGLE_ANALYTICS_VIEW_ID
 
     const devices = await getDeviceCategories(startDate, endDate)
 
@@ -20,4 +21,3 @@ export async function GET(request: Request) {
     )
   }
 }
-

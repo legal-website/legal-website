@@ -83,6 +83,20 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />
 
+        {/* Google tag (gtag.js) */}
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-H5RQYL16TB"></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+         window.dataLayer = window.dataLayer || [];
+         function gtag(){dataLayer.push(arguments);}
+         gtag('js', new Date());
+
+         gtag('config', 'G-H5RQYL16TB');
+       `,
+          }}
+        />
+
         {/* JSON-LD structured data for Organization */}
         <script
           type="application/ld+json"
