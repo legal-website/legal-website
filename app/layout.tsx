@@ -100,7 +100,7 @@ export default function RootLayout({
               ],
               contactPoint: {
                 "@type": "ContactPoint",
-                telephone: "+1-800-000-0000",
+                telephone: "+92 329 9438557",
                 contactType: "customer service",
               },
             }),
