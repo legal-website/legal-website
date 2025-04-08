@@ -13,6 +13,7 @@ import { AuthProvider } from "@/context/auth-context"
 import { SessionProvider } from "@/components/session-provider"
 import { PricingProvider } from "@/context/pricing-context"
 import { AffiliateTracker } from "@/components/affiliate-tracker"
+import StructuredData from "@/components/structured-data"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -63,6 +64,9 @@ export const metadata: Metadata = {
       "Orizen Inc provides fast, affordable LLC formation and business services. Start your business today with our expert guidance and comprehensive support.",
     images: ["/og-image.png"],
   },
+  alternates: {
+    canonical: "https://orizeninc.com",
+  },
 }
 
 export default function RootLayout({
@@ -73,12 +77,36 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* These explicit link tags help ensure the favicons are properly loaded */}
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon-16x16.png" sizes="16x16" type="image/png" />
         <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />
+
+        {/* JSON-LD structured data for Organization */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "Orizen Inc",
+              url: "https://orizeninc.com",
+              logo: "https://orizeninc.com/icon-512.png",
+              sameAs: [
+                "https://www.facebook.com/orizeninc",
+                "https://twitter.com/orizeninc",
+                "https://www.linkedin.com/company/orizeninc",
+              ],
+              contactPoint: {
+                "@type": "ContactPoint",
+                telephone: "+1-800-000-0000",
+                contactType: "customer service",
+              },
+            }),
+          }}
+        />
+        <StructuredData />
       </head>
       <body className={`${inter.className} overflow-x-hidden`}>
         <ThemeProvider>
