@@ -17,15 +17,22 @@ export const safeSlice = <T>(arr: T[] | undefined | null, start: number, end?: n
 };
 
 // Initialize the auth client
-export const getAuthClient = () => {
+export const getAuthClient = async () => {
   try {
     const email = process.env.GOOGLE_CLIENT_EMAIL;
     if (!email) {
       throw new Error('GOOGLE_CLIENT_EMAIL is not configured');
     }
+    
+    // Get the private key from environment variable and handle newlines
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+    if (!privateKey) {
+      throw new Error('GOOGLE_PRIVATE_KEY is not configured');
+    }
+    
     return new google.auth.JWT({
       email: email,
-      key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      key: privateKey,
       scopes: ['https://www.googleapis.com/auth/analytics.readonly']
     });
   } catch (error: any) {
@@ -64,52 +71,52 @@ export const getNumericPropertyId = (propertyId: string | undefined): string => 
 
 // Test the GA4 connection
 export const testGA4Connection = async () => {
-  try {
-    const propertyId = process.env.GOOGLE_ANALYTICS_PROPERTY_ID || process.env.GOOGLE_ANALYTICS_VIEW_ID;
-    if (!propertyId) {
-      throw new Error('GOOGLE_ANALYTICS_PROPERTY_ID or GOOGLE_ANALYTICS_VIEW_ID is not configured');
-    }
-    const numericPropertyId = getNumericPropertyId(propertyId);
-    
-    const auth = getAuthClient();
-    const version = 'v1beta';
+ try {
+   const propertyId = process.env.GOOGLE_ANALYTICS_PROPERTY_ID || process.env.GOOGLE_ANALYTICS_VIEW_ID;
+   if (!propertyId) {
+     throw new Error('GOOGLE_ANALYTICS_PROPERTY_ID or GOOGLE_ANALYTICS_VIEW_ID is not configured');
+   }
+   const numericPropertyId = getNumericPropertyId(propertyId);
+   
+   const auth = await getAuthClient();
+   const version = 'v1beta';
 
-    const analyticsData = google.analyticsdata({
-      version: version,
-      auth
-    });
-    
-    // Run a simple report to test the connection
-    const response = await analyticsData.properties.runReport({
-      property: `properties/${numericPropertyId}`,
-      requestBody: {
-        dateRanges: [
-          {
-            startDate: '7daysAgo',
-            endDate: 'today',
-          },
-        ],
-        dimensions: [
-          {
-            name: 'date',
-          },
-        ],
-        metrics: [
-          {
-            name: 'sessions',
-          },
-        ],
-      }
-    });
-    
-    const rows = response.data.rows || [];
-    
-    return {
-      success: true,
-      hasData: rows.length > 0,
-      sampleData: safeSlice(rows, 0, 3),
-    };
-  } catch (error: any) {
+   const analyticsData = google.analyticsdata({
+     version: version,
+     auth
+   });
+   
+   // Run a simple report to test the connection
+   const response = await analyticsData.properties.runReport({
+     property: `properties/${numericPropertyId}`,
+     requestBody: {
+       dateRanges: [
+         {
+           startDate: '7daysAgo',
+           endDate: 'today',
+         },
+       ],
+       dimensions: [
+         {
+           name: 'date',
+         },
+       ],
+       metrics: [
+         {
+           name: 'sessions',
+         },
+       ],
+     }
+   });
+   
+   const rows = response.data.rows || [];
+   
+   return {
+     success: true,
+     hasData: rows.length > 0,
+     sampleData: safeSlice(rows, 0, 3),
+   };
+ } catch (error: any) {
     console.error('Error testing GA4 connection:', error);
     return {
       success: false,
@@ -127,7 +134,7 @@ export const getPageViewsOverTime = async (startDate: string, endDate: string) =
     }
     const numericPropertyId = getNumericPropertyId(propertyId);
     
-    const auth = getAuthClient();
+    const auth = await getAuthClient();
     const version = 'v1beta';
     
     const analyticsData = google.analyticsdata({
@@ -178,7 +185,7 @@ export const getSummaryMetrics = async (startDate: string, endDate: string) => {
     }
     const numericPropertyId = getNumericPropertyId(propertyId);
     
-    const auth = getAuthClient();
+    const auth = await getAuthClient();
     const version = 'v1beta';
     
     const analyticsData = google.analyticsdata({
@@ -250,7 +257,7 @@ export const getTopPages = async (startDate: string, endDate: string, limit = 10
     }
     const numericPropertyId = getNumericPropertyId(propertyId);
     
-    const auth = getAuthClient();
+    const auth = await getAuthClient();
     const version = 'v1beta';
     
     const analyticsData = google.analyticsdata({
@@ -317,7 +324,7 @@ export const getTrafficSources = async (startDate: string, endDate: string) => {
     }
     const numericPropertyId = getNumericPropertyId(propertyId);
     
-    const auth = getAuthClient();
+    const auth = await getAuthClient();
     const version = 'v1beta';
     
     const analyticsData = google.analyticsdata({
@@ -380,7 +387,7 @@ export const getDeviceCategories = async (startDate: string, endDate: string) =>
     }
     const numericPropertyId = getNumericPropertyId(propertyId);
     
-    const auth = getAuthClient();
+    const auth = await getAuthClient();
     const version = 'v1beta';
     
     const analyticsData = google.analyticsdata({
@@ -431,7 +438,7 @@ export const getCountries = async (startDate: string, endDate: string) => {
     }
     const numericPropertyId = getNumericPropertyId(propertyId);
     
-    const auth = getAuthClient();
+    const auth = await getAuthClient();
     const version = 'v1beta';
     
     const analyticsData = google.analyticsdata({
@@ -485,4 +492,3 @@ export const getCountries = async (startDate: string, endDate: string) => {
     return [];
   }
 };
-
