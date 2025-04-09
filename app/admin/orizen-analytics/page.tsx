@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
-import { CalendarIcon, Users, Eye, Clock, MousePointerClick, AlertCircle } from "lucide-react"
+import { CalendarIcon, Users, Eye, Clock, MousePointerClick, AlertTriangle } from "lucide-react"
 import { format, subDays, isValid, parseISO } from "date-fns"
 import {
   Line,
@@ -100,9 +100,9 @@ const mockSummaryMetrics: SummaryMetrics = {
   users: 1250,
   newUsers: 487,
   sessions: 1893,
-  pageviews: 53,
+  pageviews: 5721,
   avgSessionDuration: 185,
-  bounceRate: 0.59,
+  bounceRate: 42.7,
 }
 
 // Generate mock page views data safely
@@ -167,16 +167,17 @@ const mockDevices: DeviceData[] = [
 ]
 
 // Safe date formatter that handles errors
-const safeFormatDate = (date: Date | undefined): string => {
-  if (!date) return "Select date"
+const safeFormatDate = (date: Date | undefined, formatString: string, fallback = ""): string => {
+  if (!date) return fallback
+
   try {
-    if (!(date instanceof Date) || isNaN(date.getTime())) {
-      return "Invalid date"
+    if (!(date instanceof Date) || !isValid(date)) {
+      return fallback
     }
-    return format(date, "LLL dd, y")
+    return format(date, formatString)
   } catch (error) {
-    console.error("Error formatting display date:", error)
-    return "Date error"
+    console.error("Error formatting date:", error)
+    return fallback
   }
 }
 
@@ -185,7 +186,7 @@ const createSafeDate = (date: Date | undefined): Date | undefined => {
   if (!date) return undefined
 
   try {
-    if (!(date instanceof Date) || isNaN(date.getTime())) {
+    if (!(date instanceof Date) || !isValid(date)) {
       return undefined
     }
     return date
@@ -249,7 +250,7 @@ export default function AnalyticsDashboard() {
     devices: true,
   })
 
-  const [useMockData, setUseMockData] = useState(true)
+  const [useMockData, setUseMockData] = useState(false)
 
   // Format date for API requests - with robust error handling
   const formatDateForApi = (date: Date | undefined): string => {
@@ -282,6 +283,18 @@ export default function AnalyticsDashboard() {
     }
   }
 
+  // Auto refresh every 5 minutes
+  useEffect(() => {
+    const intervalId = setInterval(
+      () => {
+        refreshConnection()
+      },
+      5 * 60 * 1000,
+    )
+
+    return () => clearInterval(intervalId)
+  }, [])
+
   // Navigate to test connection page
   const navigateToTest = () => {
     router.push("/admin/orizen-analytics/test")
@@ -289,6 +302,9 @@ export default function AnalyticsDashboard() {
 
   // Fetch data when date range changes
   useEffect(() => {
+    // Set default to use mock data to avoid errors
+    setUseMockData(true)
+
     // Ensure we have valid dates before making API calls
     if (!date.from || !date.to) {
       console.log("Missing date range, using mock data")
@@ -317,138 +333,137 @@ export default function AnalyticsDashboard() {
     const startDate = formatDateForApi(fromDate)
     const endDate = formatDateForApi(toDate)
 
-    if (useMockData) {
-      console.log("Using mock data")
-      setSummaryMetrics(mockSummaryMetrics)
-      setPageViews(mockPageViews)
-      setTopPages(mockTopPages)
-      setDemographics(mockDemographics)
-      setTrafficSources(mockTrafficSources)
-      setDevices(mockDevices)
-      setLoading({
-        summary: false,
-        pageViews: false,
-        topPages: false,
-        demographics: false,
-        trafficSources: false,
-        devices: false,
+    // Use mock data for now to ensure the page loads without errors
+    setSummaryMetrics(mockSummaryMetrics)
+    setPageViews(mockPageViews)
+    setTopPages(mockTopPages)
+    setDemographics(mockDemographics)
+    setTrafficSources(mockTrafficSources)
+    setDevices(mockDevices)
+    setLoading({
+      summary: false,
+      pageViews: false,
+      topPages: false,
+      demographics: false,
+      trafficSources: false,
+      devices: false,
+    })
+
+    
+    // Fetch summary metrics
+    setLoading((prev) => ({ ...prev, summary: true }))
+    fetch(`/api/admin/analytics/summary?startDate=${startDate}&endDate=${endDate}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+        return res.json()
       })
-    } else {
-      console.log("Using real data")
-      // Fetch summary metrics
-      setLoading((prev) => ({ ...prev, summary: true }))
-      fetch(`/api/admin/analytics/summary?startDate=${startDate}&endDate=${endDate}`)
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
-          return res.json()
-        })
-        .then((data) => {
-          setSummaryMetrics(data)
-          setLoading((prev) => ({ ...prev, summary: false }))
-        })
-        .catch((err) => {
-          console.error("Error fetching summary metrics:", err)
-          setErrors((prev) => ({ ...prev, summary: err.message }))
-          setLoading((prev) => ({ ...prev, summary: false }))
-          setSummaryMetrics(mockSummaryMetrics)
-        })
+      .then((data) => {
+        setSummaryMetrics(data)
+        setLoading((prev) => ({ ...prev, summary: false }))
+      })
+      .catch((err) => {
+        console.error("Error fetching summary metrics:", err)
+        setErrors((prev) => ({ ...prev, summary: err.message }))
+        setLoading((prev) => ({ ...prev, summary: false }))
+        setSummaryMetrics(mockSummaryMetrics)
+      })
 
-      // Fetch page views
-      setLoading((prev) => ({ ...prev, pageViews: true }))
-      fetch(`/api/admin/analytics/pageviews?startDate=${startDate}&endDate=${endDate}`)
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
-          return res.json()
-        })
-        .then((data) => {
-          // Ensure data is an array before setting state
-          setPageViews(Array.isArray(data) ? data : [])
-          setLoading((prev) => ({ ...prev, pageViews: false }))
-        })
-        .catch((err) => {
-          console.error("Error fetching page views:", err)
-          setErrors((prev) => ({ ...prev, pageViews: err.message }))
-          setLoading((prev) => ({ ...prev, pageViews: false }))
-          setPageViews(mockPageViews)
-        })
+    // Fetch page views
+    setLoading((prev) => ({ ...prev, pageViews: true }))
+    fetch(`/api/admin/analytics/pageviews?startDate=${startDate}&endDate=${endDate}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+        return res.json()
+      })
+      .then((data) => {
+        // Ensure data is an array before setting state
+        setPageViews(Array.isArray(data) ? data : [])
+        setLoading((prev) => ({ ...prev, pageViews: false }))
+      })
+      .catch((err) => {
+        console.error("Error fetching page views:", err)
+        setErrors((prev) => ({ ...prev, pageViews: err.message }))
+        setLoading((prev) => ({ ...prev, pageViews: false }))
+        setPageViews(mockPageViews)
+      })
 
-      // Fetch top pages
-      setLoading((prev) => ({ ...prev, topPages: true }))
-      fetch(`/api/admin/analytics/top-pages?startDate=${startDate}&endDate=${endDate}`)
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
-          return res.json()
-        })
-        .then((data) => {
-          // Ensure data is an array before setting state
-          setTopPages(Array.isArray(data) ? data : [])
-          setLoading((prev) => ({ ...prev, topPages: false }))
-        })
-        .catch((err) => {
-          console.error("Error fetching top pages:", err)
-          setErrors((prev) => ({ ...prev, topPages: err.message }))
-          setLoading((prev) => ({ ...prev, topPages: false }))
-          setTopPages(mockTopPages)
-        })
+    // Fetch top pages
+    setLoading((prev) => ({ ...prev, topPages: true }))
+    fetch(`/api/admin/analytics/top-pages?startDate=${startDate}&endDate=${endDate}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+        return res.json()
+      })
+      .then((data) => {
+        // Ensure data is an array before setting state
+        setTopPages(Array.isArray(data) ? data : [])
+        setLoading((prev) => ({ ...prev, topPages: false }))
+      })
+      .catch((err) => {
+        console.error("Error fetching top pages:", err)
+        setErrors((prev) => ({ ...prev, topPages: err.message }))
+        setLoading((prev) => ({ ...prev, topPages: false }))
+        setTopPages(mockTopPages)
+      })
 
-      // Fetch demographics
-      setLoading((prev) => ({ ...prev, demographics: true }))
-      fetch(`/api/admin/analytics/demographics?startDate=${startDate}&endDate=${endDate}`)
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
-          return res.json()
-        })
-        .then((data) => {
-          // Ensure data is an array before setting state
-          setDemographics(Array.isArray(data) ? data : [])
-          setLoading((prev) => ({ ...prev, demographics: false }))
-        })
-        .catch((err) => {
-          console.error("Error fetching demographics:", err)
-          setErrors((prev) => ({ ...prev, demographics: err.message }))
-          setLoading((prev) => ({ ...prev, demographics: false }))
-          setDemographics(mockDemographics)
-        })
+    // Fetch demographics
+    setLoading((prev) => ({ ...prev, demographics: true }))
+    fetch(`/api/admin/analytics/demographics?startDate=${startDate}&endDate=${endDate}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+        return res.json()
+      })
+      .then((data) => {
+        // Ensure data is an array before setting state
+        setDemographics(Array.isArray(data) ? data : [])
+        setLoading((prev) => ({ ...prev, demographics: false }))
+      })
+      .catch((err) => {
+        console.error("Error fetching demographics:", err)
+        setErrors((prev) => ({ ...prev, demographics: err.message }))
+        setLoading((prev) => ({ ...prev, demographics: false }))
+        setDemographics(mockDemographics)
+      })
 
-      // Fetch traffic sources
-      setLoading((prev) => ({ ...prev, trafficSources: true }))
-      fetch(`/api/admin/analytics/traffic-sources?startDate=${startDate}&endDate=${endDate}`)
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
-          return res.json()
-        })
-        .then((data) => {
-          // Ensure data is an array before setting state
-          setTrafficSources(Array.isArray(data) ? data : [])
-          setLoading((prev) => ({ ...prev, trafficSources: false }))
-        })
-        .catch((err) => {
-          console.error("Error fetching traffic sources:", err)
-          setErrors((prev) => ({ ...prev, trafficSources: err.message }))
-          setLoading((prev) => ({ ...prev, trafficSources: false }))
-          setTrafficSources(mockTrafficSources)
-        })
+    // Fetch traffic sources
+    setLoading((prev) => ({ ...prev, trafficSources: true }))
+    fetch(`/api/admin/analytics/traffic-sources?startDate=${startDate}&endDate=${endDate}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+        return res.json()
+      })
+      .then((data) => {
+        // Ensure data is an array before setting state
+        setTrafficSources(Array.isArray(data) ? data : [])
+        setLoading((prev) => ({ ...prev, trafficSources: false }))
+      })
+      .catch((err) => {
+        console.error("Error fetching traffic sources:", err)
+        setErrors((prev) => ({ ...prev, trafficSources: err.message }))
+        setLoading((prev) => ({ ...prev, trafficSources: false }))
+        setTrafficSources(mockTrafficSources)
+      })
 
-      // Fetch device categories
-      setLoading((prev) => ({ ...prev, devices: true }))
-      fetch(`/api/admin/analytics/devices?startDate=${startDate}&endDate=${endDate}`)
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
-          return res.json()
-        })
-        .then((data) => {
-          // Ensure data is an array before setting state
-          setDevices(Array.isArray(data) ? data : [])
-          setLoading((prev) => ({ ...prev, devices: false }))
-        })
-        .catch((err) => {
-          console.error("Error fetching device categories:", err)
-          setErrors((prev) => ({ ...prev, devices: err.message }))
-          setLoading((prev) => ({ ...prev, devices: false }))
-          setDevices(mockDevices)
-        })
-    }
-  }, [date, useMockData])
+    // Fetch device categories
+    setLoading((prev) => ({ ...prev, devices: true }))
+    fetch(`/api/admin/analytics/devices?startDate=${startDate}&endDate=${endDate}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+        return res.json()
+      })
+      .then((data) => {
+        // Ensure data is an array before setting state
+        setDevices(Array.isArray(data) ? data : [])
+        setLoading((prev) => ({ ...prev, devices: false }))
+      })
+      .catch((err) => {
+        console.error("Error fetching device categories:", err)
+        setErrors((prev) => ({ ...prev, devices: err.message }))
+        setLoading((prev) => ({ ...prev, devices: false }))
+        setDevices(mockDevices)
+      })
+    
+  }, [date])
 
   // Format time duration (seconds to minutes and seconds)
   const formatDuration = (durationInSeconds: number | undefined): string => {
@@ -503,35 +518,53 @@ export default function AnalyticsDashboard() {
     }
   }
 
+  // Check if there are any errors
+  const hasErrors = Object.keys(errors).length > 0
+
   return (
     <div className="w-full max-w-[100vw] overflow-x-hidden py-4 sm:py-6 space-y-4 sm:space-y-8 mb-20 sm:mb-40 px-3 sm:px-4 md:px-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold">Orizen Analytics Dashboard</h1>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <Button variant="outline" size="sm" onClick={refreshConnection} disabled={isRefreshing}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshConnection}
+            disabled={isRefreshing}
+            className="text-xs sm:text-sm"
+          >
             {isRefreshing ? "Refreshing..." : "Refresh Data"}
           </Button>
 
-          <Button variant="outline" size="sm" onClick={() => navigateToTest()}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/admin/orizen-analytics/test")}
+            className="text-xs sm:text-sm"
+          >
             Test API Connection
           </Button>
 
           <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
-            <Button variant="outline" size="sm" onClick={() => selectDateRange(7)}>
+            <Button variant="outline" size="sm" onClick={() => selectDateRange(7)} className="text-xs sm:text-sm">
               Last 7 days
             </Button>
-            <Button variant="outline" size="sm" onClick={() => selectDateRange(30)}>
+            <Button variant="outline" size="sm" onClick={() => selectDateRange(30)} className="text-xs sm:text-sm">
               Last 30 days
             </Button>
-            <Button variant="outline" size="sm" onClick={() => selectDateRange(90)}>
+            <Button variant="outline" size="sm" onClick={() => selectDateRange(90)} className="text-xs sm:text-sm">
               Last 90 days
             </Button>
           </div>
 
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full sm:w-[240px] justify-start text-left font-normal">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-[240px] justify-start text-left font-normal text-xs sm:text-sm mt-2 sm:mt-0"
+              >
                 <CalendarIcon className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                 {date.from && date.to ? (
                   <>
@@ -560,19 +593,23 @@ export default function AnalyticsDashboard() {
               />
             </PopoverContent>
           </Popover>
-          <Button variant="outline" size="sm" onClick={() => setUseMockData(!useMockData)}>
-            {useMockData ? "Use Real Data" : "Use Mock Data"}
-          </Button>
         </div>
       </div>
 
-      {useMockData && (
+      {hasErrors && (
         <Alert variant="destructive" className="mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Using Mock Data</AlertTitle>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Connection Issues</AlertTitle>
           <AlertDescription>
-            Due to a known issue, the dashboard is currently using mock data. Real data will be displayed once the issue
-            is resolved.
+            <p>There were issues connecting to Google Analytics. Using fallback data.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => setUseMockData(!useMockData)}>
+                {useMockData ? "Try Real Data" : "Use Mock Data"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => router.push("/admin/orizen-analytics/test")}>
+                Test Connection
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
       )}
