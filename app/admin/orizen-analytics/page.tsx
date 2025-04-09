@@ -175,8 +175,8 @@ export default function AnalyticsDashboard() {
   ])
 
   const [date, setDate] = useState<DateRange>({
-    from: subDays(new Date(), 30),
-    to: new Date(),
+    from: new Date(new Date().setDate(new Date().getDate() - 30)), // 30 days ago
+    to: new Date(), // today
   })
 
   const [summaryMetrics, setSummaryMetrics] = useState<SummaryMetrics | null>(null)
@@ -199,7 +199,18 @@ export default function AnalyticsDashboard() {
   const [useMockData, setUseMockData] = useState(false)
 
   // Format date for API requests
-  const formatDateForApi = (date: Date) => format(date, "yyyy-MM-dd")
+  const formatDateForApi = (date: Date) => {
+    try {
+      if (!(date instanceof Date) || isNaN(date.getTime())) {
+        // Return today's date as fallback if date is invalid
+        return format(new Date(), "yyyy-MM-dd")
+      }
+      return format(date, "yyyy-MM-dd")
+    } catch (error) {
+      console.error("Error formatting date:", error)
+      return format(new Date(), "yyyy-MM-dd")
+    }
+  }
 
   // Function to refresh the connection status
   const refreshConnection = async () => {
@@ -232,10 +243,16 @@ export default function AnalyticsDashboard() {
 
   // Fetch data when date range changes
   useEffect(() => {
+    // Ensure we have valid dates before making API calls
     if (!date.from || !date.to) return
 
-    const startDate = formatDateForApi(date.from)
-    const endDate = formatDateForApi(date.to)
+    // Ensure dates are valid Date objects
+    const fromDate = date.from instanceof Date && !isNaN(date.from.getTime()) ? date.from : subDays(new Date(), 30)
+
+    const toDate = date.to instanceof Date && !isNaN(date.to.getTime()) ? date.to : new Date()
+
+    const startDate = formatDateForApi(fromDate)
+    const endDate = formatDateForApi(toDate)
 
     // Fetch summary metrics
     setLoading((prev) => ({ ...prev, summary: true }))
@@ -255,6 +272,7 @@ export default function AnalyticsDashboard() {
         if (useMockData) setSummaryMetrics(mockSummaryMetrics)
       })
 
+    // Rest of the fetch calls with the same pattern...
     // Fetch page views
     setLoading((prev) => ({ ...prev, pageViews: true }))
     fetch(`/api/admin/analytics/pageviews?startDate=${startDate}&endDate=${endDate}`)
@@ -356,10 +374,10 @@ export default function AnalyticsDashboard() {
     if (durationInSeconds === undefined) {
       return "N/A"
     }
-  
+
     const minutes = Math.floor(durationInSeconds / 60)
     const seconds = Math.floor(durationInSeconds % 60)
-  
+
     return `${minutes}m ${seconds}s`
   }
 
@@ -442,9 +460,16 @@ export default function AnalyticsDashboard() {
               <Calendar
                 initialFocus
                 mode="range"
-                defaultMonth={date.from || new Date()}
+                defaultMonth={date.from instanceof Date && !isNaN(date.from.getTime()) ? date.from : new Date()}
                 selected={date}
-                onSelect={(range) => range && setDate(range as DateRange)}
+                onSelect={(range) => {
+                  if (range) {
+                    // Validate dates before setting
+                    const from = range.from instanceof Date && !isNaN(range.from.getTime()) ? range.from : undefined
+                    const to = range.to instanceof Date && !isNaN(range.to.getTime()) ? range.to : undefined
+                    setDate({ from, to })
+                  }
+                }}
                 numberOfMonths={window.innerWidth < 768 ? 1 : 2}
               />
             </PopoverContent>
@@ -742,4 +767,3 @@ export default function AnalyticsDashboard() {
     </div>
   )
 }
-
