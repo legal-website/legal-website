@@ -349,8 +349,7 @@ export default function AnalyticsDashboard() {
       devices: false,
     })
 
-    // Uncomment this section when API is ready
-    /*
+    
     // Fetch summary metrics
     setLoading((prev) => ({ ...prev, summary: true }))
     fetch(`/api/admin/analytics/summary?startDate=${startDate}&endDate=${endDate}`)
@@ -463,7 +462,7 @@ export default function AnalyticsDashboard() {
         setLoading((prev) => ({ ...prev, devices: false }))
         setDevices(mockDevices)
       })
-    */
+    
   }, [date])
 
   // Format time duration (seconds to minutes and seconds)
