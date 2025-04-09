@@ -352,10 +352,15 @@ export default function AnalyticsDashboard() {
   }, [date, useMockData])
 
   // Format time duration (seconds to minutes and seconds)
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = Math.floor(seconds % 60)
-    return `${minutes}m ${remainingSeconds}s`
+  const formatDuration = (durationInSeconds: number | undefined): string => {
+    if (durationInSeconds === undefined) {
+      return "N/A"
+    }
+  
+    const minutes = Math.floor(durationInSeconds / 60)
+    const seconds = Math.floor(durationInSeconds % 60)
+  
+    return `${minutes}m ${seconds}s`
   }
 
   // Preset date ranges
