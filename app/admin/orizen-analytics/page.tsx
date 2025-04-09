@@ -1,27 +1,30 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
-import {
-  Users,
-  FileText,
-  CreditCard,
-  ArrowUpRight,
-  ArrowDownRight,
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Calendar,
-  Download,
-  Filter,
-  RefreshCw,
-} from "lucide-react"
+import { CalendarIcon, Users, Eye, Clock, MousePointerClick, AlertTriangle } from "lucide-react"
 import { format, subDays } from "date-fns"
+import {
+  Line,
+  Bar,
+  Pie,
+  ResponsiveContainer,
+  LineChart,
+  BarChart,
+  PieChart,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  Cell,
+} from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useRouter } from "next/navigation"
 
 // Types
@@ -143,38 +146,7 @@ const mockDevices: DeviceData[] = [
   { device: "Tablet", sessions: 190 },
 ]
 
-// Add safe date parsing function to handle invalid dates
-const safeParseDate = (dateString: string | null | undefined): Date | null => {
-  if (!dateString) return null
-
-  const parsedDate = new Date(dateString)
-
-  // Check if date is valid (Invalid Date objects return NaN when converted to number)
-  return isNaN(parsedDate.getTime()) ? null : parsedDate
-}
-
-// Add safe date formatting function
-const formatDate = (date: Date | null | undefined): string => {
-  if (!date) return "N/A"
-
-  try {
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
-  } catch (error) {
-    console.error("Date formatting error:", error)
-    return "Invalid date"
-  }
-}
-
-export default function OrizenAnalytics() {
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState("overview")
-  const [timeRange, setTimeRange] = useState("week")
-  const [analyticsData, setAnalyticsData] = useState<any>(null)
+export default function AnalyticsDashboard() {
   const router = useRouter()
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
@@ -384,10 +356,10 @@ export default function OrizenAnalytics() {
     if (durationInSeconds === undefined) {
       return "N/A"
     }
-
+  
     const minutes = Math.floor(durationInSeconds / 60)
     const seconds = Math.floor(durationInSeconds % 60)
-
+  
     return `${minutes}m ${seconds}s`
   }
 
@@ -408,347 +380,366 @@ export default function OrizenAnalytics() {
   // Check if there are any errors
   const hasErrors = Object.keys(errors).length > 0
 
-  // Mock data fetch with error handling
-  useEffect(() => {
-    const fetchAnalyticsData = async () => {
-      setIsLoading(true)
-      setError(null)
-
-      try {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        // Mock data with proper date handling
-        const currentDate = new Date()
-        const startDate = new Date()
-        startDate.setDate(currentDate.getDate() - 7) // One week ago
-
-        setAnalyticsData({
-          stats: {
-            users: { value: 2543, change: 12.5, trend: "up" },
-            documents: { value: 8942, change: 23.1, trend: "up" },
-            revenue: { value: 42389, change: -3.2, trend: "down" },
-            tasks: { value: 47, change: 5.3, trend: "up" },
-          },
-          dateRange: {
-            start: startDate,
-            end: currentDate,
-          },
-          // Other analytics data...
-        })
-      } catch (err) {
-        console.error("Error fetching analytics data:", err)
-        setError("Failed to load analytics data. Please try again.")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchAnalyticsData()
-  }, [timeRange])
-
-  // Handle time range change with error handling
-  const handleTimeRangeChange = (range: string) => {
-    try {
-      setTimeRange(range)
-    } catch (err) {
-      console.error("Error changing time range:", err)
-      setError("Failed to update time range. Please try again.")
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="p-6 flex flex-col items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
-        <p className="text-gray-600">Loading analytics data...</p>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 flex flex-col items-center justify-center min-h-[400px]">
-        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
-        <p className="text-gray-600 mb-4">{error}</p>
-        <Button onClick={() => window.location.reload()}>Try again</Button>
-      </div>
-    )
-  }
-
-  // Format date range safely
-  const formattedStartDate = formatDate(analyticsData?.dateRange?.start)
-  const formattedEndDate = formatDate(analyticsData?.dateRange?.end)
-  const dateRangeDisplay = `${formattedStartDate} - ${formattedEndDate}`
-
   return (
-    <div className="p-6 max-w-[1600px] mx-auto">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Orizen Analytics</h1>
-          <p className="text-gray-500 mt-1">Track performance metrics and business insights</p>
-        </div>
-        <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <Button variant="outline" size="sm" className="flex items-center">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-          <Button variant="outline" size="sm" className="flex items-center">
-            <Filter className="mr-2 h-4 w-4" />
-            Filter
-          </Button>
-          <Button variant="outline" size="sm" className="flex items-center">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
-        </div>
-      </div>
+    <div className="w-full max-w-[100vw] overflow-x-hidden py-4 sm:py-6 space-y-4 sm:space-y-8 mb-20 sm:mb-40 px-3 sm:px-4 md:px-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold">Orizen Analytics Dashboard</h1>
 
-      {/* Time Range Selector */}
-      <div className="flex items-center mb-6 bg-white p-3 rounded-lg shadow-sm">
-        <span className="text-sm font-medium mr-3">Time Range:</span>
-        <div className="flex space-x-2">
-          {["day", "week", "month", "quarter", "year"].map((range) => (
-            <Button
-              key={range}
-              variant={timeRange === range ? "default" : "ghost"}
-              size="sm"
-              onClick={() => handleTimeRangeChange(range)}
-              className={timeRange === range ? "bg-[#00B6FF] text-white" : ""}
-            >
-              {range.charAt(0).toUpperCase() + range.slice(1)}
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshConnection}
+            disabled={isRefreshing}
+            className="text-xs sm:text-sm"
+          >
+            {isRefreshing ? "Refreshing..." : "Refresh Data"}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/admin/orizen-analytics/test")}
+            className="text-xs sm:text-sm"
+          >
+            Test API Connection
+          </Button>
+
+          <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
+            <Button variant="outline" size="sm" onClick={() => selectDateRange(7)} className="text-xs sm:text-sm">
+              Last 7 days
             </Button>
-          ))}
-        </div>
-        <div className="ml-auto flex items-center">
-          <Calendar className="h-4 w-4 mr-2 text-gray-500" />
-          <span className="text-sm text-gray-500">{dateRangeDisplay}</span>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <StatCard
-          title="Total Users"
-          value={analyticsData.stats.users.value.toLocaleString()}
-          change={`${analyticsData.stats.users.change}%`}
-          trend={analyticsData.stats.users.trend}
-          icon={Users}
-          color="bg-blue-500"
-        />
-        <StatCard
-          title="Active Documents"
-          value={analyticsData.stats.documents.value.toLocaleString()}
-          change={`${analyticsData.stats.documents.change}%`}
-          trend={analyticsData.stats.documents.trend}
-          icon={FileText}
-          color="bg-green-500"
-        />
-        <StatCard
-          title="Revenue"
-          value={`$${analyticsData.stats.revenue.value.toLocaleString()}`}
-          change={`${analyticsData.stats.revenue.change}%`}
-          trend={analyticsData.stats.revenue.trend}
-          icon={CreditCard}
-          color="bg-[#00B6FF]"
-        />
-        <StatCard
-          title="Pending Tasks"
-          value={analyticsData.stats.tasks.value.toString()}
-          change={`${analyticsData.stats.tasks.change}%`}
-          trend={analyticsData.stats.tasks.trend}
-          icon={Clock}
-          color="bg-amber-500"
-        />
-      </div>
-
-      {/* Main Content Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="mb-6">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="users">User Analytics</TabsTrigger>
-          <TabsTrigger value="documents">Document Analytics</TabsTrigger>
-          <TabsTrigger value="revenue">Revenue Analytics</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
-          {/* Activity and Compliance */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <Card className="overflow-hidden">
-              <div className="p-6 border-b">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">Recent Activity</h3>
-                  <Button variant="ghost" size="sm">
-                    View All
-                  </Button>
-                </div>
-              </div>
-              <div className="p-6">
-                <ActivityItem
-                  icon={<Users className="h-4 w-4 text-blue-500" />}
-                  title="New user registered"
-                  description="John Smith created a new account"
-                  time="5 minutes ago"
-                />
-                <ActivityItem
-                  icon={<FileText className="h-4 w-4 text-green-500" />}
-                  title="Document uploaded"
-                  description="Annual report for Rapid Ventures LLC"
-                  time="1 hour ago"
-                />
-                <ActivityItem
-                  icon={<CreditCard className="h-4 w-4 text-[#00B6FF]" />}
-                  title="Payment processed"
-                  description="$1,299 from Acme Corp"
-                  time="3 hours ago"
-                />
-                <ActivityItem
-                  icon={<AlertCircle className="h-4 w-4 text-red-500" />}
-                  title="Compliance alert"
-                  description="5 users have pending document submissions"
-                  time="5 hours ago"
-                />
-                <ActivityItem
-                  icon={<CheckCircle2 className="h-4 w-4 text-green-500" />}
-                  title="Task completed"
-                  description="Quarterly tax filing for Blue Ocean Inc"
-                  time="Yesterday"
-                  border={false}
-                />
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-6 border-b">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">Compliance Status</h3>
-                  <Button variant="ghost" size="sm">
-                    View Details
-                  </Button>
-                </div>
-              </div>
-              <div className="p-6">
-                <div className="space-y-6">
-                  <ComplianceItem title="Document Verification" value={85} color="bg-green-500" />
-                  <ComplianceItem title="User Identity Verification" value={72} color="bg-amber-500" />
-                  <ComplianceItem title="Annual Report Submissions" value={94} color="bg-green-500" />
-                  <ComplianceItem title="Tax Compliance" value={68} color="bg-amber-500" />
-                  <ComplianceItem title="Data Protection" value={98} color="bg-green-500" />
-                </div>
-              </div>
-            </Card>
+            <Button variant="outline" size="sm" onClick={() => selectDateRange(30)} className="text-xs sm:text-sm">
+              Last 30 days
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => selectDateRange(90)} className="text-xs sm:text-sm">
+              Last 90 days
+            </Button>
           </div>
-        </TabsContent>
 
-        <TabsContent value="users">
-          <Card>
-            <div className="p-6">
-              <h3 className="text-lg font-medium mb-4">User Analytics</h3>
-              <p className="text-gray-500 mb-6">Detailed metrics about user activity and growth.</p>
-              <div className="h-[300px] flex items-center justify-center bg-gray-100 rounded-lg">
-                <p className="text-gray-500">User analytics chart will be displayed here</p>
-              </div>
-            </div>
-          </Card>
-        </TabsContent>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-[240px] justify-start text-left font-normal text-xs sm:text-sm mt-2 sm:mt-0"
+              >
+                <CalendarIcon className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                {date.from ? (
+                  date.to ? (
+                    <>
+                      {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
+                    </>
+                  ) : (
+                    format(date.from, "LLL dd, y")
+                  )
+                ) : (
+                  <span>Pick a date range</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 max-w-[calc(100vw-2rem)]" align="end">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={date.from || new Date()}
+                selected={date}
+                onSelect={(range) => range && setDate(range as DateRange)}
+                numberOfMonths={window.innerWidth < 768 ? 1 : 2}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
 
-        <TabsContent value="documents">
-          <Card>
-            <div className="p-6">
-              <h3 className="text-lg font-medium mb-4">Document Analytics</h3>
-              <p className="text-gray-500 mb-6">Insights about document usage and processing.</p>
-              <div className="h-[300px] flex items-center justify-center bg-gray-100 rounded-lg">
-                <p className="text-gray-500">Document analytics chart will be displayed here</p>
-              </div>
+      {hasErrors && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Connection Issues</AlertTitle>
+          <AlertDescription>
+            <p>There were issues connecting to Google Analytics. Using fallback data.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => setUseMockData(!useMockData)}>
+                {useMockData ? "Try Real Data" : "Use Mock Data"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => (window.location.href = "/admin/orizen-analytics/test")}
+              >
+                Test Connection
+              </Button>
             </div>
-          </Card>
-        </TabsContent>
+          </AlertDescription>
+        </Alert>
+      )}
 
-        <TabsContent value="revenue">
-          <Card>
-            <div className="p-6">
-              <h3 className="text-lg font-medium mb-4">Revenue Analytics</h3>
-              <p className="text-gray-500 mb-6">Financial performance and revenue trends.</p>
-              <div className="h-[300px] flex items-center justify-center bg-gray-100 rounded-lg">
-                <p className="text-gray-500">Revenue analytics chart will be displayed here</p>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total Users</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading.summary ? (
+              <Skeleton className="h-8 w-20 mb-2" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{summaryMetrics?.users?.toLocaleString() || 0}</div>
+                <p className="text-xs text-muted-foreground flex items-center">
+                  <Users className="h-3 w-3 mr-1" />
+                  {summaryMetrics?.newUsers?.toLocaleString() || 0} new users
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Page Views</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading.summary ? (
+              <Skeleton className="h-8 w-20 mb-2" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{summaryMetrics?.pageviews?.toLocaleString() || 0}</div>
+                <p className="text-xs text-muted-foreground flex items-center">
+                  <Eye className="h-3 w-3 mr-1" />
+                  {((summaryMetrics?.pageviews || 0) / (summaryMetrics?.sessions || 1)).toFixed(2)} per session
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Avg. Session Duration</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading.summary ? (
+              <Skeleton className="h-8 w-20 mb-2" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{formatDuration(summaryMetrics?.avgSessionDuration || 0)}</div>
+                <p className="text-xs text-muted-foreground flex items-center">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Time spent on site
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Bounce Rate</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading.summary ? (
+              <Skeleton className="h-8 w-20 mb-2" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{(summaryMetrics?.bounceRate || 0).toFixed(2)}%</div>
+                <p className="text-xs text-muted-foreground flex items-center">
+                  <MousePointerClick className="h-3 w-3 mr-1" />
+                  Single page sessions
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Page Views Chart */}
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-6">
+        <Card className="col-span-1">
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl">Page Views Over Time</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+            {loading.pageViews ? (
+              <Skeleton className="h-[200px] sm:h-[250px] md:h-[300px] w-full" />
+            ) : (
+              <ChartContainer
+                config={{
+                  pageviews: {
+                    label: "Page Views",
+                    color: "hsl(var(--chart-1))",
+                  },
+                }}
+                className="h-[200px] sm:h-[250px] md:h-[300px]"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={pageViews}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tickFormatter={(date) => format(new Date(date), "MMM d")} />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      name="Page Views"
+                      stroke="var(--color-pageviews)"
+                      activeDot={{ r: 8 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Top Pages and Demographics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
+        <Card>
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl">Top Pages</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+            {loading.topPages ? (
+              <div className="space-y-4">
+                {Array(5)
+                  .fill(0)
+                  .map((_, i) => (
+                    <div key={i} className="flex justify-between items-center">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                  ))}
               </div>
-            </div>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            ) : (
+              <div className="space-y-2 sm:space-y-4">
+                {safeSlice(topPages, 0, 7).map((page, index) => (
+                  <div key={index} className="flex justify-between items-center">
+                    <div className="flex items-center">
+                      <span
+                        className="font-medium text-xs sm:text-sm truncate max-w-[120px] sm:max-w-[180px] md:max-w-[250px]"
+                        title={page.page}
+                      >
+                        {page.page}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <span className="text-xs sm:text-sm font-semibold">{page.pageviews.toLocaleString()}</span>
+                      <span className="text-[10px] sm:text-xs text-muted-foreground">
+                        {formatDuration(page.avgTimeOnPage)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl">User Demographics</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+            {loading.demographics ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <ChartContainer
+                config={{
+                  users: {
+                    label: "Users",
+                    color: "hsl(var(--chart-1))",
+                  },
+                }}
+                className="h-[200px] sm:h-[250px] md:h-[300px]"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={safeSlice(demographics, 0, 7)}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="country" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="users" name="Users" fill="var(--color-users)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Traffic Sources and Devices */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
+        <Card>
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl">Traffic Sources</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+            {loading.trafficSources ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <ChartContainer
+                config={{
+                  sessions: {
+                    label: "Sessions",
+                    color: "hsl(var(--chart-1))",
+                  },
+                }}
+                className="h-[200px] sm:h-[250px] md:h-[300px]"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={safeSlice(trafficSources, 0, 7)} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis dataKey="source" type="category" width={100} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="sessions" name="Sessions" fill="var(--color-sessions)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl">Device Categories</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+            {loading.devices ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <div className="h-[200px] sm:h-[250px] md:h-[300px] flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={devices}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="sessions"
+                      nameKey="device"
+                    >
+                      {devices.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => value.toLocaleString()} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
 
-// Component for stats cards
-interface StatCardProps {
-  title: string
-  value: string
-  change: string
-  trend: "up" | "down"
-  icon: React.ElementType
-  color: string
-}
-
-function StatCard({ title, value, change, trend, icon: Icon, color }: StatCardProps) {
-  return (
-    <Card>
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className={`w-12 h-12 rounded-lg ${color} flex items-center justify-center`}>
-            <Icon className="h-6 w-6 text-white" />
-          </div>
-          <div className={`flex items-center ${trend === "up" ? "text-green-500" : "text-red-500"}`}>
-            {trend === "up" ? <ArrowUpRight className="h-4 w-4 mr-1" /> : <ArrowDownRight className="h-4 w-4 mr-1" />}
-            <span className="text-sm font-medium">{change}</span>
-          </div>
-        </div>
-        <h3 className="text-2xl font-bold mb-1">{value}</h3>
-        <p className="text-gray-500 text-sm">{title}</p>
-      </div>
-    </Card>
-  )
-}
-
-// Component for activity items
-interface ActivityItemProps {
-  icon: React.ReactNode
-  title: string
-  description: string
-  time: string
-  border?: boolean
-}
-
-function ActivityItem({ icon, title, description, time, border = true }: ActivityItemProps) {
-  return (
-    <div className={`flex items-start py-3 ${border ? "border-b" : ""}`}>
-      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mr-3">{icon}</div>
-      <div className="flex-1">
-        <p className="font-medium text-sm">{title}</p>
-        <p className="text-gray-500 text-xs mt-1">{description}</p>
-      </div>
-      <div className="text-gray-400 text-xs">{time}</div>
-    </div>
-  )
-}
-
-// Component for compliance items
-interface ComplianceItemProps {
-  title: string
-  value: number
-  color: string
-}
-
-function ComplianceItem({ title, value, color }: ComplianceItemProps) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium">{title}</span>
-        <span className="text-sm font-medium">{value}%</span>
-      </div>
-      <Progress value={value} className="h-2" data-indicator-color={color} />
-    </div>
-  )
-}
