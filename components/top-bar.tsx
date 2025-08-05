@@ -16,19 +16,8 @@ export default function TopBar() {
               className="hidden md:flex items-center text-[14px] font-medium group hover:text-black transition-colors"
             >
               <MapPin className="h-5 w-5 mr-1.5 text-white group-hover:text-black transition-colors" />
-              <span>7901, N STE 15322, St. Petersburg, FL.</span>
+              <span>55W 14th Street, Helena, MT</span>
             </Link>
-            {/* Phone Number with Icon */}
-            <div className="flex items-center">
-              <Phone className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-1.5 text-white group-hover:text-black transition-colors" />
-              <a
-                href="tel:+923299438557"
-                className="text-[12px] sm:text-[14px] font-medium hover:text-black transition-colors"
-              >
-                +92 329 9438557
-              </a>
-            </div>
-          </div>
           {/* Right Section - Contact & Socials */}
           <div className="flex items-center space-x-2 sm:space-x-6">
             {/* Email */}
