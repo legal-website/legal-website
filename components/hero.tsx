@@ -59,7 +59,7 @@ export default function Hero() {
                 <p className="flex items-center text-gray-800 text-sm sm:text-base md:text-lg">
                   <Phone className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-gray-700 flex-shrink-0" />
                   <span>
-                    Have questions? Call <span className="font-bold whitespace-nowrap">+923299438557</span> to speak
+                    Have questions? Call <span className="font-bold whitespace-nowrap">info@orizeninc.com</span> to speak
                     with a business specialist.
                   </span>
                 </p>
