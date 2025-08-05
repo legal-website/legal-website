@@ -18,6 +18,7 @@ export default function TopBar() {
               <MapPin className="h-5 w-5 mr-1.5 text-white group-hover:text-black transition-colors" />
               <span>55W 14th Street, Helena, MT</span>
             </Link>
+            </div>
           {/* Right Section - Contact & Socials */}
           <div className="flex items-center space-x-2 sm:space-x-6">
             {/* Email */}
