@@ -70,6 +70,12 @@ export default function PrivacyPolicy() {
           date at the top of the policy and, in some cases, we may provide you with additional notice (such as adding a
           statement to our homepage or sending you a notification).
         </p>
+        <h3 className="text-2xl font-semibold text-green-600 mb-4">6. SMS and Mobile Data Non-Disclosure Policy</h3>
+        <p className="mb-6">
+          No mobile information will be shared with third parties/affiliates for marketing/promotional purposes. 
+          All the above categories exclude text messaging originator opt-in data and consent; this information will 
+          not be shared with any third parties.
+        </p>
       </PolicyContent>
       <FAQSection />
       <ContactSection />
