@@ -147,6 +147,31 @@ export default function ContactPageClient() {
                 required
                 className="transition-colors duration-300"
               />
+              <div className="flex items-center space-x-2 mb-4 text-gray-600 text-xs sm:text-sm">
+  <input
+    type="checkbox"
+    id="consent"
+    required
+    className="h-4 w-4 rounded border-gray-300 text-[#22c984] focus:ring-[#22c984] accent-[#22c984]"
+  />
+  <label htmlFor="consent" className="leading-snug">
+    By submitting this form with your phone number, you consent to receive SMS
+    messages from <strong>Orizen Inc.</strong> Message & data rates may apply.
+    Reply STOP to cancel, HELP for help. For urgent inquiries, email{" "}
+    <a href="mailto:info@orizeninc.com" className="text-[#22c984] underline">
+      info@orizeninc.com
+    </a>. <br />
+    By submitting, you confirm you have read and agree to our{" "}
+    <Link href="/terms-and-conditions" className="text-[#22c984] underline">
+      Terms and Conditions
+    </Link>{" "}
+    and{" "}
+    <Link href="/privacy-policy" className="text-[#22c984] underline">
+      Privacy Policy
+    </Link>.
+  </label>
+</div>
+
               <div className="flex justify-center">
                 <Button
                   type="submit"
