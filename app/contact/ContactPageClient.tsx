@@ -73,21 +73,21 @@ export default function ContactPageClient() {
                 <Phone className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-[#22c984] group-hover:text-black transition-colors" />
               ),
               title: "Give us a call",
-              content: ["(+1) 400-630 123", "(+2) 500-950 456"],
+              content: ["914 201 3771"],
             },
             {
               icon: (
                 <Mail className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-[#22c984] group-hover:text-black transition-colors" />
               ),
               title: "Drop us a line",
-              content: ["info@Orizen.com", "mail@Orizen.com"],
+              content: ["info@Orizen.com"],
             },
             {
               icon: (
                 <MapPin className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-[#22c984] group-hover:text-black transition-colors" />
               ),
               title: "Visit our office",
-              content: ["New York, 112 W 34th St", "caroline, USA"],
+              content: ["55W 14th Street STE101 Helena, MT 59601"],
             },
           ].map((item, index) => (
             <ScrollAnimation key={index} direction={index === 0 ? "left" : index === 1 ? "up" : "right"}>
