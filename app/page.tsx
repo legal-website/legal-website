@@ -12,9 +12,9 @@ import CustomerSuccess from "@/components/customer-success"
 import StateSelector from "@/components/state-selector"
 import ReadySection from "@/components/ready-section"
 export const metadata: Metadata = {
-  title: "Orizen Inc - Expert LLC Formation Services in Pakistan",
+  title: "Orizen Inc - Expert LLC Formation Services in USA",
   description:
-    "Establish your Limited Liability Company (LLC) in Pakistan with Orizen Inc. We provide comprehensive company registration services, guiding you through SECP regulations and ensuring a seamless incorporation process.",
+    "Establish your Limited Liability Company (LLC) in USA with Orizen Inc. We provide comprehensive company registration services, guiding you through SECP regulations and ensuring a seamless incorporation process.",
   keywords: [
     "LLC formation Pakistan",
     "company registration Pakistan",
